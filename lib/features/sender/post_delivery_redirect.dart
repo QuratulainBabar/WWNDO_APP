@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/config/demo_mode.dart';
+import '../../core/geo/world_cities.dart';
 import '../../core/geo/world_countries.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
@@ -12,19 +13,19 @@ import '../../core/widgets/app_chip.dart';
 import '../../core/widgets/back_header.dart';
 import '../../core/widgets/scrollable_form_screen.dart';
 import '../../data/models/created_delivery.dart';
+import '../../data/models/meetup_location.dart';
 import '../../data/services/delivery_repository.dart';
 import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
+import '../traveler/widgets/route_city_dropdown.dart';
 import 'delivery_posting_actions.dart';
 import 'widgets/description_field.dart';
 import 'widgets/maximum_budget_field.dart';
+import 'widgets/meetup_locations_card.dart';
 import 'widgets/parcel_acknowledgement_section.dart';
 import 'widgets/parcel_photos_section.dart';
 import 'widgets/platform_fee_section.dart';
-import '../../data/models/meetup_location.dart';
-import 'widgets/meetup_locations_card.dart';
 import 'widgets/receiver_info_section.dart';
-import 'widgets/route_country_dropdown.dart';
 import 'widgets/travel_date_field.dart';
 import 'widgets/weight_kg_field.dart';
 
@@ -55,8 +56,8 @@ class _PostDeliveryScreenState extends State<PostDeliveryScreen> {
   String? _receiverPhoneError;
   String? _descriptionError;
 
-  late String _fromCountry;
-  late String _toCountry;
+  MeetupLocation? _fromLocation;
+  MeetupLocation? _toLocation;
   late DateTime _travelDate;
   late double _weightKg;
   String? _weightError;
@@ -68,8 +69,14 @@ class _PostDeliveryScreenState extends State<PostDeliveryScreen> {
   void initState() {
     super.initState();
     final shipment = StaticData.activeShipment;
-    _fromCountry = _resolveCountryCode(shipment.fromCode);
-    _toCountry = _resolveCountryCode(shipment.toCode);
+    _fromLocation = MeetupLocation(
+      name: shipment.fromCity,
+      address: shipment.fromCity,
+    );
+    _toLocation = MeetupLocation(
+      name: shipment.toCity,
+      address: shipment.toCity,
+    );
     _weightKg = shipment.parcelWeightKg;
     _descriptionController = TextEditingController(text: shipment.description);
     final today = DateTime.now();
@@ -88,14 +95,38 @@ class _PostDeliveryScreenState extends State<PostDeliveryScreen> {
     super.dispose();
   }
 
-  String _resolveCountryCode(String code) {
-    final normalized = code.trim().toUpperCase();
-    if (WorldCountries.containsIso(normalized)) return normalized;
-    return 'FR';
+  String _cityName(MeetupLocation place) {
+    final name = place.name.trim();
+    if (name.isNotEmpty) return name;
+    return place.displayLabel;
+  }
+
+  String _codeFromPlace(MeetupLocation place) {
+    final haystack = '${place.name} ${place.address}'.toLowerCase();
+    WorldCountry? best;
+    for (final country in WorldCountries.all) {
+      if (haystack.contains(country.name.toLowerCase())) {
+        if (best == null || country.name.length > best.name.length) {
+          best = country;
+        }
+      }
+    }
+    if (best != null) return best.iso;
+
+    final city = WorldCities.byName(place.name);
+    if (city != null) return city.countryIso;
+
+    return '';
   }
 
   Future<void> _submit() async {
     if (!DeliveryPostingActions.ensureWalletAllowsParcelCreation(context)) return;
+
+    final fromCity = _fromLocation == null ? '' : _cityName(_fromLocation!);
+    final toCity = _toLocation == null ? '' : _cityName(_toLocation!);
+    final fromCode =
+        _fromLocation == null ? '' : _codeFromPlace(_fromLocation!);
+    final toCode = _toLocation == null ? '' : _codeFromPlace(_toLocation!);
 
     setState(() {
       _photosError = _photoPaths.isEmpty ? 'Upload at least 1 parcel photo.' : null;
@@ -107,10 +138,13 @@ class _PostDeliveryScreenState extends State<PostDeliveryScreen> {
           : null;
       _budgetError = _maxBudget <= 0 ? 'Enter a valid maximum budget.' : null;
       _weightError = _weightKg <= 0 ? 'Enter a valid weight greater than 0.' : null;
-      _fromError = _fromCountry.isEmpty ? 'Select a from country.' : null;
-      _toError = _toCountry.isEmpty
-          ? 'Select a to country.'
-          : (_toCountry == _fromCountry ? 'From and To countries must be different.' : null);
+      _fromError =
+          fromCity.isEmpty ? 'Select a from city on Google Maps.' : null;
+      _toError = toCity.isEmpty
+          ? 'Select a to city on Google Maps.'
+          : (toCity.toLowerCase() == fromCity.toLowerCase()
+              ? 'From and To cities must be different.'
+              : null);
       _receiverEmailError = _validateReceiverEmail(_receiverEmail);
       _receiverPhoneError = _validateReceiverPhone(_receiverPhone);
       _descriptionError = _descriptionController.text.trim().isEmpty
@@ -132,9 +166,7 @@ class _PostDeliveryScreenState extends State<PostDeliveryScreen> {
       return;
     }
 
-    final fromName = WorldCountries.byIso(_fromCountry).name;
-    final toName = WorldCountries.byIso(_toCountry).name;
-    final routeLabel = '$fromName → $toName';
+    final routeLabel = '$fromCity → $toCity';
     final auth = context.read<AuthProvider>();
     final demoMode = context.read<DemoModeProvider>();
     final repository = DeliveryRepository(
@@ -147,10 +179,10 @@ class _PostDeliveryScreenState extends State<PostDeliveryScreen> {
       final created = await repository.createDelivery(
         CreateDeliveryRequest(
           deliveryType: DeliveryType.cityToCity,
-          fromCity: fromName,
-          fromCode: _fromCountry,
-          toCity: toName,
-          toCode: _toCountry,
+          fromCity: fromCity,
+          fromCode: fromCode,
+          toCity: toCity,
+          toCode: toCode,
           travelDate: _travelDate,
           parcelCategory: _category,
           parcelSize: _size,
@@ -177,10 +209,10 @@ class _PostDeliveryScreenState extends State<PostDeliveryScreen> {
 
       StaticData.registerPostedDelivery(
         shipmentId: created.publicId,
-        fromCity: fromName,
-        toCity: toName,
-        fromCode: _fromCountry,
-        toCode: _toCountry,
+        fromCity: fromCity,
+        toCity: toCity,
+        fromCode: fromCode.isNotEmpty ? fromCode : 'WW',
+        toCode: toCode.isNotEmpty ? toCode : 'WW',
         travelDate: _travelDate,
         parcelCategory: _category,
         parcelWeightKg: _weightKg,
@@ -233,15 +265,21 @@ class _PostDeliveryScreenState extends State<PostDeliveryScreen> {
           children: [
             Text('Route', style: context.typo.h3.copyWith(fontWeight: FontWeight.w700)),
             const SizedBox(height: 12),
-            RouteCountryDropdown(
-              label: 'From',
-              value: _fromCountry,
-              hintText: 'Select from country',
-              onChanged: (code) => setState(() {
-                _fromCountry = code;
+            RouteCityDropdown(
+              label: 'From city',
+              value: _fromLocation,
+              hintText: 'Add from city on Google Maps',
+              mapTitle: 'From city',
+              searchHint: 'Search from city',
+              onChanged: (place) => setState(() {
+                _fromLocation = place;
                 _fromError = null;
-                if (_toCountry == code) {
-                  _toError = 'From and To countries must be different.';
+                final fromCity = _cityName(place);
+                final toCity =
+                    _toLocation == null ? '' : _cityName(_toLocation!);
+                if (toCity.isNotEmpty &&
+                    toCity.toLowerCase() == fromCity.toLowerCase()) {
+                  _toError = 'From and To cities must be different.';
                 } else {
                   _toError = null;
                 }
@@ -255,14 +293,20 @@ class _PostDeliveryScreenState extends State<PostDeliveryScreen> {
                   style: context.typo.sm.copyWith(color: AppColors.danger),
                 ),
               ),
-            RouteCountryDropdown(
-              label: 'To',
-              value: _toCountry,
-              hintText: 'Select to country',
-              onChanged: (code) => setState(() {
-                _toCountry = code;
-                _toError = code == _fromCountry
-                    ? 'From and To countries must be different.'
+            RouteCityDropdown(
+              label: 'To city',
+              value: _toLocation,
+              hintText: 'Add to city on Google Maps',
+              mapTitle: 'To city',
+              searchHint: 'Search to city',
+              onChanged: (place) => setState(() {
+                _toLocation = place;
+                final toCity = _cityName(place);
+                final fromCity =
+                    _fromLocation == null ? '' : _cityName(_fromLocation!);
+                _toError = fromCity.isNotEmpty &&
+                        toCity.toLowerCase() == fromCity.toLowerCase()
+                    ? 'From and To cities must be different.'
                     : null;
               }),
             ),

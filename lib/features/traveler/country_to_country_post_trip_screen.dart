@@ -17,8 +17,7 @@ import '../../data/static_data.dart';
 import '../../data/trip_creation_wallet_validation.dart';
 // TEMPORARILY DISABLED - SUMSUB KYC
 // import '../../providers/auth_provider.dart';
-import '../sender/widgets/route_airport_dropdown.dart';
-import '../sender/widgets/route_country_dropdown.dart';
+import '../sender/widgets/airport_route_search_fields.dart';
 import '../sender/widgets/travel_date_field.dart';
 import 'trip_posting_actions.dart';
 import 'widgets/available_luggage_capacity_field.dart';
@@ -33,10 +32,10 @@ class CountryToCountryPostTripScreen extends StatefulWidget {
 
 class _CountryToCountryPostTripScreenState
     extends State<CountryToCountryPostTripScreen> {
-  late String _originCountryIso;
-  late String _destinationCountryIso;
-  late String _originAirport;
-  late String _destinationAirport;
+  WorldAirport? _fromAirport;
+  WorldAirport? _toAirport;
+  String? _fromAirportError;
+  String? _toAirportError;
   late DateTime _travelDate;
   late int _luggageCapacityKg;
   late final TextEditingController _flightNumberController;
@@ -45,13 +44,8 @@ class _CountryToCountryPostTripScreenState
   void initState() {
     super.initState();
     final req = StaticData.deliveryRequests.first;
-    _originCountryIso =
-        _isoFromCountryName(StaticData.countryToCountryOriginCountry) ?? 'FR';
-    _destinationCountryIso =
-        _isoFromCountryName(StaticData.countryToCountryDestinationCountry) ??
-            'SN';
-    _originAirport = StaticData.countryToCountryOriginAirport;
-    _destinationAirport = StaticData.countryToCountryDestinationAirport;
+    _fromAirport = null;
+    _toAirport = null;
     final today = DateTime.now();
     final todayDate = DateTime(today.year, today.month, today.day);
     final travelDate = DateTime(
@@ -71,28 +65,33 @@ class _CountryToCountryPostTripScreenState
     super.dispose();
   }
 
-  String? _isoFromCountryName(String name) {
-    final needle = name.trim().toLowerCase();
-    for (final country in WorldCountries.all) {
-      if (country.name.toLowerCase() == needle) return country.iso;
-    }
-    return null;
-  }
-
-  void _onOriginCountryChanged(String iso) {
-    final airport = WorldAirports.firstForCountry(iso);
+  void _postTrip() {
     setState(() {
-      _originCountryIso = iso;
-      _originAirport = airport?.label ?? '';
+      _fromAirportError =
+          _fromAirport == null ? 'Select an origin airport.' : null;
+      _toAirportError = _toAirport == null
+          ? 'Select a destination airport.'
+          : (_fromAirport != null && _toAirport!.code == _fromAirport!.code
+              ? 'Origin and destination airports must be different.'
+              : (_fromAirport != null &&
+                      _toAirport!.countryIso == _fromAirport!.countryIso
+                  ? 'Origin and destination countries must be different.'
+                  : null));
     });
-  }
 
-  void _onDestinationCountryChanged(String iso) {
-    final airport = WorldAirports.firstForCountry(iso);
-    setState(() {
-      _destinationCountryIso = iso;
-      _destinationAirport = airport?.label ?? '';
-    });
+    if (_fromAirportError != null || _toAirportError != null) return;
+
+    final from = _fromAirport!;
+    final to = _toAirport!;
+    TripPostingActions.tryPostTrip(
+      context,
+      TravelerTrip(
+        origin: WorldCountries.byIso(from.countryIso).name,
+        destination: WorldCountries.byIso(to.countryIso).name,
+        travelDate: _travelDate,
+        luggageCapacityKg: _luggageCapacityKg.toDouble(),
+      ),
+    );
   }
 
   @override
@@ -103,7 +102,6 @@ class _CountryToCountryPostTripScreenState
     // final authUser = context.watch<AuthProvider>().user;
     // final kycOk = authUser?.isKycApproved ?? false;
     final reserveOk = TripCreationWalletValidation.hasMinimumBalance;
-    final airportCountries = WorldAirports.countryIsosWithAirports;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -112,18 +110,7 @@ class _CountryToCountryPostTripScreenState
         actions: [
           AppButton(
             label: 'Post trip →',
-            onPressed: () {
-              TripPostingActions.tryPostTrip(
-                context,
-                TravelerTrip(
-                  origin: WorldCountries.byIso(_originCountryIso).name,
-                  destination:
-                      WorldCountries.byIso(_destinationCountryIso).name,
-                  travelDate: _travelDate,
-                  luggageCapacityKg: _luggageCapacityKg.toDouble(),
-                ),
-              );
-            },
+            onPressed: _postTrip,
           ),
         ],
         child: Column(
@@ -164,36 +151,36 @@ class _CountryToCountryPostTripScreenState
                 children: [
                   Text('Route', style: sectionTitleStyle),
                   const SizedBox(height: 12),
-                  RouteCountryDropdown(
-                    label: 'Origin country',
-                    value: _originCountryIso,
-                    hintText: 'Select origin country',
-                    allowedIsos: airportCountries,
-                    onChanged: _onOriginCountryChanged,
+                  AirportRouteSearchFields(
+                    fromAirport: _fromAirport,
+                    toAirport: _toAirport,
+                    fromErrorText: _fromAirportError,
+                    toErrorText: _toAirportError,
+                    onFromChanged: (airport) => setState(() {
+                      _fromAirport = airport;
+                      _fromAirportError = null;
+                      if (_toAirport != null &&
+                          airport != null &&
+                          _toAirport!.countryIso == airport.countryIso) {
+                        _toAirportError =
+                            'Origin and destination countries must be different.';
+                      } else {
+                        _toAirportError = null;
+                      }
+                    }),
+                    onToChanged: (airport) => setState(() {
+                      _toAirport = airport;
+                      if (airport != null &&
+                          _fromAirport != null &&
+                          airport.countryIso == _fromAirport!.countryIso) {
+                        _toAirportError =
+                            'Origin and destination countries must be different.';
+                      } else {
+                        _toAirportError = null;
+                      }
+                    }),
                   ),
-                  RouteAirportDropdown(
-                    label: 'Origin airport',
-                    countryIso: _originCountryIso,
-                    value: _originAirport,
-                    hintText: 'Select origin airport',
-                    onChanged: (airport) =>
-                        setState(() => _originAirport = airport),
-                  ),
-                  RouteCountryDropdown(
-                    label: 'Destination country',
-                    value: _destinationCountryIso,
-                    hintText: 'Select destination country',
-                    allowedIsos: airportCountries,
-                    onChanged: _onDestinationCountryChanged,
-                  ),
-                  RouteAirportDropdown(
-                    label: 'Destination airport',
-                    countryIso: _destinationCountryIso,
-                    value: _destinationAirport,
-                    hintText: 'Select destination airport',
-                    onChanged: (airport) =>
-                        setState(() => _destinationAirport = airport),
-                  ),
+                  const SizedBox(height: 12),
                   TravelDateField(
                     value: _travelDate,
                     onChanged: (date) => setState(() => _travelDate = date),

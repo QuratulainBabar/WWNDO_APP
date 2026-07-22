@@ -3,8 +3,6 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 // TEMPORARILY DISABLED - SUMSUB KYC
 // import 'package:provider/provider.dart';
-import '../../core/geo/world_cities.dart';
-import '../../core/geo/world_countries.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_avatar.dart';
@@ -19,12 +17,12 @@ import '../../core/widgets/back_header.dart';
 import '../../core/widgets/back_link.dart';
 import '../../core/widgets/scrollable_form_screen.dart';
 import '../../data/models/delivery_request.dart';
+import '../../data/models/meetup_location.dart';
 import '../../data/models/traveler_trip.dart';
 import '../../data/static_data.dart';
 import '../../data/trip_creation_wallet_validation.dart';
 // TEMPORARILY DISABLED - SUMSUB KYC
 // import '../../providers/auth_provider.dart';
-import '../sender/widgets/route_country_dropdown.dart';
 import '../sender/widgets/travel_date_field.dart';
 import 'trip_posting_actions.dart';
 import 'widgets/available_luggage_capacity_field.dart';
@@ -38,10 +36,8 @@ class PostTripScreen extends StatefulWidget {
 }
 
 class _PostTripScreenState extends State<PostTripScreen> {
-  late String _fromCity;
-  late String _fromCode;
-  late String _toCity;
-  late String _toCode;
+  MeetupLocation? _fromLocation;
+  MeetupLocation? _toLocation;
   late DateTime _travelDate;
   late int _luggageCapacityKg;
   late final TextEditingController _flightNumberController;
@@ -50,10 +46,14 @@ class _PostTripScreenState extends State<PostTripScreen> {
   void initState() {
     super.initState();
     final req = StaticData.deliveryRequests.first;
-    _fromCity = req.fromCity;
-    _toCity = req.toCity;
-    _fromCode = _resolveCodeForCity(_fromCity, fallback: 'GB');
-    _toCode = _resolveCodeForCity(_toCity, fallback: 'NG');
+    _fromLocation = MeetupLocation(
+      name: req.fromCity,
+      address: req.fromCity,
+    );
+    _toLocation = MeetupLocation(
+      name: req.toCity,
+      address: req.toCity,
+    );
     final today = DateTime.now();
     final todayDate = DateTime(today.year, today.month, today.day);
     final travelDate = DateTime(
@@ -73,33 +73,6 @@ class _PostTripScreenState extends State<PostTripScreen> {
     super.dispose();
   }
 
-  String _resolveCodeForCity(String cityName, {required String fallback}) {
-    final city = WorldCities.byName(cityName);
-    if (city != null) return city.countryIso;
-    if (WorldCountries.containsIso(fallback)) return fallback;
-    return 'GB';
-  }
-
-  void _onFromCodeChanged(String iso) {
-    final firstCity = WorldCities.firstForCountry(iso);
-    setState(() {
-      _fromCode = iso;
-      if (WorldCities.byName(_fromCity, countryIso: iso) == null) {
-        _fromCity = firstCity?.name ?? '';
-      }
-    });
-  }
-
-  void _onToCodeChanged(String iso) {
-    final firstCity = WorldCities.firstForCountry(iso);
-    setState(() {
-      _toCode = iso;
-      if (WorldCities.byName(_toCity, countryIso: iso) == null) {
-        _toCity = firstCity?.name ?? '';
-      }
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final sectionTitleStyle =
@@ -108,7 +81,6 @@ class _PostTripScreenState extends State<PostTripScreen> {
     // final authUser = context.watch<AuthProvider>().user;
     // final kycOk = authUser?.isKycApproved ?? false;
     final reserveOk = TripCreationWalletValidation.hasMinimumBalance;
-    final cityCountries = WorldCities.countryIsosWithCities;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -118,11 +90,22 @@ class _PostTripScreenState extends State<PostTripScreen> {
           AppButton(
             label: 'Post trip →',
             onPressed: () {
+              final origin = _fromLocation?.name.trim() ?? '';
+              final destination = _toLocation?.name.trim() ?? '';
+              if (origin.isEmpty || destination.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Select both From and To locations on the map.'),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+                return;
+              }
               TripPostingActions.tryPostTrip(
                 context,
                 TravelerTrip(
-                  origin: _fromCity,
-                  destination: _toCity,
+                  origin: origin,
+                  destination: destination,
                   travelDate: _travelDate,
                   luggageCapacityKg: _luggageCapacityKg.toDouble(),
                 ),
@@ -168,63 +151,25 @@ class _PostTripScreenState extends State<PostTripScreen> {
                 children: [
                   Text('Route', style: sectionTitleStyle),
                   const SizedBox(height: 12),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: RouteCityDropdown(
-                          label: 'From city',
-                          value: _fromCity.isEmpty ? null : _fromCity,
-                          countryIso: _fromCode,
-                          hintText: 'Select from city',
-                          onChanged: (city) => setState(() {
-                            _fromCity = city.name;
-                            _fromCode = city.countryIso;
-                          }),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      SizedBox(
-                        width: 96,
-                        child: RouteCountryDropdown(
-                          label: 'Code',
-                          value: _fromCode,
-                          hintText: 'Code',
-                          compact: true,
-                          allowedIsos: cityCountries,
-                          onChanged: _onFromCodeChanged,
-                        ),
-                      ),
-                    ],
+                  RouteCityDropdown(
+                    label: 'From city',
+                    value: _fromLocation,
+                    hintText: 'Add from location on Google Maps',
+                    mapTitle: 'From city',
+                    searchHint: 'Search from city',
+                    onChanged: (place) => setState(() {
+                      _fromLocation = place;
+                    }),
                   ),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: RouteCityDropdown(
-                          label: 'To city',
-                          value: _toCity.isEmpty ? null : _toCity,
-                          countryIso: _toCode,
-                          hintText: 'Select to city',
-                          onChanged: (city) => setState(() {
-                            _toCity = city.name;
-                            _toCode = city.countryIso;
-                          }),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      SizedBox(
-                        width: 96,
-                        child: RouteCountryDropdown(
-                          label: 'Code',
-                          value: _toCode,
-                          hintText: 'Code',
-                          compact: true,
-                          allowedIsos: cityCountries,
-                          onChanged: _onToCodeChanged,
-                        ),
-                      ),
-                    ],
+                  RouteCityDropdown(
+                    label: 'To city',
+                    value: _toLocation,
+                    hintText: 'Add to location on Google Maps',
+                    mapTitle: 'To city',
+                    searchHint: 'Search to city',
+                    onChanged: (place) => setState(() {
+                      _toLocation = place;
+                    }),
                   ),
                   TravelDateField(
                     value: _travelDate,

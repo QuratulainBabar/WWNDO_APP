@@ -13,20 +13,19 @@ import '../../core/widgets/app_chip.dart';
 import '../../core/widgets/back_header.dart';
 import '../../core/widgets/scrollable_form_screen.dart';
 import '../../data/models/created_delivery.dart';
+import '../../data/models/meetup_location.dart';
 import '../../data/services/delivery_repository.dart';
 import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
 import 'delivery_posting_actions.dart';
+import 'widgets/airport_route_search_fields.dart';
 import 'widgets/description_field.dart';
 import 'widgets/maximum_budget_field.dart';
+import 'widgets/meetup_locations_card.dart';
 import 'widgets/parcel_acknowledgement_section.dart';
 import 'widgets/parcel_photos_section.dart';
 import 'widgets/platform_fee_section.dart';
-import '../../data/models/meetup_location.dart';
-import 'widgets/meetup_locations_card.dart';
 import 'widgets/receiver_info_section.dart';
-import 'widgets/route_airport_dropdown.dart';
-import 'widgets/route_country_dropdown.dart';
 import 'widgets/travel_date_field.dart';
 import 'widgets/weight_kg_field.dart';
 
@@ -61,14 +60,10 @@ class _CountryToCountryPostDeliveryScreenState
   String _receiverEmail = '';
   String _receiverPhone = '';
 
-  late String _originCountryIso;
-  late String _destinationCountryIso;
-  late String _originAirport;
-  late String _destinationAirport;
-  String? _originCountryError;
-  String? _destinationCountryError;
-  String? _originAirportError;
-  String? _destinationAirportError;
+  WorldAirport? _fromAirport;
+  WorldAirport? _toAirport;
+  String? _fromAirportError;
+  String? _toAirportError;
   String? _descriptionError;
   late final TextEditingController _descriptionController;
 
@@ -87,11 +82,8 @@ class _CountryToCountryPostDeliveryScreenState
     final todayDate = DateTime(today.year, today.month, today.day);
     _travelDate = shipmentDate.isBefore(todayDate) ? todayDate : shipmentDate;
 
-    _originCountryIso = _isoFromCountryName(StaticData.countryToCountryOriginCountry) ?? 'FR';
-    _destinationCountryIso =
-        _isoFromCountryName(StaticData.countryToCountryDestinationCountry) ?? 'SN';
-    _originAirport = StaticData.countryToCountryOriginAirport;
-    _destinationAirport = StaticData.countryToCountryDestinationAirport;
+    _fromAirport = null;
+    _toAirport = null;
   }
 
   @override
@@ -100,48 +92,14 @@ class _CountryToCountryPostDeliveryScreenState
     super.dispose();
   }
 
-  String? _isoFromCountryName(String name) {
-    final needle = name.trim().toLowerCase();
-    for (final country in WorldCountries.all) {
-      if (country.name.toLowerCase() == needle) return country.iso;
-    }
-    return null;
-  }
-
-  String _countryName(String iso) => WorldCountries.byIso(iso).name;
-
-  void _onOriginCountryChanged(String iso) {
-    final airport = WorldAirports.firstForCountry(iso);
-    setState(() {
-      _originCountryIso = iso;
-      _originCountryError = null;
-      _originAirport = airport?.label ?? '';
-      _originAirportError = null;
-      if (_destinationCountryIso == iso) {
-        _destinationCountryError = 'Origin and destination countries must be different.';
-      } else {
-        _destinationCountryError = null;
-      }
-    });
-  }
-
-  void _onDestinationCountryChanged(String iso) {
-    final airport = WorldAirports.firstForCountry(iso);
-    setState(() {
-      _destinationCountryIso = iso;
-      _destinationCountryError = iso == _originCountryIso
-          ? 'Origin and destination countries must be different.'
-          : null;
-      _destinationAirport = airport?.label ?? '';
-      _destinationAirportError = null;
-    });
-  }
-
   Future<void> _submit() async {
-    if (!DeliveryPostingActions.ensureWalletAllowsParcelCreation(context)) return;
+    if (!DeliveryPostingActions.ensureWalletAllowsParcelCreation(context)) {
+      return;
+    }
 
     setState(() {
-      _photosError = _photoPaths.isEmpty ? 'Upload at least 1 parcel photo.' : null;
+      _photosError =
+          _photoPaths.isEmpty ? 'Upload at least 1 parcel photo.' : null;
       _meetupError = _meetupLocations.isEmpty
           ? 'Add at least one meetup location.'
           : null;
@@ -149,20 +107,20 @@ class _CountryToCountryPostDeliveryScreenState
           ? 'Select a meetup location.'
           : null;
       _budgetError = _maxBudget <= 0 ? 'Enter a valid maximum budget.' : null;
-      _weightError = _weightKg <= 0 ? 'Enter a valid weight greater than 0.' : null;
+      _weightError =
+          _weightKg <= 0 ? 'Enter a valid weight greater than 0.' : null;
       _receiverEmailError = _validateReceiverEmail(_receiverEmail);
       _receiverPhoneError = _validateReceiverPhone(_receiverPhone);
-      _originCountryError =
-          _originCountryIso.isEmpty ? 'Select an origin country.' : null;
-      _destinationCountryError = _destinationCountryIso.isEmpty
-          ? 'Select a destination country.'
-          : (_destinationCountryIso == _originCountryIso
-              ? 'Origin and destination countries must be different.'
-              : null);
-      _originAirportError =
-          _originAirport.isEmpty ? 'Select an origin airport.' : null;
-      _destinationAirportError =
-          _destinationAirport.isEmpty ? 'Select a destination airport.' : null;
+      _fromAirportError =
+          _fromAirport == null ? 'Select an origin airport.' : null;
+      _toAirportError = _toAirport == null
+          ? 'Select a destination airport.'
+          : (_fromAirport != null && _toAirport!.code == _fromAirport!.code
+              ? 'Origin and destination airports must be different.'
+              : (_fromAirport != null &&
+                      _toAirport!.countryIso == _fromAirport!.countryIso
+                  ? 'Origin and destination countries must be different.'
+                  : null));
       _descriptionError = _descriptionController.text.trim().isEmpty
           ? 'Enter a parcel description.'
           : null;
@@ -176,16 +134,16 @@ class _CountryToCountryPostDeliveryScreenState
         _weightError != null ||
         _receiverEmailError != null ||
         _receiverPhoneError != null ||
-        _originCountryError != null ||
-        _destinationCountryError != null ||
-        _originAirportError != null ||
-        _destinationAirportError != null ||
+        _fromAirportError != null ||
+        _toAirportError != null ||
         _descriptionError != null) {
       return;
     }
 
-    final originCountry = _countryName(_originCountryIso);
-    final destinationCountry = _countryName(_destinationCountryIso);
+    final from = _fromAirport!;
+    final to = _toAirport!;
+    final originCountry = WorldCountries.byIso(from.countryIso).name;
+    final destinationCountry = WorldCountries.byIso(to.countryIso).name;
     final route = '$originCountry → $destinationCountry';
     final auth = context.read<AuthProvider>();
     final demoMode = context.read<DemoModeProvider>();
@@ -200,9 +158,9 @@ class _CountryToCountryPostDeliveryScreenState
         CreateDeliveryRequest(
           deliveryType: DeliveryType.countryToCountry,
           originCountry: originCountry,
-          originAirport: _originAirport,
+          originAirport: from.label,
           destinationCountry: destinationCountry,
-          destinationAirport: _destinationAirport,
+          destinationAirport: to.label,
           travelDate: _travelDate,
           parcelCategory: _category,
           parcelSize: _size,
@@ -231,8 +189,8 @@ class _CountryToCountryPostDeliveryScreenState
         shipmentId: created.publicId,
         fromCity: originCountry,
         toCity: destinationCountry,
-        fromCode: _originCountryIso,
-        toCode: _destinationCountryIso,
+        fromCode: from.countryIso,
+        toCode: to.countryIso,
         travelDate: _travelDate,
         parcelCategory: _category,
         parcelWeightKg: _weightKg,
@@ -270,11 +228,12 @@ class _CountryToCountryPostDeliveryScreenState
 
   @override
   Widget build(BuildContext context) {
-    final airportCountries = WorldAirports.countryIsosWithAirports;
-
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: const BackHeader(title: 'Post delivery', fallbackRoute: '/delivery-type'),
+      appBar: const BackHeader(
+        title: 'Post delivery',
+        fallbackRoute: '/delivery-type',
+      ),
       body: ScrollableFormScreen(
         actions: [
           AppButton(
@@ -285,80 +244,50 @@ class _CountryToCountryPostDeliveryScreenState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Route', style: context.typo.h3.copyWith(fontWeight: FontWeight.w700)),
+            Text(
+              'Route',
+              style: context.typo.h3.copyWith(fontWeight: FontWeight.w700),
+            ),
             const SizedBox(height: 12),
-            RouteCountryDropdown(
-              label: 'Origin country',
-              value: _originCountryIso,
-              hintText: 'Select origin country',
-              allowedIsos: airportCountries,
-              onChanged: _onOriginCountryChanged,
-            ),
-            if (_originCountryError != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text(
-                  _originCountryError!,
-                  style: context.typo.sm.copyWith(color: AppColors.danger),
-                ),
-              ),
-            RouteAirportDropdown(
-              label: 'Origin airport',
-              countryIso: _originCountryIso,
-              value: _originAirport,
-              hintText: 'Select origin airport',
-              onChanged: (airport) => setState(() {
-                _originAirport = airport;
-                _originAirportError = null;
+            AirportRouteSearchFields(
+              fromAirport: _fromAirport,
+              toAirport: _toAirport,
+              fromErrorText: _fromAirportError,
+              toErrorText: _toAirportError,
+              onFromChanged: (airport) => setState(() {
+                _fromAirport = airport;
+                _fromAirportError = null;
+                if (_toAirport != null &&
+                    airport != null &&
+                    _toAirport!.countryIso == airport.countryIso) {
+                  _toAirportError =
+                      'Origin and destination countries must be different.';
+                } else {
+                  _toAirportError = null;
+                }
+              }),
+              onToChanged: (airport) => setState(() {
+                _toAirport = airport;
+                if (airport != null &&
+                    _fromAirport != null &&
+                    airport.countryIso == _fromAirport!.countryIso) {
+                  _toAirportError =
+                      'Origin and destination countries must be different.';
+                } else {
+                  _toAirportError = null;
+                }
               }),
             ),
-            if (_originAirportError != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text(
-                  _originAirportError!,
-                  style: context.typo.sm.copyWith(color: AppColors.danger),
-                ),
-              ),
-            RouteCountryDropdown(
-              label: 'Destination country',
-              value: _destinationCountryIso,
-              hintText: 'Select destination country',
-              allowedIsos: airportCountries,
-              onChanged: _onDestinationCountryChanged,
-            ),
-            if (_destinationCountryError != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text(
-                  _destinationCountryError!,
-                  style: context.typo.sm.copyWith(color: AppColors.danger),
-                ),
-              ),
-            RouteAirportDropdown(
-              label: 'Destination airport',
-              countryIso: _destinationCountryIso,
-              value: _destinationAirport,
-              hintText: 'Select destination airport',
-              onChanged: (airport) => setState(() {
-                _destinationAirport = airport;
-                _destinationAirportError = null;
-              }),
-            ),
-            if (_destinationAirportError != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text(
-                  _destinationAirportError!,
-                  style: context.typo.sm.copyWith(color: AppColors.danger),
-                ),
-              ),
+            const SizedBox(height: 12),
             TravelDateField(
               value: _travelDate,
               onChanged: (date) => setState(() => _travelDate = date),
             ),
             const SizedBox(height: 12),
-            Text('Parcel', style: context.typo.h3.copyWith(fontWeight: FontWeight.w700)),
+            Text(
+              'Parcel',
+              style: context.typo.h3.copyWith(fontWeight: FontWeight.w700),
+            ),
             const SizedBox(height: 8),
             AppChipRow(
               options: StaticData.parcelCategories,
@@ -432,7 +361,8 @@ class _CountryToCountryPostDeliveryScreenState
             ),
             const SizedBox(height: 12),
             ParcelAcknowledgementSection(
-              onChanged: (acknowledged) => setState(() => _parcelAcknowledged = acknowledged),
+              onChanged: (acknowledged) =>
+                  setState(() => _parcelAcknowledged = acknowledged),
             ),
             const SizedBox(height: 12),
             PlatformFeeSection(

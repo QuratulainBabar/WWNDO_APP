@@ -523,11 +523,19 @@ final appRouter = GoRouter(
         if (extra is Map) {
           final locations = extra['locations'];
           final max = extra['maxLocations'];
+          final title = extra['title'];
+          final searchHint = extra['searchHint'];
           return AddMeetupLocationsScreen(
             initialLocations: locations is List<MeetupLocation>
                 ? locations
                 : const <MeetupLocation>[],
             maxLocations: max is int ? max : 3,
+            title: title is String && title.trim().isNotEmpty
+                ? title.trim()
+                : 'Meetup locations',
+            searchHint: searchHint is String && searchHint.trim().isNotEmpty
+                ? searchHint.trim()
+                : 'Search meetup location',
           );
         }
         final initial =

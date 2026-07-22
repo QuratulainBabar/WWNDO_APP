@@ -19,18 +19,39 @@ class PlacesSearchService {
   bool get isConfigured => apiKey.isNotEmpty;
 
   Future<List<MeetupLocation>> search(String query) async {
+    return _autocomplete(
+      query,
+      types: 'establishment|geocode',
+      demoFallback: _demoSuggestions,
+    );
+  }
+
+  /// City / locality autocomplete for trip From / To fields.
+  Future<List<MeetupLocation>> searchCities(String query) async {
+    return _autocomplete(
+      query,
+      types: '(cities)',
+      demoFallback: _demoCitySuggestions,
+    );
+  }
+
+  Future<List<MeetupLocation>> _autocomplete(
+    String query, {
+    required String types,
+    required List<MeetupLocation> Function(String query) demoFallback,
+  }) async {
     final trimmed = query.trim();
     if (trimmed.length < 2) return const [];
 
     if (!isConfigured) {
-      return _demoSuggestions(trimmed);
+      return demoFallback(trimmed);
     }
 
     final uri = Uri.parse(_autocompleteUrl).replace(
       queryParameters: {
         'input': trimmed,
         'key': apiKey,
-        'types': 'establishment|geocode',
+        'types': types,
       },
     );
 
@@ -50,7 +71,8 @@ class PlacesSearchService {
         .map((item) {
           final map = item as Map<String, dynamic>;
           final description = map['description'] as String? ?? '';
-          final structured = map['structured_formatting'] as Map<String, dynamic>?;
+          final structured =
+              map['structured_formatting'] as Map<String, dynamic>?;
           final mainText = structured?['main_text'] as String? ?? description;
           return MeetupLocation(
             name: mainText,
@@ -59,6 +81,59 @@ class PlacesSearchService {
           );
         })
         .toList();
+  }
+
+  List<MeetupLocation> _demoCitySuggestions(String query) {
+    const samples = [
+      MeetupLocation(name: 'London', address: 'London, UK'),
+      MeetupLocation(name: 'Lagos', address: 'Lagos, Nigeria'),
+      MeetupLocation(name: 'Paris', address: 'Paris, France'),
+      MeetupLocation(name: 'New York', address: 'New York, NY, USA'),
+      MeetupLocation(name: 'Dubai', address: 'Dubai, United Arab Emirates'),
+      MeetupLocation(name: 'Toronto', address: 'Toronto, ON, Canada'),
+      MeetupLocation(name: 'Berlin', address: 'Berlin, Germany'),
+      MeetupLocation(name: 'Madrid', address: 'Madrid, Spain'),
+      MeetupLocation(name: 'Rome', address: 'Rome, Italy'),
+      MeetupLocation(name: 'Amsterdam', address: 'Amsterdam, Netherlands'),
+      MeetupLocation(name: 'Istanbul', address: 'Istanbul, Türkiye'),
+      MeetupLocation(name: 'Cairo', address: 'Cairo, Egypt'),
+      MeetupLocation(name: 'Mumbai', address: 'Mumbai, India'),
+      MeetupLocation(name: 'Singapore', address: 'Singapore'),
+      MeetupLocation(name: 'Tokyo', address: 'Tokyo, Japan'),
+      MeetupLocation(name: 'Sydney', address: 'Sydney NSW, Australia'),
+      MeetupLocation(name: 'Los Angeles', address: 'Los Angeles, CA, USA'),
+      MeetupLocation(name: 'Chicago', address: 'Chicago, IL, USA'),
+      MeetupLocation(name: 'Manchester', address: 'Manchester, UK'),
+      MeetupLocation(name: 'Abuja', address: 'Abuja, Nigeria'),
+      MeetupLocation(name: 'Dakar', address: 'Dakar, Senegal'),
+      MeetupLocation(name: 'Casablanca', address: 'Casablanca, Morocco'),
+      MeetupLocation(name: 'Johannesburg', address: 'Johannesburg, South Africa'),
+      MeetupLocation(name: 'Nairobi', address: 'Nairobi, Kenya'),
+      MeetupLocation(name: 'Accra', address: 'Accra, Ghana'),
+    ];
+
+    final needle = query.toLowerCase();
+    final matches = samples
+        .where(
+          (place) =>
+              place.name.toLowerCase().contains(needle) ||
+              place.address.toLowerCase().contains(needle),
+        )
+        .toList();
+
+    if (matches.length < 8) {
+      final startsWith = samples.where((place) {
+        final words =
+            '${place.name} ${place.address}'.toLowerCase().split(RegExp(r'[\s,]+'));
+        return words.any((w) => w.startsWith(needle));
+      });
+      final seen = matches.map((m) => m.address).toSet();
+      for (final place in startsWith) {
+        if (seen.add(place.address)) matches.add(place);
+      }
+    }
+
+    return matches.take(20).toList();
   }
 
   List<MeetupLocation> _demoSuggestions(String query) {

@@ -79,7 +79,7 @@ abstract final class StaticData {
   ];
 
   static const countryToCountryOriginCountry = 'France';
-  static const countryToCountryOriginAirport = 'Charles de Gaulle (CDG)';
+  static const countryToCountryOriginAirport = 'Paris Charles de Gaulle (CDG)';
   static const countryToCountryDestinationCountry = 'Senegal';
   static const countryToCountryDestinationAirport = 'Blaise Diagne (DSS)';
 

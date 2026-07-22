@@ -15,10 +15,14 @@ class AddMeetupLocationsScreen extends StatefulWidget {
     super.key,
     this.initialLocations = const [],
     this.maxLocations = 3,
+    this.title = 'Meetup locations',
+    this.searchHint = 'Search meetup location',
   });
 
   final List<MeetupLocation> initialLocations;
   final int maxLocations;
+  final String title;
+  final String searchHint;
 
   @override
   State<AddMeetupLocationsScreen> createState() =>
@@ -360,7 +364,7 @@ class _AddMeetupLocationsScreenState extends State<AddMeetupLocationsScreen> {
                     ),
                     Expanded(
                       child: Text(
-                        'Meetup locations',
+                        widget.title,
                         style: typo.headerTitle,
                         textAlign: TextAlign.center,
                       ),
@@ -466,7 +470,7 @@ class _AddMeetupLocationsScreenState extends State<AddMeetupLocationsScreen> {
                           textInputAction: TextInputAction.search,
                           decoration: InputDecoration(
                             hintText: _editingStopIndex == null && _stops.isEmpty
-                                ? 'Search meetup location'
+                                ? widget.searchHint
                                 : 'Add stop',
                             hintStyle: typo.input.copyWith(color: AppColors.textSecondary),
                             border: InputBorder.none,

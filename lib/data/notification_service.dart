@@ -7,6 +7,9 @@ import 'models/wallet_role.dart';
 abstract final class NotificationService {
   static final version = ValueNotifier(0);
 
+
+  
+
   static final Map<WalletRole, List<AppNotification>> _inbox = {
     WalletRole.sender: [],
     WalletRole.traveler: [],

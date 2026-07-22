@@ -3,8 +3,6 @@ import 'package:go_router/go_router.dart';
 import '../../core/navigation/app_navigation.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
-import '../../core/widgets/app_avatar.dart';
-import '../../core/widgets/app_badge.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_svg_icon.dart';
@@ -27,8 +25,8 @@ class TravelerProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
-    final user = StaticData.travelerUser;
     final authUser = context.watch<AuthProvider>().user;
+    final user = authUser?.toUserProfile() ?? StaticData.travelerUser;
     final country = StaticData.countryName(user.countryCode);
 
     return Scaffold(
@@ -60,7 +58,9 @@ class TravelerProfileScreen extends StatelessWidget {
               initial: user.initial,
               subtitle: 'Traveler',
               memberSince: user.memberSince,
-              bio: user.bio,
+              bio: user.bio.isNotEmpty
+                  ? user.bio
+                  : 'No bio added yet.',
               rating: user.rating,
               authUser: authUser,
             ),
@@ -86,13 +86,17 @@ class TravelerProfileScreen extends StatelessWidget {
                   _infoRow(
                     context,
                     'Total trips completed',
-                    '${StaticData.travelerTotalTripsCompleted}',
+                    authUser != null
+                        ? '0'
+                        : '${StaticData.travelerTotalTripsCompleted}',
                   ),
                   const Divider(height: 24),
                   _infoRow(
                     context,
                     'Parcels delivered',
-                    '${StaticData.travelerParcelsDelivered}',
+                    authUser != null
+                        ? '0'
+                        : '${StaticData.travelerParcelsDelivered}',
                   ),
                 ],
               ),
@@ -107,9 +111,17 @@ class TravelerProfileScreen extends StatelessWidget {
             const SizedBox(height: 10),
             Row(
               children: [
-                _stat(context, '${StaticData.travelerTotalDeliveries}', 'Total deliveries'),
+                _stat(
+                  context,
+                  authUser != null ? '0' : '${StaticData.travelerTotalDeliveries}',
+                  'Total deliveries',
+                ),
                 const SizedBox(width: 10),
-                _stat(context, '${StaticData.travelerActiveTrips}', 'Active trips'),
+                _stat(
+                  context,
+                  authUser != null ? '0' : '${StaticData.travelerActiveTrips}',
+                  'Active trips',
+                ),
               ],
             ),
             const SizedBox(height: 10),
@@ -117,7 +129,9 @@ class TravelerProfileScreen extends StatelessWidget {
               children: [
                 _stat(
                   context,
-                  '${StaticData.travelerSuccessfulDeliveryRate}%',
+                  authUser != null
+                      ? '—'
+                      : '${StaticData.travelerSuccessfulDeliveryRate}%',
                   'Successful delivery rate',
                 ),
                 const SizedBox(width: 10),
@@ -126,7 +140,7 @@ class TravelerProfileScreen extends StatelessWidget {
                   '',
                   'Average rating',
                   trailing: StarRatingDisplay(
-                    rating: StaticData.travelerAverageRating,
+                    rating: user.rating,
                     showValue: true,
                     size: 12,
                   ),
@@ -191,7 +205,6 @@ class TravelerProfileScreen extends StatelessWidget {
     BuildContext context,
     String value,
     String label, {
-    bool primary = false,
     VoidCallback? onTap,
     Widget? trailing,
   }) {

@@ -1,6 +1,3 @@
-// TEMPORARILY DISABLED - SUMSUB KYC
-// This implementation is preserved but excluded by sumsub_sdk_factory.dart.
-// SNSMobileSDK.init and launch cannot be reached while the factory uses the stub.
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_idensic_mobile_sdk_plugin/flutter_idensic_mobile_sdk_plugin.dart';

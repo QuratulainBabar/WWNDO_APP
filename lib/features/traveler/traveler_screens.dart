@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-// TEMPORARILY DISABLED - SUMSUB KYC
-// import 'package:provider/provider.dart';
+import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_avatar.dart';
@@ -21,8 +20,7 @@ import '../../data/models/meetup_location.dart';
 import '../../data/models/traveler_trip.dart';
 import '../../data/static_data.dart';
 import '../../data/trip_creation_wallet_validation.dart';
-// TEMPORARILY DISABLED - SUMSUB KYC
-// import '../../providers/auth_provider.dart';
+import '../../providers/auth_provider.dart';
 import '../sender/widgets/travel_date_field.dart';
 import 'trip_posting_actions.dart';
 import 'widgets/available_luggage_capacity_field.dart';
@@ -77,9 +75,8 @@ class _PostTripScreenState extends State<PostTripScreen> {
   Widget build(BuildContext context) {
     final sectionTitleStyle =
         context.typo.h3.copyWith(fontWeight: FontWeight.w600);
-    // TEMPORARILY DISABLED - SUMSUB KYC
-    // final authUser = context.watch<AuthProvider>().user;
-    // final kycOk = authUser?.isKycApproved ?? false;
+    final authUser = context.watch<AuthProvider>().user;
+    final kycOk = authUser?.isKycApproved ?? false;
     final reserveOk = TripCreationWalletValidation.hasMinimumBalance;
 
     return Scaffold(
@@ -125,15 +122,14 @@ class _PostTripScreenState extends State<PostTripScreen> {
               spacing: 6,
               runSpacing: 6,
               children: [
-                // TEMPORARILY DISABLED - SUMSUB KYC
-                // AppBadge(
-                //   label: kycOk ? 'KYC approved' : 'KYC required',
-                //   color: kycOk ? AppColors.success : AppColors.danger,
-                //   backgroundColor:
-                //       (kycOk ? AppColors.success : AppColors.danger)
-                //           .withValues(alpha: 0.12),
-                //   semiBold: true,
-                // ),
+                AppBadge(
+                  label: kycOk ? 'KYC approved' : 'KYC required',
+                  color: kycOk ? AppColors.success : AppColors.danger,
+                  backgroundColor:
+                      (kycOk ? AppColors.success : AppColors.danger)
+                          .withValues(alpha: 0.12),
+                  semiBold: true,
+                ),
                 AppBadge(
                   label: TripCreationWalletValidation.helperLabel,
                   color: reserveOk ? AppColors.success : AppColors.danger,

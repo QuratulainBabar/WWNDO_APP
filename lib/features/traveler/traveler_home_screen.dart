@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_card.dart';
@@ -13,6 +14,7 @@ import '../../data/models/wallet_role.dart';
 import '../../core/auth/kyc_verification_guard.dart';
 import '../../core/auth/auth_verification_guard.dart';
 import '../../data/static_data.dart';
+import '../../providers/auth_provider.dart';
 import 'trip_posting_actions.dart';
 
 class TravelerHomeScreen extends StatelessWidget {
@@ -29,7 +31,12 @@ class TravelerHomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
-    final user = StaticData.travelerUser;
+    final authUser = context.watch<AuthProvider>().user;
+    final user = authUser?.toUserProfile() ?? StaticData.travelerUser;
+    final firstName = authUser?.firstName.trim().isNotEmpty == true
+        ? authUser!.firstName
+        : user.firstName;
+    final rating = authUser?.rating ?? user.rating;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -46,8 +53,8 @@ class TravelerHomeScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Hey, ${user.firstName} 👋', style: typo.h1, overflow: TextOverflow.ellipsis),
-                      Text('★ ${user.rating} · Traveler', style: typo.sm),
+                      Text('Hey, $firstName 👋', style: typo.h1, overflow: TextOverflow.ellipsis),
+                      Text('★ $rating · Traveler', style: typo.sm),
                     ],
                   ),
                 ),

@@ -1,5 +1,3 @@
-// TEMPORARILY DISABLED - SUMSUB KYC
-// Preserved data structures for future restoration; no active route uses them.
 enum KycDocumentType { passport, idCard, drivingLicence }
 
 enum KycCaptureSide { front, back }

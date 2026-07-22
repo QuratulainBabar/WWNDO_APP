@@ -16,6 +16,7 @@ class RouteCityDropdown extends StatelessWidget {
     this.hintText = 'Select location on Google Maps',
     this.mapTitle,
     this.searchHint,
+    this.citySearch = true,
   });
 
   final String label;
@@ -24,6 +25,7 @@ class RouteCityDropdown extends StatelessWidget {
   final String hintText;
   final String? mapTitle;
   final String? searchHint;
+  final bool citySearch;
 
   Future<void> _openMapPicker(BuildContext context) async {
     final initial = value == null ? const <MeetupLocation>[] : [value!];
@@ -34,6 +36,7 @@ class RouteCityDropdown extends StatelessWidget {
         'maxLocations': 1,
         'title': mapTitle ?? label,
         'searchHint': searchHint ?? 'Search $label',
+        'citySearch': citySearch,
       },
     );
     if (result != null && result.isNotEmpty) {

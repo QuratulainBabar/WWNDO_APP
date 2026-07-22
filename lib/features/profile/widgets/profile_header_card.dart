@@ -34,13 +34,27 @@ class ProfileHeaderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
+    final profile = authUser?.toUserProfile();
+    final displayName = profile?.name.isNotEmpty == true ? profile!.name : name;
+    final displayInitial =
+        profile != null && profile.initial.isNotEmpty ? profile.initial : initial;
+    final displayMemberSince = profile?.memberSince.isNotEmpty == true
+        ? profile!.memberSince
+        : memberSince;
+    final displayBio = () {
+      final fromAuth = profile?.bio.trim() ?? '';
+      if (fromAuth.isNotEmpty) return fromAuth;
+      final fallback = bio.trim();
+      return fallback.isNotEmpty ? fallback : 'No bio added yet.';
+    }();
+    final displayRating = profile?.rating ?? rating;
     final crossVerified = authUser?.isFullyCrossVerified ?? false;
 
     return AppCard(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ProfileAvatar(initial: initial, role: role),
+          ProfileAvatar(initial: displayInitial, role: role),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -51,7 +65,7 @@ class ProfileHeaderCard extends StatelessWidget {
                   runSpacing: 6,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    Text(name, style: typo.h2),
+                    Text(displayName, style: typo.h2),
                     if (crossVerified)
                       AppBadge.verified(label: '✓ Verified')
                     else
@@ -63,11 +77,14 @@ class ProfileHeaderCard extends StatelessWidget {
                       ),
                   ],
                 ),
-                Text('$subtitle · Member since $memberSince', style: typo.sm),
+                Text(
+                  '$subtitle · Member since $displayMemberSince',
+                  style: typo.sm,
+                ),
                 const SizedBox(height: 6),
-                StarRatingDisplay(rating: rating),
+                StarRatingDisplay(rating: displayRating),
                 const SizedBox(height: 4),
-                Text(bio, style: typo.link),
+                Text(displayBio, style: typo.link),
               ],
             ),
           ),

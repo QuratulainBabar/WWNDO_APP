@@ -20,9 +20,6 @@ Future<void> main() async {
     authProvider.init(),
   ]);
 
-  // TEMPORARILY DISABLED - SUMSUB KYC
-  // Compatibility provider is retained so preserved widgets can compile; its
-  // repository and SDK factory are inert.
   final kycProvider = KycProvider(
     authRepository: authProvider.repository,
     demoMode: demoMode,

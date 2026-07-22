@@ -5,13 +5,10 @@ import '../features/home/home_screen.dart';
 import '../features/onboarding/auth_screens.dart';
 import '../features/onboarding/biometric_screens.dart';
 import '../features/onboarding/forgot_password_screens.dart';
-// TEMPORARILY DISABLED - SUMSUB KYC
-// Preserved KYC screen imports:
-import '../features/onboarding/kyc_screens.dart'; // AccountSuspendedScreen remains active.
-// import '../features/onboarding/kyc_id_capture_screens.dart';
-// import '../features/onboarding/kyc_selfie_screens.dart';
-// import '../features/onboarding/kyc_flow_data.dart';
-import '../features/onboarding/kyc_disabled_screen.dart';
+import '../features/onboarding/kyc_screens.dart';
+import '../features/onboarding/kyc_id_capture_screens.dart';
+import '../features/onboarding/kyc_selfie_screens.dart';
+import '../features/onboarding/kyc_flow_data.dart';
 import '../features/onboarding/otp_login_screens.dart';
 import '../features/onboarding/login_otp_verification_screen.dart';
 import '../features/onboarding/account_verification_screens.dart';
@@ -156,7 +153,6 @@ final appRouter = GoRouter(
         flow: state.extra! as ForgotPasswordFlowData,
       ),
     ),
-    /* TEMPORARILY DISABLED - SUMSUB KYC
     GoRoute(
       path: '/kyc',
       builder: (_, state) => KycVerificationScreen(
@@ -236,30 +232,6 @@ final appRouter = GoRouter(
     GoRoute(path: '/kyc-approved', builder: (_, __) => const KycApprovedScreen()),
     GoRoute(path: '/kyc-pending-review', builder: (_, __) => const KycPendingReviewScreen()),
     GoRoute(path: '/kyc-rejected', builder: (_, __) => const KycRejectedScreen()),
-    */
-    // TEMPORARILY DISABLED - SUMSUB KYC
-    // Keep legacy locations valid, but route all of them to a local placeholder.
-    ...[
-      '/kyc',
-      '/kyc/id-document',
-      '/kyc/id-capture',
-      '/kyc/id-preview',
-      '/kyc/id-complete',
-      '/kyc/selfie',
-      '/kyc/selfie/liveness',
-      '/kyc/selfie/capture',
-      '/kyc/selfie/preview',
-      '/kyc/selfie/processing',
-      '/kyc/selfie/complete',
-      '/kyc-approved',
-      '/kyc-pending-review',
-      '/kyc-rejected',
-    ].map(
-      (path) => GoRoute(
-        path: path,
-        builder: (_, __) => const KycDisabledScreen(),
-      ),
-    ),
     GoRoute(path: '/account-suspended', builder: (_, __) => const AccountSuspendedScreen()),
 
     StatefulShellRoute.indexedStack(
@@ -536,6 +508,7 @@ final appRouter = GoRouter(
             searchHint: searchHint is String && searchHint.trim().isNotEmpty
                 ? searchHint.trim()
                 : 'Search meetup location',
+            citySearch: extra['citySearch'] == true,
           );
         }
         final initial =
@@ -912,14 +885,7 @@ final appRouter = GoRouter(
       builder: (_, __) => const ChangePasswordSuccessScreen(),
     ),
     GoRoute(path: '/legal/terms', parentNavigatorKey: _rootNavigatorKey, builder: (_, __) => const TermsPrivacyScreen()),
-    // TEMPORARILY DISABLED - SUMSUB KYC
-    // Preserved route:
-    // GoRoute(path: '/kyc-status', parentNavigatorKey: _rootNavigatorKey, builder: (_, __) => const KycStatusScreen()),
-    GoRoute(
-      path: '/kyc-status',
-      parentNavigatorKey: _rootNavigatorKey,
-      builder: (_, __) => const KycDisabledScreen(),
-    ),
+    GoRoute(path: '/kyc-status', parentNavigatorKey: _rootNavigatorKey, builder: (_, __) => const KycStatusScreen()),
     GoRoute(path: '/security-logs', parentNavigatorKey: _rootNavigatorKey, builder: (_, __) => const SecurityLogsScreen()),
     GoRoute(
       path: '/bid-submitted',

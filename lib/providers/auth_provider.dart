@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../core/api/api_exception.dart';
 import '../core/config/demo_mode.dart';
+import '../core/platform/biometric_prefs.dart';
 import '../data/models/auth_user.dart';
 import '../data/models/otp_channel.dart';
 import '../data/services/auth_repository.dart';
@@ -195,19 +196,37 @@ class AuthProvider extends ChangeNotifier {
     return _run(_repository.fetchProfile);
   }
 
+  /// Refreshes `/auth/me` without flipping the global [loading] flag.
+  /// Safe for home/header widgets that should stay interactive while syncing.
+  Future<AuthUser?> refreshUser() async {
+    try {
+      final user = await _repository.fetchProfile();
+      notifyListeners();
+      return user;
+    } on ApiException {
+      return null;
+    }
+  }
+
   Future<void> verifyPassword(String password) {
     return _run(() => _repository.verifyPassword(password));
   }
 
   Future<bool> tryRestoreSession() async {
     try {
-      return await _repository.refreshSession();
+      final restored = await _repository.refreshSession();
+      if (restored) notifyListeners();
+      return restored;
     } on ApiException {
-      await _repository.logout();
+      await BiometricPrefs.setLoginEnabled(false);
+      await _repository.logout(forceFull: true);
       notifyListeners();
       return false;
     }
   }
+
+  Future<bool> canUnlockWithBiometric() =>
+      _repository.canUnlockWithBiometric();
 
   Future<T> _run<T>(Future<T> Function() action) async {
     _loading = true;

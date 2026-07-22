@@ -14,7 +14,6 @@ import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/back_link.dart';
 import '../../core/widgets/screen_body.dart';
 import '../../core/auth/post_auth_navigation.dart';
-import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
 
 class BiometricSetupScreen extends StatefulWidget {
@@ -196,6 +195,8 @@ class _BiometricLoginScreenState extends State<BiometricLoginScreen>
   bool _authenticating = false;
   String? _statusMessage;
   bool _hasStarted = false;
+  String _displayName = 'WWNGO';
+  String _displayInitials = 'W';
 
   @override
   void initState() {
@@ -204,7 +205,10 @@ class _BiometricLoginScreenState extends State<BiometricLoginScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1400),
     )..repeat(reverse: true);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _prepareAndAuthenticate());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadCachedUser();
+      _prepareAndAuthenticate();
+    });
   }
 
   @override
@@ -213,12 +217,29 @@ class _BiometricLoginScreenState extends State<BiometricLoginScreen>
     super.dispose();
   }
 
+  Future<void> _loadCachedUser() async {
+    final auth = context.read<AuthProvider>();
+    final cached = await auth.repository.tokenStorage.getUser();
+    if (!mounted || cached == null) return;
+    final parts = cached.name.trim().split(RegExp(r'\s+'));
+    setState(() {
+      _displayName = cached.name;
+      _displayInitials = parts.take(2).map((p) => p.isNotEmpty ? p[0] : '').join().toUpperCase();
+      if (_displayInitials.isEmpty) _displayInitials = 'W';
+    });
+  }
+
   Future<void> _prepareAndAuthenticate() async {
-    final enabled = await BiometricPrefs.isLoginEnabled();
+    final auth = context.read<AuthProvider>();
+    final canUnlock = await auth.canUnlockWithBiometric();
     if (!mounted) return;
 
-    if (!enabled) {
-      context.pushReplacement('/biometric/setup');
+    if (!canUnlock) {
+      AppToast.info(
+        context,
+        'Log in with password first, then enable ${PlatformUi.biometricShortLabel}.',
+      );
+      context.go('/login');
       return;
     }
 
@@ -247,6 +268,11 @@ class _BiometricLoginScreenState extends State<BiometricLoginScreen>
           final restored = await auth.tryRestoreSession();
           if (!mounted) return;
           if (!restored) {
+            await BiometricPrefs.setLoginEnabled(false);
+            AppToast.error(
+              context,
+              'Session expired. Please log in with your password again.',
+            );
             context.go('/login');
             return;
           }
@@ -274,7 +300,16 @@ class _BiometricLoginScreenState extends State<BiometricLoginScreen>
   Widget build(BuildContext context) {
     final typo = context.typo;
     final authUser = context.watch<AuthProvider>().user;
-    final user = authUser?.toUserProfile() ?? StaticData.currentUser;
+    final name = authUser?.name ?? _displayName;
+    final initials = authUser != null
+        ? authUser.name
+            .trim()
+            .split(RegExp(r'\s+'))
+            .take(2)
+            .map((p) => p.isNotEmpty ? p[0] : '')
+            .join()
+            .toUpperCase()
+        : _displayInitials;
     final label = PlatformUi.biometricShortLabel;
     final scale = Tween<double>(begin: 0.96, end: 1.04).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
@@ -294,14 +329,14 @@ class _BiometricLoginScreenState extends State<BiometricLoginScreen>
                     radius: 36,
                     backgroundColor: AppColors.primary.withValues(alpha: 0.12),
                     child: Text(
-                      user.name.split(' ').map((part) => part[0]).take(2).join(),
+                      initials.isNotEmpty ? initials : 'W',
                       style: typo.h2.copyWith(color: AppColors.primary),
                     ),
                   ),
                   const SizedBox(height: 16),
                   Text('Welcome back', style: typo.h2, textAlign: TextAlign.center),
                   const SizedBox(height: 4),
-                  Text(user.name, style: typo.sm, textAlign: TextAlign.center),
+                  Text(name, style: typo.sm, textAlign: TextAlign.center),
                   const SizedBox(height: 32),
                   ScaleTransition(
                     scale: _authenticating ? scale : const AlwaysStoppedAnimation(1),

@@ -68,25 +68,13 @@ class _PostDeliveryScreenState extends State<PostDeliveryScreen> {
   @override
   void initState() {
     super.initState();
-    final shipment = StaticData.activeShipment;
-    _fromLocation = MeetupLocation(
-      name: shipment.fromCity,
-      address: shipment.fromCity,
-    );
-    _toLocation = MeetupLocation(
-      name: shipment.toCity,
-      address: shipment.toCity,
-    );
-    _weightKg = shipment.parcelWeightKg;
-    _descriptionController = TextEditingController(text: shipment.description);
+    // Start empty — user picks From/To via Google Places (backend proxy).
+    _fromLocation = null;
+    _toLocation = null;
+    _weightKg = 1;
+    _descriptionController = TextEditingController();
     final today = DateTime.now();
-    final shipmentDate = DateTime(
-      shipment.travelDate.year,
-      shipment.travelDate.month,
-      shipment.travelDate.day,
-    );
-    final todayDate = DateTime(today.year, today.month, today.day);
-    _travelDate = shipmentDate.isBefore(todayDate) ? todayDate : shipmentDate;
+    _travelDate = DateTime(today.year, today.month, today.day).add(const Duration(days: 1));
   }
 
   @override
@@ -102,6 +90,9 @@ class _PostDeliveryScreenState extends State<PostDeliveryScreen> {
   }
 
   String _codeFromPlace(MeetupLocation place) {
+    final code = place.countryCode?.trim().toUpperCase();
+    if (code != null && code.length == 2) return code;
+
     final haystack = '${place.name} ${place.address}'.toLowerCase();
     WorldCountry? best;
     for (final country in WorldCountries.all) {
@@ -116,7 +107,8 @@ class _PostDeliveryScreenState extends State<PostDeliveryScreen> {
     final city = WorldCities.byName(place.name);
     if (city != null) return city.countryIso;
 
-    return '';
+    // Backend requires a non-empty code; XX = unresolved (still allows post).
+    return 'XX';
   }
 
   Future<void> _submit() async {
@@ -235,11 +227,11 @@ class _PostDeliveryScreenState extends State<PostDeliveryScreen> {
           behavior: SnackBarBehavior.floating,
         ),
       );
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Unable to post delivery. Please try again.'),
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
           behavior: SnackBarBehavior.floating,
         ),
       );

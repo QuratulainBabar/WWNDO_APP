@@ -1,5 +1,3 @@
-// TEMPORARILY DISABLED - SUMSUB KYC
-// Preserved for restoration; app_router.dart no longer exposes this flow.
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';

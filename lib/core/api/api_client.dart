@@ -1,7 +1,9 @@
 import 'dart:convert';
-import 'dart:io';
 
+import 'package:cross_file/cross_file.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 import '../config/api_config.dart';
 import 'api_exception.dart';
@@ -94,7 +96,6 @@ class ApiClient {
     if (authenticated) {
       var token = getAccessToken != null ? await getAccessToken!() : null;
 
-      // Access token missing/expired locally — try refresh before calling the API.
       if ((token == null || token.isEmpty) &&
           !retried &&
           refreshTokens != null) {
@@ -116,6 +117,9 @@ class ApiClient {
     }
 
     final uri = Uri.parse('${ApiConfig.apiV1}$path');
+    if (kDebugMode) {
+      debugPrint('API → $method $uri');
+    }
 
     late final http.Response response;
     try {
@@ -129,21 +133,28 @@ class ApiClient {
       } else {
         response = await _send(method, uri, headers, body);
       }
-    } on SocketException {
-      throw const ApiException(
-        message: 'Unable to reach the server. Check your connection and try again.',
-        code: 'NETWORK_ERROR',
-      );
+    } on ApiException {
+      rethrow;
     } on http.ClientException {
       throw const ApiException(
         message: 'Unable to reach the server. Check your connection and try again.',
         code: 'NETWORK_ERROR',
       );
-    } on FormatException {
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('API network error: $e');
+      }
       throw const ApiException(
-        message: 'Received an invalid response from the server.',
-        code: 'PARSE_ERROR',
+        message: 'Unable to reach the server. Check your connection and try again.',
+        code: 'NETWORK_ERROR',
       );
+    }
+
+    if (kDebugMode) {
+      debugPrint('API ← ${response.statusCode} $uri');
+      if (response.body.isNotEmpty && response.body.length < 2000) {
+        debugPrint('API body: ${response.body}');
+      }
     }
 
     if (authenticated &&
@@ -164,7 +175,19 @@ class ApiClient {
       }
     }
 
-    return _parseResponse(response);
+    try {
+      return _parseResponse(response);
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('API parse error: $e');
+      }
+      throw const ApiException(
+        message: 'Received an invalid response from the server.',
+        code: 'PARSE_ERROR',
+      );
+    }
   }
 
   Future<http.Response> _send(
@@ -193,6 +216,7 @@ class ApiClient {
     }
   }
 
+  /// Reads photo bytes via [XFile] so uploads work on Android, iOS, and web.
   Future<http.Response> _sendMultipart(
     Uri uri,
     Map<String, String> headers,
@@ -204,24 +228,47 @@ class ApiClient {
     request.fields.addAll(fields);
 
     for (final part in files) {
-      final file = File(part.filePath);
-      if (!await file.exists()) {
-        throw ApiException(
-          message: 'Photo file not found: ${part.filePath}',
+      final xfile = XFile(part.filePath);
+      late final List<int> bytes;
+      try {
+        bytes = await xfile.readAsBytes();
+      } catch (_) {
+        throw const ApiException(
+          message: 'Could not read parcel photo. Please re-add the photo and try again.',
           code: 'VALIDATION_ERROR',
         );
       }
+      if (bytes.isEmpty) {
+        throw const ApiException(
+          message: 'Parcel photo is empty. Please re-add the photo and try again.',
+          code: 'VALIDATION_ERROR',
+        );
+      }
+
+      final name = part.filename ??
+          _basename(part.filePath.isNotEmpty ? part.filePath : 'photo.jpg');
+      final filename = name.contains('.') ? name : '$name.jpg';
       request.files.add(
-        await http.MultipartFile.fromPath(
+        http.MultipartFile.fromBytes(
           part.field,
-          part.filePath,
-          filename: part.filename ?? _basename(part.filePath),
+          bytes,
+          filename: filename,
+          contentType: _imageMediaType(filename),
         ),
       );
     }
 
     final streamed = await _http.send(request);
     return http.Response.fromStream(streamed);
+  }
+
+  static MediaType _imageMediaType(String filename) {
+    final lower = filename.toLowerCase();
+    if (lower.endsWith('.png')) return MediaType('image', 'png');
+    if (lower.endsWith('.webp')) return MediaType('image', 'webp');
+    if (lower.endsWith('.heic')) return MediaType('image', 'heic');
+    if (lower.endsWith('.heif')) return MediaType('image', 'heif');
+    return MediaType('image', 'jpeg');
   }
 
   static String _basename(String path) {

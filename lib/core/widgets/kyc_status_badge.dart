@@ -11,16 +11,6 @@ class KycStatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // TEMPORARILY DISABLED - SUMSUB KYC
-    // Do not display or interpret persisted KYC decisions while paused.
-    return const AppBadge(
-      label: 'temporarily unavailable',
-      color: AppColors.warning,
-      backgroundColor: Color(0x1AF59E0B),
-    );
-
-    /*
-    Preserved KYC status rendering:
     if (user == null) {
       return const AppBadge(
         label: 'required',
@@ -47,6 +37,5 @@ class KycStatusBadge extends StatelessWidget {
           backgroundColor: Color(0x1AF59E0B),
         ),
     };
-    */
   }
 }

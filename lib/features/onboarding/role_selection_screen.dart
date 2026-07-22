@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/auth/selected_role.dart';
+import '../../core/auth/post_auth_navigation.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_button.dart';
@@ -59,13 +60,12 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
 
       if (!mounted) return;
 
-      final user = auth.user;
-      if (user != null && !user.isFullyCrossVerified) {
-        context.go('/verify-account');
-        return;
-      }
-
-      context.go(SelectedRoleStore.homeRouteFor(role));
+      // Email/phone verify → Sumsub KYC → home
+      await PostAuthNavigation.continueAfterAuth(
+        context,
+        offerBiometricSetup: false,
+        requireVerification: true,
+      );
     } catch (e) {
       if (mounted) {
         AppToast.error(

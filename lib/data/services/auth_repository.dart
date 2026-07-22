@@ -2,6 +2,7 @@ import '../../core/api/api_client.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/auth/selected_role.dart';
 import '../../core/config/demo_mode.dart';
+import '../../core/platform/biometric_prefs.dart';
 import '../models/auth_user.dart';
 import '../models/otp_channel.dart';
 import '../static_data.dart';
@@ -43,7 +44,17 @@ class AuthRepository {
     ]);
     if (_isDemoMode) return;
 
+    final access = await _tokenStorage.getAccessToken();
     final refreshToken = await _tokenStorage.getRefreshToken();
+
+    // Soft-locked for biometric unlock: keep refresh token, do not auto-login.
+    if ((access == null || access.isEmpty) &&
+        refreshToken != null &&
+        await BiometricPrefs.isLoginEnabled()) {
+      _currentUser = null;
+      return;
+    }
+
     if (refreshToken != null) {
       try {
         await refreshSession();
@@ -189,9 +200,24 @@ class AuthRepository {
     return true;
   }
 
-  Future<void> logout() async {
+  Future<void> logout({bool forceFull = false}) async {
+    final biometricEnabled =
+        !forceFull && await BiometricPrefs.isLoginEnabled();
+
     if (_isDemoMode) {
+      if (biometricEnabled) {
+        await _tokenStorage.lockForBiometric();
+        _currentUser = null;
+        return;
+      }
       await DemoAuthService.logout(_tokenStorage);
+      _currentUser = null;
+      return;
+    }
+
+    // Soft lock: keep refresh token so biometric unlock can restore the session.
+    if (biometricEnabled) {
+      await _tokenStorage.lockForBiometric();
       _currentUser = null;
       return;
     }
@@ -212,6 +238,13 @@ class AuthRepository {
     } catch (_) {
       // Local session is already cleared; server revoke is best-effort.
     }
+  }
+
+  /// Whether a biometric unlock can restore a prior session.
+  Future<bool> canUnlockWithBiometric() async {
+    if (!await BiometricPrefs.isLoginEnabled()) return false;
+    final refresh = await _tokenStorage.getRefreshToken();
+    return refresh != null && refresh.isNotEmpty;
   }
 
   Future<AuthUser> fetchProfile() async {

@@ -103,6 +103,13 @@ class TokenStorage {
     ]);
   }
 
+  /// Locks the app session for biometric re-entry: drops the access token but
+  /// keeps refresh token + cached user so Face ID / Fingerprint can unlock.
+  Future<void> lockForBiometric() async {
+    _accessTokenMemory = null;
+    await _delete(_accessTokenKey);
+  }
+
   Future<void> _write(String key, String value) async {
     // Always persist to SharedPreferences as a reliable backup.
     try {

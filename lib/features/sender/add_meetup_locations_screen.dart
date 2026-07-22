@@ -3,11 +3,13 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../data/models/meetup_location.dart';
 import '../../data/services/places_search_service.dart';
+import '../../providers/auth_provider.dart';
 
 /// Maps-style meetup location picker (search + multi-stop), themed for WWNGO.
 class AddMeetupLocationsScreen extends StatefulWidget {
@@ -17,12 +19,15 @@ class AddMeetupLocationsScreen extends StatefulWidget {
     this.maxLocations = 3,
     this.title = 'Meetup locations',
     this.searchHint = 'Search meetup location',
+    this.citySearch = false,
   });
 
   final List<MeetupLocation> initialLocations;
   final int maxLocations;
   final String title;
   final String searchHint;
+  /// When true, search cities only (From / To route fields).
+  final bool citySearch;
 
   @override
   State<AddMeetupLocationsScreen> createState() =>
@@ -32,7 +37,7 @@ class AddMeetupLocationsScreen extends StatefulWidget {
 enum _PickerMode { browse, search, multiStop }
 
 class _AddMeetupLocationsScreenState extends State<AddMeetupLocationsScreen> {
-  final PlacesSearchService _placesService = PlacesSearchService();
+  PlacesSearchService? _placesService;
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
 
@@ -44,6 +49,12 @@ class _AddMeetupLocationsScreenState extends State<AddMeetupLocationsScreen> {
   bool _searching = false;
   Timer? _debounce;
   String? _searchError;
+
+  PlacesSearchService get _places {
+    return _placesService ??= PlacesSearchService(
+      apiClient: context.read<AuthProvider>().repository.apiClient,
+    );
+  }
 
   @override
   void initState() {
@@ -114,7 +125,9 @@ class _AddMeetupLocationsScreenState extends State<AddMeetupLocationsScreen> {
 
     _debounce = Timer(const Duration(milliseconds: 350), () async {
       try {
-        final results = await _placesService.search(value);
+        final results = widget.citySearch
+            ? await _places.searchCities(value)
+            : await _places.search(value);
         if (!mounted) return;
         setState(() {
           _suggestions = results;
@@ -131,15 +144,22 @@ class _AddMeetupLocationsScreenState extends State<AddMeetupLocationsScreen> {
     });
   }
 
-  void _selectPlace(MeetupLocation place) {
+  Future<void> _selectPlace(MeetupLocation place) async {
+    MeetupLocation resolved = place;
+    if (place.placeId != null && place.placeId!.isNotEmpty) {
+      setState(() => _searching = true);
+      resolved = await _places.resolveDetails(place);
+      if (!mounted) return;
+    }
+
     setState(() {
       if (_editingStopIndex != null &&
           _editingStopIndex! >= 0 &&
           _editingStopIndex! < _stops.length) {
-        _stops[_editingStopIndex!] = place;
+        _stops[_editingStopIndex!] = resolved;
       } else {
         if (_stops.length < widget.maxLocations) {
-          _stops.add(place);
+          _stops.add(resolved);
         }
       }
       _mode = _PickerMode.multiStop;
@@ -147,6 +167,7 @@ class _AddMeetupLocationsScreenState extends State<AddMeetupLocationsScreen> {
       _suggestions = [];
       _searchController.clear();
       _searchError = null;
+      _searching = false;
     });
     FocusScope.of(context).unfocus();
   }

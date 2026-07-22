@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+import '../../core/api/api_exception.dart';
+import '../../core/config/demo_mode.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/layout/responsive.dart';
@@ -9,11 +12,13 @@ import '../../core/widgets/app_svg_icon.dart';
 import '../../core/widgets/back_link.dart';
 import '../../core/widgets/screen_body.dart';
 import '../../core/widgets/wallet_card.dart';
+import '../../data/models/created_delivery.dart';
 import '../../data/models/wallet_role.dart';
 import '../../data/notification_service.dart';
-import '../../data/static_data.dart';
+import '../../data/services/delivery_repository.dart';
 import '../../core/auth/auth_verification_guard.dart';
 import '../../core/auth/kyc_verification_guard.dart';
+import '../../providers/auth_provider.dart';
 import '../sender/delivery_posting_actions.dart';
 
 class MainShell extends StatelessWidget {
@@ -89,14 +94,214 @@ class _Tab extends StatelessWidget {
   }
 }
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
+  bool _activeLoading = true;
+  String? _activeError;
+  List<CreatedDelivery>? _activeDeliveries;
+  String? _lastMatchedLocation;
+
+  List<CreatedDelivery> get _activeItems =>
+      _activeDeliveries ?? const <CreatedDelivery>[];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _activeDeliveries = const [];
+    // Keep greeting in sync with `/auth/me` (name/rating from API).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<AuthProvider>().refreshUser();
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Reload when landing on Home (tab switch or go('/home') after posting).
+    final location = GoRouterState.of(context).matchedLocation;
+    if (location == '/home' && _lastMatchedLocation != '/home') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _loadActiveDeliveries(silent: _activeItems.isNotEmpty);
+      });
+    }
+    _lastMatchedLocation = location;
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _loadActiveDeliveries(silent: true);
+    }
+  }
+
+  DeliveryRepository _deliveryRepository() {
+    final auth = context.read<AuthProvider>();
+    final demoMode = context.read<DemoModeProvider>();
+    return DeliveryRepository(
+      apiClient: auth.repository.apiClient,
+      demoMode: demoMode,
+    );
+  }
+
+  Future<void> _loadActiveDeliveries({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _activeLoading = true;
+        _activeError = null;
+      });
+    }
+
+    try {
+      final list = await _deliveryRepository().listDeliveries();
+      if (!mounted) return;
+      final active = list
+          .where((d) => _HomeDeliveryStatus.fromApi(d.status).isActive)
+          .toList();
+      setState(() {
+        _activeDeliveries = active;
+        _activeLoading = false;
+        _activeError = null;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _activeLoading = false;
+        _activeError = e.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _activeLoading = false;
+        _activeError = 'Unable to load active deliveries.';
+      });
+    }
+  }
+
+  Widget _activeDeliveriesSection(BuildContext context) {
+    final typo = context.typo;
+
+    if (_activeLoading && _activeItems.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 12),
+        child: Center(
+          child: SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.5,
+              color: AppColors.primary,
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (_activeError != null && _activeItems.isEmpty) {
+      return AppCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              _activeError!,
+              style: typo.sm.copyWith(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () => _loadActiveDeliveries(),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_activeItems.isEmpty) {
+      return AppCard(
+        child: Text(
+          'No active deliveries yet.',
+          style: typo.sm.copyWith(color: AppColors.textSecondary),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        for (var i = 0; i < _activeItems.length; i++) ...[
+          if (i > 0) const SizedBox(height: 10),
+          _activeDeliveryCard(context, _activeItems[i]),
+        ],
+      ],
+    );
+  }
+
+  Widget _activeDeliveryCard(BuildContext context, CreatedDelivery delivery) {
+    final typo = context.typo;
+    final status = _HomeDeliveryStatus.fromApi(delivery.status);
+    final idLabel =
+        delivery.publicId.isNotEmpty ? delivery.publicId : delivery.id;
+
+    return GestureDetector(
+      onTap: () async {
+        await context.push('/my-posted-parcels');
+        if (mounted) _loadActiveDeliveries(silent: true);
+      },
+      child: AppCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Flexible(
+                  child: Text(
+                    idLabel,
+                    style: typo.h3.copyWith(fontWeight: FontWeight.w700),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                AppBadge(
+                  label: status.label,
+                  color: status.color,
+                  backgroundColor: status.backgroundColor,
+                  semiBold: true,
+                  wide: true,
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              delivery.route.isNotEmpty ? delivery.route : '—',
+              style: typo.sm,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
-    final user = StaticData.currentUser;
-    final shipment = StaticData.activeShipment;
+    final authUser = context.watch<AuthProvider>().user;
+    final firstName = (authUser?.firstName.trim().isNotEmpty ?? false)
+        ? authUser!.firstName
+        : 'there';
+    final rating = authUser?.rating ?? 0;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -113,8 +318,8 @@ class HomeScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Hey, ${user.firstName} 👋', style: typo.h1, overflow: TextOverflow.ellipsis),
-                      Text('★ ${user.rating} · Sender', style: typo.sm),
+                      Text('Hey, $firstName 👋', style: typo.h1, overflow: TextOverflow.ellipsis),
+                      Text('★ $rating · Sender', style: typo.sm),
                     ],
                   ),
                 ),
@@ -123,12 +328,13 @@ class HomeScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             GestureDetector(
-              onTap: () {
+              onTap: () async {
                 // Wallet balance gate first — must not be masked by auth/KYC dialogs.
                 if (!DeliveryPostingActions.ensureWalletAllowsParcelCreation(context)) return;
                 if (!AuthVerificationGuard.ensureVerifiedForTransaction(context)) return;
                 if (!KycVerificationGuard.ensureKycApproved(context)) return;
-                context.push('/delivery-type');
+                await context.push('/delivery-type');
+                if (mounted) _loadActiveDeliveries(silent: true);
               },
               child: Container(
               padding: const EdgeInsets.fromLTRB(18, 16, 12, 16),
@@ -185,32 +391,13 @@ class HomeScreen extends StatelessWidget {
             SizedBox(height: context.blockGap),
             Text('Active deliveries', style: typo.h3.copyWith(fontWeight: FontWeight.w700)),
             const SizedBox(height: 12),
-            GestureDetector(
-              onTap: () => context.push(
-                StaticData.senderParcelOpenRoute(shipment.id),
-              ),
-              child: AppCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(shipment.id, style: typo.h3.copyWith(fontWeight: FontWeight.w700)),
-                        AppBadge.status(shipment.status, semiBold: true, wide: true),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(shipment.route, style: typo.sm),
-                  ],
-                ),
-              ),
-            ),
+            _activeDeliveriesSection(context),
           ],
         ),
       ),
     );
   }
+
 
   Widget _menuLink(
     BuildContext context, {
@@ -280,7 +467,7 @@ class HomeScreen extends StatelessWidget {
           side: const BorderSide(color: AppColors.border),
         ),
         child: InkWell(
-          onTap: () {
+          onTap: () async {
             if (requireWalletBalance &&
                 !DeliveryPostingActions.ensureWalletAllowsParcelCreation(context)) {
               return;
@@ -291,7 +478,8 @@ class HomeScreen extends StatelessWidget {
             if (requireVerification && !KycVerificationGuard.ensureKycApproved(context)) {
               return;
             }
-            context.push(route);
+            await context.push(route);
+            if (mounted) _loadActiveDeliveries(silent: true);
           },
           hoverColor: Colors.transparent,
           splashColor: Colors.transparent,
@@ -343,4 +531,60 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
+}
+
+/// Badge mapping for home Active Deliveries (mirrors My Posted Deliveries).
+class _HomeDeliveryStatus {
+  const _HomeDeliveryStatus({
+    required this.label,
+    required this.color,
+    required this.isActive,
+  });
+
+  final String label;
+  final Color color;
+  final bool isActive;
+
+  Color get backgroundColor => color.withValues(alpha: 0.12);
+
+  static _HomeDeliveryStatus fromApi(String? status) {
+    switch (status) {
+      case 'posted':
+        return const _HomeDeliveryStatus(
+          label: 'Receiver Pending',
+          color: AppColors.warning,
+          isActive: true,
+        );
+      case 'matched':
+        return const _HomeDeliveryStatus(
+          label: 'Traveler Selected',
+          color: AppColors.primary,
+          isActive: true,
+        );
+      case 'in_transit':
+        return const _HomeDeliveryStatus(
+          label: 'In Transit',
+          color: AppColors.transit,
+          isActive: true,
+        );
+      case 'delivered':
+        return const _HomeDeliveryStatus(
+          label: 'Delivered',
+          color: AppColors.success,
+          isActive: false,
+        );
+      case 'cancelled':
+        return const _HomeDeliveryStatus(
+          label: 'Cancelled',
+          color: AppColors.danger,
+          isActive: false,
+        );
+      default:
+        return const _HomeDeliveryStatus(
+          label: 'Posted',
+          color: AppColors.success,
+          isActive: true,
+        );
+    }
+  }
 }

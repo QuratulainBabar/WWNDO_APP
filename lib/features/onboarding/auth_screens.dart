@@ -1,8 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/layout/responsive.dart';
+import '../../core/platform/biometric_auth_service.dart';
 import '../../core/platform/platform_ui.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
@@ -269,8 +271,42 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _openBiometricFlow() async {
-    // TEMPORARILY DISABLED - SUMSUB KYC
-    // Preserved incorrect KYC destination: context.push('/kyc');
+    // Device Face ID / Fingerprint via local_auth.
+    if (kIsWeb) {
+      AppToast.info(
+        context,
+        '${PlatformUi.biometricShortLabel} login works on the Android/iOS app, not in the browser.',
+      );
+      return;
+    }
+
+    final auth = context.read<AuthProvider>();
+    final canUnlock = await auth.canUnlockWithBiometric();
+    if (!mounted) return;
+
+    if (!canUnlock) {
+      AppToast.info(
+        context,
+        'Log in with email and password first, then enable ${PlatformUi.biometricShortLabel} in Settings (or when prompted).',
+      );
+      return;
+    }
+
+    final supported = await BiometricAuthService.isDeviceSupported();
+    final canCheck = await BiometricAuthService.canCheckBiometrics();
+    final enrolled = await BiometricAuthService.getAvailableBiometrics();
+    if (!mounted) return;
+
+    if (!supported || !canCheck || enrolled.isEmpty) {
+      context.push(
+        '/biometric/unavailable',
+        extra: !supported
+            ? '${PlatformUi.biometricShortLabel} is not available on this device.'
+            : 'No ${PlatformUi.biometricShortLabel.toLowerCase()} is set up on this device. Add one in your device settings first.',
+      );
+      return;
+    }
+
     context.push('/biometric/login');
   }
 

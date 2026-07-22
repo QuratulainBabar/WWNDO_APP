@@ -70,18 +70,10 @@ class _CountryToCountryPostDeliveryScreenState
   @override
   void initState() {
     super.initState();
-    final shipment = StaticData.activeShipment;
-    _weightKg = shipment.parcelWeightKg;
-    _descriptionController = TextEditingController(text: shipment.description);
+    _weightKg = 1;
+    _descriptionController = TextEditingController();
     final today = DateTime.now();
-    final shipmentDate = DateTime(
-      shipment.travelDate.year,
-      shipment.travelDate.month,
-      shipment.travelDate.day,
-    );
-    final todayDate = DateTime(today.year, today.month, today.day);
-    _travelDate = shipmentDate.isBefore(todayDate) ? todayDate : shipmentDate;
-
+    _travelDate = DateTime(today.year, today.month, today.day).add(const Duration(days: 1));
     _fromAirport = null;
     _toAirport = null;
   }
@@ -213,11 +205,11 @@ class _CountryToCountryPostDeliveryScreenState
           behavior: SnackBarBehavior.floating,
         ),
       );
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Unable to post delivery. Please try again.'),
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
           behavior: SnackBarBehavior.floating,
         ),
       );

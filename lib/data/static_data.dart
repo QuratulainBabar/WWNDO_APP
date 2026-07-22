@@ -2262,12 +2262,6 @@ abstract final class StaticData {
 
   /// Section 2.3 — KYC must be approved for marketplace actions.
   static String? validateKycApproved(AuthUser? authUser) {
-    // TEMPORARILY DISABLED - SUMSUB KYC
-    // Marketplace access no longer depends on KYC while the integration is paused.
-    return null;
-
-    /*
-    Preserved KYC enforcement:
     if (authUser?.isKycApproved == true) return null;
     if (authUser?.isKycSubmitted == true) {
       return 'KYC is pending review. You will be notified once approved.';
@@ -2276,15 +2270,13 @@ abstract final class StaticData {
       return 'KYC was rejected. Please retry identity verification.';
     }
     return 'KYC must be approved before this action.';
-    */
   }
 
   /// Validates KYC + wallet balance before allowing a traveler to post a trip.
   /// Returns an error message, or null when posting is allowed.
   static String? validateTripPosting(AuthUser? authUser) {
-    // TEMPORARILY DISABLED - SUMSUB KYC
-    // final kycError = validateKycApproved(authUser);
-    // if (kycError != null) return kycError;
+    final kycError = validateKycApproved(authUser);
+    if (kycError != null) return kycError;
 
     return TripCreationWalletValidation.validate();
   }
@@ -3868,9 +3860,8 @@ abstract final class StaticData {
     String? tripId,
     AuthUser? authUser,
   }) {
-    // TEMPORARILY DISABLED - SUMSUB KYC
-    // final kycError = validateKycApproved(authUser);
-    // if (kycError != null) return kycError;
+    final kycError = validateKycApproved(authUser);
+    if (kycError != null) return kycError;
 
     if (amount <= 0) {
       return 'Enter a valid bid amount.';

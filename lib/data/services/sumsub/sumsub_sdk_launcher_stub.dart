@@ -1,9 +1,8 @@
 import '../../models/kyc_models.dart';
 import 'sumsub_sdk_launcher.dart';
 
-/// TEMPORARILY DISABLED - SUMSUB KYC
-/// Inert launcher used on every platform while the integration is paused.
-class MobileSumsubSdkLauncher implements SumsubSdkLauncher {
+/// Fallback launcher for web / desktop — Sumsub MobileSDK is Android/iOS only.
+class StubSumsubSdkLauncher implements SumsubSdkLauncher {
   @override
   bool get isSupported => false;
 
@@ -15,10 +14,11 @@ class MobileSumsubSdkLauncher implements SumsubSdkLauncher {
     return const SumsubSdkOutcome(
       status: SumsubSdkOutcomeStatus.failed,
       success: false,
-      errorMessage: 'Identity verification is temporarily unavailable.',
-      rawStatus: 'TemporarilyDisabled',
+      errorMessage:
+          'Sumsub identity verification requires the Android or iOS app.',
+      rawStatus: 'Unsupported',
     );
   }
 }
 
-SumsubSdkLauncher createSumsubSdkLauncher() => MobileSumsubSdkLauncher();
+SumsubSdkLauncher createSumsubSdkLauncher() => StubSumsubSdkLauncher();

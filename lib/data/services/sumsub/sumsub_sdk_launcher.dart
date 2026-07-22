@@ -1,5 +1,3 @@
-// TEMPORARILY DISABLED - SUMSUB KYC
-// Interface retained for compatibility; the factory always supplies the stub.
 import '../../models/kyc_models.dart';
 
 /// Platform-agnostic Sumsub SDK launcher.

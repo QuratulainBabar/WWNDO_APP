@@ -14,28 +14,14 @@ class KycRepository {
         _demoMode = demoMode,
         _currentUser = currentUser;
 
-  // TEMPORARILY DISABLED - SUMSUB KYC
-  // Retained for restoring the preserved API calls below.
-  // ignore: unused_field
   final ApiClient _apiClient;
   final DemoModeProvider? _demoMode;
   final AuthUser? Function()? _currentUser;
 
-  // ignore: unused_element
   bool get _isDemoMode => _demoMode?.enabled ?? false;
 
   /// POST /api/v1/kyc/access-token
   Future<SumsubAccessToken> fetchAccessToken() async {
-    // TEMPORARILY DISABLED - SUMSUB KYC
-    // No backend call or SDK access token may be issued while KYC is paused.
-    throw const ApiException(
-      message: 'Identity verification is temporarily unavailable.',
-      code: 'KYC_DISABLED',
-      statusCode: 503,
-    );
-
-    /*
-    Preserved Sumsub implementation:
     if (_isDemoMode) {
       throw const ApiException(
         message:
@@ -45,22 +31,10 @@ class KycRepository {
     }
     final data = await _apiClient.post('/kyc/access-token', authenticated: true);
     return SumsubAccessToken.fromJson(data);
-    */
   }
 
   /// GET /api/v1/kyc/status
   Future<KycStatusResult> fetchStatus({bool sync = true}) async {
-    // TEMPORARILY DISABLED - SUMSUB KYC
-    // Return local compatibility data only; never synchronize with the backend.
-    final user = _currentUser?.call();
-    return KycStatusResult(
-      kycStatus: KycStatusValue.fromString(user?.kycStatus),
-      synced: false,
-      userJson: user?.toJson(),
-    );
-
-    /*
-    Preserved Sumsub implementation:
     if (_isDemoMode) {
       final user = _currentUser?.call();
       return KycStatusResult(
@@ -74,7 +48,6 @@ class KycRepository {
       authenticated: true,
     );
     return KycStatusResult.fromJson(data);
-    */
   }
 
   AuthUser? userFromStatus(KycStatusResult status) {

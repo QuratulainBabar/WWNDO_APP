@@ -12,6 +12,7 @@ import '../../core/widgets/back_link.dart';
 import '../../core/widgets/otp_code_field.dart';
 import '../../core/widgets/otp_countdown_timer.dart';
 import '../../core/widgets/screen_body.dart';
+import '../../core/auth/post_auth_navigation.dart';
 import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
 
@@ -91,7 +92,10 @@ class _LoginOtpVerificationScreenState extends State<LoginOtpVerificationScreen>
       if (user.accountStatus == 'suspended') {
         context.go('/account-suspended');
       } else {
-        context.go('/role-selection');
+        await PostAuthNavigation.continueAfterAuth(
+          context,
+          offerBiometricSetup: true,
+        );
       }
     } on ApiException catch (e) {
       if (mounted) AppToast.error(context, e.message);

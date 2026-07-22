@@ -1,27 +1,20 @@
-import 'dart:io' show Platform;
-
-import 'package:flutter/foundation.dart';
-
 /// API base URL for the WWNGO backend.
 ///
-/// - Android emulator: `10.0.2.2` maps to the host machine's localhost.
-/// - iOS simulator / desktop: use `localhost`.
-/// - Physical device: set your machine's LAN IP, e.g. `http://192.168.1.10:3000`.
+/// Default points at the hosted API. Override for local/dev with:
+/// `flutter run --dart-define=API_BASE_URL=http://localhost:3000`
 class ApiConfig {
   ApiConfig._();
 
-  static const int port = 3000;
-
-  /// Override with `--dart-define=API_HOST=192.168.x.x` on a physical device.
-  static const String androidHost = String.fromEnvironment(
-    'API_HOST',
-    defaultValue: '10.0.2.2',
+  static const String _configuredBase = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'https://wango.toolkitpro.cloud',
   );
 
+  /// Hosted / configured API origin (no trailing slash).
   static String get baseUrl {
-    if (kIsWeb) return 'http://localhost:$port';
-    if (Platform.isAndroid) return 'http://$androidHost:$port';
-    return 'http://localhost:$port';
+    final raw = _configuredBase.trim();
+    if (raw.endsWith('/')) return raw.substring(0, raw.length - 1);
+    return raw;
   }
 
   static String get apiV1 => '$baseUrl/api/v1';

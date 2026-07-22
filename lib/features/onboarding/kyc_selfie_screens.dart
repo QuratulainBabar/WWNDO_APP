@@ -1,5 +1,3 @@
-// TEMPORARILY DISABLED - SUMSUB KYC
-// Preserved for restoration; app_router.dart no longer exposes this flow.
 import 'dart:async';
 
 import 'package:flutter/material.dart';

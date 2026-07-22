@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import '../../core/config/demo_mode.dart';
-import '../../core/theme/app_colors.dart';
+// Demo app mode UI is commented out — live API only on welcome.
+// import '../../core/config/demo_mode.dart';
+// import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/gradient_background.dart';
-import '../../data/static_data.dart';
+// import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
-import '../../core/auth/post_auth_navigation.dart';
+// import '../../core/auth/post_auth_navigation.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -82,17 +83,18 @@ class _SplashScreenState extends State<SplashScreen> {
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
 
-  Future<void> _exploreDemoApp(BuildContext context) async {
-    final auth = context.read<AuthProvider>();
-    await auth.signInAsDemo();
-    if (!context.mounted) return;
-    await PostAuthNavigation.continueAfterAuth(context, offerBiometricSetup: false);
-  }
+  // Demo app mode entry point — kept for easy re-enable later.
+  // Future<void> _exploreDemoApp(BuildContext context) async {
+  //   final auth = context.read<AuthProvider>();
+  //   await auth.signInAsDemo();
+  //   if (!context.mounted) return;
+  //   await PostAuthNavigation.continueAfterAuth(context, offerBiometricSetup: false);
+  // }
 
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
-    final demoMode = context.watch<DemoModeProvider>();
+    // final demoMode = context.watch<DemoModeProvider>();
 
     return Scaffold(
       body: PrimaryGradientBackground(
@@ -109,13 +111,14 @@ class WelcomeScreen extends StatelessWidget {
                     child: IntrinsicHeight(
                       child: Column(
                         children: [
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-                            child: _DemoModeToggle(
-                              enabled: demoMode.enabled,
-                              onChanged: demoMode.setEnabled,
-                            ),
-                          ),
+                          // Demo app mode toggle — commented out (live API only).
+                          // Padding(
+                          //   padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                          //   child: _DemoModeToggle(
+                          //     enabled: demoMode.enabled,
+                          //     onChanged: demoMode.setEnabled,
+                          //   ),
+                          // ),
                           Expanded(
                             child: Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -139,17 +142,17 @@ class WelcomeScreen extends StatelessWidget {
                                     textAlign: TextAlign.center,
                                     style: typo.welcomeSubtext,
                                   ),
-                                  if (demoMode.enabled) ...[
-                                    const SizedBox(height: 20),
-                                    Text(
-                                      'Demo mode is on — no server needed.\nOTP code: ${StaticData.demoOtpCode}',
-                                      textAlign: TextAlign.center,
-                                      style: typo.sm.copyWith(
-                                        color: Colors.white.withValues(alpha: 0.9),
-                                        height: 1.4,
-                                      ),
-                                    ),
-                                  ],
+                                  // if (demoMode.enabled) ...[
+                                  //   const SizedBox(height: 20),
+                                  //   Text(
+                                  //     'Demo mode is on — no server needed.\nOTP code: ${StaticData.demoOtpCode}',
+                                  //     textAlign: TextAlign.center,
+                                  //     style: typo.sm.copyWith(
+                                  //       color: Colors.white.withValues(alpha: 0.9),
+                                  //       height: 1.4,
+                                  //     ),
+                                  //   ),
+                                  // ],
                                 ],
                               ),
                             ),
@@ -158,19 +161,20 @@ class WelcomeScreen extends StatelessWidget {
                             padding: const EdgeInsets.fromLTRB(24, 0, 24, 56),
                             child: Column(
                               children: [
-                                if (demoMode.enabled) ...[
-                                  AppButton(
-                                    label: 'Explore demo app →',
-                                    textStyle: typo.welcomeButton,
-                                    onPressed: () => _exploreDemoApp(context),
-                                  ),
-                                  const SizedBox(height: AppButton.stackGap),
-                                ],
+                                // if (demoMode.enabled) ...[
+                                //   AppButton(
+                                //     label: 'Explore demo app →',
+                                //     textStyle: typo.welcomeButton,
+                                //     onPressed: () => _exploreDemoApp(context),
+                                //   ),
+                                //   const SizedBox(height: AppButton.stackGap),
+                                // ],
                                 AppButton(
                                   label: 'Sign up',
-                                  variant: demoMode.enabled
-                                      ? AppButtonVariant.outlineWhite
-                                      : AppButtonVariant.primary,
+                                  variant: AppButtonVariant.primary,
+                                  // variant: demoMode.enabled
+                                  //     ? AppButtonVariant.outlineWhite
+                                  //     : AppButtonVariant.primary,
                                   textStyle: typo.welcomeButton,
                                   onPressed: () => context.push('/register'),
                                 ),
@@ -198,55 +202,56 @@ class WelcomeScreen extends StatelessWidget {
   }
 }
 
-class _DemoModeToggle extends StatelessWidget {
-  const _DemoModeToggle({
-    required this.enabled,
-    required this.onChanged,
-  });
-
-  final bool enabled;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Demo app mode',
-                  style: context.typo.sm.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  enabled ? 'Offline — static data, no backend' : 'Live — needs backend server',
-                  style: context.typo.sm.copyWith(
-                    color: Colors.white.withValues(alpha: 0.85),
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Switch.adaptive(
-            value: enabled,
-            activeTrackColor: AppColors.primary,
-            onChanged: onChanged,
-          ),
-        ],
-      ),
-    );
-  }
-}
+// Demo app mode toggle widget — commented out with welcome UI.
+// class _DemoModeToggle extends StatelessWidget {
+//   const _DemoModeToggle({
+//     required this.enabled,
+//     required this.onChanged,
+//   });
+//
+//   final bool enabled;
+//   final ValueChanged<bool> onChanged;
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     return Container(
+//       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+//       decoration: BoxDecoration(
+//         color: Colors.white.withValues(alpha: 0.14),
+//         borderRadius: BorderRadius.circular(14),
+//         border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+//       ),
+//       child: Row(
+//         children: [
+//           Expanded(
+//             child: Column(
+//               crossAxisAlignment: CrossAxisAlignment.start,
+//               children: [
+//                 Text(
+//                   'Demo app mode',
+//                   style: context.typo.sm.copyWith(
+//                     color: Colors.white,
+//                     fontWeight: FontWeight.w700,
+//                   ),
+//                 ),
+//                 const SizedBox(height: 2),
+//                 Text(
+//                   enabled ? 'Offline — static data, no backend' : 'Live — needs backend server',
+//                   style: context.typo.sm.copyWith(
+//                     color: Colors.white.withValues(alpha: 0.85),
+//                     fontSize: 12,
+//                   ),
+//                 ),
+//               ],
+//             ),
+//           ),
+//           Switch.adaptive(
+//             value: enabled,
+//             activeTrackColor: AppColors.primary,
+//             onChanged: onChanged,
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+// }

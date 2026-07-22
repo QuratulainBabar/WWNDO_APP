@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/widgets/app_toast.dart';
 import '../../data/models/traveler_trip.dart';
 import '../../data/static_data.dart';
 import '../../data/trip_creation_wallet_validation.dart';
+import '../../providers/auth_provider.dart';
 
 /// Shared gate + post helper for traveler trip creation screens.
 abstract final class TripPostingActions {
@@ -31,10 +33,12 @@ abstract final class TripPostingActions {
     // Wallet gate first so the $3 message is never masked by other dialogs.
     if (!ensureWalletAllowsTripCreation(context)) return false;
 
-    // TEMPORARILY DISABLED - SUMSUB KYC
-    // final authUser = context.read<AuthProvider>().user;
-    // final kycError = StaticData.validateKycApproved(authUser);
-    // if (kycError != null) { show feedback; return false; }
+    final authUser = context.read<AuthProvider>().user;
+    final kycError = StaticData.validateKycApproved(authUser);
+    if (kycError != null) {
+      AppToast.error(context, kycError);
+      return false;
+    }
 
     StaticData.addTravelerPostedTrip(trip);
     context.go('/post-trip/success', extra: trip.route);

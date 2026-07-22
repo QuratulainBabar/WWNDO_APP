@@ -64,10 +64,10 @@ class DeliveryRepository {
       authenticated: true,
     );
     final list = data['deliveries'];
-    if (list is! List) return const [];
+    if (list is! List) return const <CreatedDelivery>[];
     return list
-        .whereType<Map<String, dynamic>>()
-        .map(CreatedDelivery.fromJson)
+        .whereType<Map>()
+        .map((item) => CreatedDelivery.fromJson(Map<String, dynamic>.from(item)))
         .toList();
   }
 

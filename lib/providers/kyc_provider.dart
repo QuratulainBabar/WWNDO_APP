@@ -8,9 +8,6 @@ import '../data/services/kyc_repository.dart';
 import '../data/services/sumsub/sumsub_sdk_factory.dart';
 import '../data/services/sumsub/sumsub_sdk_launcher.dart';
 
-/// TEMPORARILY DISABLED - SUMSUB KYC
-/// Retained as a compatibility provider. Its repository and SDK launcher are
-/// inert, so no Sumsub or backend KYC operation can run.
 class KycProvider extends ChangeNotifier {
   KycProvider({
     required AuthRepository authRepository,
@@ -51,7 +48,6 @@ class KycProvider extends ChangeNotifier {
       _lastStatus?.kycStatus ??
       KycStatusValue.fromString(_authRepository.currentUser?.kycStatus);
 
-  /// Returns local compatibility status only while Sumsub KYC is disabled.
   Future<KycStatusResult> refreshStatus({
     bool sync = true,
     bool silent = false,
@@ -92,8 +88,6 @@ class KycProvider extends ChangeNotifier {
     }
   }
 
-  /// TEMPORARILY DISABLED - SUMSUB KYC
-  /// The inert launcher causes this flow to stop before requesting a token.
   Future<({SumsubSdkOutcome outcome, KycStatusResult? status})> startVerification() async {
     _loading = true;
     _error = null;
@@ -105,7 +99,8 @@ class KycProvider extends ChangeNotifier {
         final outcome = const SumsubSdkOutcome(
           status: SumsubSdkOutcomeStatus.failed,
           success: false,
-          errorMessage: 'Identity verification is temporarily unavailable.',
+          errorMessage:
+              'Sumsub identity verification requires the Android or iOS app.',
         );
         _lastSdkOutcome = outcome;
         _error = outcome.errorMessage;

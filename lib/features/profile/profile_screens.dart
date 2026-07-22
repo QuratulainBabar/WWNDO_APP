@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import '../../core/api/api_exception.dart';
+import '../../core/auth/selected_role.dart';
 import '../../core/config/demo_mode.dart';
 import '../../core/layout/responsive.dart';
 import '../../core/widgets/kyc_status_badge.dart';
@@ -23,23 +25,89 @@ import '../../core/widgets/back_header.dart';
 import '../../core/widgets/back_link.dart';
 import '../../core/widgets/role_switch_card.dart';
 import '../../core/widgets/screen_body.dart';
+import '../../data/models/created_delivery.dart';
 import '../../data/models/shipment.dart';
 import '../../data/models/ledger_entry.dart';
 import '../../data/models/wallet_role.dart';
+import '../../data/services/delivery_repository.dart';
 import '../../data/static_data.dart';
 import '../../data/wallet_service.dart';
 import 'settings_flow_screens.dart';
 import 'widgets/profile_header_card.dart';
 import 'widgets/profile_trust_indicators.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  int? _activeCount;
+  int? _completedCount;
+  String? _lastMatchedLocation;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final location = GoRouterState.of(context).matchedLocation;
+    if (location == '/profile' && _lastMatchedLocation != '/profile') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _loadShipmentCounts(silent: _activeCount != null);
+      });
+    }
+    _lastMatchedLocation = location;
+  }
+
+  DeliveryRepository _deliveryRepository() {
+    final auth = context.read<AuthProvider>();
+    final demoMode = context.read<DemoModeProvider>();
+    return DeliveryRepository(
+      apiClient: auth.repository.apiClient,
+      demoMode: demoMode,
+    );
+  }
+
+  Future<void> _loadShipmentCounts({bool silent = false}) async {
+    try {
+      final list = await _deliveryRepository().listDeliveries();
+      if (!mounted) return;
+      var active = 0;
+      var completed = 0;
+      for (final d in list) {
+        if (_isCompletedDeliveryStatus(d.status)) {
+          completed++;
+        } else if (_isActiveDeliveryStatus(d.status)) {
+          active++;
+        }
+      }
+      setState(() {
+        _activeCount = active;
+        _completedCount = completed;
+      });
+    } on ApiException {
+      if (!mounted || silent) return;
+      setState(() {
+        _activeCount ??= 0;
+        _completedCount ??= 0;
+      });
+    } catch (_) {
+      if (!mounted || silent) return;
+      setState(() {
+        _activeCount ??= 0;
+        _completedCount ??= 0;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
     final authUser = context.watch<AuthProvider>().user;
     final user = authUser?.toUserProfile() ?? StaticData.currentUser;
+    final activeLabel = _activeCount?.toString() ?? '—';
+    final completedLabel = _completedCount?.toString() ?? '—';
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -68,7 +136,11 @@ class ProfileScreen extends StatelessWidget {
                 role: WalletRole.sender,
                 name: user.name,
                 initial: user.initial,
-                subtitle: 'Sender',
+                subtitle: switch (SelectedRoleStore.roleFromUser(authUser)) {
+                  WalletRole.traveler => 'Traveler',
+                  WalletRole.receiver => 'Receiver',
+                  _ => 'Sender',
+                },
                 memberSince: user.memberSince,
                 bio: user.bio,
                 rating: user.rating,
@@ -78,9 +150,25 @@ class ProfileScreen extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _stat(context, '${StaticData.senderActiveShipmentCount}', 'Active Shipments'),
+                    _stat(
+                      context,
+                      activeLabel,
+                      'Active Shipments',
+                      onTap: () async {
+                        await context.push('/my-posted-parcels');
+                        if (mounted) _loadShipmentCounts(silent: true);
+                      },
+                    ),
                     const SizedBox(width: 10),
-                    _stat(context, '${StaticData.senderCompletedShipmentCount}', 'Completed Shipments'),
+                    _stat(
+                      context,
+                      completedLabel,
+                      'Completed Shipments',
+                      onTap: () async {
+                        await context.push('/shipment-history');
+                        if (mounted) _loadShipmentCounts(silent: true);
+                      },
+                    ),
                   ],
                 ),
               ),
@@ -115,7 +203,10 @@ class ProfileScreen extends StatelessWidget {
                 children: [
                   _quickAction(context, AppIcons.track, 'My Shipments', () => context.go('/track')),
                   const SizedBox(width: 10),
-                  _quickAction(context, AppIcons.history, 'Shipment History', () => context.push('/shipment-history')),
+                  _quickAction(context, AppIcons.history, 'Shipment History', () async {
+                    await context.push('/shipment-history');
+                    if (mounted) _loadShipmentCounts(silent: true);
+                  }),
                   const SizedBox(width: 10),
                   _quickAction(context, AppIcons.browse, 'Transaction History', () => context.push('/transaction-history?role=sender')),
                 ],
@@ -154,7 +245,7 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _stat(BuildContext context, String value, String label, {bool primary = false, VoidCallback? onTap}) {
+  Widget _stat(BuildContext context, String value, String label, {VoidCallback? onTap}) {
     final typo = context.typo;
     final card = AppCard(
       margin: EdgeInsets.zero,
@@ -235,61 +326,207 @@ class ProfileScreen extends StatelessWidget {
   }
 }
 
-class ShipmentHistoryScreen extends StatelessWidget {
+bool _isActiveDeliveryStatus(String? status) {
+  switch (status) {
+    case 'posted':
+    case 'matched':
+    case 'in_transit':
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool _isCompletedDeliveryStatus(String? status) {
+  return status == 'delivered' || status == 'cancelled';
+}
+
+class ShipmentHistoryScreen extends StatefulWidget {
   const ShipmentHistoryScreen({super.key});
+
+  @override
+  State<ShipmentHistoryScreen> createState() => _ShipmentHistoryScreenState();
+}
+
+class _ShipmentHistoryScreenState extends State<ShipmentHistoryScreen> {
+  bool _loading = true;
+  String? _error;
+  List<CreatedDelivery>? _deliveries;
+
+  List<CreatedDelivery> get _items => _deliveries ?? const <CreatedDelivery>[];
+
+  @override
+  void initState() {
+    super.initState();
+    _deliveries = const [];
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  DeliveryRepository _repository() {
+    final auth = context.read<AuthProvider>();
+    final demoMode = context.read<DemoModeProvider>();
+    return DeliveryRepository(
+      apiClient: auth.repository.apiClient,
+      demoMode: demoMode,
+    );
+  }
+
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
+    try {
+      final list = await _repository().listDeliveries();
+      if (!mounted) return;
+      setState(() {
+        _deliveries = list
+            .where((d) => _isCompletedDeliveryStatus(d.status))
+            .toList();
+        _loading = false;
+        _error = null;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = e.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = 'Unable to load shipment history.';
+      });
+    }
+  }
+
+  String _formatTravelDate(String raw) {
+    final parsed = DateTime.tryParse(raw);
+    if (parsed == null) return raw.isEmpty ? '—' : raw;
+    return DateFormat('MMM d, yyyy').format(parsed);
+  }
+
+  String _statusLabel(String? status) {
+    switch (status) {
+      case 'delivered':
+        return 'Delivered';
+      case 'cancelled':
+        return 'Cancelled';
+      default:
+        return 'Completed';
+    }
+  }
+
+  Color _statusColor(String? status) {
+    switch (status) {
+      case 'cancelled':
+        return AppColors.danger;
+      default:
+        return AppColors.success;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
-    final shipments = StaticData.senderCompletedShipments;
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: const BackHeader(title: 'Shipment History'),
       body: ScreenBody(
         padding: context.pagePadding.copyWith(top: 16, bottom: 0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Completed city-to-city and country-to-country deliveries.',
-              style: typo.sm,
-            ),
-            const SizedBox(height: 16),
-            ...shipments.map((s) => GestureDetector(
-                  onTap: () => context.push('/shipment/${s.id}'),
-                  child: AppCard(
+        child: RefreshIndicator(
+          color: AppColors.primary,
+          onRefresh: () => _load(silent: true),
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: [
+              Text(
+                'Completed city-to-city and country-to-country deliveries.',
+                style: typo.sm,
+              ),
+              const SizedBox(height: 16),
+              if (_loading && _items.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 40),
+                  child: Center(
+                    child: CircularProgressIndicator(color: AppColors.primary),
+                  ),
+                )
+              else if (_error != null && _items.isEmpty)
+                Column(
+                  children: [
+                    Text(
+                      _error!,
+                      style: typo.sm.copyWith(color: AppColors.textSecondary),
+                    ),
+                    TextButton(
+                      onPressed: () => _load(),
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                )
+              else if (_items.isEmpty)
+                Text(
+                  'No completed shipments yet.',
+                  style: typo.sm.copyWith(color: AppColors.textSecondary),
+                )
+              else
+                ..._items.map((s) {
+                  final idLabel =
+                      s.publicId.isNotEmpty ? s.publicId : s.id;
+                  final color = _statusColor(s.status);
+                  return AppCard(
                     margin: const EdgeInsets.only(bottom: 14),
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 16,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              s.id,
-                              style: typo.h3.copyWith(fontSize: 16, fontWeight: FontWeight.w700),
+                            Flexible(
+                              child: Text(
+                                idLabel,
+                                style: typo.h3.copyWith(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                            AppBadge.status(s.status, semiBold: true, wide: true),
+                            const SizedBox(width: 8),
+                            AppBadge(
+                              label: _statusLabel(s.status),
+                              color: color,
+                              backgroundColor: color.withValues(alpha: 0.12),
+                              semiBold: true,
+                              wide: true,
+                            ),
                           ],
                         ),
                         const SizedBox(height: 10),
-                        Text(s.route, style: typo.sm.copyWith(color: AppColors.textPrimary)),
-                        if (s.travelerName != null) ...[
-                          const SizedBox(height: 6),
-                          Text('Traveler: ${s.travelerName}', style: typo.sm),
-                        ],
+                        Text(
+                          s.route.isNotEmpty ? s.route : '—',
+                          style: typo.sm.copyWith(color: AppColors.textPrimary),
+                        ),
                         const SizedBox(height: 12),
                         Text(
-                          DateFormat('MMM d, yyyy').format(s.travelDate),
+                          _formatTravelDate(s.travelDate),
                           style: typo.sm,
                         ),
                       ],
                     ),
-                  ),
-                )),
-          ],
+                  );
+                }),
+            ],
+          ),
         ),
       ),
     );
@@ -477,7 +714,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         : isTraveler
             ? EditProfileRole.traveler
             : EditProfileRole.sender;
-    final demoMode = context.watch<DemoModeProvider>();
+    // Demo app mode toggle commented out — live API only.
+    // final demoMode = context.watch<DemoModeProvider>();
     final authUser = context.watch<AuthProvider>().user;
 
     return Scaffold(
@@ -497,17 +735,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _sectionLabel('Developer'),
-            _settingsGroup([
-              _toggle(
-                'Demo app mode',
-                demoMode.enabled,
-                demoMode.setEnabled,
-                subtitle: demoMode.enabled
-                    ? 'Offline static data — no backend'
-                    : 'Live API — backend required',
-              ),
-            ]),
+            // Demo app mode option — commented out.
+            // _sectionLabel('Developer'),
+            // _settingsGroup([
+            //   _toggle(
+            //     'Demo app mode',
+            //     demoMode.enabled,
+            //     demoMode.setEnabled,
+            //     subtitle: demoMode.enabled
+            //         ? 'Offline static data — no backend'
+            //         : 'Live API — backend required',
+            //   ),
+            // ]),
             if (authUser != null && !authUser.isFullyCrossVerified) ...[
               _sectionLabel('Account verification'),
               AppCard(

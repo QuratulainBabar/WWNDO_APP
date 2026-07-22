@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 /// Delivery type selected on the Choose Delivery Type screen.
 enum DeliveryType {
   cityToCity('city_to_city'),
@@ -93,7 +95,7 @@ class CreateDeliveryRequest {
       'weightKg': weightKg.toString(),
       'maxBudget': maxBudget.toString(),
       'description': description,
-      'preferredMeetupLocations': preferredMeetupLocations.join(','),
+      'preferredMeetupLocations': jsonEncode(preferredMeetupLocations),
       'acknowledged': acknowledged ? 'true' : 'false',
       'receiverEmail': receiverEmail,
       'receiverPhone': receiverPhone,

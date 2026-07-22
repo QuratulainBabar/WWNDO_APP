@@ -1,0 +1,226 @@
+import 'package:flutter/foundation.dart';
+
+import '../core/api/api_exception.dart';
+import '../core/config/demo_mode.dart';
+import '../data/models/auth_user.dart';
+import '../data/models/otp_channel.dart';
+import '../data/services/auth_repository.dart';
+
+class AuthProvider extends ChangeNotifier {
+  AuthProvider({
+    AuthRepository? repository,
+    DemoModeProvider? demoMode,
+  })  : _demoMode = demoMode,
+        _repository = repository ??
+            AuthRepository(demoMode: demoMode);
+
+  final AuthRepository _repository;
+  final DemoModeProvider? _demoMode;
+
+  AuthUser? get user => _repository.currentUser;
+  bool get isAuthenticated => user != null;
+  bool get isDemoMode => _demoMode?.enabled ?? false;
+  bool _initializing = true;
+  bool get initializing => _initializing;
+  bool _loading = false;
+  bool get loading => _loading;
+
+  AuthRepository get repository => _repository;
+
+  Future<void> init() async {
+    await _repository.init();
+    _initializing = false;
+    notifyListeners();
+  }
+
+  Future<AuthUser> signInAsDemo() {
+    return _run(_repository.signInAsDemo);
+  }
+
+  Future<AuthUser> register({
+    required String name,
+    required String email,
+    required String phone,
+    required String dialCode,
+    required String phoneNumber,
+    required String password,
+    required String countryCode,
+    required bool acceptedTerms,
+  }) {
+    return _run(() => _repository.register(
+          name: name,
+          email: email,
+          phone: phone,
+          dialCode: dialCode,
+          phoneNumber: phoneNumber,
+          password: password,
+          countryCode: countryCode,
+          acceptedTerms: acceptedTerms,
+        ));
+  }
+
+  Future<AuthUser> login({
+    required String email,
+    required String password,
+  }) {
+    return _run(() => _repository.login(email: email, password: password));
+  }
+
+  Future<void> logout() => _run(_repository.logout);
+
+  Future<void> sendPasswordResetOtp({
+    required String contact,
+    required OtpChannel channel,
+  }) {
+    return _run(() => _repository.sendPasswordResetOtp(
+          contact: contact,
+          channel: channel,
+        ));
+  }
+
+  Future<String> verifyPasswordResetOtp({
+    required String contact,
+    required OtpChannel channel,
+    required String code,
+  }) {
+    return _run(() => _repository.verifyPasswordResetOtp(
+          contact: contact,
+          channel: channel,
+          code: code,
+        ));
+  }
+
+  Future<void> sendLoginOtp({
+    required String contact,
+    required OtpChannel channel,
+  }) {
+    return _run(() => _repository.sendLoginOtp(contact: contact, channel: channel));
+  }
+
+  Future<AuthUser> verifyLoginOtp({
+    required String contact,
+    required OtpChannel channel,
+    required String code,
+  }) {
+    return _run(() => _repository.verifyLoginOtp(
+          contact: contact,
+          channel: channel,
+          code: code,
+        ));
+  }
+
+  Future<void> sendCrossVerificationOtp({required OtpChannel channel}) {
+    return _run(() => _repository.sendCrossVerificationOtp(channel: channel));
+  }
+
+  Future<AuthUser> verifyCrossVerificationOtp({
+    required OtpChannel channel,
+    required String code,
+  }) {
+    return _run(() => _repository.verifyCrossVerificationOtp(
+          channel: channel,
+          code: code,
+        ));
+  }
+
+  Future<AuthUser> setRole(String role) {
+    return _run(() => _repository.setRole(role));
+  }
+
+  Future<void> updateLinkedPhone(String phone) {
+    return _run(() async {
+      final current = _repository.currentUser;
+      if (current == null) {
+        throw const ApiException(message: 'Not signed in', code: 'UNAUTHORIZED');
+      }
+      await _repository.updateCurrentUser(current.copyWith(phone: phone.trim()));
+    });
+  }
+
+  Future<AuthUser> submitKycForReview() {
+    return _run(_repository.submitKycForReview);
+  }
+
+  Future<AuthUser> approveKyc() {
+    return _run(_repository.approveKyc);
+  }
+
+  Future<AuthUser> rejectKyc() {
+    return _run(_repository.rejectKyc);
+  }
+
+  Future<AuthUser> resetKycForRetry() {
+    return _run(_repository.resetKycForRetry);
+  }
+
+  Future<void> resetPassword({
+    required String resetToken,
+    required String password,
+  }) {
+    return _run(() => _repository.resetPassword(
+          resetToken: resetToken,
+          password: password,
+        ));
+  }
+
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) {
+    return _run(() => _repository.changePassword(
+          currentPassword: currentPassword,
+          newPassword: newPassword,
+        ));
+  }
+
+  Future<AuthUser> updateProfile({
+    required String name,
+    required String email,
+    required String phone,
+    required String dialCode,
+    required String phoneNumber,
+    required String countryCode,
+  }) {
+    return _run(() => _repository.updateProfile(
+          name: name,
+          email: email,
+          phone: phone,
+          dialCode: dialCode,
+          phoneNumber: phoneNumber,
+          countryCode: countryCode,
+        ));
+  }
+
+  Future<AuthUser> fetchProfile() {
+    return _run(_repository.fetchProfile);
+  }
+
+  Future<void> verifyPassword(String password) {
+    return _run(() => _repository.verifyPassword(password));
+  }
+
+  Future<bool> tryRestoreSession() async {
+    try {
+      return await _repository.refreshSession();
+    } on ApiException {
+      await _repository.logout();
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<T> _run<T>(Future<T> Function() action) async {
+    _loading = true;
+    notifyListeners();
+    try {
+      final result = await action();
+      notifyListeners();
+      return result;
+    } on ApiException {
+      rethrow;
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
+  }
+}

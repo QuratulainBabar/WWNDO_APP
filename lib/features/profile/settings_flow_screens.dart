@@ -1,0 +1,896 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
+import '../../core/api/api_exception.dart';
+import '../../core/navigation/app_navigation.dart';
+import '../../core/phone/phone_countries.dart';
+import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_typography.dart';
+import '../../core/widgets/app_avatar.dart';
+import '../../core/widgets/app_button.dart';
+import '../../core/widgets/app_chip.dart';
+import '../../core/widgets/app_labeled_field.dart';
+import '../../core/widgets/app_toast.dart';
+import '../../core/widgets/back_header.dart';
+import '../../core/widgets/back_link.dart';
+import '../../core/widgets/captured_image_preview.dart';
+import '../../core/widgets/international_phone_field.dart';
+import '../../core/widgets/scrollable_form_screen.dart';
+import '../../core/widgets/screen_body.dart';
+import '../../data/models/wallet_role.dart';
+import '../../data/profile_demo_store.dart';
+import '../../data/static_data.dart';
+import '../../core/auth/kyc_verification_guard.dart';
+import '../../core/config/demo_mode.dart';
+import '../../core/widgets/kyc_status_badge.dart';
+import '../../data/models/kyc_models.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/kyc_provider.dart';
+import '../onboarding/kyc_flow_actions.dart';
+import '../traveler/widgets/available_luggage_capacity_field.dart';
+
+enum EditProfileRole { sender, receiver, traveler }
+
+EditProfileRole editProfileRoleFromRoute(GoRouterState state) {
+  if (state.extra is EditProfileRole) {
+    return state.extra as EditProfileRole;
+  }
+  if (state.extra == true) {
+    return EditProfileRole.receiver;
+  }
+  return switch (state.uri.queryParameters['role']) {
+    'receiver' => EditProfileRole.receiver,
+    'traveler' => EditProfileRole.traveler,
+    'sender' => EditProfileRole.sender,
+    _ => EditProfileRole.sender,
+  };
+}
+
+String settingsRouteForProfileRole(EditProfileRole role) => switch (role) {
+      EditProfileRole.receiver => '/settings?role=receiver',
+      EditProfileRole.traveler => '/settings?role=traveler',
+      EditProfileRole.sender => '/settings?role=sender',
+    };
+
+class EditProfileScreen extends StatefulWidget {
+  const EditProfileScreen({super.key, this.role = EditProfileRole.sender});
+
+  final EditProfileRole role;
+
+  @override
+  State<EditProfileScreen> createState() => _EditProfileScreenState();
+}
+
+class _EditProfileScreenState extends State<EditProfileScreen> {
+  late final TextEditingController _nameController;
+  late final TextEditingController _emailController;
+  late final TextEditingController _phoneController;
+  late String _country;
+  late PhoneCountry _phoneCountry;
+  late int _luggageCapacityKg;
+  String? _photoPath;
+  bool _saving = false;
+
+  final ImagePicker _imagePicker = ImagePicker();
+
+  @override
+  void initState() {
+    super.initState();
+    final authUser = context.read<AuthProvider>().user;
+    final fallback = switch (widget.role) {
+      EditProfileRole.receiver => StaticData.receiverUser,
+      EditProfileRole.traveler => StaticData.travelerUser,
+      EditProfileRole.sender => StaticData.currentUser,
+    };
+    final profile = authUser?.toUserProfile() ?? fallback;
+    _nameController = TextEditingController(text: profile.name);
+    _emailController = TextEditingController(text: profile.email);
+    final parsed = PhoneCountries.parse(
+      profile.phone,
+      fallbackIso: profile.countryCode,
+    );
+    _phoneCountry = parsed.country;
+    _phoneController = TextEditingController(text: parsed.national);
+    _country = profile.countryCode;
+    _luggageCapacityKg = StaticData.travelerAvailableLuggageCapacityKg.round();
+    _photoPath = ProfileDemoStore.photoPathFor(_walletRole);
+  }
+
+  WalletRole get _walletRole => switch (widget.role) {
+        EditProfileRole.receiver => WalletRole.receiver,
+        EditProfileRole.traveler => WalletRole.traveler,
+        EditProfileRole.sender => WalletRole.sender,
+      };
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickPhoto() async {
+    try {
+      final image = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+        maxWidth: 1024,
+      );
+      if (!mounted || image == null) return;
+      setState(() => _photoPath = image.path);
+    } catch (_) {}
+  }
+
+  Future<void> _save() async {
+    final name = _nameController.text.trim();
+    if (name.isEmpty) {
+      AppToast.error(context, 'Name cannot be empty');
+      return;
+    }
+
+    final email = _emailController.text.trim();
+    if (!RegExp(r'^[^@]+@[^@]+\.[^@]+$').hasMatch(email)) {
+      AppToast.error(context, 'Enter a valid email address');
+      return;
+    }
+    if (!PhoneCountries.isValidNational(_phoneController.text, minDigits: 6)) {
+      AppToast.error(context, 'Enter a valid phone number');
+      return;
+    }
+
+    final auth = context.read<AuthProvider>();
+    setState(() => _saving = true);
+
+    try {
+      final national = PhoneCountries.nationalDigits(_phoneController.text);
+      await auth.updateProfile(
+        name: name,
+        email: email,
+        dialCode: _phoneCountry.dialCode,
+        phoneNumber: national,
+        phone: PhoneCountries.formatFull(_phoneCountry, _phoneController.text),
+        countryCode: _country,
+      );
+      ProfileDemoStore.setPhotoPath(_walletRole, _photoPath);
+      if (!mounted) return;
+      AppToast.success(context, 'Profile updated');
+      context.pushReplacement('/edit-profile/success', extra: widget.role);
+    } on ApiException catch (e) {
+      if (mounted) AppToast.error(context, e.message);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final typo = context.typo;
+    final auth = context.watch<AuthProvider>();
+    final avatarInitial = (auth.user?.initial.isNotEmpty ?? false)
+        ? auth.user!.initial
+        : _nameController.text.trim().isNotEmpty
+            ? _nameController.text.trim()[0].toUpperCase()
+            : '?';
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: AppColors.surface,
+      ),
+      child: Scaffold(
+        backgroundColor: AppColors.surface,
+        resizeToAvoidBottomInset: true,
+        appBar: BackHeader(
+          title: 'Edit profile',
+          fallbackRoute: settingsRouteForProfileRole(widget.role),
+        ),
+        body: ColoredBox(
+          color: AppColors.background,
+          child: ScrollableFormScreen(
+            actions: [
+              AppButton(
+                label: _saving || auth.loading ? 'Saving…' : 'Save changes',
+                onPressed: _saving || auth.loading ? null : _save,
+              ),
+            ],
+            child: switch (widget.role) {
+              EditProfileRole.sender => _buildExtendedProfileForm(
+                  typo,
+                  subtitle:
+                      'This information is shown on your public profile when you send parcels.',
+                  avatarInitial: avatarInitial,
+                ),
+              EditProfileRole.receiver => _buildExtendedProfileForm(
+                  typo,
+                  subtitle:
+                      'This information is shown on your public profile when you receive parcels.',
+                  avatarInitial: avatarInitial,
+                ),
+              EditProfileRole.traveler => _buildExtendedProfileForm(
+                  typo,
+                  subtitle:
+                      'This information is shown on your public profile when you carry parcels.',
+                  avatarInitial: avatarInitial,
+                  trailingFields: [
+                    AppLabeledField(
+                      label: 'Available luggage capacity',
+                      labelStyle: typo.inputLabel.copyWith(fontWeight: FontWeight.w700),
+                      child: AvailableLuggageCapacityField(
+                        initialValue: _luggageCapacityKg,
+                        onChanged: (kg) => _luggageCapacityKg = kg,
+                      ),
+                    ),
+                  ],
+                ),
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildExtendedProfileForm(
+    AppTypography typo, {
+    required String subtitle,
+    required String avatarInitial,
+    List<Widget> trailingFields = const [],
+  }) {
+    final countryCodes = StaticData.countryCodes;
+    final primaryCountries = countryCodes.take(countryCodes.length - 1).toList();
+    final trailingCountries = countryCodes.skip(countryCodes.length - 1).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Profile details', style: typo.h2),
+        const SizedBox(height: 8),
+        Text(subtitle, style: typo.sm.copyWith(height: 1.5)),
+        const SizedBox(height: 24),
+        AppLabeledField(
+          label: 'Profile photo',
+          labelStyle: typo.inputLabel.copyWith(fontWeight: FontWeight.w700),
+          child: Column(
+            children: [
+              GestureDetector(
+                onTap: _pickPhoto,
+                child: Stack(
+                  alignment: Alignment.bottomRight,
+                  children: [
+                    if (_photoPath != null)
+                      CapturedImagePreview(
+                        path: _photoPath!,
+                        width: 96,
+                        height: 96,
+                        clipOval: true,
+                      )
+                    else
+                      AppAvatar(initial: avatarInitial, size: AvatarSize.large),
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: AppColors.surface, width: 2),
+                      ),
+                      child: const Icon(Icons.camera_alt_outlined, size: 16, color: Colors.white),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Tap to upload a photo',
+                style: typo.sm.copyWith(color: AppColors.textSecondary),
+              ),
+            ],
+          ),
+        ),
+        AppLabeledField(
+          label: 'Full name',
+          labelStyle: typo.inputLabel.copyWith(fontWeight: FontWeight.w700),
+          child: TextField(
+            controller: _nameController,
+            style: typo.input,
+          ),
+        ),
+        AppLabeledField(
+          label: 'Email',
+          labelStyle: typo.inputLabel.copyWith(fontWeight: FontWeight.w700),
+          child: TextField(
+            controller: _emailController,
+            keyboardType: TextInputType.emailAddress,
+            style: typo.input,
+          ),
+        ),
+        InternationalPhoneField(
+          label: 'Phone number',
+          controller: _phoneController,
+          country: _phoneCountry,
+          onCountryChanged: (c) => setState(() => _phoneCountry = c),
+          labelStyle: typo.inputLabel.copyWith(fontWeight: FontWeight.w700),
+          inputStyle: typo.input,
+          padding: const EdgeInsets.only(
+            top: AppFieldSpacing.top,
+            bottom: AppFieldSpacing.bottom,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text('COUNTRY', style: typo.label.copyWith(fontWeight: FontWeight.w600)),
+        const SizedBox(height: 8),
+        Wrap(
+          children: primaryCountries
+              .map(
+                (c) => AppChip(
+                  label: StaticData.countryName(c),
+                  selected: c == _country,
+                  onTap: () => setState(() {
+                    _country = c;
+                    if (_phoneController.text.trim().isEmpty) {
+                      _phoneCountry = PhoneCountries.byIso(c);
+                    }
+                  }),
+                ),
+              )
+              .toList(),
+        ),
+        Wrap(
+          children: trailingCountries
+              .map(
+                (c) => AppChip(
+                  label: StaticData.countryName(c),
+                  selected: c == _country,
+                  onTap: () => setState(() {
+                    _country = c;
+                    if (_phoneController.text.trim().isEmpty) {
+                      _phoneCountry = PhoneCountries.byIso(c);
+                    }
+                  }),
+                ),
+              )
+              .toList(),
+        ),
+        ...trailingFields,
+      ],
+    );
+  }
+}
+
+class ProfileUpdatedSuccessScreen extends StatelessWidget {
+  const ProfileUpdatedSuccessScreen({super.key, this.role = EditProfileRole.sender});
+
+  final EditProfileRole role;
+
+  @override
+  Widget build(BuildContext context) {
+    final typo = context.typo;
+    final settingsRoute = settingsRouteForProfileRole(role);
+
+    return Scaffold(
+      backgroundColor: AppColors.surface,
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(32, 16, 32, 0),
+              child: BackLink(onTap: () => context.go(settingsRoute)),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: AppColors.success.withValues(alpha: 0.12),
+                        shape: BoxShape.circle,
+                      ),
+                      alignment: Alignment.center,
+                      child: const Icon(Icons.check, size: 40, color: AppColors.success),
+                    ),
+                    const SizedBox(height: 20),
+                    Text('Profile updated', style: typo.h1, textAlign: TextAlign.center),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Your profile details have been saved. These details are now shown on your public profile.',
+                      textAlign: TextAlign.center,
+                      style: typo.sm.copyWith(height: 1.5),
+                    ),
+                    const SizedBox(height: 32),
+                    AppButton(
+                      label: 'Back to settings',
+                      onPressed: () => context.go(settingsRoute),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class ChangePasswordScreen extends StatefulWidget {
+  const ChangePasswordScreen({super.key});
+
+  @override
+  State<ChangePasswordScreen> createState() => _ChangePasswordScreenState();
+}
+
+class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
+  final _currentController = TextEditingController();
+  final _newController = TextEditingController();
+  final _confirmController = TextEditingController();
+  bool _obscureCurrent = true;
+  bool _obscureNew = true;
+  bool _obscureConfirm = true;
+
+  @override
+  void dispose() {
+    _currentController.dispose();
+    _newController.dispose();
+    _confirmController.dispose();
+    super.dispose();
+  }
+
+  String get _roleParam =>
+      GoRouterState.of(context).uri.queryParameters['role'] ?? 'sender';
+
+  String get _settingsRoute => switch (_roleParam) {
+        'receiver' => '/settings?role=receiver',
+        'traveler' => '/settings?role=traveler',
+        _ => '/settings?role=sender',
+      };
+
+  Future<void> _updatePassword() async {
+    final current = _currentController.text;
+    final newPassword = _newController.text;
+    final confirm = _confirmController.text;
+
+    if (current.isEmpty) {
+      AppToast.error(context, 'Enter your current password');
+      return;
+    }
+    if (newPassword.length < 8) {
+      AppToast.error(context, 'New password must be at least 8 characters');
+      return;
+    }
+    if (newPassword != confirm) {
+      AppToast.error(context, 'Passwords do not match');
+      return;
+    }
+    if (current == newPassword) {
+      AppToast.error(context, 'New password must be different from current password');
+      return;
+    }
+
+    final auth = context.read<AuthProvider>();
+
+    try {
+      await auth.changePassword(
+        currentPassword: current,
+        newPassword: newPassword,
+      );
+      if (!mounted) return;
+      AppToast.success(context, 'Password updated successfully');
+      context.pushReplacement('/change-password/success?role=$_roleParam');
+    } on ApiException catch (e) {
+      if (mounted) AppToast.error(context, e.message);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
+    final typo = context.typo;
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: BackHeader(
+        title: 'Change password',
+        fallbackRoute: _settingsRoute,
+      ),
+      body: ScrollableFormScreen(
+        actions: [
+          AppButton(
+            label: auth.loading ? 'Updating…' : 'Update password',
+            onPressed: auth.loading ? null : _updatePassword,
+          ),
+        ],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Update your password', style: typo.h2),
+            const SizedBox(height: 8),
+            Text(
+              'Choose a strong password you have not used elsewhere.',
+              style: typo.sm.copyWith(height: 1.5),
+            ),
+            const SizedBox(height: 24),
+            _passwordField(
+              label: 'Current password',
+              controller: _currentController,
+              obscure: _obscureCurrent,
+              onToggle: () => setState(() => _obscureCurrent = !_obscureCurrent),
+            ),
+            _passwordField(
+              label: 'New password',
+              controller: _newController,
+              obscure: _obscureNew,
+              onToggle: () => setState(() => _obscureNew = !_obscureNew),
+            ),
+            _passwordField(
+              label: 'Confirm new password',
+              controller: _confirmController,
+              obscure: _obscureConfirm,
+              onToggle: () => setState(() => _obscureConfirm = !_obscureConfirm),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _passwordField({
+    required String label,
+    required TextEditingController controller,
+    required bool obscure,
+    required VoidCallback onToggle,
+  }) {
+    final typo = context.typo;
+    return AppLabeledField(
+      label: label,
+      labelStyle: typo.inputLabel.copyWith(fontWeight: FontWeight.w700),
+      padding: const EdgeInsets.only(top: AppFieldSpacing.top, bottom: 12),
+      child: TextField(
+        controller: controller,
+        obscureText: obscure,
+        style: typo.input,
+        decoration: InputDecoration(
+          suffixIcon: IconButton(
+            icon: Icon(
+              obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+              color: AppColors.textSecondary,
+            ),
+            onPressed: onToggle,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class ChangePasswordSuccessScreen extends StatelessWidget {
+  const ChangePasswordSuccessScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final roleParam = GoRouterState.of(context).uri.queryParameters['role'];
+    final settingsRoute = roleParam == 'receiver'
+        ? '/settings?role=receiver'
+        : roleParam == 'traveler'
+            ? '/settings?role=traveler'
+            : '/settings?role=sender';
+    final typo = context.typo;
+
+    return Scaffold(
+      backgroundColor: AppColors.surface,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  color: AppColors.success.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: const Icon(Icons.check, size: 40, color: AppColors.success),
+              ),
+              const SizedBox(height: 20),
+              Text('Password updated', style: typo.h1, textAlign: TextAlign.center),
+              const SizedBox(height: 8),
+              Text(
+                'Your password has been changed successfully.',
+                textAlign: TextAlign.center,
+                style: typo.sm.copyWith(height: 1.5),
+              ),
+              const SizedBox(height: 32),
+              AppButton(
+                label: 'Back to settings',
+                onPressed: () => context.go(settingsRoute),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class TermsPrivacyScreen extends StatelessWidget {
+  const TermsPrivacyScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final typo = context.typo;
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: const BackHeader(title: 'Terms & Privacy'),
+      body: ScreenBody(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('WWNGO Terms of Service', style: typo.h2),
+            const SizedBox(height: 12),
+            Text(
+              'By using WWNGO you agree to send and carry parcels responsibly, provide accurate identity information, and follow local customs regulations.',
+              style: typo.sm.copyWith(height: 1.6),
+            ),
+            const SizedBox(height: 20),
+            Text('Privacy Policy', style: typo.h3),
+            const SizedBox(height: 8),
+            Text(
+              'We collect account, identity verification, and shipment data to operate the marketplace securely. Your documents are processed by our verification partner and encrypted in transit.',
+              style: typo.sm.copyWith(height: 1.6),
+            ),
+            const SizedBox(height: 20),
+            Text('Zero tolerance policy', style: typo.h3),
+            const SizedBox(height: 8),
+            Text(
+              'Fraud, misrepresentation, or prohibited items result in immediate account suspension and escrow review.',
+              style: typo.sm.copyWith(height: 1.6),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class WalletWithdrawalSuccessScreen extends StatelessWidget {
+  const WalletWithdrawalSuccessScreen({super.key, required this.amount});
+
+  final double amount;
+
+  @override
+  Widget build(BuildContext context) {
+    final roleParam = GoRouterState.of(context).uri.queryParameters['role'];
+    final walletRoute = roleParam == null ? '/wallet' : '/wallet?role=$roleParam';
+    final homeRoute = roleParam == 'receiver'
+        ? '/receiver-home'
+        : roleParam == 'traveler'
+            ? '/traveler-home'
+            : '/home';
+    final typo = context.typo;
+
+    return Scaffold(
+      backgroundColor: AppColors.surface,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  color: AppColors.success.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: const Icon(Icons.account_balance_outlined, size: 40, color: AppColors.success),
+              ),
+              const SizedBox(height: 20),
+              Text('Withdrawal initiated', style: typo.h1, textAlign: TextAlign.center),
+              const SizedBox(height: 8),
+              Text(
+                '\$${amount.toStringAsFixed(2)} is being transferred via Stripe Connect to your linked bank account. Arrives in 2–5 business days.',
+                textAlign: TextAlign.center,
+                style: typo.sm.copyWith(height: 1.5),
+              ),
+              const SizedBox(height: 32),
+              AppButton(
+                label: 'Back to wallet',
+                textStyle: typo.button.copyWith(fontWeight: FontWeight.w700),
+                onPressed: () => context.go(walletRoute),
+              ),
+              const SizedBox(height: AppButton.stackGap),
+              AppButton(
+                label: 'Go to home',
+                variant: AppButtonVariant.outline,
+                textStyle: typo.button.copyWith(fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                onPressed: () => context.go(homeRoute),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class KycStatusScreen extends StatefulWidget {
+  const KycStatusScreen({super.key});
+
+  @override
+  State<KycStatusScreen> createState() => _KycStatusScreenState();
+}
+
+class _KycStatusScreenState extends State<KycStatusScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final demo = context.read<DemoModeProvider>().enabled;
+      if (demo) return;
+      try {
+        await context.read<KycProvider>().refreshStatus(sync: true);
+      } catch (_) {}
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final roleParam = GoRouterState.of(context).uri.queryParameters['role'];
+    final settingsRoute = roleParam == 'receiver'
+        ? '/settings?role=receiver'
+        : roleParam == 'traveler'
+            ? '/settings?role=traveler'
+            : '/settings?role=sender';
+    final typo = context.typo;
+    final user = context.watch<AuthProvider>().user;
+    final kyc = context.watch<KycProvider>();
+    final displayName = user?.name ?? StaticData.currentUser.name;
+    final status = (kyc.lastStatus?.kycStatus.name ?? user?.kycStatus ?? 'pending')
+        .toLowerCase();
+
+    final (title, message, icon, iconColor, bgColor) = switch (status) {
+      'approved' => (
+          'Verification approved',
+          '$displayName is verified on WWNGO. You can post deliveries, create trips, place bids, and withdraw earnings.',
+          Icons.verified_user_outlined,
+          AppColors.success,
+          AppColors.success.withValues(alpha: 0.12),
+        ),
+      'submitted' => (
+          'Pending review',
+          'Your documents are with Sumsub for automated checks and manual review (SLA up to 48 hours).',
+          Icons.hourglass_top_rounded,
+          AppColors.warning,
+          AppColors.warning.withValues(alpha: 0.12),
+        ),
+      'rejected' => (
+          'Verification failed',
+          'Your identity could not be verified. Please retry with a valid, clearly photographed document.',
+          Icons.error_outline_rounded,
+          AppColors.danger,
+          AppColors.danger.withValues(alpha: 0.1),
+        ),
+      _ => (
+          'Verification required',
+          'Complete identity verification to unlock posting parcels, creating trips, and placing bids.',
+          Icons.badge_outlined,
+          AppColors.primary,
+          AppColors.primary.withValues(alpha: 0.1),
+        ),
+    };
+
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: AppColors.surface,
+      ),
+      child: Scaffold(
+        backgroundColor: AppColors.surface,
+        appBar: BackHeader(
+          title: 'Identity verification',
+          fallbackRoute: settingsRoute,
+        ),
+        body: ScrollableFormScreen(
+          actions: [
+            if (status != 'approved')
+              AppButton(
+                label: kyc.loading
+                    ? 'Please wait…'
+                    : status == 'submitted'
+                        ? 'Refresh status'
+                        : 'Verify Identity',
+                onPressed: kyc.loading
+                    ? null
+                    : () {
+                        if (status == 'submitted') {
+                          KycFlowActions.refreshAndRoute(context);
+                        } else {
+                          context.push(KycVerificationGuard.routeForUser(user));
+                        }
+                      },
+              ),
+            AppButton(
+              label: 'Back to settings',
+              variant: status == 'approved' ? AppButtonVariant.primary : AppButtonVariant.outline,
+              onPressed: () => appNavigateBackFromContext(context, fallback: settingsRoute),
+            ),
+          ],
+          child: Column(
+            children: [
+              Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: Icon(icon, size: 40, color: iconColor),
+              ),
+              const SizedBox(height: 20),
+              Text(title, style: typo.h1, textAlign: TextAlign.center),
+              const SizedBox(height: 8),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: typo.sm.copyWith(height: 1.5),
+              ),
+              const SizedBox(height: 16),
+              KycStatusBadge(user: user),
+              const SizedBox(height: 8),
+              Text(
+                'Status: ${KycStatusValue.fromString(status).label}',
+                style: typo.bodyBold.copyWith(color: iconColor),
+              ),
+              if (kyc.loading) ...[
+                const SizedBox(height: 16),
+                const CircularProgressIndicator(),
+              ],
+              if (kyc.error != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  kyc.error!,
+                  textAlign: TextAlign.center,
+                  style: typo.sm.copyWith(color: AppColors.danger),
+                ),
+              ],
+              if (user != null && status == 'approved') ...[
+                const SizedBox(height: 24),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.kycBackground,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Verified details', style: typo.bodyBold),
+                      const SizedBox(height: 8),
+                      Text('Name: ${user.name}', style: typo.sm),
+                      Text('Email: ${user.email}', style: typo.sm),
+                      Text('Country: ${user.countryCode}', style: typo.sm),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

@@ -1,0 +1,88 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IntelliJ / Android Studio
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# VS Code — keep shared settings if you want; uncomment to ignore entirely
+#.vscode/
+
+# Flutter / Dart / Pub
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+/coverage/
+
+# Symbolication / obfuscation
+app.*.symbols
+app.*.map.json
+
+# Local Gradle caches (very large — do not push)
+.gradle/
+.gradle-user-home/
+
+# Local Android SDK / NDK copy (very large — do not push)
+.android-sdk/
+
+# Local temp / tooling caches (do not push)
+.tmp/
+.tools/
+
+# Backend is a separate Git repo (has its own .git)
+/backend/
+
+# Android local caches, dumps, and machine-specific files
+/android/.gradle/
+/android/.kotlin/
+/android/build/
+/android/local-maven/
+/android/truststore/
+/android/local.properties
+/android/*.hprof
+/android/hs_err_pid*.log
+/android/replay_pid*.log
+android/gradle/wrapper/gradle-*-bin.zip
+android/gradle/wrapper/*.zip
+android/gradle/wrapper/gradle-*/
+
+# Android Studio build outputs
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# Built APKs / app bundles (regenerate with flutter build)
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# JVM / native crash dumps
+*.hprof
+hs_err_pid*.log
+replay_pid*.log
+
+# Local APK / Gradle build scratch logs
+apk-build-*.txt
+apk-stacktrace.txt
+gradle-clean.txt
+gradle-stop.txt
+cleanup-status.txt
+flutter_*.log

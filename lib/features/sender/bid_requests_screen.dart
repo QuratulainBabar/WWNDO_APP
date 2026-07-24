@@ -17,7 +17,7 @@ import '../../core/widgets/back_header.dart';
 import 'bid_acceptance_payment_screen.dart';
 import 'bid_sort.dart';
 import '../../data/models/bid.dart';
-import '../../data/models/shipment.dart';
+import '../../data/models/created_delivery.dart';
 import '../../data/services/delivery_repository.dart';
 import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
@@ -34,13 +34,16 @@ class BidRequestsScreen extends StatefulWidget {
 class _BidRequestsScreenState extends State<BidRequestsScreen> {
   BidSortOption _sort = BidSortOption.bestMatchScore;
   List<Bid>? _apiBids;
+  CreatedDelivery? _apiDelivery;
   bool _loadingMatches = false;
+  bool _loadingDelivery = false;
+  String? _deliveryError;
 
   @override
   void initState() {
     super.initState();
     StaticData.bidRequestsVersion.addListener(_onBidsChanged);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadMatchingTravelers());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _bootstrap());
   }
 
   @override
@@ -53,17 +56,62 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
     if (mounted) setState(() {});
   }
 
+  DeliveryRepository _repository() {
+    final auth = context.read<AuthProvider>();
+    final demoMode = context.read<DemoModeProvider>();
+    return DeliveryRepository(
+      apiClient: auth.repository.apiClient,
+      demoMode: demoMode,
+    );
+  }
+
+  Future<void> _bootstrap() async {
+    await Future.wait([
+      _loadDeliveryIfNeeded(),
+      _loadMatchingTravelers(),
+    ]);
+  }
+
+  /// Notifications deep-link with publicId (e.g. WW-18393), which is not in
+  /// StaticData — fetch the live delivery so the summary card can render.
+  Future<void> _loadDeliveryIfNeeded() async {
+    if (StaticData.shipmentById(widget.shipmentId) != null) return;
+
+    final demoMode = context.read<DemoModeProvider>();
+    if (demoMode.enabled) return;
+
+    setState(() {
+      _loadingDelivery = true;
+      _deliveryError = null;
+    });
+    try {
+      final delivery = await _repository().getDelivery(
+        widget.shipmentId,
+        role: 'sender',
+      );
+      if (!mounted) return;
+      setState(() {
+        _apiDelivery = delivery;
+        _loadingDelivery = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loadingDelivery = false;
+        _deliveryError =
+            'Unable to load this delivery. Pull back and try again.';
+      });
+    }
+  }
+
   Future<void> _loadMatchingTravelers() async {
     final demoMode = context.read<DemoModeProvider>();
     if (demoMode.enabled) return;
 
     setState(() => _loadingMatches = true);
     try {
-      final auth = context.read<AuthProvider>();
-      final travelers = await DeliveryRepository(
-        apiClient: auth.repository.apiClient,
-        demoMode: demoMode,
-      ).listMatchingTravelers(widget.shipmentId);
+      final travelers =
+          await _repository().listMatchingTravelers(widget.shipmentId);
 
       // Persist filtered API results for counts / selection flow.
       StaticData.replaceMatchingTravelersFromApi(
@@ -113,15 +161,41 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
     );
   }
 
+  /// Demo StaticData first; otherwise map the API delivery into the summary model.
+  _ParcelSummary? _resolveSummary() {
+    final shipment = StaticData.shipmentById(widget.shipmentId);
+    if (shipment != null) {
+      return _ParcelSummary(
+        id: shipment.id,
+        route: shipment.route,
+        travelDate: shipment.travelDate,
+        weightKg: shipment.parcelWeightKg,
+      );
+    }
+    final delivery = _apiDelivery;
+    if (delivery == null) return null;
+    return _ParcelSummary(
+      id: delivery.displayId,
+      route: delivery.route.isNotEmpty ? delivery.route : '—',
+      travelDate: delivery.travelDateParsed ?? DateTime.now(),
+      weightKg: delivery.weightKg,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final shipment = StaticData.shipmentById(widget.shipmentId)!;
+    final typo = context.typo;
+    final summary = _resolveSummary();
     final bids = _visibleBids();
+    final demoMode = context.watch<DemoModeProvider>().enabled;
+    final waitingForDelivery = summary == null && _loadingDelivery;
+    final waitingForMatches =
+        !demoMode && _loadingMatches && _apiBids == null;
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: const BackHeader(title: 'Matching Travelers'),
-      body: _loadingMatches && (_apiBids == null)
+      body: waitingForDelivery || waitingForMatches
           ? const Center(
               child: SizedBox(
                 width: 28,
@@ -129,68 +203,111 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
                 child: CircularProgressIndicator(strokeWidth: 2.5),
               ),
             )
-          : ListView.builder(
-        physics: PlatformUi.scrollPhysics,
-        padding: context.pagePadding,
-        itemCount: bids.length + 2,
-        itemBuilder: (context, i) {
-          if (i == 0) {
-            return Padding(
-              padding: EdgeInsets.only(bottom: bids.isEmpty ? 0 : 12),
-              child: _ParcelSummaryCard(shipment: shipment),
-            );
-          }
-
-          if (i == 1) {
-            return Padding(
-              padding: EdgeInsets.only(bottom: bids.isEmpty ? 0 : 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Sort by',
-                    style: context.typo.sm.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textSecondary,
+          : summary == null
+              ? Center(
+                  child: Padding(
+                    padding: context.pagePadding,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _deliveryError ??
+                              'This delivery could not be found.',
+                          textAlign: TextAlign.center,
+                          style: typo.sm.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextButton(
+                          onPressed: _bootstrap,
+                          child: const Text('Retry'),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  AppChipRow(
-                    options: BidSortOption.labels,
-                    selected: _sort.label,
-                    onSelected: (label) {
-                      setState(() => _sort = BidSortOption.fromLabel(label));
-                    },
-                  ),
-                ],
-              ),
-            );
-          }
+                )
+              : ListView.builder(
+                  physics: PlatformUi.scrollPhysics,
+                  padding: context.pagePadding,
+                  itemCount: bids.length + 2,
+                  itemBuilder: (context, i) {
+                    if (i == 0) {
+                      return Padding(
+                        padding:
+                            EdgeInsets.only(bottom: bids.isEmpty ? 0 : 12),
+                        child: _ParcelSummaryCard(summary: summary),
+                      );
+                    }
 
-          final bid = bids[i - 2];
-          final status = StaticData.bidReviewStatus(bid.id);
-          return _MatchingTravelerCard(
-            bid: bid,
-            status: status,
-            onViewProfile: () => context.push(
-              '/bid-traveler-profile',
-              extra: BidAcceptanceContext(
-                bid: bid,
-                shipmentId: widget.shipmentId,
-              ),
-            ),
-            onSelectTraveler: () => _selectTraveler(bid),
-          );
-        },
-      ),
+                    if (i == 1) {
+                      return Padding(
+                        padding:
+                            EdgeInsets.only(bottom: bids.isEmpty ? 0 : 12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Sort by',
+                              style: context.typo.sm.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            AppChipRow(
+                              options: BidSortOption.labels,
+                              selected: _sort.label,
+                              onSelected: (label) {
+                                setState(
+                                  () => _sort =
+                                      BidSortOption.fromLabel(label),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    final bid = bids[i - 2];
+                    final status = StaticData.bidReviewStatus(bid.id);
+                    return _MatchingTravelerCard(
+                      bid: bid,
+                      status: status,
+                      onViewProfile: () => context.push(
+                        '/bid-traveler-profile',
+                        extra: BidAcceptanceContext(
+                          bid: bid,
+                          shipmentId: widget.shipmentId,
+                        ),
+                      ),
+                      onSelectTraveler: () => _selectTraveler(bid),
+                    );
+                  },
+                ),
     );
   }
 }
 
-class _ParcelSummaryCard extends StatelessWidget {
-  const _ParcelSummaryCard({required this.shipment});
+class _ParcelSummary {
+  const _ParcelSummary({
+    required this.id,
+    required this.route,
+    required this.travelDate,
+    required this.weightKg,
+  });
 
-  final Shipment shipment;
+  final String id;
+  final String route;
+  final DateTime travelDate;
+  final double weightKg;
+}
+
+class _ParcelSummaryCard extends StatelessWidget {
+  const _ParcelSummaryCard({required this.summary});
+
+  final _ParcelSummary summary;
 
   @override
   Widget build(BuildContext context) {
@@ -201,18 +318,18 @@ class _ParcelSummaryCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            shipment.id,
+            summary.id,
             style: typo.h3.copyWith(
               fontWeight: FontWeight.w700,
               color: AppColors.primary,
             ),
           ),
           const SizedBox(height: 8),
-          Text(shipment.route, style: typo.sm),
+          Text(summary.route, style: typo.sm),
           const SizedBox(height: 4),
           Text(
-            'Travel date: ${DateFormat('MMM d, yyyy').format(shipment.travelDate)}'
-            ' · Weight: ${shipment.parcelWeightKg} kg',
+            'Travel date: ${DateFormat('MMM d, yyyy').format(summary.travelDate)}'
+            ' · Weight: ${summary.weightKg} kg',
             style: typo.sm.copyWith(color: AppColors.textSecondary),
           ),
           const SizedBox(height: 12),

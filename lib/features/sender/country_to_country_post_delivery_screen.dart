@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/config/demo_mode.dart';
+import '../../core/geo/meetup_destination_validation.dart';
+import '../../core/geo/meetup_origin_validation.dart';
 import '../../core/geo/world_airports.dart';
 import '../../core/geo/world_countries.dart';
 import '../../core/theme/app_colors.dart';
@@ -47,14 +49,15 @@ class _CountryToCountryPostDeliveryScreenState
   final List<String> _photoPaths = [];
   List<MeetupLocation> _meetupLocations = const [];
   List<MeetupLocation> _receiverMeetupLocations = const [];
-  double _maxBudget = StaticData.postDeliveryMaximumBudget;
+  double _maxBudget = 0;
   String? _photosError;
   String? _meetupError;
   String? _receiverMeetupError;
   String? _budgetError;
-  late DateTime _travelDate;
-  late double _weightKg;
+  DateTime? _travelDate;
+  double _weightKg = 0;
   String? _weightError;
+  String? _travelDateError;
   String? _receiverEmailError;
   String? _receiverPhoneError;
   String _receiverEmail = '';
@@ -70,10 +73,7 @@ class _CountryToCountryPostDeliveryScreenState
   @override
   void initState() {
     super.initState();
-    _weightKg = 1;
     _descriptionController = TextEditingController();
-    final today = DateTime.now();
-    _travelDate = DateTime(today.year, today.month, today.day).add(const Duration(days: 1));
     _fromAirport = null;
     _toAirport = null;
   }
@@ -94,13 +94,27 @@ class _CountryToCountryPostDeliveryScreenState
           _photoPaths.isEmpty ? 'Upload at least 1 parcel photo.' : null;
       _meetupError = _meetupLocations.isEmpty
           ? 'Add at least one meetup location.'
-          : null;
+          : (_fromAirport == null
+              ? null
+              : MeetupOriginValidation.validateMeetupLocations(
+                  meetups: _meetupLocations,
+                  originCity: _fromAirport!.city,
+                  originCountryCode: _fromAirport!.countryIso,
+                ));
       _receiverMeetupError = _receiverMeetupLocations.isEmpty
           ? 'Select a meetup location.'
-          : null;
+          : (_toAirport == null
+              ? null
+              : MeetupDestinationValidation.validateMeetupLocations(
+                  meetups: _receiverMeetupLocations,
+                  destinationCity: _toAirport!.city,
+                  destinationCountryCode: _toAirport!.countryIso,
+                ));
       _budgetError = _maxBudget <= 0 ? 'Enter a valid maximum budget.' : null;
       _weightError =
           _weightKg <= 0 ? 'Enter a valid weight greater than 0.' : null;
+      _travelDateError =
+          _travelDate == null ? 'Select a travel date.' : null;
       _receiverEmailError = _validateReceiverEmail(_receiverEmail);
       _receiverPhoneError = _validateReceiverPhone(_receiverPhone);
       _fromAirportError =
@@ -124,6 +138,7 @@ class _CountryToCountryPostDeliveryScreenState
         _receiverMeetupError != null ||
         _budgetError != null ||
         _weightError != null ||
+        _travelDateError != null ||
         _receiverEmailError != null ||
         _receiverPhoneError != null ||
         _fromAirportError != null ||
@@ -153,7 +168,7 @@ class _CountryToCountryPostDeliveryScreenState
           originAirport: from.label,
           destinationCountry: destinationCountry,
           destinationAirport: to.label,
-          travelDate: _travelDate,
+          travelDate: _travelDate!,
           parcelCategory: _category,
           parcelSize: _size,
           weightKg: _weightKg,
@@ -168,6 +183,8 @@ class _CountryToCountryPostDeliveryScreenState
           receiverMeetupLocation: _receiverMeetupLocations.isEmpty
               ? null
               : _receiverMeetupLocations.first.displayLabel,
+          originCity: from.city,
+          destinationCity: to.city,
           platformFee: StaticData.senderPlatformFeeUsd(
             category: _category,
             paysReceiverFee: _paysReceiverFee,
@@ -183,13 +200,14 @@ class _CountryToCountryPostDeliveryScreenState
         toCity: destinationCountry,
         fromCode: from.countryIso,
         toCode: to.countryIso,
-        travelDate: _travelDate,
+        travelDate: _travelDate!,
         parcelCategory: _category,
         parcelWeightKg: _weightKg,
         parcelSize: _size,
         description: _descriptionController.text.trim(),
         parcelPhotoCount: _photoPaths.length,
         paysReceiverFee: _paysReceiverFee,
+        seedDemoMatches: demoMode.enabled,
       );
 
       if (!mounted) return;
@@ -257,6 +275,16 @@ class _CountryToCountryPostDeliveryScreenState
                 } else {
                   _toAirportError = null;
                 }
+                if (_meetupLocations.isNotEmpty && airport != null) {
+                  _meetupError =
+                      MeetupOriginValidation.validateMeetupLocations(
+                    meetups: _meetupLocations,
+                    originCity: airport.city,
+                    originCountryCode: airport.countryIso,
+                  );
+                } else if (_meetupLocations.isNotEmpty && airport == null) {
+                  _meetupError = null;
+                }
               }),
               onToChanged: (airport) => setState(() {
                 _toAirport = airport;
@@ -268,12 +296,27 @@ class _CountryToCountryPostDeliveryScreenState
                 } else {
                   _toAirportError = null;
                 }
+                if (_receiverMeetupLocations.isNotEmpty && airport != null) {
+                  _receiverMeetupError =
+                      MeetupDestinationValidation.validateMeetupLocations(
+                    meetups: _receiverMeetupLocations,
+                    destinationCity: airport.city,
+                    destinationCountryCode: airport.countryIso,
+                  );
+                } else if (_receiverMeetupLocations.isNotEmpty &&
+                    airport == null) {
+                  _receiverMeetupError = null;
+                }
               }),
             ),
             const SizedBox(height: 12),
             TravelDateField(
               value: _travelDate,
-              onChanged: (date) => setState(() => _travelDate = date),
+              errorText: _travelDateError,
+              onChanged: (date) => setState(() {
+                _travelDate = date;
+                _travelDateError = null;
+              }),
             ),
             const SizedBox(height: 12),
             Text(
@@ -287,7 +330,6 @@ class _CountryToCountryPostDeliveryScreenState
               onSelected: (v) => setState(() => _category = v),
             ),
             WeightKgField(
-              initialValue: _weightKg,
               errorText: _weightError,
               onChanged: (value) => setState(() {
                 _weightKg = value;
@@ -305,7 +347,6 @@ class _CountryToCountryPostDeliveryScreenState
               }),
             ),
             MaximumBudgetField(
-              initialValue: _maxBudget,
               errorText: _budgetError,
               onChanged: (value) => setState(() {
                 _maxBudget = value;
@@ -321,9 +362,16 @@ class _CountryToCountryPostDeliveryScreenState
                   extra: _meetupLocations,
                 );
                 if (result != null) {
+                  final origin = _fromAirport;
                   setState(() {
                     _meetupLocations = result;
-                    _meetupError = null;
+                    _meetupError = result.isEmpty || origin == null
+                        ? null
+                        : MeetupOriginValidation.validateMeetupLocations(
+                            meetups: result,
+                            originCity: origin.city,
+                            originCountryCode: origin.countryIso,
+                          );
                   });
                 }
               },
@@ -348,7 +396,15 @@ class _CountryToCountryPostDeliveryScreenState
               }),
               onMeetupLocationsChanged: (locations) => setState(() {
                 _receiverMeetupLocations = locations;
-                _receiverMeetupError = null;
+                final destination = _toAirport;
+                _receiverMeetupError =
+                    locations.isEmpty || destination == null
+                        ? null
+                        : MeetupDestinationValidation.validateMeetupLocations(
+                            meetups: locations,
+                            destinationCity: destination.city,
+                            destinationCountryCode: destination.countryIso,
+                          );
               }),
             ),
             const SizedBox(height: 12),

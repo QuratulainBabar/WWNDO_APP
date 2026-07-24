@@ -5,6 +5,7 @@ import 'app.dart';
 import 'core/config/demo_mode.dart';
 import 'providers/auth_provider.dart';
 import 'providers/kyc_provider.dart';
+import 'providers/wallet_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,6 +25,10 @@ Future<void> main() async {
     authRepository: authProvider.repository,
     demoMode: demoMode,
   );
+  final walletProvider = WalletProvider(
+    authRepository: authProvider.repository,
+    demoMode: demoMode,
+  );
 
   runApp(
     MultiProvider(
@@ -31,6 +36,7 @@ Future<void> main() async {
         ChangeNotifierProvider<DemoModeProvider>.value(value: demoMode),
         ChangeNotifierProvider<AuthProvider>.value(value: authProvider),
         ChangeNotifierProvider<KycProvider>.value(value: kycProvider),
+        ChangeNotifierProvider<WalletProvider>.value(value: walletProvider),
       ],
       child: const WwngoApp(),
     ),

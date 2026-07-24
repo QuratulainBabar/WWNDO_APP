@@ -41,8 +41,10 @@ class CreateDeliveryRequest {
     this.toCode,
     this.originCountry,
     this.originAirport,
+    this.originCity,
     this.destinationCountry,
     this.destinationAirport,
+    this.destinationCity,
     this.platformFee,
     this.platformFeeShare,
     this.paysReceiverFee = false,
@@ -69,8 +71,12 @@ class CreateDeliveryRequest {
 
   final String? originCountry;
   final String? originAirport;
+  /// Airport city used to validate meetup locations (country-to-country).
+  final String? originCity;
   final String? destinationCountry;
   final String? destinationAirport;
+  /// Airport city used to validate receiver meetup (country-to-country).
+  final String? destinationCity;
 
   final double? platformFee;
   final double? platformFeeShare;
@@ -121,8 +127,14 @@ class CreateDeliveryRequest {
     } else {
       fields['originCountry'] = originCountry ?? '';
       fields['originAirport'] = originAirport ?? '';
+      if (originCity != null && originCity!.trim().isNotEmpty) {
+        fields['originCity'] = originCity!.trim();
+      }
       fields['destinationCountry'] = destinationCountry ?? '';
       fields['destinationAirport'] = destinationAirport ?? '';
+      if (destinationCity != null && destinationCity!.trim().isNotEmpty) {
+        fields['destinationCity'] = destinationCity!.trim();
+      }
     }
 
     return fields;
@@ -187,6 +199,9 @@ class CreatedDelivery {
     this.receiverEmail,
     this.receiverPhone,
     this.receiverMeetupLocation,
+    this.senderName,
+    this.receiverId,
+    this.receiverAcceptedAt,
   });
 
   final String id;
@@ -216,6 +231,19 @@ class CreatedDelivery {
   final String? receiverEmail;
   final String? receiverPhone;
   final String? receiverMeetupLocation;
+  final String? senderName;
+  final String? receiverId;
+  final String? receiverAcceptedAt;
+
+  bool get isReceiverAccepted =>
+      receiverAcceptedAt != null && receiverAcceptedAt!.trim().isNotEmpty;
+
+  String get displayId => publicId.isNotEmpty ? publicId : id;
+
+  DateTime? get travelDateParsed {
+    if (travelDate.isEmpty) return null;
+    return DateTime.tryParse(travelDate);
+  }
 
   factory CreatedDelivery.fromJson(Map<String, dynamic> json) {
     final photosRaw = json['photos'];
@@ -237,8 +265,8 @@ class CreatedDelivery {
       acknowledged: json['acknowledged'] as bool? ?? false,
       photos: photosRaw is List
           ? photosRaw
-              .whereType<Map<String, dynamic>>()
-              .map(DeliveryPhoto.fromJson)
+              .whereType<Map>()
+              .map((e) => DeliveryPhoto.fromJson(Map<String, dynamic>.from(e)))
               .toList()
           : const [],
       status: json['status'] as String?,
@@ -255,6 +283,9 @@ class CreatedDelivery {
       receiverEmail: json['receiverEmail'] as String?,
       receiverPhone: json['receiverPhone'] as String?,
       receiverMeetupLocation: json['receiverMeetupLocation'] as String?,
+      senderName: json['senderName'] as String?,
+      receiverId: json['receiverId'] as String?,
+      receiverAcceptedAt: json['receiverAcceptedAt']?.toString(),
     );
   }
 }

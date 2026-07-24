@@ -88,7 +88,8 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen> {
 
   List<CreatedDelivery> get _visible {
     return _items.where((d) {
-      final active = _DeliveryStatusUi.fromApi(d.status).isActive;
+      final active =
+          _DeliveryStatusUi.fromDelivery(d).isActive;
       return _showActive ? active : !active;
     }).toList();
   }
@@ -235,7 +236,7 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen> {
         itemCount: parcels.length,
         itemBuilder: (context, i) {
           final parcel = parcels[i];
-          final statusUi = _DeliveryStatusUi.fromApi(parcel.status);
+          final statusUi = _DeliveryStatusUi.fromDelivery(parcel);
           final showMenu = _showActive && statusUi.canEditOrCancel;
 
           return AppCard(
@@ -375,9 +376,25 @@ class _DeliveryStatusUi {
 
   Color get backgroundColor => color.withValues(alpha: 0.12);
 
-  static _DeliveryStatusUi fromApi(String? status) {
+  static _DeliveryStatusUi fromDelivery(CreatedDelivery d) {
+    return fromApi(d.status, receiverAccepted: d.isReceiverAccepted);
+  }
+
+  static _DeliveryStatusUi fromApi(
+    String? status, {
+    bool receiverAccepted = false,
+  }) {
     switch (status) {
       case 'posted':
+        if (receiverAccepted) {
+          return const _DeliveryStatusUi(
+            label: 'Matching Travelers',
+            color: Color(0xFF0D9488),
+            isActive: true,
+            canEditOrCancel: true,
+            description: 'Receiver accepted. Choose a matching traveler.',
+          );
+        }
         return const _DeliveryStatusUi(
           label: 'Receiver Pending',
           color: AppColors.warning,

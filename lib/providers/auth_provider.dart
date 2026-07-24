@@ -67,6 +67,28 @@ class AuthProvider extends ChangeNotifier {
     return _run(() => _repository.login(email: email, password: password));
   }
 
+  Future<void> sendPasswordLoginOtp({
+    required String email,
+    required String password,
+  }) {
+    return _run(() => _repository.sendPasswordLoginOtp(
+          email: email,
+          password: password,
+        ));
+  }
+
+  Future<AuthUser> completePasswordLoginOtp({
+    required String email,
+    required String password,
+    required String code,
+  }) {
+    return _run(() => _repository.completePasswordLoginOtp(
+          email: email,
+          password: password,
+          code: code,
+        ));
+  }
+
   Future<void> logout() => _run(_repository.logout);
 
   Future<void> sendPasswordResetOtp({

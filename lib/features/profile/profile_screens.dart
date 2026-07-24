@@ -9,6 +9,7 @@ import '../../core/config/demo_mode.dart';
 import '../../core/layout/responsive.dart';
 import '../../core/widgets/kyc_status_badge.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/wallet_provider.dart';
 import '../../core/navigation/app_navigation.dart';
 import '../../core/platform/biometric_auth_service.dart';
 import '../../core/platform/biometric_prefs.dart';
@@ -28,8 +29,12 @@ import '../../core/widgets/screen_body.dart';
 import '../../data/models/created_delivery.dart';
 import '../../data/models/shipment.dart';
 import '../../data/models/ledger_entry.dart';
+import '../../data/models/profile_trust_metrics.dart';
+import '../../data/models/review.dart';
 import '../../data/models/wallet_role.dart';
 import '../../data/services/delivery_repository.dart';
+import '../../data/services/review_repository.dart';
+import '../../data/services/trust_metrics_repository.dart';
 import '../../data/static_data.dart';
 import '../../data/wallet_service.dart';
 import 'settings_flow_screens.dart';
@@ -47,6 +52,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   int? _activeCount;
   int? _completedCount;
   String? _lastMatchedLocation;
+  List<Review> _reviews = const [];
+  bool _reviewsLoading = true;
+  ProfileTrustMetrics _trustMetrics = ProfileTrustMetrics.empty;
+  bool _trustMetricsLoading = true;
+  bool _openingRoute = false;
 
   @override
   void didChangeDependencies() {
@@ -54,7 +64,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final location = GoRouterState.of(context).matchedLocation;
     if (location == '/profile' && _lastMatchedLocation != '/profile') {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _loadShipmentCounts(silent: _activeCount != null);
+        if (mounted) {
+          _loadShipmentCounts(silent: _activeCount != null);
+          _loadReviews(silent: !_reviewsLoading && _reviews.isNotEmpty);
+          _loadTrustMetrics(silent: !_trustMetricsLoading);
+          context.read<WalletProvider>().refresh(
+                WalletRole.sender,
+                silent: true,
+              );
+        }
       });
     }
     _lastMatchedLocation = location;
@@ -64,6 +82,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final auth = context.read<AuthProvider>();
     final demoMode = context.read<DemoModeProvider>();
     return DeliveryRepository(
+      apiClient: auth.repository.apiClient,
+      demoMode: demoMode,
+    );
+  }
+
+  ReviewRepository _reviewRepository() {
+    final auth = context.read<AuthProvider>();
+    final demoMode = context.read<DemoModeProvider>();
+    return ReviewRepository(
+      apiClient: auth.repository.apiClient,
+      demoMode: demoMode,
+    );
+  }
+
+  TrustMetricsRepository _trustMetricsRepository() {
+    final auth = context.read<AuthProvider>();
+    final demoMode = context.read<DemoModeProvider>();
+    return TrustMetricsRepository(
       apiClient: auth.repository.apiClient,
       demoMode: demoMode,
     );
@@ -101,6 +137,73 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _loadReviews({bool silent = false}) async {
+    if (!silent && mounted) {
+      setState(() => _reviewsLoading = true);
+    }
+    try {
+      final reviews = await _reviewRepository().listMyReviews(
+        WalletRole.sender,
+        limit: 10,
+      );
+      if (!mounted) return;
+      setState(() {
+        _reviews = reviews;
+        _reviewsLoading = false;
+      });
+    } on ApiException {
+      if (!mounted) return;
+      setState(() {
+        if (!silent) _reviews = const [];
+        _reviewsLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        if (!silent) _reviews = const [];
+        _reviewsLoading = false;
+      });
+    }
+  }
+
+  Future<void> _loadTrustMetrics({bool silent = false}) async {
+    if (!silent && mounted) {
+      setState(() => _trustMetricsLoading = true);
+    }
+    try {
+      final metrics =
+          await _trustMetricsRepository().fetch(WalletRole.sender);
+      if (!mounted) return;
+      setState(() {
+        _trustMetrics = metrics;
+        _trustMetricsLoading = false;
+      });
+    } on ApiException {
+      if (!mounted) return;
+      setState(() {
+        if (!silent) _trustMetrics = ProfileTrustMetrics.empty;
+        _trustMetricsLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        if (!silent) _trustMetrics = ProfileTrustMetrics.empty;
+        _trustMetricsLoading = false;
+      });
+    }
+  }
+
+  Future<void> _openRoute(String location, {VoidCallback? onReturn}) async {
+    if (_openingRoute) return;
+    _openingRoute = true;
+    try {
+      await context.push(location);
+      if (mounted) onReturn?.call();
+    } finally {
+      _openingRoute = false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
@@ -112,6 +215,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: ScreenBody(
+        keyboardDismiss: false,
         child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -122,7 +226,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   Text('Profile', style: typo.h1),
                   GestureDetector(
-                    onTap: () => context.push('/settings?role=sender'),
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => _openRoute('/settings?role=sender'),
                     child: AppSvgIcon(
                       asset: AppIcons.settings,
                       size: 24,
@@ -154,20 +259,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       context,
                       activeLabel,
                       'Active Shipments',
-                      onTap: () async {
-                        await context.push('/my-posted-parcels');
-                        if (mounted) _loadShipmentCounts(silent: true);
-                      },
+                      onTap: () => _openRoute(
+                        '/my-posted-parcels',
+                        onReturn: () => _loadShipmentCounts(silent: true),
+                      ),
                     ),
                     const SizedBox(width: 10),
                     _stat(
                       context,
                       completedLabel,
                       'Completed Shipments',
-                      onTap: () async {
-                        await context.push('/shipment-history');
-                        if (mounted) _loadShipmentCounts(silent: true);
-                      },
+                      onTap: () => _openRoute(
+                        '/shipment-history',
+                        onReturn: () => _loadShipmentCounts(silent: true),
+                      ),
                     ),
                   ],
                 ),
@@ -175,23 +280,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const SizedBox(height: 10),
               Row(
                 children: [
-                  ValueListenableBuilder<int>(
-                    valueListenable: WalletService.walletVersion,
-                    builder: (context, _, __) => _stat(
-                      context,
-                      WalletService.formatCents(
-                        WalletService.availableCents(WalletRole.sender),
+                  Expanded(
+                    child: ValueListenableBuilder<int>(
+                      valueListenable: WalletService.walletVersion,
+                      builder: (context, _, __) => _stat(
+                        context,
+                        WalletService.formatCents(
+                          WalletService.availableCents(WalletRole.sender),
+                        ),
+                        'Wallet',
+                        onTap: () => _openRoute('/wallet?role=sender'),
+                        expand: false,
                       ),
-                      'Wallet',
-                      onTap: () => context.push('/wallet?role=sender'),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 16),
               ProfileTrustIndicators(
-                metrics: StaticData.senderTrustMetrics,
+                metrics: _trustMetrics,
                 authUser: authUser,
+                loading: _trustMetricsLoading,
               ),
               const SizedBox(height: 16),
               const RoleSwitchCard(currentRole: ShipmentRole.sender),
@@ -203,36 +312,73 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   _quickAction(context, AppIcons.track, 'My Shipments', () => context.go('/track')),
                   const SizedBox(width: 10),
-                  _quickAction(context, AppIcons.history, 'Shipment History', () async {
-                    await context.push('/shipment-history');
-                    if (mounted) _loadShipmentCounts(silent: true);
-                  }),
+                  _quickAction(
+                    context,
+                    AppIcons.history,
+                    'Shipment History',
+                    () => _openRoute(
+                      '/shipment-history',
+                      onReturn: () => _loadShipmentCounts(silent: true),
+                    ),
+                  ),
                   const SizedBox(width: 10),
-                  _quickAction(context, AppIcons.browse, 'Transaction History', () => context.push('/transaction-history?role=sender')),
+                  _quickAction(
+                    context,
+                    AppIcons.browse,
+                    'Transaction History',
+                    () => _openRoute('/transaction-history?role=sender'),
+                  ),
                 ],
               ),
               const SizedBox(height: 16),
               Text('Recent reviews', style: typo.h3.copyWith(fontWeight: FontWeight.w700)),
               const SizedBox(height: 10),
-              ...StaticData.reviews.map((r) => AppCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            AppAvatar(initial: r.initial, size: AvatarSize.small),
-                            const SizedBox(width: 8),
-                            Expanded(child: Text(r.reviewerName, style: typo.sm.copyWith(fontWeight: FontWeight.w700))),
-                            Text('${'★' * r.rating}${'☆' * (5 - r.rating)}', style: typo.starRating),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Text('"${r.text}"', style: typo.reviewText),
-                        const SizedBox(height: 4),
-                        Text(r.date, style: typo.sm),
-                      ],
+              if (_reviewsLoading && _reviews.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Center(
+                    child: SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2),
                     ),
-                  )),
+                  ),
+                )
+              else if (_reviews.isEmpty)
+                AppCard(
+                  child: Text(
+                    'No reviews yet.',
+                    style: typo.sm.copyWith(color: AppColors.textSecondary),
+                  ),
+                )
+              else
+                ..._reviews.map((r) => AppCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              AppAvatar(initial: r.initial, size: AvatarSize.small),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  r.reviewerName,
+                                  style: typo.sm.copyWith(fontWeight: FontWeight.w700),
+                                ),
+                              ),
+                              Text(
+                                '${'★' * r.rating}${'☆' * (5 - r.rating)}',
+                                style: typo.starRating,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text('"${r.text}"', style: typo.reviewText),
+                          const SizedBox(height: 4),
+                          Text(r.date, style: typo.sm),
+                        ],
+                      ),
+                    )),
               const SizedBox(height: 8),
               AppButton(
                 label: 'Log out',
@@ -245,7 +391,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _stat(BuildContext context, String value, String label, {VoidCallback? onTap}) {
+  Widget _stat(
+    BuildContext context,
+    String value,
+    String label, {
+    VoidCallback? onTap,
+    bool expand = true,
+  }) {
     final typo = context.typo;
     final card = AppCard(
       margin: EdgeInsets.zero,
@@ -273,18 +425,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
 
-    if (onTap == null) return Expanded(child: card);
+    final Widget content = onTap == null
+        ? card
+        : Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(16),
+              child: card,
+            ),
+          );
 
-    return Expanded(
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
-          child: card,
-        ),
-      ),
-    );
+    return expand ? Expanded(child: content) : content;
   }
 
   Widget _quickAction(BuildContext context, String iconAsset, String label, VoidCallback onTap) {
@@ -296,29 +448,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
       height: 1.25,
     );
     return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 98),
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 14),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              AppSvgIcon(asset: iconAsset, size: 28),
-              const SizedBox(height: 8),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                style: labelStyle,
-                maxLines: 2,
-                softWrap: true,
+      child: Material(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Ink(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Container(
+              constraints: const BoxConstraints(minHeight: 98),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 14),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  AppSvgIcon(asset: iconAsset, size: 28),
+                  const SizedBox(height: 8),
+                  Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    style: labelStyle,
+                    maxLines: 2,
+                    softWrap: true,
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -327,7 +485,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 }
 
 bool _isActiveDeliveryStatus(String? status) {
-  switch (status) {
+  switch (status?.trim().toLowerCase()) {
     case 'posted':
     case 'matched':
     case 'in_transit':
@@ -338,7 +496,15 @@ bool _isActiveDeliveryStatus(String? status) {
 }
 
 bool _isCompletedDeliveryStatus(String? status) {
-  return status == 'delivered' || status == 'cancelled';
+  switch (status?.trim().toLowerCase()) {
+    case 'delivered':
+    case 'cancelled':
+    case 'canceled':
+    case 'completed':
+      return true;
+    default:
+      return false;
+  }
 }
 
 class ShipmentHistoryScreen extends StatefulWidget {
@@ -410,10 +576,12 @@ class _ShipmentHistoryScreenState extends State<ShipmentHistoryScreen> {
   }
 
   String _statusLabel(String? status) {
-    switch (status) {
+    switch (status?.trim().toLowerCase()) {
       case 'delivered':
+      case 'completed':
         return 'Delivered';
       case 'cancelled':
+      case 'canceled':
         return 'Cancelled';
       default:
         return 'Completed';
@@ -421,8 +589,9 @@ class _ShipmentHistoryScreenState extends State<ShipmentHistoryScreen> {
   }
 
   Color _statusColor(String? status) {
-    switch (status) {
+    switch (status?.trim().toLowerCase()) {
       case 'cancelled':
+      case 'canceled':
         return AppColors.danger;
       default:
         return AppColors.success;
@@ -435,14 +604,17 @@ class _ShipmentHistoryScreenState extends State<ShipmentHistoryScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: const BackHeader(title: 'Shipment History'),
-      body: ScreenBody(
-        padding: context.pagePadding.copyWith(top: 16, bottom: 0),
+      appBar: const BackHeader(
+        title: 'Shipment History',
+        fallbackRoute: '/profile',
+      ),
+      body: SafeArea(
         child: RefreshIndicator(
           color: AppColors.primary,
           onRefresh: () => _load(silent: true),
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
+            padding: context.pagePadding.copyWith(top: 16),
             children: [
               Text(
                 'Completed city-to-city and country-to-country deliveries.',
@@ -533,8 +705,29 @@ class _ShipmentHistoryScreenState extends State<ShipmentHistoryScreen> {
   }
 }
 
-class TransactionHistoryScreen extends StatelessWidget {
+class TransactionHistoryScreen extends StatefulWidget {
   const TransactionHistoryScreen({super.key});
+
+  @override
+  State<TransactionHistoryScreen> createState() =>
+      _TransactionHistoryScreenState();
+}
+
+class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final role = WalletRole.fromQuery(
+        GoRouterState.of(context).uri.queryParameters['role'],
+      );
+      context
+          .read<WalletProvider>()
+          .refresh(role, includeFullHistory: true)
+          .ignore();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -551,27 +744,38 @@ class TransactionHistoryScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: BackHeader(title: 'Transaction History', fallbackRoute: fallback),
-      body: ValueListenableBuilder<int>(
-        valueListenable: WalletService.walletVersion,
-        builder: (context, _, __) {
-          final entries = WalletService.historyFor(role);
+      body: Consumer<WalletProvider>(
+        builder: (context, wallet, _) {
+          return ValueListenableBuilder<int>(
+            valueListenable: WalletService.walletVersion,
+            builder: (context, _, __) {
+              final entries = wallet.historyFor(role);
 
-          return ScreenBody(
-            padding: context.pagePadding.copyWith(top: 16, bottom: 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Immutable ledger · cents-precision transaction log for ${role.name}.',
-                  style: typo.sm,
+              if (wallet.loading && entries.isEmpty) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              return ScreenBody(
+                padding: context.pagePadding.copyWith(top: 16, bottom: 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Immutable ledger · cents-precision transaction log for ${role.name}.',
+                      style: typo.sm,
+                    ),
+                    const SizedBox(height: 16),
+                    if (entries.isEmpty)
+                      Text(
+                        'No transactions yet.',
+                        style: typo.sm,
+                      )
+                    else
+                      ...entries.map((e) => _ledgerTile(context, e)),
+                  ],
                 ),
-                const SizedBox(height: 16),
-                if (entries.isEmpty)
-                  Text('No transactions yet.', style: typo.sm)
-                else
-                  ...entries.map((e) => _ledgerTile(context, e)),
-              ],
-            ),
+              );
+            },
           );
         },
       ),
@@ -641,6 +845,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     _loadBiometricPreference();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final roleParam = GoRouterState.of(context).uri.queryParameters['role'];
+      final role = WalletRole.fromQuery(roleParam);
+      context.read<WalletProvider>().refresh(role, silent: true).ignore();
+    });
   }
 
   Future<void> _loadBiometricPreference() async {
@@ -987,6 +1197,22 @@ class WalletScreen extends StatefulWidget {
 class _WalletScreenState extends State<WalletScreen> {
   final _amountController = TextEditingController(text: '50.00');
   String? _error;
+  bool _withdrawing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final role = WalletRole.fromQuery(
+        GoRouterState.of(context).uri.queryParameters['role'],
+      );
+      context
+          .read<WalletProvider>()
+          .refresh(role, includeFullHistory: true)
+          .ignore();
+    });
+  }
 
   @override
   void dispose() {
@@ -996,6 +1222,39 @@ class _WalletScreenState extends State<WalletScreen> {
 
   String _routeWithRole(String baseRoute, WalletRole role) =>
       '$baseRoute?role=${role.queryParam}';
+
+  Future<void> _withdraw(WalletRole role, double parsedAmount) async {
+    final cents = (parsedAmount * 100).round();
+    final validation = WalletService.validateWithdrawal(role, cents);
+    if (validation != null) {
+      setState(() => _error = validation);
+      return;
+    }
+
+    setState(() {
+      _withdrawing = true;
+      _error = null;
+    });
+    try {
+      await context.read<WalletProvider>().withdraw(
+            role: role,
+            amountCents: cents,
+          );
+      if (!mounted) return;
+      context.push(
+        _routeWithRole('/wallet/withdrawal-success', role),
+        extra: parsedAmount,
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.message);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _error = 'Withdrawal failed. Please try again.');
+    } finally {
+      if (mounted) setState(() => _withdrawing = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1015,157 +1274,173 @@ class _WalletScreenState extends State<WalletScreen> {
         title: 'Wallet',
         fallbackRoute: walletFallback,
       ),
-      body: ValueListenableBuilder<int>(
-        valueListenable: WalletService.walletVersion,
-        builder: (context, _, __) {
-          final available = WalletService.availableCents(role);
-          final escrow = WalletService.escrowCents(role);
-          final entries = WalletService.historyFor(role);
-          final parsedAmount = double.tryParse(_amountController.text) ?? 0;
-          final displayAmount = parsedAmount > 0 ? parsedAmount : 50.0;
-          final canWithdraw = role != WalletRole.sender;
+      body: Consumer<WalletProvider>(
+        builder: (context, wallet, _) {
+          return ValueListenableBuilder<int>(
+            valueListenable: WalletService.walletVersion,
+            builder: (context, _, __) {
+              final available = WalletService.availableCents(role);
+              final escrow = WalletService.escrowCents(role);
+              final entries = wallet.historyFor(role);
+              final parsedAmount = double.tryParse(_amountController.text) ?? 0;
+              final displayAmount = parsedAmount > 0 ? parsedAmount : 50.0;
+              final canWithdraw = role != WalletRole.sender;
+              final minWithdraw = wallet.summary?.minimumWithdrawalCents ??
+                  WalletService.minimumWithdrawalCents;
 
-          return ScreenBody(
-            padding: EdgeInsets.all(context.horizontalPadding + 4),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(28),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [AppColors.primary, AppColors.primaryDark],
+              if (wallet.loading && wallet.summary == null) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              return ScreenBody(
+                padding: EdgeInsets.all(context.horizontalPadding + 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(28),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [AppColors.primary, AppColors.primaryDark],
+                        ),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Column(
+                        children: [
+                          Text('Available balance', style: typo.captionOnDarkSoft),
+                          Text(
+                            WalletService.formatCents(available),
+                            style: typo.priceHeroDark,
+                          ),
+                          const SizedBox(height: 12),
+                          Text('Escrow balance', style: typo.captionOnDarkSoft),
+                          Text(
+                            WalletService.formatCents(escrow),
+                            style: typo.h2.copyWith(color: Colors.white),
+                          ),
+                          if (canWithdraw) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              'Minimum withdrawal: ${WalletService.formatCents(minWithdraw)}',
+                              style: typo.captionOnDark,
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Column(
-                    children: [
-                      Text('Available balance', style: typo.captionOnDarkSoft),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: AppButton(
+                            label: 'Top up (Stripe)',
+                            small: true,
+                            onPressed: () => context.push(
+                              _routeWithRole('/wallet/top-up', role),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: AppButton(
+                            label: 'History',
+                            variant: AppButtonVariant.outline,
+                            small: true,
+                            onPressed: () => context.push(
+                              _routeWithRole('/transaction-history', role),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (canWithdraw) ...[
+                      const SizedBox(height: 24),
                       Text(
-                        WalletService.formatCents(available),
-                        style: typo.priceHeroDark,
+                        'Withdraw via Stripe Connect',
+                        style: typo.h3.copyWith(fontWeight: FontWeight.w700),
                       ),
-                      const SizedBox(height: 12),
-                      Text('Escrow balance', style: typo.captionOnDarkSoft),
-                      Text(
-                        WalletService.formatCents(escrow),
-                        style: typo.h2.copyWith(color: Colors.white),
+                      const SizedBox(height: 8),
+                      AppLabeledField(
+                        label: 'Amount (USD)',
+                        labelStyle:
+                            typo.inputLabel.copyWith(fontWeight: FontWeight.w600),
+                        padding: const EdgeInsets.only(top: AppFieldSpacing.top),
+                        child: TextField(
+                          controller: _amountController,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          style: typo.amountInput
+                              .copyWith(fontWeight: FontWeight.w700),
+                          onChanged: (_) {
+                            setState(() {
+                              if (_error != null) _error = null;
+                            });
+                          },
+                        ),
                       ),
-                      if (canWithdraw) ...[
+                      if (_error != null) ...[
                         const SizedBox(height: 8),
                         Text(
-                          'Minimum withdrawal: ${WalletService.formatCents(WalletService.minimumWithdrawalCents)}',
-                          style: typo.captionOnDark,
+                          _error!,
+                          style: typo.sm.copyWith(color: AppColors.danger),
                         ),
                       ],
+                      const SizedBox(height: 12),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          children: [
+                            _SummaryRow(
+                              label: "You'll receive",
+                              value: '\$${displayAmount.toStringAsFixed(2)}',
+                            ),
+                            const _SummaryRow(
+                              label: 'Payout rail',
+                              value: 'Stripe Connect',
+                            ),
+                            const _SummaryRow(
+                              label: 'Arrives in',
+                              value: '2–5 business days',
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      AppButton(
+                        label: _withdrawing ? 'Withdrawing…' : 'Withdraw to bank',
+                        textStyle:
+                            typo.button.copyWith(fontWeight: FontWeight.w700),
+                        onPressed: _withdrawing
+                            ? null
+                            : () => _withdraw(role, parsedAmount),
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        'Recent transactions',
+                        style: typo.h3.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Immutable ledger (cents precision)',
+                        style: typo.sm.copyWith(color: AppColors.textSecondary),
+                      ),
+                      const SizedBox(height: 10),
+                      if (entries.isEmpty)
+                        Text('No transactions yet.', style: typo.sm)
+                      else
+                        ...entries.take(6).map((e) => _ledgerTile(context, e)),
                     ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: AppButton(
-                        label: 'Top up (Stripe)',
-                        small: true,
-                        onPressed: () => context.push(_routeWithRole('/wallet/top-up', role)),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: AppButton(
-                        label: 'History',
-                        variant: AppButtonVariant.outline,
-                        small: true,
-                        onPressed: () =>
-                            context.push(_routeWithRole('/transaction-history', role)),
-                      ),
-                    ),
                   ],
                 ),
-                if (canWithdraw) ...[
-                  const SizedBox(height: 24),
-                  Text(
-                    'Withdraw via Stripe Connect',
-                    style: typo.h3.copyWith(fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 8),
-                  AppLabeledField(
-                    label: 'Amount (USD)',
-                    labelStyle: typo.inputLabel.copyWith(fontWeight: FontWeight.w600),
-                    padding: const EdgeInsets.only(top: AppFieldSpacing.top),
-                    child: TextField(
-                      controller: _amountController,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      style: typo.amountInput.copyWith(fontWeight: FontWeight.w700),
-                      onChanged: (_) {
-                        setState(() {
-                          if (_error != null) _error = null;
-                        });
-                      },
-                    ),
-                  ),
-                  if (_error != null) ...[
-                    const SizedBox(height: 8),
-                    Text(_error!, style: typo.sm.copyWith(color: AppColors.danger)),
-                  ],
-                  const SizedBox(height: 12),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.06),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      children: [
-                        _SummaryRow(
-                          label: "You'll receive",
-                          value: '\$${displayAmount.toStringAsFixed(2)}',
-                        ),
-                        const _SummaryRow(
-                          label: 'Payout rail',
-                          value: 'Stripe Connect',
-                        ),
-                        const _SummaryRow(label: 'Arrives in', value: '2–5 business days'),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  AppButton(
-                    label: 'Withdraw to bank',
-                    textStyle: typo.button.copyWith(fontWeight: FontWeight.w700),
-                    onPressed: () {
-                      final cents = (parsedAmount * 100).round();
-                      final validation = WalletService.validateWithdrawal(role, cents);
-                      if (validation != null) {
-                        setState(() => _error = validation);
-                        return;
-                      }
-                      final ok = WalletService.withdrawViaStripeConnect(
-                        role: role,
-                        amountCents: cents,
-                      );
-                      if (!ok) return;
-                      context.push(
-                        _routeWithRole('/wallet/withdrawal-success', role),
-                        extra: parsedAmount,
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                  Text('Recent transactions', style: typo.h3.copyWith(fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Immutable ledger (cents precision)',
-                    style: typo.sm.copyWith(color: AppColors.textSecondary),
-                  ),
-                  const SizedBox(height: 10),
-                  ...entries.take(6).map((e) => _ledgerTile(context, e)),
-                ],
-              ],
-            ),
+              );
+            },
           );
         },
       ),

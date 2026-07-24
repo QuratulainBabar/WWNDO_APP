@@ -19,4 +19,14 @@ class ChatMessage {
   final bool isImage;
   final String? imageName;
   final String? imagePath;
+
+  factory ChatMessage.fromJson(Map<String, dynamic> json) {
+    return ChatMessage(
+      text: json['text'] as String? ?? '',
+      isMine: json['isMine'] as bool? ?? false,
+      time: json['time'] as String? ?? '',
+      isImage: json['isImage'] as bool? ?? false,
+      imageName: json['imageName'] as String?,
+    );
+  }
 }

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
+import '../../core/config/demo_mode.dart';
 import '../../core/layout/responsive.dart';
 import '../../core/platform/platform_ui.dart';
 import '../../core/theme/app_colors.dart';
@@ -9,7 +11,9 @@ import '../../core/widgets/app_badge.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/back_header.dart';
 import '../../data/models/traveler_trip.dart';
+import '../../data/services/delivery_repository.dart';
 import '../../data/static_data.dart';
+import '../../providers/auth_provider.dart';
 
 /// Sender-facing list of published traveler trips, ranked by route similarity.
 class DiscoverTravelersScreen extends StatefulWidget {
@@ -22,10 +26,14 @@ class DiscoverTravelersScreen extends StatefulWidget {
 }
 
 class _DiscoverTravelersScreenState extends State<DiscoverTravelersScreen> {
+  List<({TravelerTrip trip, int matchScore})>? _apiRanked;
+  bool _loading = false;
+
   @override
   void initState() {
     super.initState();
     StaticData.travelerPostedTripsVersion.addListener(_onChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadMatches());
   }
 
   @override
@@ -38,6 +46,48 @@ class _DiscoverTravelersScreenState extends State<DiscoverTravelersScreen> {
     if (mounted) setState(() {});
   }
 
+  Future<void> _loadMatches() async {
+    final shipmentId = widget.shipmentId;
+    if (shipmentId == null) return;
+
+    final demoMode = context.read<DemoModeProvider>();
+    if (demoMode.enabled) return;
+
+    setState(() => _loading = true);
+    try {
+      final auth = context.read<AuthProvider>();
+      final travelers = await DeliveryRepository(
+        apiClient: auth.repository.apiClient,
+        demoMode: demoMode,
+      ).listMatchingTravelers(shipmentId);
+
+      if (!mounted) return;
+      setState(() {
+        _apiRanked = travelers
+            .map(
+              (t) => (
+                trip: TravelerTrip(
+                  id: t.tripId,
+                  origin: t.origin,
+                  destination: t.destination,
+                  travelDate: t.travelDate,
+                  luggageCapacityKg: t.luggageCapacityKg ?? 0,
+                ),
+                matchScore: t.matchScore,
+              ),
+            )
+            .toList();
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _apiRanked = const [];
+        _loading = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
@@ -45,9 +95,12 @@ class _DiscoverTravelersScreenState extends State<DiscoverTravelersScreen> {
         ? null
         : StaticData.shipmentById(widget.shipmentId!);
 
+    final demoMode = context.watch<DemoModeProvider>();
     final ranked = shipment == null
         ? StaticData.allDiscoverableTrips
-        : StaticData.discoverableTripsForShipment(shipment);
+        : (!demoMode.enabled && _apiRanked != null)
+            ? _apiRanked!
+            : StaticData.discoverableTripsForShipment(shipment);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -56,7 +109,15 @@ class _DiscoverTravelersScreenState extends State<DiscoverTravelersScreen> {
             ? 'Discover travelers'
             : 'Matched travelers',
       ),
-      body: ListView(
+      body: _loading && _apiRanked == null
+          ? const Center(
+              child: SizedBox(
+                width: 28,
+                height: 28,
+                child: CircularProgressIndicator(strokeWidth: 2.5),
+              ),
+            )
+          : ListView(
         physics: PlatformUi.scrollPhysics,
         padding: context.pagePadding,
         children: [

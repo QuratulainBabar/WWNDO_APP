@@ -11,7 +11,8 @@ import '../../data/models/meetup_location.dart';
 import '../../data/services/places_search_service.dart';
 import '../../providers/auth_provider.dart';
 
-/// Maps-style meetup location picker (search + multi-stop), themed for WWNGO.
+/// Location picker (search + multi-stop) used for From/To city and meetup spots.
+/// Plain background — no map. Selecting a place returns immediately to the caller.
 class AddMeetupLocationsScreen extends StatefulWidget {
   const AddMeetupLocationsScreen({
     super.key,
@@ -26,6 +27,7 @@ class AddMeetupLocationsScreen extends StatefulWidget {
   final int maxLocations;
   final String title;
   final String searchHint;
+
   /// When true, search cities only (From / To route fields).
   final bool citySearch;
 
@@ -60,8 +62,20 @@ class _AddMeetupLocationsScreenState extends State<AddMeetupLocationsScreen> {
   void initState() {
     super.initState();
     _stops.addAll(widget.initialLocations);
-    if (_stops.isNotEmpty) {
+    if (widget.maxLocations == 1) {
+      // Single-location From/To pickers: go straight to search and replace on select.
+      _mode = _PickerMode.search;
+      _editingStopIndex = _stops.isEmpty ? null : 0;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _searchFocus.requestFocus();
+      });
+    } else if (_stops.isNotEmpty) {
       _mode = _PickerMode.multiStop;
+    } else {
+      _mode = _PickerMode.search;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _searchFocus.requestFocus();
+      });
     }
   }
 
@@ -73,7 +87,6 @@ class _AddMeetupLocationsScreenState extends State<AddMeetupLocationsScreen> {
     super.dispose();
   }
 
-  bool get _canFinish => _stops.isNotEmpty;
   bool get _canAddStop => _stops.length < widget.maxLocations;
 
   void _openSearch({int? forStopIndex}) {
@@ -91,20 +104,23 @@ class _AddMeetupLocationsScreenState extends State<AddMeetupLocationsScreen> {
 
   void _closeSearch() {
     FocusScope.of(context).unfocus();
+    // Empty picker with nothing selected → leave screen.
+    if (_stops.isEmpty) {
+      if (context.canPop()) context.pop();
+      return;
+    }
+    // Single-location pickers should return the current selection.
+    if (widget.maxLocations == 1) {
+      _finish();
+      return;
+    }
     setState(() {
-      _mode = _stops.isEmpty ? _PickerMode.browse : _PickerMode.multiStop;
+      _mode = _PickerMode.multiStop;
       _editingStopIndex = null;
       _suggestions = [];
       _searchController.clear();
       _searchError = null;
     });
-  }
-
-  void _enterMultiStop() {
-    setState(() => _mode = _PickerMode.multiStop);
-    if (_stops.isEmpty) {
-      _openSearch(forStopIndex: null);
-    }
   }
 
   void _onSearchChanged(String value) {
@@ -152,31 +168,33 @@ class _AddMeetupLocationsScreenState extends State<AddMeetupLocationsScreen> {
       if (!mounted) return;
     }
 
-    setState(() {
-      if (_editingStopIndex != null &&
-          _editingStopIndex! >= 0 &&
-          _editingStopIndex! < _stops.length) {
-        _stops[_editingStopIndex!] = resolved;
-      } else {
-        if (_stops.length < widget.maxLocations) {
-          _stops.add(resolved);
-        }
-      }
-      _mode = _PickerMode.multiStop;
-      _editingStopIndex = null;
-      _suggestions = [];
-      _searchController.clear();
-      _searchError = null;
-      _searching = false;
-    });
+    if (widget.maxLocations == 1) {
+      // From/To city: always take the latest selection and return immediately.
+      _stops
+        ..clear()
+        ..add(resolved);
+    } else if (_editingStopIndex != null &&
+        _editingStopIndex! >= 0 &&
+        _editingStopIndex! < _stops.length) {
+      _stops[_editingStopIndex!] = resolved;
+    } else if (_stops.length < widget.maxLocations) {
+      _stops.add(resolved);
+    }
+
     FocusScope.of(context).unfocus();
+    // Apply immediately — no Finish button required.
+    _finish();
   }
 
   void _removeStop(int index) {
     setState(() {
       _stops.removeAt(index);
       if (_stops.isEmpty) {
-        _mode = _PickerMode.browse;
+        _mode = _PickerMode.search;
+        _editingStopIndex = null;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _searchFocus.requestFocus();
+        });
       }
     });
   }
@@ -189,71 +207,19 @@ class _AddMeetupLocationsScreenState extends State<AddMeetupLocationsScreen> {
     });
   }
 
-  void _showAddStopMenu() {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) {
-        final typo = context.typo;
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 8),
-              Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.border,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              ListTile(
-                leading: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: AppColors.primary, width: 1.5),
-                  ),
-                  child: const Icon(Icons.add, color: AppColors.primary, size: 20),
-                ),
-                title: Text(
-                  'Add stop',
-                  style: typo.body.copyWith(fontWeight: FontWeight.w600),
-                ),
-                enabled: _canAddStop,
-                onTap: _canAddStop
-                    ? () {
-                        Navigator.pop(context);
-                        _openSearch();
-                      }
-                    : null,
-              ),
-              ListTile(
-                leading: const Icon(Icons.close, color: AppColors.textSecondary),
-                title: Text('Cancel', style: typo.body),
-                onTap: () => Navigator.pop(context),
-              ),
-              const SizedBox(height: 8),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   void _finish() {
-    if (!_canFinish) return;
+    if (_stops.isEmpty) return;
     context.pop(List<MeetupLocation>.from(_stops));
   }
 
   void _handleBack() {
     if (_mode == _PickerMode.search) {
       _closeSearch();
+      return;
+    }
+    // Persist removals / reorders without a Finish tap.
+    if (_stops.isNotEmpty) {
+      _finish();
       return;
     }
     if (context.canPop()) {
@@ -268,40 +234,14 @@ class _AddMeetupLocationsScreenState extends State<AddMeetupLocationsScreen> {
     final typo = context.typo;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFE8F0E3),
+      backgroundColor: AppColors.background,
       body: Stack(
         children: [
-          const Positioned.fill(child: _MapBackdrop()),
-          if (_stops.isNotEmpty) Positioned.fill(child: _RouteMarkers(stops: _stops)),
-
-          // Top overlays
-          if (_mode == _PickerMode.browse) _buildBrowseHeader(typo),
-          if (_mode == _PickerMode.multiStop) _buildMultiStopPanel(typo),
+          if (_mode == _PickerMode.browse || _mode == _PickerMode.multiStop)
+            _buildMultiStopPanel(typo),
           if (_mode == _PickerMode.search) _buildSearchOverlay(typo),
-
-          // Directions FAB (browse mode) — like Maps "Go" button
-          if (_mode == _PickerMode.browse)
-            Positioned(
-              right: 16,
-              bottom: 28 + MediaQuery.paddingOf(context).bottom,
-              child: _DirectionsFab(onTap: _enterMultiStop),
-            ),
-
-          // More / layers controls on map when multi-stop
-          if (_mode == _PickerMode.multiStop)
-            Positioned(
-              right: 12,
-              bottom: 28 + MediaQuery.paddingOf(context).bottom,
-              child: Column(
-                children: [
-                  if (_canAddStop)
-                    _MapIconButton(
-                      icon: Icons.more_vert,
-                      onTap: _showAddStopMenu,
-                    ),
-                ],
-              ),
-            ),
+          if (_mode == _PickerMode.browse && _stops.isEmpty)
+            _buildBrowseHeader(typo),
         ],
       ),
     );
@@ -340,8 +280,6 @@ class _AddMeetupLocationsScreenState extends State<AddMeetupLocationsScreen> {
                         style: typo.input.copyWith(color: AppColors.textSecondary),
                       ),
                     ),
-                    const Icon(Icons.mic_none, color: AppColors.textSecondary),
-                    const SizedBox(width: 8),
                   ],
                 ),
               ),
@@ -430,7 +368,7 @@ class _AddMeetupLocationsScreenState extends State<AddMeetupLocationsScreen> {
                 ),
               const Divider(height: 1, color: AppColors.border),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 child: Row(
                   children: [
                     const Icon(Icons.schedule, size: 18, color: AppColors.textSecondary),
@@ -438,18 +376,6 @@ class _AddMeetupLocationsScreenState extends State<AddMeetupLocationsScreen> {
                     Text(
                       '${_stops.length} of ${widget.maxLocations} locations',
                       style: typo.sm.copyWith(color: AppColors.textSecondary),
-                    ),
-                    const Spacer(),
-                    TextButton(
-                      onPressed: _canFinish ? _finish : null,
-                      child: Text(
-                        'FINISHED',
-                        style: typo.sm.copyWith(
-                          color: _canFinish ? AppColors.primary : AppColors.textDisabled,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.6,
-                        ),
-                      ),
                     ),
                   ],
                 ),
@@ -464,7 +390,7 @@ class _AddMeetupLocationsScreenState extends State<AddMeetupLocationsScreen> {
   Widget _buildSearchOverlay(AppTypography typo) {
     return Positioned.fill(
       child: Material(
-        color: AppColors.surface,
+        color: AppColors.background,
         child: SafeArea(
           child: Column(
             children: [
@@ -479,7 +405,7 @@ class _AddMeetupLocationsScreenState extends State<AddMeetupLocationsScreen> {
                     Expanded(
                       child: Container(
                         decoration: BoxDecoration(
-                          color: AppColors.background,
+                          color: AppColors.surface,
                           borderRadius: BorderRadius.circular(28),
                           border: Border.all(color: AppColors.border),
                         ),
@@ -585,57 +511,6 @@ class _AddMeetupLocationsScreenState extends State<AddMeetupLocationsScreen> {
           onTap: () => _selectPlace(place),
         );
       },
-    );
-  }
-}
-
-class _DirectionsFab extends StatelessWidget {
-  const _DirectionsFab({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      elevation: 4,
-      shadowColor: Colors.black38,
-      shape: const CircleBorder(),
-      color: AppColors.primary,
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: onTap,
-        child: const SizedBox(
-          width: 56,
-          height: 56,
-          child: Icon(Icons.directions, color: Colors.white, size: 28),
-        ),
-      ),
-    );
-  }
-}
-
-class _MapIconButton extends StatelessWidget {
-  const _MapIconButton({required this.icon, required this.onTap});
-
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      elevation: 3,
-      shadowColor: Colors.black26,
-      shape: const CircleBorder(),
-      color: AppColors.surface,
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: onTap,
-        child: SizedBox(
-          width: 44,
-          height: 44,
-          child: Icon(icon, color: AppColors.textPrimary, size: 22),
-        ),
-      ),
     );
   }
 }
@@ -844,181 +719,4 @@ class _ConnectorPainter extends CustomPainter {
       oldDelegate.isFirst != isFirst ||
       oldDelegate.isLast != isLast ||
       oldDelegate.color != color;
-}
-
-/// Soft map-like backdrop (no Google Maps SDK / bottom nav).
-class _MapBackdrop extends StatelessWidget {
-  const _MapBackdrop();
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: _MapBackdropPainter(),
-      child: const SizedBox.expand(),
-    );
-  }
-}
-
-class _MapBackdropPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final bg = Paint()..color = const Color(0xFFE8F0E3);
-    canvas.drawRect(Offset.zero & size, bg);
-
-    // Parks / land patches
-    final park = Paint()..color = const Color(0xFFD4E8C8);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(size.width * 0.1, size.height * 0.25, size.width * 0.35, size.height * 0.18),
-        const Radius.circular(40),
-      ),
-      park,
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(size.width * 0.55, size.height * 0.55, size.width * 0.4, size.height * 0.22),
-        const Radius.circular(50),
-      ),
-      park,
-    );
-
-    // Water
-    final water = Paint()..color = const Color(0xFFB8D4E8);
-    canvas.drawOval(
-      Rect.fromLTWH(size.width * 0.6, size.height * 0.15, size.width * 0.5, size.height * 0.2),
-      water,
-    );
-
-    // Roads
-    final road = Paint()
-      ..color = Colors.white
-      ..strokeWidth = 10
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-    final roadEdge = Paint()
-      ..color = const Color(0xFFC5CBD3)
-      ..strokeWidth = 12
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    final paths = <Path>[
-      Path()
-        ..moveTo(0, size.height * 0.4)
-        ..quadraticBezierTo(size.width * 0.4, size.height * 0.35, size.width, size.height * 0.48),
-      Path()
-        ..moveTo(size.width * 0.25, 0)
-        ..quadraticBezierTo(size.width * 0.3, size.height * 0.5, size.width * 0.2, size.height),
-      Path()
-        ..moveTo(0, size.height * 0.7)
-        ..quadraticBezierTo(size.width * 0.5, size.height * 0.65, size.width, size.height * 0.75),
-    ];
-
-    for (final path in paths) {
-      canvas.drawPath(path, roadEdge);
-      canvas.drawPath(path, road);
-    }
-
-    // Subtle grid
-    final grid = Paint()
-      ..color = const Color(0x14000000)
-      ..strokeWidth = 1;
-    for (var x = 0.0; x < size.width; x += 48) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), grid);
-    }
-    for (var y = 0.0; y < size.height; y += 48) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), grid);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _RouteMarkers extends StatelessWidget {
-  const _RouteMarkers({required this.stops});
-
-  final List<MeetupLocation> stops;
-
-  @override
-  Widget build(BuildContext context) {
-    if (stops.isEmpty) return const SizedBox.shrink();
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final points = <Offset>[];
-        for (var i = 0; i < stops.length; i++) {
-          final t = (i + 1) / (stops.length + 1);
-          points.add(
-            Offset(
-              constraints.maxWidth * (0.25 + t * 0.5),
-              constraints.maxHeight * (0.42 + (i.isEven ? -0.05 : 0.08) * t),
-            ),
-          );
-        }
-
-        return CustomPaint(
-          size: Size(constraints.maxWidth, constraints.maxHeight),
-          painter: _RouteLinePainter(points: points),
-          child: Stack(
-            children: [
-              for (var i = 0; i < points.length; i++)
-                Positioned(
-                  left: points[i].dx - 16,
-                  top: points[i].dy - 16,
-                  child: Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2),
-                      boxShadow: const [
-                        BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2)),
-                      ],
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      String.fromCharCode(65 + i),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
-                        fontFamily: AppTypography.fontFamilyName,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _RouteLinePainter extends CustomPainter {
-  _RouteLinePainter({required this.points});
-
-  final List<Offset> points;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (points.length < 2) return;
-    final paint = Paint()
-      ..color = AppColors.primary.withValues(alpha: 0.85)
-      ..strokeWidth = 4
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-
-    final path = Path()..moveTo(points.first.dx, points.first.dy);
-    for (var i = 1; i < points.length; i++) {
-      path.lineTo(points[i].dx, points[i].dy);
-    }
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _RouteLinePainter oldDelegate) =>
-      oldDelegate.points != points;
 }

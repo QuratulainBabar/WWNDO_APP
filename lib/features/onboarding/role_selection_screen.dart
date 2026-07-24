@@ -105,7 +105,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
             _RoleCard(
               iconAsset: AppIcons.roleTraveler,
               title: 'Traveler',
-              description: 'Create trips and carry parcels on your route.',
+              description: 'Create trips and carry parcels\non your route.',
               selected: _selectedRole == WalletRole.traveler,
               onTap: () => setState(() => _selectedRole = WalletRole.traveler),
             ),

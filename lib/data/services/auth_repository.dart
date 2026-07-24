@@ -146,6 +146,39 @@ class AuthRepository {
     return _persistAuthResponse(data);
   }
 
+  /// Always hits the real backend so Gmail SMTP runs (same as signup / forgot-password).
+  /// Demo mode must not short-circuit this — local OTP never sends email.
+  Future<void> sendPasswordLoginOtp({
+    required String email,
+    required String password,
+  }) async {
+    await _apiClient.post(
+      '/auth/login/password-otp/send',
+      body: {
+        'email': email.trim(),
+        'password': password,
+      },
+    );
+  }
+
+  /// Completes login only after the emailed OTP is verified on the server.
+  Future<AuthUser> completePasswordLoginOtp({
+    required String email,
+    required String password,
+    required String code,
+  }) async {
+    final data = await _apiClient.post(
+      '/auth/login/password-otp/verify',
+      body: {
+        'email': email.trim(),
+        'password': password,
+        'code': code.trim(),
+      },
+    );
+
+    return _persistAuthResponse(data);
+  }
+
   Future<AuthUser> _persistAuthResponse(Map<String, dynamic> data) async {
     var user = AuthUser.fromJson(data['user'] as Map<String, dynamic>);
     final accessToken = data['accessToken'] as String;

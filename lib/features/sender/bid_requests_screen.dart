@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
+import '../../core/config/demo_mode.dart';
 import '../../core/layout/responsive.dart';
 import '../../core/platform/platform_ui.dart';
 import '../../core/theme/app_colors.dart';
@@ -16,7 +18,9 @@ import 'bid_acceptance_payment_screen.dart';
 import 'bid_sort.dart';
 import '../../data/models/bid.dart';
 import '../../data/models/shipment.dart';
+import '../../data/services/delivery_repository.dart';
 import '../../data/static_data.dart';
+import '../../providers/auth_provider.dart';
 
 class BidRequestsScreen extends StatefulWidget {
   const BidRequestsScreen({super.key, required this.shipmentId});
@@ -29,11 +33,14 @@ class BidRequestsScreen extends StatefulWidget {
 
 class _BidRequestsScreenState extends State<BidRequestsScreen> {
   BidSortOption _sort = BidSortOption.bestMatchScore;
+  List<Bid>? _apiBids;
+  bool _loadingMatches = false;
 
   @override
   void initState() {
     super.initState();
     StaticData.bidRequestsVersion.addListener(_onBidsChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadMatchingTravelers());
   }
 
   @override
@@ -44,6 +51,38 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
 
   void _onBidsChanged() {
     if (mounted) setState(() {});
+  }
+
+  Future<void> _loadMatchingTravelers() async {
+    final demoMode = context.read<DemoModeProvider>();
+    if (demoMode.enabled) return;
+
+    setState(() => _loadingMatches = true);
+    try {
+      final auth = context.read<AuthProvider>();
+      final travelers = await DeliveryRepository(
+        apiClient: auth.repository.apiClient,
+        demoMode: demoMode,
+      ).listMatchingTravelers(widget.shipmentId);
+
+      // Persist filtered API results for counts / selection flow.
+      StaticData.replaceMatchingTravelersFromApi(
+        shipmentId: widget.shipmentId,
+        bids: travelers.map((t) => t.toBid()).toList(),
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _apiBids = travelers.map((t) => t.toBid()).toList();
+        _loadingMatches = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _apiBids = const [];
+        _loadingMatches = false;
+      });
+    }
   }
 
   void _selectTraveler(Bid bid) {
@@ -60,18 +99,37 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final shipment = StaticData.shipmentById(widget.shipmentId)!;
-    final bids = BidSortOption.sorted(
+  List<Bid> _visibleBids() {
+    final demoMode = context.read<DemoModeProvider>();
+    if (!demoMode.enabled) {
+      return BidSortOption.sorted(
+        _apiBids ?? StaticData.openBidRequestsForShipment(widget.shipmentId),
+        _sort,
+      );
+    }
+    return BidSortOption.sorted(
       StaticData.openBidRequestsForShipment(widget.shipmentId),
       _sort,
     );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final shipment = StaticData.shipmentById(widget.shipmentId)!;
+    final bids = _visibleBids();
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: const BackHeader(title: 'Matching Travelers'),
-      body: ListView.builder(
+      body: _loadingMatches && (_apiBids == null)
+          ? const Center(
+              child: SizedBox(
+                width: 28,
+                height: 28,
+                child: CircularProgressIndicator(strokeWidth: 2.5),
+              ),
+            )
+          : ListView.builder(
         physics: PlatformUi.scrollPhysics,
         padding: context.pagePadding,
         itemCount: bids.length + 2,

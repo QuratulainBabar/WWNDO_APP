@@ -3,11 +3,15 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
+import '../../providers/wallet_provider.dart';
 import '../../router/app_router.dart';
 import '../../data/static_data.dart';
 
 /// Clears the session and navigates to the account suspended screen.
 Future<void> logoutToSuspendedScreen(BuildContext context) async {
+  try {
+    context.read<WalletProvider>().clear();
+  } catch (_) {}
   try {
     await context.read<AuthProvider>().logout();
   } catch (_) {
@@ -18,6 +22,9 @@ Future<void> logoutToSuspendedScreen(BuildContext context) async {
 
 /// Clears the session and navigates to the login screen.
 Future<void> logoutToLoginScreen(BuildContext context) async {
+  try {
+    context.read<WalletProvider>().clear();
+  } catch (_) {}
   try {
     await context.read<AuthProvider>().logout();
   } catch (_) {
@@ -50,12 +57,13 @@ void appNavigatePushReplacement(String location, {Object? extra}) {
 
 /// Pops when possible; otherwise navigates to [fallback] if provided.
 void appNavigateBack(BuildContext context, {String? fallback}) {
-  if (context.canPop()) {
-    context.pop();
+  final router = GoRouter.of(context);
+  if (router.canPop()) {
+    router.pop();
     return;
   }
-  if (fallback != null) {
-    context.go(fallback);
+  if (fallback != null && fallback.isNotEmpty) {
+    router.go(fallback);
   }
 }
 

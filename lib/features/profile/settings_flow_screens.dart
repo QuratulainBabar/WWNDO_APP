@@ -10,7 +10,6 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_avatar.dart';
 import '../../core/widgets/app_button.dart';
-import '../../core/widgets/app_chip.dart';
 import '../../core/widgets/app_labeled_field.dart';
 import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/back_header.dart';
@@ -29,6 +28,7 @@ import '../../data/models/kyc_models.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/kyc_provider.dart';
 import '../onboarding/kyc_flow_actions.dart';
+import '../sender/widgets/route_country_dropdown.dart';
 import '../traveler/widgets/available_luggage_capacity_field.dart';
 
 enum EditProfileRole { sender, receiver, traveler }
@@ -67,7 +67,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late final TextEditingController _nameController;
   late final TextEditingController _emailController;
   late final TextEditingController _phoneController;
-  late String _country;
+  String? _countryIso;
   late PhoneCountry _phoneCountry;
   late int _luggageCapacityKg;
   String? _photoPath;
@@ -78,22 +78,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   void initState() {
     super.initState();
-    final authUser = context.read<AuthProvider>().user;
-    final fallback = switch (widget.role) {
-      EditProfileRole.receiver => StaticData.receiverUser,
-      EditProfileRole.traveler => StaticData.travelerUser,
-      EditProfileRole.sender => StaticData.currentUser,
-    };
-    final profile = authUser?.toUserProfile() ?? fallback;
-    _nameController = TextEditingController(text: profile.name);
-    _emailController = TextEditingController(text: profile.email);
-    final parsed = PhoneCountries.parse(
-      profile.phone,
-      fallbackIso: profile.countryCode,
-    );
-    _phoneCountry = parsed.country;
-    _phoneController = TextEditingController(text: parsed.national);
-    _country = profile.countryCode;
+    // Show placeholders only — do not pre-fill name/email/country/phone.
+    _nameController = TextEditingController();
+    _emailController = TextEditingController();
+    _phoneController = TextEditingController();
+    _countryIso = null;
+    _phoneCountry = PhoneCountries.byIso('FR');
     _luggageCapacityKg = StaticData.travelerAvailableLuggageCapacityKg.round();
     _photoPath = ProfileDemoStore.photoPathFor(_walletRole);
   }
@@ -110,6 +100,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _emailController.dispose();
     _phoneController.dispose();
     super.dispose();
+  }
+
+  void _onCountryChanged(String iso) {
+    setState(() {
+      _countryIso = iso;
+      // Auto-update phone flag + dial code; user can still override manually.
+      _phoneCountry = PhoneCountries.byIso(iso);
+    });
   }
 
   Future<void> _pickPhoto() async {
@@ -136,6 +134,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       AppToast.error(context, 'Enter a valid email address');
       return;
     }
+    if (_countryIso == null || _countryIso!.isEmpty) {
+      AppToast.error(context, 'Select a country');
+      return;
+    }
     if (!PhoneCountries.isValidNational(_phoneController.text, minDigits: 6)) {
       AppToast.error(context, 'Enter a valid phone number');
       return;
@@ -152,7 +154,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         dialCode: _phoneCountry.dialCode,
         phoneNumber: national,
         phone: PhoneCountries.formatFull(_phoneCountry, _phoneController.text),
-        countryCode: _country,
+        countryCode: _countryIso!,
       );
       ProfileDemoStore.setPhotoPath(_walletRole, _photoPath);
       if (!mounted) return;
@@ -237,10 +239,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     required String avatarInitial,
     List<Widget> trailingFields = const [],
   }) {
-    final countryCodes = StaticData.countryCodes;
-    final primaryCountries = countryCodes.take(countryCodes.length - 1).toList();
-    final trailingCountries = countryCodes.skip(countryCodes.length - 1).toList();
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -294,6 +292,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           child: TextField(
             controller: _nameController,
             style: typo.input,
+            decoration: InputDecoration(
+              hintText: 'Your full name',
+              hintStyle: typo.input.copyWith(color: AppColors.textDisabled),
+            ),
           ),
         ),
         AppLabeledField(
@@ -303,54 +305,30 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             controller: _emailController,
             keyboardType: TextInputType.emailAddress,
             style: typo.input,
+            decoration: InputDecoration(
+              hintText: 'you@email.com',
+              hintStyle: typo.input.copyWith(color: AppColors.textDisabled),
+            ),
           ),
+        ),
+        RouteCountryDropdown(
+          label: 'Country',
+          value: _countryIso,
+          hintText: 'Select country',
+          onChanged: _onCountryChanged,
         ),
         InternationalPhoneField(
           label: 'Phone number',
           controller: _phoneController,
           country: _phoneCountry,
           onCountryChanged: (c) => setState(() => _phoneCountry = c),
+          hintText: '6 12 34 56 78',
           labelStyle: typo.inputLabel.copyWith(fontWeight: FontWeight.w700),
           inputStyle: typo.input,
           padding: const EdgeInsets.only(
             top: AppFieldSpacing.top,
             bottom: AppFieldSpacing.bottom,
           ),
-        ),
-        const SizedBox(height: 4),
-        Text('COUNTRY', style: typo.label.copyWith(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 8),
-        Wrap(
-          children: primaryCountries
-              .map(
-                (c) => AppChip(
-                  label: StaticData.countryName(c),
-                  selected: c == _country,
-                  onTap: () => setState(() {
-                    _country = c;
-                    if (_phoneController.text.trim().isEmpty) {
-                      _phoneCountry = PhoneCountries.byIso(c);
-                    }
-                  }),
-                ),
-              )
-              .toList(),
-        ),
-        Wrap(
-          children: trailingCountries
-              .map(
-                (c) => AppChip(
-                  label: StaticData.countryName(c),
-                  selected: c == _country,
-                  onTap: () => setState(() {
-                    _country = c;
-                    if (_phoneController.text.trim().isEmpty) {
-                      _phoneCountry = PhoneCountries.byIso(c);
-                    }
-                  }),
-                ),
-              )
-              .toList(),
         ),
         ...trailingFields,
       ],

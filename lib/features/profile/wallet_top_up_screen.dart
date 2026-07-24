@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
+import '../../core/api/api_exception.dart';
 import '../../core/layout/responsive.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
@@ -10,6 +12,7 @@ import '../../core/widgets/back_header.dart';
 import '../../core/widgets/screen_body.dart';
 import '../../data/models/wallet_role.dart';
 import '../../data/wallet_service.dart';
+import '../../providers/wallet_provider.dart';
 
 class WalletTopUpScreen extends StatefulWidget {
   const WalletTopUpScreen({super.key});
@@ -21,6 +24,7 @@ class WalletTopUpScreen extends StatefulWidget {
 class _WalletTopUpScreenState extends State<WalletTopUpScreen> {
   final _amountController = TextEditingController(text: '25.00');
   String? _error;
+  bool _busy = false;
 
   @override
   void dispose() {
@@ -31,6 +35,38 @@ class _WalletTopUpScreenState extends State<WalletTopUpScreen> {
   int _parseAmountCents() {
     final dollars = double.tryParse(_amountController.text) ?? 0;
     return (dollars * 100).round();
+  }
+
+  Future<void> _pay(WalletRole role) async {
+    final cents = _parseAmountCents();
+    if (cents <= 0) {
+      setState(() => _error = 'Enter a valid amount');
+      return;
+    }
+
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await context.read<WalletProvider>().topUp(
+            role: role,
+            amountCents: cents,
+          );
+      if (!mounted) return;
+      context.pushReplacement(
+        '/wallet/top-up/success?role=${role.queryParam}',
+        extra: cents,
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.message);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _error = 'Top-up failed. Please try again.');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   @override
@@ -59,7 +95,8 @@ class _WalletTopUpScreenState extends State<WalletTopUpScreen> {
               labelStyle: typo.inputLabel.copyWith(fontWeight: FontWeight.w600),
               child: TextField(
                 controller: _amountController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
                 style: typo.amountInput.copyWith(fontWeight: FontWeight.w700),
                 onChanged: (_) => setState(() => _error = null),
               ),
@@ -77,25 +114,14 @@ class _WalletTopUpScreenState extends State<WalletTopUpScreen> {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                '🔒 Secured by Stripe · Card details are never stored by WWNGO',
+                'Secured by Stripe · Card details are never stored by WWNGO',
                 style: typo.sm,
               ),
             ),
             const SizedBox(height: 24),
             AppButton(
-              label: 'Pay with Stripe',
-              onPressed: () {
-                final cents = _parseAmountCents();
-                if (cents <= 0) {
-                  setState(() => _error = 'Enter a valid amount');
-                  return;
-                }
-                WalletService.topUpViaStripe(role: role, amountCents: cents);
-                context.pushReplacement(
-                  '/wallet/top-up/success?role=${role.queryParam}',
-                  extra: cents,
-                );
-              },
+              label: _busy ? 'Processing…' : 'Pay with Stripe',
+              onPressed: _busy ? null : () => _pay(role),
             ),
           ],
         ),

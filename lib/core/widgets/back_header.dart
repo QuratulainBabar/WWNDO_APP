@@ -52,12 +52,18 @@ class BackHeader extends StatelessWidget implements PreferredSizeWidget {
         children: [
           SizedBox(
             width: 72,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: onBack ?? () => _handleBack(context),
-              child: const Padding(
-                padding: EdgeInsets.symmetric(vertical: 4),
-                child: BackLinkLabel(),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: onBack ?? () => _handleBack(context),
+                  borderRadius: BorderRadius.circular(8),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8, horizontal: 2),
+                    child: BackLinkLabel(),
+                  ),
+                ),
               ),
             ),
           ),

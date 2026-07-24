@@ -43,23 +43,11 @@ class _OtpCodeFieldState extends State<OtpCodeField> {
     final controller = widget.controller;
     final digits = controller.text.padRight(widget.length).split('');
 
-    return GestureDetector(
-      onTap: () => widget.focusNode.requestFocus(),
-      child: Stack(
-        children: [
-          Opacity(
-            opacity: 0,
-            child: TextField(
-              controller: controller,
-              focusNode: widget.focusNode,
-              keyboardType: TextInputType.number,
-              maxLength: widget.length,
-              autofocus: true,
-              onChanged: widget.onChanged,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            ),
-          ),
-          Row(
+    return Stack(
+      children: [
+        // Visual boxes only — taps must reach the TextField above.
+        IgnorePointer(
+          child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               for (var i = 0; i < widget.length; i++)
@@ -70,8 +58,38 @@ class _OtpCodeFieldState extends State<OtpCodeField> {
                 ),
             ],
           ),
-        ],
-      ),
+        ),
+        // Transparent input covering the boxes so the first tap focuses
+        // and opens the keyboard (requestFocus alone is a no-op when already focused).
+        Positioned.fill(
+          child: TextField(
+            controller: controller,
+            focusNode: widget.focusNode,
+            keyboardType: TextInputType.number,
+            maxLength: widget.length,
+            autofocus: true,
+            showCursor: false,
+            enableInteractiveSelection: false,
+            style: const TextStyle(color: Colors.transparent),
+            cursorColor: Colors.transparent,
+            decoration: const InputDecoration(
+              // Override app OutlineInputBorder theme so no blue overlay shows.
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              disabledBorder: InputBorder.none,
+              errorBorder: InputBorder.none,
+              focusedErrorBorder: InputBorder.none,
+              filled: false,
+              counterText: '',
+              contentPadding: EdgeInsets.zero,
+              isCollapsed: true,
+            ),
+            onChanged: widget.onChanged,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          ),
+        ),
+      ],
     );
   }
 }

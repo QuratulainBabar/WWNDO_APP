@@ -13,8 +13,6 @@ import '../../core/widgets/otp_channel_picker.dart';
 import '../../core/widgets/otp_code_field.dart';
 import '../../core/widgets/otp_countdown_timer.dart';
 import '../../data/models/otp_channel.dart';
-import '../../data/notification_service.dart';
-import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
 
 /// Passed between forgot-password flow screens.
@@ -96,14 +94,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       if (!mounted) return;
 
       final flow = ForgotPasswordFlowData(contact: contact, channel: _channel);
-      NotificationService.notifyPasswordResetOtp(
-        maskedContact: flow.maskedContact,
-        otpCode: StaticData.demoOtpCode,
-      );
 
       AppToast.success(
         context,
-        'Code sent. Use ${StaticData.demoOtpCode} to verify.',
+        _channel == OtpChannel.email
+            ? 'Code sent to your email'
+            : 'Code sent',
       );
       context.push(
         '/forgot-password/otp',
@@ -262,11 +258,6 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
             Text(
               'We sent a 6-digit code to ${widget.flow.maskedContact}',
               style: typo.sm.copyWith(height: 1.5),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Demo mode: use code ${StaticData.demoOtpCode}',
-              style: typo.smPrimary.copyWith(color: AppColors.primary),
             ),
             const SizedBox(height: 16),
             OtpCountdownTimer(key: _timerKey),

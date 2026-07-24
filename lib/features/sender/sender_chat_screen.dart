@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../../core/api/api_exception.dart';
+import '../../core/config/demo_mode.dart';
 import '../../core/layout/responsive.dart';
 import '../../core/platform/platform_ui.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_avatar.dart';
 import '../../core/widgets/back_header.dart';
-import '../../data/models/bid.dart';
 import '../../data/models/chat_message.dart';
-import '../../data/static_data.dart';
+import '../../data/services/chat_repository.dart';
+import '../../providers/auth_provider.dart';
 import '../chat/chat_conversation_mixin.dart';
 import '../chat/widgets/chat_composer.dart';
 import '../chat/widgets/chat_image_attachment.dart';
@@ -16,25 +19,40 @@ import '../chat/widgets/chat_image_attachment.dart';
 class SenderChatScreen extends StatefulWidget {
   const SenderChatScreen({
     super.key,
-    required this.bid,
     this.backFallback,
+    this.contactName,
+    this.conversationId,
   });
 
-  final Bid bid;
   final String? backFallback;
+  /// When opened from inbox, show this contact until the API loads.
+  final String? contactName;
+  final String? conversationId;
 
   @override
   State<SenderChatScreen> createState() => _SenderChatScreenState();
 }
 
-class _SenderChatScreenState extends State<SenderChatScreen> with ChatConversationMixin {
+class _SenderChatScreenState extends State<SenderChatScreen>
+    with ChatConversationMixin {
   @override
-  ChatThread? get chatThread => ChatThread.senderTraveler;
+  ChatThread? get chatThread => null;
+
+  bool _loading = true;
+  String? _error;
+  String _peerName = 'Contact';
+  String _shipmentId = '';
+  String? _conversationId;
 
   @override
   void initState() {
     super.initState();
-    initChatMessages(StaticData.chatMessagesForThread(ChatThread.senderTraveler));
+    initChatMessages(const []);
+    _conversationId = widget.conversationId;
+    _peerName = widget.contactName ?? 'Contact';
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _load();
+    });
   }
 
   @override
@@ -43,14 +61,84 @@ class _SenderChatScreenState extends State<SenderChatScreen> with ChatConversati
     super.dispose();
   }
 
+  ChatRepository _repo() {
+    final auth = context.read<AuthProvider>();
+    final demoMode = context.read<DemoModeProvider>();
+    return ChatRepository(
+      apiClient: auth.repository.apiClient,
+      demoMode: demoMode,
+    );
+  }
+
+  Future<void> _load() async {
+    final id = _conversationId;
+    if (id == null || id.isEmpty) {
+      setState(() {
+        _loading = false;
+        _error = 'Conversation not found.';
+      });
+      return;
+    }
+
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final detail = await _repo().getConversation(id);
+      if (!mounted) return;
+      setState(() {
+        chatMessages = List.of(detail.messages);
+        _peerName = widget.contactName ?? detail.name;
+        _shipmentId = detail.shipmentId;
+        _loading = false;
+      });
+      scrollChatToBottom();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = e.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = 'Unable to load conversation.';
+      });
+    }
+  }
+
+  Future<void> _sendApiMessage() async {
+    final text = chatController.text.trim();
+    final id = _conversationId;
+    if (text.isEmpty || id == null) return;
+
+    chatController.clear();
+    try {
+      final message = await _repo().sendMessage(id, text);
+      if (!mounted) return;
+      setState(() => chatMessages.add(message));
+      scrollChatToBottom();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to send message.')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
-    final traveler = widget.bid.travelerName;
-    final unlocked = StaticData.isThreadUnlocked(ChatThread.senderTraveler);
-    final lockReasons = StaticData.chatThreadLockReasons(ChatThread.senderTraveler);
-    final meetup = StaticData.thread1ProposedMeetupLocation;
-    final canRevealContacts = StaticData.canRevealThread1Contacts;
+    final traveler = _peerName;
+    final initial = traveler.isNotEmpty ? traveler[0] : '?';
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -82,104 +170,106 @@ class _SenderChatScreenState extends State<SenderChatScreen> with ChatConversati
           ),
           Container(
             width: double.infinity,
-            padding: EdgeInsets.fromLTRB(context.horizontalPadding, 12, context.horizontalPadding, 12),
+            padding: EdgeInsets.fromLTRB(
+              context.horizontalPadding,
+              12,
+              context.horizontalPadding,
+              12,
+            ),
             color: AppColors.surface,
-            child: Column(
-              children: [
-                Text(
-                  'Sender ↔ Traveler · ${StaticData.activeShipment.id}',
-                  textAlign: TextAlign.center,
-                  style: typo.sm,
-                ),
-                if (meetup != null) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    'Proposed meetup: $meetup',
-                    style: typo.sm.copyWith(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  if (!StaticData.locationAgreementConfirmed) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      'Waiting for traveler acceptance',
-                      style: typo.sm.copyWith(color: AppColors.warning),
-                    ),
-                  ],
-                ],
-                const SizedBox(height: 6),
-                Text(
-                  canRevealContacts
-                      ? 'Traveler contact: ${StaticData.travelerUser.phone} · ${StaticData.travelerUser.email}'
-                      : 'Contact details hidden until both users accept meetup location',
-                  textAlign: TextAlign.center,
-                  style: typo.sm.copyWith(
-                    color: canRevealContacts
-                        ? AppColors.success
-                        : AppColors.textSecondary,
-                  ),
-                ),
-              ],
+            child: Text(
+              _shipmentId.isEmpty
+                  ? 'Sender ↔ Traveler'
+                  : 'Sender ↔ Traveler · $_shipmentId',
+              textAlign: TextAlign.center,
+              style: typo.sm,
             ),
           ),
-          if (!unlocked)
-            Container(
-              width: double.infinity,
-              padding: EdgeInsets.fromLTRB(
-                context.horizontalPadding,
-                8,
-                context.horizontalPadding,
-                8,
-              ),
-              color: AppColors.warning.withValues(alpha: 0.12),
-              child: Text(
-                'Thread locked: ${lockReasons.join(' · ')}',
-                style: typo.sm.copyWith(
-                  color: AppColors.warning,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
           Expanded(
-            child: ValueListenableBuilder<int>(
-              valueListenable: StaticData.chatThreadsVersion,
-              builder: (context, _, __) {
-                chatMessages = List.of(
-                  StaticData.chatMessagesForThread(ChatThread.senderTraveler),
-                );
-                return ListView(
-                  controller: chatScrollController,
-                  physics: PlatformUi.scrollPhysics,
-                  padding: EdgeInsets.all(context.horizontalPadding),
-                  children: [
-                    Center(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppColors.background,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text('Today', style: typo.datePill),
+            child: _loading
+                ? const Center(
+                    child: SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: AppColors.primary,
                       ),
                     ),
-                    const SizedBox(height: 14),
-                    ...chatMessages.map(
-                      (m) => _ChatBubble(message: m, travelerInitial: widget.bid.initial),
-                    ),
-                  ],
-                );
-              },
-            ),
+                  )
+                : _error != null
+                    ? Center(
+                        child: Padding(
+                          padding: context.pagePadding,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                _error!,
+                                textAlign: TextAlign.center,
+                                style: typo.sm.copyWith(
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: _load,
+                                child: const Text('Retry'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : ListView(
+                        controller: chatScrollController,
+                        physics: PlatformUi.scrollPhysics,
+                        padding: EdgeInsets.all(context.horizontalPadding),
+                        children: [
+                          if (chatMessages.isNotEmpty) ...[
+                            Center(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.background,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text('Today', style: typo.datePill),
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                          ],
+                          if (chatMessages.isEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 48),
+                              child: Center(
+                                child: Text(
+                                  'No messages yet.',
+                                  style: typo.sm.copyWith(
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ),
+                            )
+                          else
+                            ...chatMessages.map(
+                              (m) => _ChatBubble(
+                                message: m,
+                                travelerInitial: initial,
+                              ),
+                            ),
+                        ],
+                      ),
           ),
           ChatComposer(
             controller: chatController,
             hintText: 'Message $traveler…',
-            onSend: sendChatTextMessage,
+            onSend: _sendApiMessage,
             onAttach: showChatAttachmentOptions,
             borderRadius: 12,
             circularSendButton: false,
-            enabled: unlocked,
+            enabled: !_loading && _error == null && _conversationId != null,
           ),
         ],
       ),
@@ -233,7 +323,8 @@ class _ChatBubble extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
-        mainAxisAlignment: isMine ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment:
+            isMine ? MainAxisAlignment.end : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!isMine) ...[

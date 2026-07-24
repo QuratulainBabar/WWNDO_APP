@@ -1,8 +1,12 @@
+import '../core/geo/destination_match.dart';
 import 'models/delivery_request.dart';
 import 'models/shipment.dart';
 import 'models/traveler_trip.dart';
 
 /// Computes route similarity between a traveler trip and a sender parcel/request.
+///
+/// Destination (To) is a hard requirement: if To locations do not match,
+/// the score is always 0. Origin/date only refine ranking after that filter.
 abstract final class RouteSimilarity {
   /// Returns a 0–100 match score based on origin/destination overlap and date proximity.
   static int score({
@@ -12,10 +16,28 @@ abstract final class RouteSimilarity {
     required String requestOrigin,
     required String requestDestination,
     required DateTime requestDate,
+    String? tripDestinationCode,
+    String? requestDestinationCode,
   }) {
+    // Hard filter: traveler To must match sender To.
+    if (!DestinationMatch.destinationsMatch(
+      senderDestination: requestDestination,
+      travelerDestination: tripDestination,
+      senderDestinationCode: requestDestinationCode,
+      travelerDestinationCode: tripDestinationCode,
+    )) {
+      return 0;
+    }
+
     final originScore = _placeScore(tripOrigin, requestOrigin);
-    final destScore = _placeScore(tripDestination, requestDestination);
-    if (originScore == 0 || destScore == 0) return 0;
+    // Destination already validated — treat as full match for scoring.
+    const destScore = 1.0;
+    if (originScore == 0) {
+      // Origin may differ; keep a reduced but non-zero score when To matches.
+      final base = ((0.35 + destScore) / 2 * 80).round();
+      final dateBonus = _dateBonus(tripDate, requestDate);
+      return (base + dateBonus).clamp(0, 100);
+    }
 
     final base = ((originScore + destScore) / 2 * 80).round();
     final dateBonus = _dateBonus(tripDate, requestDate);
@@ -41,12 +63,15 @@ abstract final class RouteSimilarity {
       requestOrigin: shipment.fromCity,
       requestDestination: shipment.toCity,
       requestDate: shipment.travelDate,
+      // shipment.toCode is a country ISO for city routes — not a city match key.
+      tripDestinationCode: null,
+      requestDestinationCode: null,
     );
   }
 
   static double _placeScore(String a, String b) {
-    final left = _normalize(a);
-    final right = _normalize(b);
+    final left = DestinationMatch.normalizePlace(a);
+    final right = DestinationMatch.normalizePlace(b);
     if (left.isEmpty || right.isEmpty) return 0;
     if (left == right) return 1;
     if (left.contains(right) || right.contains(left)) return 0.75;
@@ -69,13 +94,5 @@ abstract final class RouteSimilarity {
     if (days <= 5) return 10;
     if (days <= 10) return 5;
     return 0;
-  }
-
-  static String _normalize(String value) {
-    return value
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^a-z0-9\s]'), ' ')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
   }
 }

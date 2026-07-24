@@ -45,7 +45,7 @@ class _RoleSwitchCardState extends State<RoleSwitchCard> {
       walletRole: WalletRole.traveler,
       iconAsset: AppIcons.roleTraveler,
       title: 'Traveler',
-      description: 'Share your route and carry parcels on your trip',
+      description: 'Share your route and carry\nparcels on your trip',
       profileRoute: '/traveler-profile',
     ),
     (

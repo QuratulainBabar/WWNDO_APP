@@ -16,7 +16,6 @@ import '../../core/widgets/screen_body.dart';
 import '../../core/widgets/scrollable_form_screen.dart';
 import '../../core/widgets/app_toast.dart';
 import '../../data/models/otp_channel.dart';
-import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
 
 class AccountVerificationScreen extends StatelessWidget {
@@ -243,6 +242,21 @@ class _CrossVerificationOtpScreenState extends State<CrossVerificationOtpScreen>
 
   Future<void> _navigateAfterSuccess(AuthProvider auth) async {
     if (!mounted) return;
+
+    // After verifying email/phone, continue into the app when fully verified
+    // (or when this flow was opened to finish onboarding) — don't bounce back
+    // to the Verify Account hub unless more steps remain.
+    final user = auth.user;
+    if (widget.flow.continueToHomeOnSuccess ||
+        (user != null && user.isFullyCrossVerified)) {
+      await PostAuthNavigation.continueAfterAuth(
+        context,
+        offerBiometricSetup: true,
+        requireVerification: false,
+      );
+      return;
+    }
+
     context.go(widget.flow.returnRoute);
   }
 
@@ -275,7 +289,6 @@ class _CrossVerificationOtpScreenState extends State<CrossVerificationOtpScreen>
     final typo = context.typo;
     final user = auth.user;
     final contact = widget.channel == OtpChannel.email ? user?.email : user?.phone;
-    final showDemoOtpHint = true;
 
     return Scaffold(
       backgroundColor: AppColors.surface,
@@ -293,13 +306,6 @@ class _CrossVerificationOtpScreenState extends State<CrossVerificationOtpScreen>
                   : 'Sending verification code…',
               style: typo.sm.copyWith(height: 1.5),
             ),
-            if (showDemoOtpHint) ...[
-              const SizedBox(height: 8),
-              Text(
-                'Demo mode: use code ${StaticData.demoOtpCode}',
-                style: typo.smPrimary.copyWith(color: AppColors.primary),
-              ),
-            ],
             const SizedBox(height: 16),
             OtpCountdownTimer(key: _timerKey),
             const SizedBox(height: 20),

@@ -111,7 +111,7 @@ abstract final class DemoAuthService {
     final existing = _sessionUser;
 
     // Login OTP authenticates only — email/phone stay unverified until
-    // cross-verification OTP (demo code 123456) is entered.
+    // cross-verification OTP is entered.
     if (isEmail && existing != null && existing.email.toLowerCase() == trimmed.toLowerCase()) {
       return _persistDemoSession(storage, existing);
     }

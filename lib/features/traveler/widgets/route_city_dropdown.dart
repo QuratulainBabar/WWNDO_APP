@@ -6,14 +6,14 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_labeled_field.dart';
 import '../../../data/models/meetup_location.dart';
 
-/// Opens the Google Maps location screen to pick From / To city.
+/// Opens the location search screen to pick From / To city.
 class RouteCityDropdown extends StatelessWidget {
   const RouteCityDropdown({
     super.key,
     required this.label,
     required this.value,
     required this.onChanged,
-    this.hintText = 'Select location on Google Maps',
+    this.hintText = 'Search location',
     this.mapTitle,
     this.searchHint,
     this.citySearch = true,
@@ -64,9 +64,9 @@ class RouteCityDropdown extends StatelessWidget {
               hintText: hintText,
               isDense: true,
               contentPadding: const EdgeInsets.fromLTRB(16, 0, 4, 0),
-              prefixIcon: Icon(
+              prefixIcon: const Icon(
                 Icons.location_on_outlined,
-                color: hasValue ? AppColors.primary : AppColors.textSecondary,
+                color: AppColors.primary,
                 size: 22,
               ),
               suffixIcon: Icon(

@@ -4,14 +4,32 @@ import 'models/ledger_entry.dart';
 import 'models/wallet_role.dart';
 
 /// Role-aware wallet balances, per-shipment escrow, and immutable cents ledger.
+///
+/// Display amounts come from the backend via [applyRemoteState]. Local mutation
+/// helpers remain for in-app shipment flows until those are fully API-backed.
 abstract final class WalletService {
   static final walletVersion = ValueNotifier(0);
 
+  static const minimumWithdrawalCents = 1000;
+
+  /// One-time $10 available credit per role after identity verification.
+  static const kycWelcomeCreditCents = 1000;
+  static const kycWelcomeDescription =
+      'Welcome credit after identity verification';
+
+  /// TEMPORARY (debug only): when the backend reports $0 available, use $10
+  /// so Sender / Traveler / Receiver flows can be tested without real funding.
+  /// Remove once wallet top-up / welcome credit is reliable in production.
+  static const int devZeroBalanceFallbackCents = kycWelcomeCreditCents;
+
+  static int get _initialAvailableCents =>
+      kDebugMode ? devZeroBalanceFallbackCents : 0;
+
   static final List<LedgerEntry> _ledger = [];
   static final Map<WalletRole, int> _availableCents = {
-    WalletRole.sender: 0,
-    WalletRole.traveler: 0,
-    WalletRole.receiver: 0,
+    WalletRole.sender: kDebugMode ? devZeroBalanceFallbackCents : 0,
+    WalletRole.traveler: kDebugMode ? devZeroBalanceFallbackCents : 0,
+    WalletRole.receiver: kDebugMode ? devZeroBalanceFallbackCents : 0,
   };
   static final Map<WalletRole, int> _escrowCents = {
     WalletRole.sender: 0,
@@ -25,27 +43,25 @@ abstract final class WalletService {
   static final Set<String> _refundedShipmentIds = {};
   static final Set<String> _releasedShipmentIds = {};
 
-  static bool _seeded = false;
+  /// Maps a backend available balance into the in-app cache amount.
+  /// In debug builds, a $0 backend balance becomes [devZeroBalanceFallbackCents].
+  static int resolveAvailableCents(int backendAvailableCents) {
+    if (backendAvailableCents < 0) return 0;
+    if (kDebugMode && backendAvailableCents == 0) {
+      return devZeroBalanceFallbackCents;
+    }
+    return backendAvailableCents;
+  }
 
-  /// Bump when demo ledger history visibility changes so hot reload re-seeds.
-  static const _seedGeneration = 4;
-  static int _appliedSeedGeneration = 0;
-
-  /// Transaction History shows a short demo ledger only (all roles).
-  static const _historyLimit = 2;
-
-  static const minimumWithdrawalCents = 1000;
-
-  static void seedDemoLedger() {
-    if (_appliedSeedGeneration == _seedGeneration && _seeded) return;
-    _appliedSeedGeneration = _seedGeneration;
-    _seeded = true;
-
+  /// Reset all balances and ledger to empty ($0.00). Used on logout / new user.
+  /// In debug builds, reseeds the $10 testing fallback instead of true zero.
+  static void resetToEmpty() {
     _ledger.clear();
+    final available = _initialAvailableCents;
     _availableCents
-      ..[WalletRole.sender] = 0
-      ..[WalletRole.traveler] = 0
-      ..[WalletRole.receiver] = 0;
+      ..[WalletRole.sender] = available
+      ..[WalletRole.traveler] = available
+      ..[WalletRole.receiver] = available;
     _escrowCents
       ..[WalletRole.sender] = 0
       ..[WalletRole.traveler] = 0
@@ -54,153 +70,51 @@ abstract final class WalletService {
     _frozenShipmentIds.clear();
     _refundedShipmentIds.clear();
     _releasedShipmentIds.clear();
+    walletVersion.value++;
+  }
 
-    // Fund wallets first so platform-fee seed rows never go negative.
-    _append(
-      LedgerEntry(
-        id: 'led-s-top',
-        role: WalletRole.sender,
-        type: LedgerEntryType.topUp,
-        amountCents: 25000,
-        availableDeltaCents: 25000,
-        description: 'Top-up via Stripe',
-        createdAt: DateTime(2026, 6, 1),
-      ),
+  /// Idempotent local $10 credit for sender, traveler, and receiver.
+  /// Used in demo mode and to mirror backend welcome credit into cache.
+  static bool grantKycWelcomeCredit() {
+    final alreadyGranted = _ledger.any(
+      (e) => e.description == kycWelcomeDescription,
     );
-    _append(
-      LedgerEntry(
-        id: 'led-t-pay',
-        role: WalletRole.traveler,
-        type: LedgerEntryType.deliveryPayout,
-        amountCents: 20600,
-        availableDeltaCents: 20600,
-        shipmentId: 'WW-33104',
-        description: 'WW-33104 · Delivery payout',
-        createdAt: DateTime(2026, 5, 30),
-      ),
-    );
-    _append(
-      LedgerEntry(
-        id: 'led-t-wd',
-        role: WalletRole.traveler,
-        type: LedgerEntryType.withdrawal,
-        amountCents: 5000,
-        availableDeltaCents: -5000,
-        description: 'Withdrawal via Stripe Connect · Barclays',
-        createdAt: DateTime(2026, 5, 18),
-      ),
-    );
-    _append(
-      LedgerEntry(
-        id: 'led-r-top',
-        role: WalletRole.receiver,
-        type: LedgerEntryType.topUp,
-        amountCents: 18400,
-        availableDeltaCents: 18400,
-        description: 'Top-up via Stripe',
-        createdAt: DateTime(2026, 6, 8),
-      ),
-    );
+    if (alreadyGranted) return false;
 
-    void holdEscrowSeed({
-      required String shipmentId,
-      required int amountCents,
-      required DateTime at,
-      bool hiddenFromHistory = false,
-    }) {
-      _recordShipmentEscrow(shipmentId, amountCents);
+    final now = DateTime.now();
+    for (final role in WalletRole.values) {
       _append(
         LedgerEntry(
-          id: 'led-s-esc-$shipmentId',
-          role: WalletRole.sender,
-          type: LedgerEntryType.escrowHold,
-          amountCents: amountCents,
-          availableDeltaCents: -amountCents,
-          escrowDeltaCents: amountCents,
-          shipmentId: shipmentId,
-          description: '$shipmentId · Escrow hold',
-          createdAt: at,
-          hiddenFromHistory: hiddenFromHistory,
+          id:
+              'led-${role.name}-kyc-welcome-${now.microsecondsSinceEpoch}-${role.index}',
+          role: role,
+          type: LedgerEntryType.topUp,
+          amountCents: kycWelcomeCreditCents,
+          availableDeltaCents: kycWelcomeCreditCents,
+          description: kycWelcomeDescription,
+          createdAt: now,
         ),
       );
     }
+    return true;
+  }
 
-    void chargeDocFeesSeed(
-      String shipmentId,
-      DateTime at, {
-      bool hideSenderFromHistory = false,
-    }) {
-      for (final role in [
-        WalletRole.sender,
-        WalletRole.traveler,
-        WalletRole.receiver,
-      ]) {
-        _append(
-          LedgerEntry(
-            id: 'led-${role.name}-fee-$shipmentId',
-            role: role,
-            type: LedgerEntryType.platformFee,
-            amountCents: 200,
-            availableDeltaCents: -200,
-            shipmentId: shipmentId,
-            description: '$shipmentId · Platform fee',
-            createdAt: at,
-            hiddenFromHistory: role == WalletRole.traveler ||
-                (hideSenderFromHistory && role == WalletRole.sender),
-          ),
-        );
-      }
-    }
+  /// Replace cached balances / history for [role] with backend values.
+  static void applyRemoteState({
+    required WalletRole role,
+    required int availableCents,
+    required int escrowCents,
+    List<LedgerEntry> history = const [],
+  }) {
+    _availableCents[role] = resolveAvailableCents(availableCents);
+    _escrowCents[role] = escrowCents < 0 ? 0 : escrowCents;
 
-    // Older demo rows stay on the ledger for balances/escrow, but are hidden
-    // from sender Transaction History (blue-circle items).
-    holdEscrowSeed(
-      shipmentId: 'WW-48291',
-      amountCents: 2350,
-      at: DateTime(2026, 6, 10),
-      hiddenFromHistory: true,
-    );
-    chargeDocFeesSeed(
-      'WW-48291',
-      DateTime(2026, 6, 10),
-      hideSenderFromHistory: true,
-    );
-
-    holdEscrowSeed(
-      shipmentId: 'WW-61023',
-      amountCents: 3500,
-      at: DateTime(2026, 6, 5),
-      hiddenFromHistory: true,
-    );
-    chargeDocFeesSeed(
-      'WW-61023',
-      DateTime(2026, 6, 5),
-      hideSenderFromHistory: true,
-    );
-
-    // Collected, ≥24h before travel — escrow + fees refunded on cancel.
-    holdEscrowSeed(
-      shipmentId: 'WW-74011',
-      amountCents: 3000,
-      at: DateTime(2026, 7, 10),
-    );
-    chargeDocFeesSeed(
-      'WW-74011',
-      DateTime(2026, 7, 10),
-      hideSenderFromHistory: true,
-    );
-
-    // Receiver cancel demo <24h — escrow refunded, fees kept on cancel.
-    holdEscrowSeed(
-      shipmentId: 'WW-74022',
-      amountCents: 2600,
-      at: DateTime(2026, 7, 16),
-    );
-    chargeDocFeesSeed('WW-74022', DateTime(2026, 7, 16));
+    _ledger.removeWhere((e) => e.role == role);
+    _ledger.addAll(history.where((e) => e.role == role));
+    walletVersion.value++;
   }
 
   static List<LedgerEntry> immutableLedgerFor(WalletRole role) {
-    seedDemoLedger();
     return List<LedgerEntry>.unmodifiable(
       _ledger.where((e) => e.role == role).toList()
         ..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
@@ -208,39 +122,25 @@ abstract final class WalletService {
   }
 
   /// Visible Transaction History rows (excludes [LedgerEntry.hiddenFromHistory]).
-  /// Capped to [_historyLimit] demo rows per role.
   static List<LedgerEntry> historyFor(WalletRole role) {
-    final visible = immutableLedgerFor(role)
-        .where((e) => !e.hiddenFromHistory)
-        .toList();
-    if (visible.length > _historyLimit) {
-      return List<LedgerEntry>.unmodifiable(visible.take(_historyLimit));
-    }
-    return List<LedgerEntry>.unmodifiable(visible);
+    return List<LedgerEntry>.unmodifiable(
+      immutableLedgerFor(role).where((e) => !e.hiddenFromHistory),
+    );
   }
 
   static List<LedgerEntry> ledgerForShipment(String shipmentId) {
-    seedDemoLedger();
     return List<LedgerEntry>.unmodifiable(
       _ledger.where((e) => e.shipmentId == shipmentId).toList()
         ..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
     );
   }
 
-  static int availableCents(WalletRole role) {
-    seedDemoLedger();
-    return _availableCents[role] ?? 0;
-  }
+  static int availableCents(WalletRole role) => _availableCents[role] ?? 0;
 
-  static int escrowCents(WalletRole role) {
-    seedDemoLedger();
-    return _escrowCents[role] ?? 0;
-  }
+  static int escrowCents(WalletRole role) => _escrowCents[role] ?? 0;
 
-  static int escrowCentsForShipment(String shipmentId) {
-    seedDemoLedger();
-    return _escrowCentsByShipmentId[shipmentId] ?? 0;
-  }
+  static int escrowCentsForShipment(String shipmentId) =>
+      _escrowCentsByShipmentId[shipmentId] ?? 0;
 
   static bool isEscrowFrozen(String shipmentId) =>
       _frozenShipmentIds.contains(shipmentId);
@@ -293,7 +193,6 @@ abstract final class WalletService {
     required int amountCents,
   }) {
     if (amountCents <= 0) return true;
-    seedDemoLedger();
     final available = availableCents(role);
     if (available >= amountCents) return true;
     return topUpViaStripe(role: role, amountCents: amountCents - available);
@@ -458,7 +357,6 @@ abstract final class WalletService {
 
   /// Credits back net platform fees charged to every role for [shipmentId].
   static void refundAllPlatformFeesForShipment(String shipmentId) {
-    seedDemoLedger();
     for (final role in WalletRole.values) {
       final netCents = netPlatformFeeCentsCharged(
         role: role,
@@ -479,7 +377,6 @@ abstract final class WalletService {
     required WalletRole role,
     required String shipmentId,
   }) {
-    seedDemoLedger();
     var charged = 0;
     var refunded = 0;
     for (final entry in _ledger) {

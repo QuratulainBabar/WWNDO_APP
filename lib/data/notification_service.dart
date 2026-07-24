@@ -17,7 +17,7 @@ abstract final class NotificationService {
   };
 
   /// Bump when demo inbox contents change so hot reload picks up removals.
-  static const _seedGeneration = 5;
+  static const _seedGeneration = 8;
   static int _appliedSeedGeneration = 0;
 
   /// Traveler Alerts tab shows a short demo inbox only.
@@ -27,81 +27,12 @@ abstract final class NotificationService {
     if (_appliedSeedGeneration == _seedGeneration) return;
     _appliedSeedGeneration = _seedGeneration;
 
-    _inbox[WalletRole.sender] = [
-      AppNotification(
-        id: 'snd-seed-final-budget',
-        role: WalletRole.sender,
-        type: AppNotificationType.counterOffer,
-        title: 'Traveler sent the final budget.',
-        body:
-            'Ama Serwaa proposed a final budget for WW-35102. Review parcel details to accept.',
-        time: 'Just now',
-        route: '/shipment/WW-35102',
-      ),
-      AppNotification(
-        id: 'snd-seed-1',
-        role: WalletRole.sender,
-        type: AppNotificationType.matching,
-        title: 'Matching travelers ready',
-        body: 'Receiver accepted WW-27490. View matching travelers for Dubai → Casablanca.',
-        time: '1h ago',
-        route: '/bid-requests/WW-27490',
-      ),
-      AppNotification(
-        id: 'snd-seed-2',
-        role: WalletRole.sender,
-        type: AppNotificationType.deliveryStatus,
-        title: 'Traveler accepted delivery',
-        body: 'Aissatou D. will carry WW-48291 on AF718.',
-        time: 'Yesterday',
-        route: '/shipment/WW-48291',
-      ),
-    ];
+    // Sender notifications come from the backend API — no demo seed.
+    _inbox[WalletRole.sender] = [];
 
-    _inbox[WalletRole.traveler] = [
-      AppNotification(
-        id: 'trv-seed-1',
-        role: WalletRole.traveler,
-        type: AppNotificationType.bidAccepted,
-        title: 'Bid accepted',
-        body: 'Your bid on WW-48291 was accepted by the sender.',
-        time: 'Yesterday',
-        route: '/traveler-bids',
-      ),
-      AppNotification(
-        id: 'trv-seed-3',
-        role: WalletRole.traveler,
-        type: AppNotificationType.deliveryStatus,
-        title: 'Traveler selected',
-        body: 'You are selected for WW-48291 (Paris → Dakar). Await sender NFC handoff.',
-        time: 'Jun 10',
-        unread: false,
-        route: '/traveler-deliveries',
-      ),
-    ];
+    _inbox[WalletRole.traveler] = [];
 
-    _inbox[WalletRole.receiver] = [
-      AppNotification(
-        id: 'rcv-seed-2',
-        role: WalletRole.receiver,
-        type: AppNotificationType.parcelRequest,
-        title: 'Incoming Parcel Request',
-        body:
-            'A sender has requested to send you a parcel. Please review the parcel details and accept or decline the request.',
-        time: 'Just now',
-        route: '/receiver-incoming-request/WW-61050',
-      ),
-      AppNotification(
-        id: 'rcv-seed-1',
-        role: WalletRole.receiver,
-        type: AppNotificationType.deliveryStatus,
-        title: 'Traveler selected',
-        body: 'Aissatou D. is booked for WW-48291 (Paris → Dakar). Tracking updates will follow.',
-        time: '2h ago',
-        unread: false,
-        route: '/receiver-tracking?shipmentId=WW-48291',
-      ),
-    ];
+    _inbox[WalletRole.receiver] = [];
     version.value++;
   }
 
@@ -173,13 +104,12 @@ abstract final class NotificationService {
 
   static void notifyPasswordResetOtp({
     required String maskedContact,
-    required String otpCode,
   }) {
     pushToRoles(
       roles: WalletRole.values,
       type: AppNotificationType.otp,
       title: 'Password reset code sent',
-      body: 'Demo OTP $otpCode was sent to $maskedContact.',
+      body: 'A verification code was sent to $maskedContact.',
       route: '/forgot-password',
     );
   }

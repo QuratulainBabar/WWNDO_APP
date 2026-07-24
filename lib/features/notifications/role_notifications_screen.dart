@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
+import '../../core/api/api_exception.dart';
+import '../../core/config/demo_mode.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_card.dart';
@@ -10,8 +13,10 @@ import '../../core/widgets/screen_body.dart';
 import '../../data/models/app_notification.dart';
 import '../../data/models/wallet_role.dart';
 import '../../data/notification_service.dart';
+import '../../data/services/notification_repository.dart';
+import '../../providers/auth_provider.dart';
 
-class RoleNotificationsScreen extends StatelessWidget {
+class RoleNotificationsScreen extends StatefulWidget {
   const RoleNotificationsScreen({
     super.key,
     required this.role,
@@ -24,51 +29,240 @@ class RoleNotificationsScreen extends StatelessWidget {
   final String? fallbackRoute;
 
   @override
+  State<RoleNotificationsScreen> createState() =>
+      _RoleNotificationsScreenState();
+}
+
+class _RoleNotificationsScreenState extends State<RoleNotificationsScreen>
+    with WidgetsBindingObserver {
+  bool _loading = true;
+  String? _error;
+  List<AppNotification> _apiNotifications = const [];
+  String? _lastMatchedLocation;
+
+  bool get _useApi =>
+      widget.role == WalletRole.receiver || widget.role == WalletRole.sender;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _load();
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _useApi) {
+      _load(silent: true);
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_useApi) return;
+    final location = GoRouterState.of(context).matchedLocation;
+    final isAlerts = location.contains('notifications');
+    if (isAlerts && _lastMatchedLocation != location) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _load(silent: _apiNotifications.isNotEmpty);
+      });
+    }
+    _lastMatchedLocation = location;
+  }
+
+  NotificationRepository _repo() {
+    final auth = context.read<AuthProvider>();
+    final demoMode = context.read<DemoModeProvider>();
+    return NotificationRepository(
+      apiClient: auth.repository.apiClient,
+      demoMode: demoMode,
+    );
+  }
+
+  Future<void> _load({bool silent = false}) async {
+    if (!_useApi) {
+      setState(() {
+        _loading = false;
+        _error = null;
+      });
+      return;
+    }
+
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
+
+    try {
+      final list = await _repo().list(role: widget.role);
+      if (!mounted) return;
+      setState(() {
+        _apiNotifications = list;
+        _loading = false;
+        _error = null;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = e.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = 'Unable to load notifications.';
+      });
+    }
+  }
+
+  Future<void> _markRead(AppNotification n) async {
+    if (_useApi) {
+      try {
+        await _repo().markRead(role: widget.role, id: n.id);
+        if (!mounted) return;
+        setState(() {
+          _apiNotifications = _apiNotifications
+              .map((item) => item.id == n.id ? item.markRead() : item)
+              .toList();
+        });
+      } catch (_) {
+        // Still navigate even if mark-read fails.
+      }
+    } else {
+      NotificationService.markRead(widget.role, n.id);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final typo = context.typo;
-    final backRoute = fallbackRoute ?? switch (role) {
-      WalletRole.receiver => '/receiver-home',
-      WalletRole.traveler => '/traveler-home',
-      WalletRole.sender => '/home',
-    };
+    final role = widget.role;
+    final backRoute = widget.fallbackRoute ??
+        switch (role) {
+          WalletRole.receiver => '/receiver-home',
+          WalletRole.traveler => '/traveler-home',
+          WalletRole.sender => '/home',
+        };
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: useBackLink
+      appBar: widget.useBackLink
           ? null
           : BackHeader(title: 'Notifications', fallbackRoute: backRoute),
       body: ScreenBody(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (useBackLink) ...[
+            if (widget.useBackLink) ...[
               BackLink(onTap: () => context.go(backRoute)),
               const SizedBox(height: 16),
               Text('Notifications', style: typo.h1),
               const SizedBox(height: 8),
             ],
             Text(
-              'Real-time system alerts for your ${role.name} account',
+              'Real-time system alerts\nfor your ${role.name} account',
               style: typo.sm,
             ),
             const SizedBox(height: 16),
-            ValueListenableBuilder<int>(
-              valueListenable: NotificationService.version,
-              builder: (context, _, __) {
-                final notifications = NotificationService.inboxFor(role);
-                if (notifications.isEmpty) {
-                  return Text('No notifications yet.', style: typo.sm);
-                }
-                return Column(
-                  children: notifications
-                      .map((n) => _NotificationTile(notification: n, role: role))
-                      .toList(),
-                );
-              },
-            ),
+            if (_useApi)
+              _buildApiList(typo)
+            else
+              ValueListenableBuilder<int>(
+                valueListenable: NotificationService.version,
+                builder: (context, _, __) {
+                  final notifications = NotificationService.inboxFor(role);
+                  if (notifications.isEmpty) {
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 24),
+                      child: Text(
+                        'No notifications yet.',
+                        style: typo.sm.copyWith(color: AppColors.textSecondary),
+                      ),
+                    );
+                  }
+                  return Column(
+                    children: notifications
+                        .map(
+                          (n) => _NotificationTile(
+                            notification: n,
+                            role: role,
+                            onOpen: () => _markRead(n),
+                          ),
+                        )
+                        .toList(),
+                  );
+                },
+              ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildApiList(AppTypography typo) {
+    if (_loading && _apiNotifications.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.only(top: 24),
+        child: Center(
+          child: SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.5,
+              color: AppColors.primary,
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (_error != null && _apiNotifications.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 24),
+        child: Column(
+          children: [
+            Text(
+              _error!,
+              style: typo.sm.copyWith(color: AppColors.textSecondary),
+            ),
+            TextButton(onPressed: () => _load(), child: const Text('Retry')),
+          ],
+        ),
+      );
+    }
+
+    if (_apiNotifications.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 24),
+        child: Text(
+          'No notifications yet.',
+          style: typo.sm.copyWith(color: AppColors.textSecondary),
+        ),
+      );
+    }
+
+    return Column(
+      children: _apiNotifications
+          .map(
+            (n) => _NotificationTile(
+              notification: n,
+              role: widget.role,
+              onOpen: () => _markRead(n),
+            ),
+          )
+          .toList(),
     );
   }
 }
@@ -77,10 +271,12 @@ class _NotificationTile extends StatelessWidget {
   const _NotificationTile({
     required this.notification,
     required this.role,
+    required this.onOpen,
   });
 
   final AppNotification notification;
   final WalletRole role;
+  final VoidCallback onOpen;
 
   static bool _isShellTabRoute(String route) {
     const shellRoutes = {
@@ -111,11 +307,9 @@ class _NotificationTile extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 12),
       child: GestureDetector(
         onTap: () {
-          NotificationService.markRead(role, n.id);
+          onOpen();
           final route = n.route;
           if (route == null || route.isEmpty) return;
-          // Shell tab routes must use go(); push from a root stack causes
-          // Navigator GlobalKey conflicts.
           if (_isShellTabRoute(route)) {
             context.go(route);
           } else {
@@ -148,7 +342,8 @@ class _NotificationTile extends StatelessWidget {
                         Expanded(
                           child: Text(
                             n.title,
-                            style: typo.bodyBold.copyWith(fontWeight: FontWeight.w700),
+                            style: typo.bodyBold
+                                .copyWith(fontWeight: FontWeight.w700),
                           ),
                         ),
                         _TypeChip(type: n.type),

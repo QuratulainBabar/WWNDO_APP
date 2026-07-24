@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
-import '../../../data/static_data.dart';
 
 /// Numeric available luggage capacity for the post trip form.
 class AvailableLuggageCapacityField extends StatefulWidget {
@@ -34,9 +33,10 @@ class _AvailableLuggageCapacityFieldState
   @override
   void initState() {
     super.initState();
-    final initial = widget.initialValue ??
-        StaticData.travelerAvailableLuggageCapacityKg.round();
-    _controller = TextEditingController(text: '$initial');
+    final initial = widget.initialValue;
+    _controller = TextEditingController(
+      text: initial == null || initial <= 0 ? '' : '$initial',
+    );
   }
 
   @override

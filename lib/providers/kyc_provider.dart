@@ -73,7 +73,7 @@ class KycProvider extends ChangeNotifier {
       if (user != null) {
         await _authRepository.updateCurrentUser(user);
       }
-      if (!silent) _error = null;
+      _error = null;
       return result;
     } on ApiException catch (e) {
       if (!silent) _error = e.message;

@@ -8,12 +8,12 @@ import '../../../core/widgets/app_labeled_field.dart';
 class WeightKgField extends StatefulWidget {
   const WeightKgField({
     super.key,
-    required this.initialValue,
+    this.initialValue,
     required this.onChanged,
     this.errorText,
   });
 
-  final double initialValue;
+  final double? initialValue;
   final ValueChanged<double> onChanged;
   final String? errorText;
 
@@ -27,8 +27,9 @@ class _WeightKgFieldState extends State<WeightKgField> {
   @override
   void initState() {
     super.initState();
+    final initial = widget.initialValue;
     _controller = TextEditingController(
-      text: _formatWeight(widget.initialValue),
+      text: initial == null || initial <= 0 ? '' : _formatWeight(initial),
     );
   }
 

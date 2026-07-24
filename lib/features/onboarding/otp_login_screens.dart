@@ -15,7 +15,6 @@ import '../../core/widgets/otp_code_field.dart';
 import '../../core/widgets/otp_countdown_timer.dart';
 import '../../core/widgets/screen_body.dart';
 import '../../data/models/otp_channel.dart';
-import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
 
 class OtpLoginContactScreen extends StatefulWidget {
@@ -187,7 +186,10 @@ class _OtpLoginVerifyScreenState extends State<OtpLoginVerifyScreen> {
       if (user.accountStatus == 'suspended') {
         context.go('/account-suspended');
       } else {
-        await PostAuthNavigation.continueAfterAuth(context);
+        await PostAuthNavigation.continueAfterAuth(
+          context,
+          requireVerification: false,
+        );
       }
     } on ApiException catch (e) {
       if (mounted) AppToast.error(context, e.message);
@@ -226,13 +228,6 @@ class _OtpLoginVerifyScreenState extends State<OtpLoginVerifyScreen> {
               'Code sent via ${widget.flow.channel.label} to ${widget.flow.maskedContact}',
               style: typo.sm.copyWith(height: 1.5),
             ),
-            if (auth.isDemoMode) ...[
-              const SizedBox(height: 8),
-              Text(
-                'Demo mode: use code ${StaticData.demoOtpCode}',
-                style: typo.smPrimary.copyWith(color: AppColors.primary),
-              ),
-            ],
             const SizedBox(height: 16),
             OtpCountdownTimer(key: _timerKey),
             const SizedBox(height: 20),

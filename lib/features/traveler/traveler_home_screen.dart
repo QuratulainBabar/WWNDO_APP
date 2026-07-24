@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+
+import '../../core/auth/auth_verification_guard.dart';
+import '../../core/auth/kyc_verification_guard.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_card.dart';
@@ -11,16 +14,43 @@ import '../../core/widgets/screen_body.dart';
 import '../../core/widgets/wallet_card.dart';
 import '../../data/models/traveler_trip.dart';
 import '../../data/models/wallet_role.dart';
-import '../../core/auth/kyc_verification_guard.dart';
-import '../../core/auth/auth_verification_guard.dart';
-import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
 import 'trip_posting_actions.dart';
 
-class TravelerHomeScreen extends StatelessWidget {
+class TravelerHomeScreen extends StatefulWidget {
   const TravelerHomeScreen({super.key});
 
-  void _onCreateTrip(BuildContext context) {
+  @override
+  State<TravelerHomeScreen> createState() => _TravelerHomeScreenState();
+}
+
+class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
+  String? _lastMatchedLocation;
+
+  @override
+  void initState() {
+    super.initState();
+    // Keep greeting in sync with `/auth/me` (name/rating from API).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<AuthProvider>().refreshUser();
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final location = GoRouterState.of(context).matchedLocation;
+    if (location == '/traveler-home' && _lastMatchedLocation != '/traveler-home') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        context.read<AuthProvider>().refreshUser();
+      });
+    }
+    _lastMatchedLocation = location;
+  }
+
+  void _onCreateTrip() {
     // Wallet balance gate first — must not be masked by auth/KYC dialogs.
     if (!TripPostingActions.ensureWalletAllowsTripCreation(context)) return;
     if (!AuthVerificationGuard.ensureVerifiedForTransaction(context)) return;
@@ -32,11 +62,11 @@ class TravelerHomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final typo = context.typo;
     final authUser = context.watch<AuthProvider>().user;
-    final user = authUser?.toUserProfile() ?? StaticData.travelerUser;
-    final firstName = authUser?.firstName.trim().isNotEmpty == true
+    final firstName = (authUser?.firstName.trim().isNotEmpty ?? false)
         ? authUser!.firstName
-        : user.firstName;
-    final rating = authUser?.rating ?? user.rating;
+        : 'there';
+    final rating = authUser?.rating ?? 0;
+    final ratingLabel = rating > 0 ? rating.toStringAsFixed(1) : '—';
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -53,11 +83,16 @@ class TravelerHomeScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Hey, $firstName 👋', style: typo.h1, overflow: TextOverflow.ellipsis),
-                      Text('★ $rating · Traveler', style: typo.sm),
+                      Text(
+                        'Hey, $firstName 👋',
+                        style: typo.h1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text('★ $ratingLabel · Traveler', style: typo.sm),
                     ],
                   ),
                 ),
+                // Wallet is already wired to live balance — leave unchanged.
                 WalletCard(role: WalletRole.traveler),
               ],
             ),
@@ -68,7 +103,7 @@ class TravelerHomeScreen extends StatelessWidget {
               children: [
                 Text('My Trips', style: typo.h3.copyWith(fontWeight: FontWeight.w700)),
                 GestureDetector(
-                  onTap: () => _onCreateTrip(context),
+                  onTap: _onCreateTrip,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
@@ -101,21 +136,36 @@ class TravelerHomeScreen extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-            _myTripsSection(context),
+            const _MyTripsSection(),
             const SizedBox(height: 24),
             Text('Quick actions', style: typo.h3.copyWith(fontWeight: FontWeight.w700)),
             const SizedBox(height: 12),
             Row(
               children: [
-                _quickAction(context, AppIcons.roleSender, 'Sender Requests', () => context.push('/matching-requests')),
+                _quickAction(
+                  context,
+                  AppIcons.roleSender,
+                  'Sender Requests',
+                  () => context.push('/matching-requests'),
+                ),
                 const SizedBox(width: 10),
-                _quickAction(context, AppIcons.track, 'My deliveries', () => context.push('/traveler-deliveries')),
+                _quickAction(
+                  context,
+                  AppIcons.track,
+                  'My deliveries',
+                  () => context.push('/traveler-deliveries'),
+                ),
               ],
             ),
             const SizedBox(height: 10),
             Row(
               children: [
-                _quickAction(context, AppIcons.history, 'Counter offers', () => context.push('/traveler-bids')),
+                _quickAction(
+                  context,
+                  AppIcons.history,
+                  'Counter offers',
+                  () => context.push('/traveler-bids'),
+                ),
                 const SizedBox(width: 10),
                 const Expanded(child: SizedBox()),
               ],
@@ -126,49 +176,12 @@ class TravelerHomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _myTripsSection(BuildContext context) {
-    StaticData.purgeFranceSenegalOpenTripOnce();
-    return ValueListenableBuilder<int>(
-      valueListenable: StaticData.travelerPostedTripsVersion,
-      builder: (context, _, _) {
-        final trips = StaticData.travelerPostedTrips;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (var i = 0; i < trips.length; i++) ...[
-              if (i > 0) const SizedBox(height: 10),
-              _tripCard(context, trips[i]),
-            ],
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _tripCard(BuildContext context, TravelerTrip trip) {
-    final typo = context.typo;
-    return AppCard(
-      margin: EdgeInsets.zero,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(trip.route, style: typo.h3.copyWith(fontWeight: FontWeight.w800), maxLines: 2, overflow: TextOverflow.ellipsis),
-          const SizedBox(height: 6),
-          Text(
-            DateFormat('MMM d, yyyy').format(trip.travelDate),
-            style: typo.sm.copyWith(color: AppColors.textSecondary),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '${trip.luggageCapacityKg.toStringAsFixed(0)} kg luggage available',
-            style: typo.sm.copyWith(color: AppColors.primary, fontWeight: FontWeight.w600),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _quickAction(BuildContext context, String iconAsset, String label, VoidCallback onTap) {
+  Widget _quickAction(
+    BuildContext context,
+    String iconAsset,
+    String label,
+    VoidCallback onTap,
+  ) {
     final typo = context.typo;
     return Expanded(
       child: GestureDetector(
@@ -199,6 +212,78 @@ class TravelerHomeScreen extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MyTripsSection extends StatelessWidget {
+  const _MyTripsSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final typo = context.typo;
+    // No mock trips — empty until GET/POST /api/v1/trips exists.
+    const trips = <TravelerTrip>[];
+
+    if (trips.isEmpty) {
+      return AppCard(
+        margin: EdgeInsets.zero,
+        child: Text(
+          'No trips yet. Tap + Create Trip to post your first route.',
+          style: typo.sm.copyWith(color: AppColors.textSecondary, height: 1.4),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var i = 0; i < trips.length; i++) ...[
+          if (i > 0) const SizedBox(height: 10),
+          _TripCard(trip: trips[i]),
+        ],
+      ],
+    );
+  }
+}
+
+class _TripCard extends StatelessWidget {
+  const _TripCard({required this.trip});
+
+  final TravelerTrip trip;
+
+  @override
+  Widget build(BuildContext context) {
+    final typo = context.typo;
+    return GestureDetector(
+      onTap: () => context.push('/traveler-trips'),
+      child: AppCard(
+        margin: EdgeInsets.zero,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              trip.route,
+              style: typo.h3.copyWith(fontWeight: FontWeight.w800),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              DateFormat('MMM d, yyyy').format(trip.travelDate),
+              style: typo.sm.copyWith(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${trip.luggageCapacityKg.toStringAsFixed(0)} kg luggage available',
+              style: typo.sm.copyWith(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ),
       ),
     );

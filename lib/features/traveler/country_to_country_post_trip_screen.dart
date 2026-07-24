@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/geo/world_airports.dart';
 import '../../core/geo/world_countries.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
@@ -9,16 +8,18 @@ import '../../core/widgets/app_badge.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_labeled_field.dart';
+import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/back_header.dart';
 import '../../core/widgets/scrollable_form_screen.dart';
+import '../../data/models/meetup_location.dart';
 import '../../data/models/traveler_trip.dart';
-import '../../data/static_data.dart';
+import '../../data/services/trip_repository.dart';
 import '../../data/trip_creation_wallet_validation.dart';
 import '../../providers/auth_provider.dart';
-import '../sender/widgets/airport_route_search_fields.dart';
 import '../sender/widgets/travel_date_field.dart';
 import 'trip_posting_actions.dart';
 import 'widgets/available_luggage_capacity_field.dart';
+import 'widgets/route_city_dropdown.dart';
 
 class CountryToCountryPostTripScreen extends StatefulWidget {
   const CountryToCountryPostTripScreen({super.key});
@@ -30,31 +31,18 @@ class CountryToCountryPostTripScreen extends StatefulWidget {
 
 class _CountryToCountryPostTripScreenState
     extends State<CountryToCountryPostTripScreen> {
-  WorldAirport? _fromAirport;
-  WorldAirport? _toAirport;
-  String? _fromAirportError;
-  String? _toAirportError;
-  late DateTime _travelDate;
-  late int _luggageCapacityKg;
+  MeetupLocation? _fromLocation;
+  MeetupLocation? _toLocation;
+  DateTime? _travelDate;
+  int _luggageCapacityKg = 0;
+  String? _travelDateError;
+  String? _capacityError;
   late final TextEditingController _flightNumberController;
 
   @override
   void initState() {
     super.initState();
-    final req = StaticData.deliveryRequests.first;
-    _fromAirport = null;
-    _toAirport = null;
-    final today = DateTime.now();
-    final todayDate = DateTime(today.year, today.month, today.day);
-    final travelDate = DateTime(
-      req.travelDate.year,
-      req.travelDate.month,
-      req.travelDate.day,
-    );
-    _travelDate = travelDate.isBefore(todayDate) ? todayDate : travelDate;
-    _luggageCapacityKg =
-        StaticData.travelerAvailableLuggageCapacityKg.round();
-    _flightNumberController = TextEditingController(text: 'AF718');
+    _flightNumberController = TextEditingController();
   }
 
   @override
@@ -64,30 +52,71 @@ class _CountryToCountryPostTripScreenState
   }
 
   void _postTrip() {
+    if (_fromLocation == null || _toLocation == null) {
+      AppToast.error(context, 'Select both From and To locations.');
+      return;
+    }
+
+    final fromCode = _fromLocation!.countryCode?.toUpperCase();
+    final toCode = _toLocation!.countryCode?.toUpperCase();
+    if (fromCode != null &&
+        toCode != null &&
+        fromCode.isNotEmpty &&
+        toCode.isNotEmpty &&
+        fromCode == toCode) {
+      AppToast.error(
+        context,
+        'Origin and destination countries must be different.',
+      );
+      return;
+    }
+
+    if (_fromLocation!.displayLabel == _toLocation!.displayLabel) {
+      AppToast.error(
+        context,
+        'Origin and destination locations must be different.',
+      );
+      return;
+    }
+
     setState(() {
-      _fromAirportError =
-          _fromAirport == null ? 'Select an origin airport.' : null;
-      _toAirportError = _toAirport == null
-          ? 'Select a destination airport.'
-          : (_fromAirport != null && _toAirport!.code == _fromAirport!.code
-              ? 'Origin and destination airports must be different.'
-              : (_fromAirport != null &&
-                      _toAirport!.countryIso == _fromAirport!.countryIso
-                  ? 'Origin and destination countries must be different.'
-                  : null));
+      _travelDateError =
+          _travelDate == null ? 'Select a travel date.' : null;
+      _capacityError = _luggageCapacityKg <= 0
+          ? 'Enter a valid capacity greater than 0.'
+          : null;
     });
+    if (_travelDateError != null || _capacityError != null) return;
 
-    if (_fromAirportError != null || _toAirportError != null) return;
+    final fromIso = fromCode ?? '';
+    final toIso = toCode ?? '';
+    final originCountry = fromIso.isNotEmpty && WorldCountries.containsIso(fromIso)
+        ? WorldCountries.byIso(fromIso).name
+        : _fromLocation!.displayLabel;
+    final destinationCountry =
+        toIso.isNotEmpty && WorldCountries.containsIso(toIso)
+            ? WorldCountries.byIso(toIso).name
+            : _toLocation!.displayLabel;
 
-    final from = _fromAirport!;
-    final to = _toAirport!;
     TripPostingActions.tryPostTrip(
       context,
       TravelerTrip(
-        origin: WorldCountries.byIso(from.countryIso).name,
-        destination: WorldCountries.byIso(to.countryIso).name,
-        travelDate: _travelDate,
+        origin: originCountry,
+        destination: destinationCountry,
+        travelDate: _travelDate!,
         luggageCapacityKg: _luggageCapacityKg.toDouble(),
+      ),
+      request: CreateTripRequest(
+        tripType: TripType.countryToCountry,
+        travelDate: _travelDate!,
+        luggageCapacityKg: _luggageCapacityKg.toDouble(),
+        originCountry: originCountry,
+        destinationCountry: destinationCountry,
+        originCountryCode: fromIso.isNotEmpty ? fromIso : null,
+        destinationCountryCode: toIso.isNotEmpty ? toIso : null,
+        flightNumber: _flightNumberController.text.trim().isEmpty
+            ? null
+            : _flightNumberController.text.trim(),
       ),
     );
   }
@@ -147,39 +176,31 @@ class _CountryToCountryPostTripScreenState
                 children: [
                   Text('Route', style: sectionTitleStyle),
                   const SizedBox(height: 12),
-                  AirportRouteSearchFields(
-                    fromAirport: _fromAirport,
-                    toAirport: _toAirport,
-                    fromErrorText: _fromAirportError,
-                    toErrorText: _toAirportError,
-                    onFromChanged: (airport) => setState(() {
-                      _fromAirport = airport;
-                      _fromAirportError = null;
-                      if (_toAirport != null &&
-                          airport != null &&
-                          _toAirport!.countryIso == airport.countryIso) {
-                        _toAirportError =
-                            'Origin and destination countries must be different.';
-                      } else {
-                        _toAirportError = null;
-                      }
-                    }),
-                    onToChanged: (airport) => setState(() {
-                      _toAirport = airport;
-                      if (airport != null &&
-                          _fromAirport != null &&
-                          airport.countryIso == _fromAirport!.countryIso) {
-                        _toAirportError =
-                            'Origin and destination countries must be different.';
-                      } else {
-                        _toAirportError = null;
-                      }
-                    }),
+                  RouteCityDropdown(
+                    label: 'From',
+                    value: _fromLocation,
+                    hintText: 'Search location',
+                    mapTitle: 'From location',
+                    searchHint: 'Search from location',
+                    citySearch: false,
+                    onChanged: (place) => setState(() => _fromLocation = place),
                   ),
-                  const SizedBox(height: 12),
+                  RouteCityDropdown(
+                    label: 'To',
+                    value: _toLocation,
+                    hintText: 'Search location',
+                    mapTitle: 'To location',
+                    searchHint: 'Search to location',
+                    citySearch: false,
+                    onChanged: (place) => setState(() => _toLocation = place),
+                  ),
                   TravelDateField(
                     value: _travelDate,
-                    onChanged: (date) => setState(() => _travelDate = date),
+                    errorText: _travelDateError,
+                    onChanged: (date) => setState(() {
+                      _travelDate = date;
+                      _travelDateError = null;
+                    }),
                   ),
                 ],
               ),
@@ -191,9 +212,18 @@ class _CountryToCountryPostTripScreenState
                   Text('Available Luggage Capacity', style: sectionTitleStyle),
                   const SizedBox(height: 12),
                   AvailableLuggageCapacityField(
-                    initialValue: _luggageCapacityKg,
-                    onChanged: (kg) => _luggageCapacityKg = kg,
+                    onChanged: (kg) => setState(() {
+                      _luggageCapacityKg = kg;
+                      _capacityError = null;
+                    }),
                   ),
+                  if (_capacityError != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      _capacityError!,
+                      style: context.typo.sm.copyWith(color: AppColors.danger),
+                    ),
+                  ],
                   AppLabeledField(
                     label: 'Flight number (optional)',
                     labelStyle: context.typo.inputLabel

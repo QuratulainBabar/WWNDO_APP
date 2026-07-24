@@ -15,10 +15,12 @@ class ProfileTrustIndicators extends StatelessWidget {
     super.key,
     required this.metrics,
     this.authUser,
+    this.loading = false,
   });
 
   final ProfileTrustMetrics metrics;
   final AuthUser? authUser;
+  final bool loading;
 
   @override
   Widget build(BuildContext context) {
@@ -42,42 +44,59 @@ class ProfileTrustIndicators extends StatelessWidget {
               _row(
                 context,
                 label: 'Completed deliveries',
-                trailing: Text(
-                  '${metrics.completedDeliveries}',
-                  style: typo.bodyBold.copyWith(color: AppColors.primary),
-                ),
+                trailing: loading
+                    ? _loadingValue(context)
+                    : Text(
+                        '${metrics.completedDeliveries}',
+                        style: typo.bodyBold.copyWith(color: AppColors.primary),
+                      ),
               ),
               const Divider(height: 24),
               _row(
                 context,
                 label: 'Cancellation rate',
-                trailing: AppBadge(
-                  label: '${metrics.cancellationRate.toStringAsFixed(1)}%',
-                  color: AppColors.warning,
-                  backgroundColor: AppColors.warning.withValues(alpha: 0.12),
-                  small: true,
-                ),
+                trailing: loading
+                    ? _loadingValue(context)
+                    : AppBadge(
+                        label: '${metrics.cancellationRate.toStringAsFixed(1)}%',
+                        color: AppColors.warning,
+                        backgroundColor: AppColors.warning.withValues(alpha: 0.12),
+                        small: true,
+                      ),
               ),
               const Divider(height: 24),
               _row(
                 context,
                 label: 'Dispute rate',
-                trailing: AppBadge(
-                  label: '${metrics.disputeRate.toStringAsFixed(1)}%',
-                  color: metrics.disputeRate > 2
-                      ? AppColors.danger
-                      : AppColors.success,
-                  backgroundColor: (metrics.disputeRate > 2
-                          ? AppColors.danger
-                          : AppColors.success)
-                      .withValues(alpha: 0.12),
-                  small: true,
-                ),
+                trailing: loading
+                    ? _loadingValue(context)
+                    : AppBadge(
+                        label: '${metrics.disputeRate.toStringAsFixed(1)}%',
+                        color: metrics.disputeRate > 2
+                            ? AppColors.danger
+                            : AppColors.success,
+                        backgroundColor: (metrics.disputeRate > 2
+                                ? AppColors.danger
+                                : AppColors.success)
+                            .withValues(alpha: 0.12),
+                        small: true,
+                      ),
               ),
             ],
           ),
         ),
       ],
+    );
+  }
+
+  Widget _loadingValue(BuildContext context) {
+    return SizedBox(
+      width: 16,
+      height: 16,
+      child: CircularProgressIndicator(
+        strokeWidth: 2,
+        color: context.typo.sm.color ?? AppColors.textSecondary,
+      ),
     );
   }
 

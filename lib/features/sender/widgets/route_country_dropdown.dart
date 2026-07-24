@@ -36,7 +36,7 @@ class RouteCountryDropdown extends StatelessWidget {
       ),
       builder: (context) => _RouteCountryPickerSheet(
         selectedIso: value?.toUpperCase(),
-        title: label.isEmpty ? 'Select country' : 'Select $label country',
+        title: label.isEmpty ? 'Select country' : 'Select $label',
         allowedIsos: allowedIsos,
       ),
     );

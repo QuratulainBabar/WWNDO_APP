@@ -1,0 +1,142 @@
+import '../../core/api/api_client.dart';
+import '../../core/api/api_exception.dart';
+import '../../core/config/demo_mode.dart';
+import '../models/ledger_entry.dart';
+import '../models/wallet_role.dart';
+import '../models/wallet_summary.dart';
+
+/// Backend wallet API access (balances, escrow, transaction summary).
+class WalletRepository {
+  WalletRepository({
+    required ApiClient apiClient,
+    DemoModeProvider? demoMode,
+  })  : _apiClient = apiClient,
+        _demoMode = demoMode;
+
+  final ApiClient _apiClient;
+  final DemoModeProvider? _demoMode;
+
+  bool get _isDemoMode => _demoMode?.enabled ?? false;
+
+  /// GET /api/v1/wallet?role=
+  Future<WalletSummary> fetchSummary(
+    WalletRole role, {
+    int recentLimit = 6,
+  }) async {
+    if (_isDemoMode) {
+      return WalletSummary.empty(role);
+    }
+
+    final data = await _apiClient.get(
+      '/wallet?role=${role.queryParam}&recentLimit=$recentLimit',
+      authenticated: true,
+    );
+    return WalletSummary.fromJson(data);
+  }
+
+  /// GET /api/v1/wallet/transactions?role=
+  Future<List<LedgerEntry>> fetchTransactions(
+    WalletRole role, {
+    int limit = 50,
+  }) async {
+    if (_isDemoMode) return const [];
+
+    final data = await _apiClient.get(
+      '/wallet/transactions?role=${role.queryParam}&limit=$limit',
+      authenticated: true,
+    );
+    final list = data['transactions'];
+    if (list is! List) return const [];
+    return list
+        .whereType<Map>()
+        .map((e) => LedgerEntry.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+  }
+
+  /// POST /api/v1/wallet/kyc-welcome-credit
+  /// Credits $10 to sender, traveler, and receiver (idempotent).
+  Future<Map<String, WalletSummary>> grantKycWelcomeCredit() async {
+    if (_isDemoMode) {
+      throw const ApiException(
+        message: 'KYC welcome credit is handled locally in demo mode.',
+        code: 'DEMO_MODE',
+      );
+    }
+
+    final data = await _apiClient.post(
+      '/wallet/kyc-welcome-credit',
+      authenticated: true,
+    );
+
+    final walletsRaw = data['wallets'];
+    final result = <String, WalletSummary>{};
+    if (walletsRaw is Map) {
+      for (final entry in walletsRaw.entries) {
+        final role = WalletRole.fromQuery(entry.key.toString());
+        final value = entry.value;
+        if (value is Map) {
+          result[role.queryParam] = WalletSummary.fromJson({
+            ...Map<String, dynamic>.from(value),
+            'role': role.queryParam,
+            'recentTransactions': const [],
+          });
+        }
+      }
+    }
+    return result;
+  }
+
+  /// POST /api/v1/wallet/top-up
+  Future<WalletSummary> topUp({
+    required WalletRole role,
+    required int amountCents,
+  }) async {
+    if (_isDemoMode) {
+      throw const ApiException(
+        message: 'Top-up is unavailable in demo mode.',
+        code: 'DEMO_MODE',
+      );
+    }
+
+    final data = await _apiClient.post(
+      '/wallet/top-up',
+      body: {
+        'role': role.queryParam,
+        'amountCents': amountCents,
+      },
+      authenticated: true,
+    );
+    return WalletSummary.fromJson({
+      ...data,
+      'role': data['role'] ?? role.queryParam,
+      'recentTransactions': const [],
+    });
+  }
+
+  /// POST /api/v1/wallet/withdraw
+  Future<WalletSummary> withdraw({
+    required WalletRole role,
+    required int amountCents,
+  }) async {
+    if (_isDemoMode) {
+      throw const ApiException(
+        message: 'Withdrawal is unavailable in demo mode.',
+        code: 'DEMO_MODE',
+      );
+    }
+
+    final data = await _apiClient.post(
+      '/wallet/withdraw',
+      body: {
+        'role': role.queryParam,
+        'amountCents': amountCents,
+      },
+      authenticated: true,
+    );
+    return WalletSummary.fromJson({
+      ...data,
+      'role': data['role'] ?? role.queryParam,
+      'recentTransactions': const [],
+    });
+  }
+}

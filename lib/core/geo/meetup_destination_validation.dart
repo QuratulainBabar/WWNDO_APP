@@ -1,0 +1,66 @@
+import '../../data/models/meetup_location.dart';
+
+/// Ensures receiver meetup spots belong to the selected To / destination location.
+abstract final class MeetupDestinationValidation {
+  static const message =
+      'The selected meetup location must be within the sender\'s destination city. Please choose a valid meetup location.';
+
+  /// Returns [message] when any meetup is outside [destinationCity]; otherwise null.
+  /// Empty meetup lists are ignored (handled by required-field checks).
+  static String? validateMeetupLocations({
+    required List<MeetupLocation> meetups,
+    required String destinationCity,
+    String? destinationCountryCode,
+  }) {
+    if (meetups.isEmpty) return null;
+    final city = destinationCity.trim();
+    if (city.isEmpty) return null;
+
+    for (final meetup in meetups) {
+      if (!belongsToDestination(
+        meetup: meetup,
+        destinationCity: city,
+        destinationCountryCode: destinationCountryCode,
+      )) {
+        return message;
+      }
+    }
+    return null;
+  }
+
+  /// True when [meetup] appears to be inside [destinationCity].
+  static bool belongsToDestination({
+    required MeetupLocation meetup,
+    required String destinationCity,
+    String? destinationCountryCode,
+  }) {
+    final city = destinationCity.trim().toLowerCase();
+    if (city.isEmpty) return false;
+
+    final destCc = destinationCountryCode?.trim().toUpperCase();
+    final meetupCc = meetup.countryCode?.trim().toUpperCase();
+    if (destCc != null &&
+        destCc.length == 2 &&
+        meetupCc != null &&
+        meetupCc.length == 2 &&
+        destCc != meetupCc) {
+      return false;
+    }
+
+    return labelBelongsToDestination(
+      '${meetup.name} ${meetup.address}',
+      destinationCity,
+    );
+  }
+
+  /// String-label check used by the local repository and mirrored on the API.
+  static bool labelBelongsToDestination(
+    String meetupLabel,
+    String destinationCity,
+  ) {
+    final city = destinationCity.trim().toLowerCase();
+    final label = meetupLabel.trim().toLowerCase();
+    if (city.isEmpty || label.isEmpty) return false;
+    return label.contains(city);
+  }
+}

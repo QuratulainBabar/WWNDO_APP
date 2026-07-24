@@ -14,8 +14,8 @@ import '../../core/widgets/screen_body.dart';
 import '../../core/widgets/wallet_card.dart';
 import '../../data/models/created_delivery.dart';
 import '../../data/models/wallet_role.dart';
-import '../../data/notification_service.dart';
 import '../../data/services/delivery_repository.dart';
+import '../../data/services/notification_repository.dart';
 import '../../core/auth/auth_verification_guard.dart';
 import '../../core/auth/kyc_verification_guard.dart';
 import '../../providers/auth_provider.dart';
@@ -105,6 +105,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   bool _activeLoading = true;
   String? _activeError;
   List<CreatedDelivery>? _activeDeliveries;
+  int _unreadNotifications = 0;
   String? _lastMatchedLocation;
 
   List<CreatedDelivery> get _activeItems =>
@@ -129,7 +130,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final location = GoRouterState.of(context).matchedLocation;
     if (location == '/home' && _lastMatchedLocation != '/home') {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _loadActiveDeliveries(silent: _activeItems.isNotEmpty);
+        if (mounted) {
+          _loadActiveDeliveries(silent: _activeItems.isNotEmpty);
+          _loadUnreadNotifications();
+        }
       });
     }
     _lastMatchedLocation = location;
@@ -145,6 +149,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _loadActiveDeliveries(silent: true);
+      _loadUnreadNotifications();
     }
   }
 
@@ -155,6 +160,27 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       apiClient: auth.repository.apiClient,
       demoMode: demoMode,
     );
+  }
+
+  NotificationRepository _notificationRepository() {
+    final auth = context.read<AuthProvider>();
+    final demoMode = context.read<DemoModeProvider>();
+    return NotificationRepository(
+      apiClient: auth.repository.apiClient,
+      demoMode: demoMode,
+    );
+  }
+
+  Future<void> _loadUnreadNotifications() async {
+    try {
+      final count = await _notificationRepository().unreadCount(
+        role: WalletRole.sender,
+      );
+      if (!mounted) return;
+      setState(() => _unreadNotifications = count);
+    } catch (_) {
+      // Badge is non-critical; keep last known count.
+    }
   }
 
   Future<void> _loadActiveDeliveries({bool silent = false}) async {
@@ -169,7 +195,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       final list = await _deliveryRepository().listDeliveries();
       if (!mounted) return;
       final active = list
-          .where((d) => _HomeDeliveryStatus.fromApi(d.status).isActive)
+          .where((d) => _HomeDeliveryStatus.fromDelivery(d).isActive)
           .toList();
       setState(() {
         _activeDeliveries = active;
@@ -250,7 +276,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   Widget _activeDeliveryCard(BuildContext context, CreatedDelivery delivery) {
     final typo = context.typo;
-    final status = _HomeDeliveryStatus.fromApi(delivery.status);
+    final status = _HomeDeliveryStatus.fromDelivery(delivery);
     final idLabel =
         delivery.publicId.isNotEmpty ? delivery.publicId : delivery.id;
 
@@ -386,7 +412,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               title: 'Notifications',
               subtitle: 'View delivery updates and important alerts.',
               route: '/sender-notifications',
-              showUnreadBadge: true,
+              badge: _unreadNotifications,
+              refreshUnreadOnReturn: true,
             ),
             SizedBox(height: context.blockGap),
             Text('Active deliveries', style: typo.h3.copyWith(fontWeight: FontWeight.w700)),
@@ -406,41 +433,24 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     required String title,
     required String subtitle,
     required String route,
-    bool showUnreadBadge = false,
+    int badge = 0,
+    bool refreshUnreadOnReturn = false,
     bool requireVerification = false,
     bool requireWalletBalance = false,
   }) {
     final typo = context.typo;
-    if (!showUnreadBadge) {
-      return _menuLinkBody(
-        context,
-        typo: typo,
-        iconAsset: iconAsset,
-        icon: icon,
-        title: title,
-        subtitle: subtitle,
-        route: route,
-        requireVerification: requireVerification,
-        requireWalletBalance: requireWalletBalance,
-      );
-    }
-    return ValueListenableBuilder<int>(
-      valueListenable: NotificationService.version,
-      builder: (context, _, __) {
-        final badge = NotificationService.unreadCount(WalletRole.sender);
-        return _menuLinkBody(
-          context,
-          typo: typo,
-          iconAsset: iconAsset,
-          icon: icon,
-          title: title,
-          subtitle: subtitle,
-          route: route,
-          badge: badge,
-          requireVerification: requireVerification,
-          requireWalletBalance: requireWalletBalance,
-        );
-      },
+    return _menuLinkBody(
+      context,
+      typo: typo,
+      iconAsset: iconAsset,
+      icon: icon,
+      title: title,
+      subtitle: subtitle,
+      route: route,
+      badge: badge,
+      refreshUnreadOnReturn: refreshUnreadOnReturn,
+      requireVerification: requireVerification,
+      requireWalletBalance: requireWalletBalance,
     );
   }
 
@@ -453,6 +463,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     required String subtitle,
     required String route,
     int badge = 0,
+    bool refreshUnreadOnReturn = false,
     bool requireVerification = false,
     bool requireWalletBalance = false,
   }) {
@@ -479,7 +490,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               return;
             }
             await context.push(route);
-            if (mounted) _loadActiveDeliveries(silent: true);
+            if (!mounted) return;
+            _loadActiveDeliveries(silent: true);
+            if (refreshUnreadOnReturn) _loadUnreadNotifications();
           },
           hoverColor: Colors.transparent,
           splashColor: Colors.transparent,
@@ -547,9 +560,23 @@ class _HomeDeliveryStatus {
 
   Color get backgroundColor => color.withValues(alpha: 0.12);
 
-  static _HomeDeliveryStatus fromApi(String? status) {
+  static _HomeDeliveryStatus fromDelivery(CreatedDelivery d) {
+    return fromApi(d.status, receiverAccepted: d.isReceiverAccepted);
+  }
+
+  static _HomeDeliveryStatus fromApi(
+    String? status, {
+    bool receiverAccepted = false,
+  }) {
     switch (status) {
       case 'posted':
+        if (receiverAccepted) {
+          return const _HomeDeliveryStatus(
+            label: 'Matching Travelers',
+            color: Color(0xFF0D9488),
+            isActive: true,
+          );
+        }
         return const _HomeDeliveryStatus(
           label: 'Receiver Pending',
           color: AppColors.warning,

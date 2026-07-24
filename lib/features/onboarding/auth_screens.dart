@@ -10,7 +10,6 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/phone/phone_countries.dart';
 import '../../core/widgets/app_button.dart';
-import '../../core/widgets/app_chip.dart';
 import '../../core/widgets/app_labeled_field.dart';
 import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/back_link.dart';
@@ -18,6 +17,7 @@ import '../../core/widgets/international_phone_field.dart';
 import '../../core/widgets/scrollable_form_screen.dart';
 import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
+import '../sender/widgets/route_country_dropdown.dart';
 import 'login_otp_verification_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -32,7 +32,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
-  String _country = StaticData.currentUser.countryCode;
+  /// Country below Email — drives phone flag / dial code and account country.
+  String? _countryIso;
   late PhoneCountry _phoneCountry =
       PhoneCountries.byIso(StaticData.currentUser.countryCode);
   bool _acceptedTerms = true;
@@ -69,7 +70,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         phoneNumber: national,
         phone: PhoneCountries.formatFull(_phoneCountry, _phoneController.text),
         password: _passwordController.text,
-        countryCode: _country,
+        countryCode: _countryIso!,
         acceptedTerms: _acceptedTerms,
       );
 
@@ -94,6 +95,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!RegExp(r'^[^@]+@[^@]+\.[^@]+$').hasMatch(email)) {
       return 'Enter a valid email address';
     }
+    if (_countryIso == null || _countryIso!.isEmpty) {
+      return 'Select a country';
+    }
     if (!PhoneCountries.isValidNational(_phoneController.text, minDigits: 6)) {
       return 'Enter a valid phone number';
     }
@@ -103,17 +107,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return null;
   }
 
+  void _onCountryChanged(String iso) {
+    setState(() {
+      _countryIso = iso;
+      // Auto-update phone flag + dial code; user can still override manually.
+      _phoneCountry = PhoneCountries.byIso(iso);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final pagePadding = context.pagePadding;
-    final fieldLabelStyle = context.typo.inputLabel.copyWith(fontWeight: FontWeight.w600);
+    final fieldLabelStyle =
+        context.typo.inputLabel.copyWith(fontWeight: FontWeight.w600);
     final inputStyle = context.typo.input;
     final subtitleStyle = context.typo.subheading;
-    final sectionLabelStyle = context.typo.label.copyWith(fontWeight: FontWeight.w600);
-    final countryCodes = StaticData.countryCodes;
-    final primaryCountries = countryCodes.take(countryCodes.length - 1).toList();
-    final trailingCountries = countryCodes.skip(countryCodes.length - 1).toList();
 
     final termsStyle = context.typo.link.copyWith(
       color: AppColors.textPrimary,
@@ -137,9 +146,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
             const SizedBox(height: 16),
             Text('Create account', style: context.typo.h1),
             const SizedBox(height: 8),
-            Text('Join WWNGO to send, carry, or receive parcels', style: subtitleStyle),
-            _field('Full name', _nameController, labelStyle: fieldLabelStyle, inputStyle: inputStyle, hintText: 'Your full name'),
-            _field('Email', _emailController, labelStyle: fieldLabelStyle, inputStyle: inputStyle, keyboardType: TextInputType.emailAddress, hintText: 'you@email.com'),
+            Text(
+              'Join WWNGO to send, carry, or receive parcels',
+              style: subtitleStyle,
+            ),
+            _field(
+              'Full name',
+              _nameController,
+              labelStyle: fieldLabelStyle,
+              inputStyle: inputStyle,
+              hintText: 'Your full name',
+            ),
+            _field(
+              'Email',
+              _emailController,
+              labelStyle: fieldLabelStyle,
+              inputStyle: inputStyle,
+              keyboardType: TextInputType.emailAddress,
+              hintText: 'you@email.com',
+            ),
+            RouteCountryDropdown(
+              label: 'Country',
+              value: _countryIso,
+              hintText: 'Select country',
+              onChanged: _onCountryChanged,
+            ),
             InternationalPhoneField(
               controller: _phoneController,
               country: _phoneCountry,
@@ -147,42 +178,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
               labelStyle: fieldLabelStyle,
               inputStyle: inputStyle,
             ),
-            _field('Password', _passwordController, obscure: true, labelStyle: fieldLabelStyle, inputStyle: inputStyle, hintText: 'At least 8 characters'),
-            const SizedBox(height: 4),
-            Text('COUNTRY OF RESIDENCE', style: sectionLabelStyle),
-            const SizedBox(height: 8),
-            Wrap(
-              children: primaryCountries
-                  .map(
-                    (c) => AppChip(
-                      label: c,
-                      selected: c == _country,
-                      onTap: () => setState(() {
-                        _country = c;
-                        // Keep dial code in sync when the national number is still empty.
-                        if (_phoneController.text.trim().isEmpty) {
-                          _phoneCountry = PhoneCountries.byIso(c);
-                        }
-                      }),
-                    ),
-                  )
-                  .toList(),
-            ),
-            Wrap(
-              children: trailingCountries
-                  .map(
-                    (c) => AppChip(
-                      label: c,
-                      selected: c == _country,
-                      onTap: () => setState(() {
-                        _country = c;
-                        if (_phoneController.text.trim().isEmpty) {
-                          _phoneCountry = PhoneCountries.byIso(c);
-                        }
-                      }),
-                    ),
-                  )
-                  .toList(),
+            _field(
+              'Password',
+              _passwordController,
+              obscure: true,
+              labelStyle: fieldLabelStyle,
+              inputStyle: inputStyle,
+              hintText: 'At least 8 characters',
             ),
             const SizedBox(height: 12),
             _termsRow(termsStyle),
@@ -318,12 +320,38 @@ class _LoginScreenState extends State<LoginScreen> {
       AppToast.error(context, 'Enter your email and password');
       return;
     }
+    if (!RegExp(r'^[^@]+@[^@]+\.[^@]+$').hasMatch(email)) {
+      AppToast.error(context, 'Enter a valid email address');
+      return;
+    }
 
-    // Defer authentication until OTP is verified.
-    context.push(
-      '/login/verify-otp',
-      extra: PasswordLoginOtpFlowData(email: email, password: password),
-    );
+    final auth = context.read<AuthProvider>();
+
+    try {
+      // Always call real backend `/auth/login/password-otp/send` (Gmail SMTP).
+      // Do not navigate or show success unless this call succeeds.
+      await auth.sendPasswordLoginOtp(email: email, password: password);
+      if (!mounted) return;
+
+      AppToast.success(context, 'Verification code sent to your email');
+      context.push(
+        '/login/verify-otp',
+        extra: PasswordLoginOtpFlowData(
+          email: email,
+          password: password,
+          alreadySent: true,
+        ),
+      );
+    } on ApiException catch (e) {
+      if (mounted) AppToast.error(context, e.message);
+    } catch (e) {
+      if (mounted) {
+        AppToast.error(
+          context,
+          'Unable to send login verification email. Please try again.',
+        );
+      }
+    }
   }
 
   @override

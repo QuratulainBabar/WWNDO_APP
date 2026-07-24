@@ -553,101 +553,93 @@ class PostDeliveryPostedSuccessScreen extends StatelessWidget {
         fallbackRoute: '/home',
       ),
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
+          physics: PlatformUi.scrollPhysics,
           padding: context.pagePadding,
           child: Column(
             children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  physics: PlatformUi.scrollPhysics,
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 12),
-                      Container(
-                        width: 72,
-                        height: 72,
-                        decoration: BoxDecoration(
-                          color: AppColors.success.withValues(alpha: 0.14),
-                          shape: BoxShape.circle,
-                        ),
-                        alignment: Alignment.center,
-                        child: const Icon(
-                          Icons.check,
-                          size: 36,
-                          color: AppColors.success,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      Text(
-                        'Delivery posted successfully!',
-                        style: typo.h1.copyWith(fontWeight: FontWeight.w700),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 10),
-                      Text.rich(
-                        TextSpan(
-                          style: typo.sm.copyWith(
-                            height: 1.5,
-                            color: AppColors.textSecondary,
-                          ),
-                          children: [
-                            const TextSpan(text: 'Your parcel request for '),
-                            TextSpan(
-                              text: displayRoute,
-                              style: typo.sm.copyWith(
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                            const TextSpan(text: ' is live.'),
-                          ],
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 28),
-                      Image.asset(
-                        'assets/images/hourglass_waiting.png',
-                        height: 168,
-                        fit: BoxFit.contain,
-                      ),
-                      const SizedBox(height: 24),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 18,
-                          vertical: 20,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.kycBackground,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Column(
-                          children: [
-                            Text(
-                              'Waiting for receiver acceptance',
-                              style: typo.bodyBold.copyWith(
-                                fontWeight: FontWeight.w700,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              "We've notified your receiver.\n"
-                              'The matching process will start once they accept.',
-                              style: typo.sm.copyWith(
-                                height: 1.5,
-                                color: AppColors.textSecondary,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                    ],
-                  ),
+              const SizedBox(height: 12),
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: AppColors.success.withValues(alpha: 0.14),
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: const Icon(
+                  Icons.check,
+                  size: 36,
+                  color: AppColors.success,
                 ),
               ),
+              const SizedBox(height: 20),
+              Text(
+                'Delivery posted successfully!',
+                style: typo.h1.copyWith(fontWeight: FontWeight.w700),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 10),
+              Text.rich(
+                TextSpan(
+                  style: typo.sm.copyWith(
+                    height: 1.5,
+                    color: AppColors.textSecondary,
+                  ),
+                  children: [
+                    const TextSpan(text: 'Your parcel request for '),
+                    TextSpan(
+                      text: displayRoute,
+                      style: typo.sm.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const TextSpan(text: ' is live.'),
+                  ],
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 28),
+              Image.asset(
+                'assets/images/hourglass_waiting.png',
+                height: 168,
+                fit: BoxFit.contain,
+              ),
+              const SizedBox(height: 24),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 20,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.kycBackground,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      'Waiting for receiver acceptance',
+                      style: typo.bodyBold.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      "We've notified your receiver.\n"
+                      'The matching process will start once they accept.',
+                      style: typo.sm.copyWith(
+                        height: 1.5,
+                        color: AppColors.textSecondary,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
               AppButton(
                 label: 'View My Deliveries',
                 onPressed: () => context.go('/my-posted-parcels'),

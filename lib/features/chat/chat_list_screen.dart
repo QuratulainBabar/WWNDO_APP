@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
+import '../../core/api/api_exception.dart';
+import '../../core/config/demo_mode.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_avatar.dart';
@@ -8,7 +11,9 @@ import '../../core/widgets/back_link.dart';
 import '../../core/widgets/screen_body.dart';
 import '../../data/models/chat_conversation_preview.dart';
 import '../../data/models/wallet_role.dart';
+import '../../data/services/chat_repository.dart';
 import '../../data/static_data.dart';
+import '../../providers/auth_provider.dart';
 
 /// WhatsApp-style inbox: search + conversation list before opening a chat.
 class ChatListScreen extends StatefulWidget {
@@ -28,6 +33,9 @@ class ChatListScreen extends StatefulWidget {
 class _ChatListScreenState extends State<ChatListScreen> {
   final _searchController = TextEditingController();
   String _query = '';
+  bool _loading = true;
+  String? _error;
+  List<ChatConversationPreview> _conversations = const [];
 
   String get _homeRoute => switch (widget.role) {
         WalletRole.sender => '/home',
@@ -35,14 +43,74 @@ class _ChatListScreenState extends State<ChatListScreen> {
         WalletRole.receiver => '/receiver-home',
       };
 
+  bool get _useApi =>
+      widget.role == WalletRole.receiver || widget.role == WalletRole.sender;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _load();
+    });
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
   }
 
+  ChatRepository _repo() {
+    final auth = context.read<AuthProvider>();
+    final demoMode = context.read<DemoModeProvider>();
+    return ChatRepository(
+      apiClient: auth.repository.apiClient,
+      demoMode: demoMode,
+    );
+  }
+
+  Future<void> _load({bool silent = false}) async {
+    if (!_useApi) {
+      setState(() {
+        _conversations = StaticData.chatInboxFor(widget.role);
+        _loading = false;
+        _error = null;
+      });
+      return;
+    }
+
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
+
+    try {
+      final list = await _repo().listConversations();
+      if (!mounted) return;
+      setState(() {
+        _conversations = list;
+        _loading = false;
+        _error = null;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = e.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = 'Unable to load chats.';
+      });
+    }
+  }
+
   List<ChatConversationPreview> get _filtered {
-    final all = StaticData.chatInboxFor(widget.role);
+    final all = _useApi ? _conversations : StaticData.chatInboxFor(widget.role);
     final q = _query.trim().toLowerCase();
     if (q.isEmpty) return all;
     return all
@@ -94,12 +162,44 @@ class _ChatListScreenState extends State<ChatListScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            if (conversations.isEmpty)
+            if (_useApi && _loading && _conversations.isEmpty)
+              const Padding(
+                padding: EdgeInsets.only(top: 48),
+                child: Center(
+                  child: SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+              )
+            else if (_useApi && _error != null && _conversations.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 48),
+                child: Center(
+                  child: Column(
+                    children: [
+                      Text(
+                        _error!,
+                        style: typo.sm.copyWith(color: AppColors.textSecondary),
+                      ),
+                      TextButton(
+                        onPressed: () => _load(),
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else if (conversations.isEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 48),
                 child: Center(
                   child: Text(
-                    'No chats found',
+                    'No chats yet.',
                     style: typo.sm.copyWith(color: AppColors.textSecondary),
                   ),
                 ),
@@ -108,9 +208,12 @@ class _ChatListScreenState extends State<ChatListScreen> {
               for (final conversation in conversations)
                 _ChatListTile(
                   conversation: conversation,
-                  onTap: () => context.push(
-                    '${widget.chatBasePath}/${conversation.id}',
-                  ),
+                  onTap: () async {
+                    await context.push(
+                      '${widget.chatBasePath}/${conversation.id}',
+                    );
+                    if (mounted && _useApi) _load(silent: true);
+                  },
                 ),
           ],
         ),

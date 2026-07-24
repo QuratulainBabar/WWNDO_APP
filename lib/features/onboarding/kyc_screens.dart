@@ -12,6 +12,7 @@ import '../../core/widgets/back_link.dart';
 import '../../data/models/kyc_models.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/kyc_provider.dart';
+import '../../providers/wallet_provider.dart';
 import 'kyc_flow_actions.dart';
 import 'kyc_flow_data.dart';
 
@@ -33,7 +34,8 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
   void initState() {
     super.initState();
     _flow = widget.initialFlow ?? KycFlowData();
-    _demoMode = _flow.isDemoVerification;
+    // Demo mode UI is disabled — always use real Sumsub flow.
+    _demoMode = false;
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadStatus());
   }
 
@@ -133,13 +135,14 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
     final useSumsub = !appDemo && !_demoMode;
 
     return Scaffold(
-      backgroundColor: AppColors.surface,
+      backgroundColor: AppColors.kycBackground,
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ColoredBox(
+              color: AppColors.surface,
+              child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -155,13 +158,16 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
                   ],
                 ),
               ),
-              const Divider(height: 1),
-              ColoredBox(
-                color: AppColors.kycBackground,
-                child: Padding(
-                  padding: const EdgeInsets.all(28),
-                  child: Column(
-                    children: [
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: SingleChildScrollView(
+                child: ColoredBox(
+                  color: AppColors.kycBackground,
+                  child: Padding(
+                    padding: const EdgeInsets.all(28),
+                    child: Column(
+                      children: [
                       Container(
                         width: 80,
                         height: 80,
@@ -249,12 +255,13 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
                           onTap: _openSelfieFlow,
                         ),
                       ],
-                      const SizedBox(height: 20),
-                      _DemoModeCard(
-                        enabled: _demoMode,
-                        onChanged: (value) => setState(() => _demoMode = value),
-                        onCompleteDemo: _completeDemoVerification,
-                      ),
+                      // Demo mode toggle — commented out; use real Sumsub verification.
+                      // const SizedBox(height: 20),
+                      // _DemoModeCard(
+                      //   enabled: _demoMode,
+                      //   onChanged: (value) => setState(() => _demoMode = value),
+                      //   onCompleteDemo: _completeDemoVerification,
+                      // ),
                       const SizedBox(height: 20),
                       if (_notice != null) ...[
                         Text(
@@ -335,11 +342,12 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
                   ),
                 ),
               ),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
-    );
+    ),
+  );
   }
 
   Widget _stepCard(
@@ -552,8 +560,30 @@ class _DemoModeCard extends StatelessWidget {
   }
 }
 
-class KycApprovedScreen extends StatelessWidget {
+class KycApprovedScreen extends StatefulWidget {
   const KycApprovedScreen({super.key});
+
+  @override
+  State<KycApprovedScreen> createState() => _KycApprovedScreenState();
+}
+
+class _KycApprovedScreenState extends State<KycApprovedScreen> {
+  bool _continuing = false;
+
+  Future<void> _continueToApp() async {
+    if (_continuing) return;
+    setState(() => _continuing = true);
+    try {
+      await context.read<WalletProvider>().ensureKycWelcomeCredit();
+      if (!mounted) return;
+      await PostAuthNavigation.continueAfterAuth(
+        context,
+        offerBiometricSetup: false,
+      );
+    } finally {
+      if (mounted) setState(() => _continuing = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -586,11 +616,8 @@ class KycApprovedScreen extends StatelessWidget {
               ),
               const SizedBox(height: 32),
               AppButton(
-                label: 'Continue to app',
-                onPressed: () => PostAuthNavigation.continueAfterAuth(
-                  context,
-                  offerBiometricSetup: false,
-                ),
+                label: _continuing ? 'Please wait…' : 'Continue to app',
+                onPressed: _continuing ? null : _continueToApp,
               ),
             ],
           ),

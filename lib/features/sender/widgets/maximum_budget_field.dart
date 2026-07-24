@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_labeled_field.dart';
-import '../../../data/static_data.dart';
 
 /// Maximum budget input for the post delivery form.
 class MaximumBudgetField extends StatefulWidget {
@@ -24,7 +23,7 @@ class MaximumBudgetField extends StatefulWidget {
 }
 
 class _MaximumBudgetFieldState extends State<MaximumBudgetField> {
-  static const _placeholder = 'Enter the maximum amount you are willing to pay';
+  static const _placeholder = 'Enter maximum budget amount';
   static const _helperText =
       'Travelers will see this budget when submitting their bids.';
 
@@ -33,9 +32,13 @@ class _MaximumBudgetFieldState extends State<MaximumBudgetField> {
   @override
   void initState() {
     super.initState();
-    final initial =
-        widget.initialValue ?? StaticData.postDeliveryMaximumBudget;
-    _controller = TextEditingController(text: initial.toStringAsFixed(2));
+    final initial = widget.initialValue;
+    _controller = TextEditingController(
+      text: initial == null || initial <= 0
+          ? ''
+          : initial.toStringAsFixed(2),
+    );
+    _controller.addListener(() => setState(() {}));
   }
 
   @override
@@ -45,7 +48,12 @@ class _MaximumBudgetFieldState extends State<MaximumBudgetField> {
   }
 
   void _handleChanged(String value) {
-    final parsed = double.tryParse(value.trim());
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      widget.onChanged?.call(0);
+      return;
+    }
+    final parsed = double.tryParse(trimmed);
     if (parsed != null) {
       widget.onChanged?.call(parsed);
     }
@@ -54,6 +62,7 @@ class _MaximumBudgetFieldState extends State<MaximumBudgetField> {
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
+    final hasValue = _controller.text.isNotEmpty;
 
     return AppLabeledField(
       label: 'Maximum Budget',
@@ -70,7 +79,8 @@ class _MaximumBudgetFieldState extends State<MaximumBudgetField> {
             style: typo.input,
             onChanged: _handleChanged,
             decoration: InputDecoration(
-              prefixText: '\$ ',
+              // Only show `$` once typing so the empty hint has no leading gap.
+              prefixText: hasValue ? '\$ ' : null,
               hintText: _placeholder,
               errorText: widget.errorText,
             ),

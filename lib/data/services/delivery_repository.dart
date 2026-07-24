@@ -3,7 +3,10 @@ import 'dart:math';
 import '../../core/api/api_client.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/config/demo_mode.dart';
+import '../../core/geo/meetup_destination_validation.dart';
+import '../../core/geo/meetup_origin_validation.dart';
 import '../models/created_delivery.dart';
+import '../models/matching_traveler.dart';
 
 /// Backend delivery API access for the Sender Create Delivery flow.
 class DeliveryRepository {
@@ -39,28 +42,12 @@ class DeliveryRepository {
     return CreatedDelivery.fromJson(data);
   }
 
-  /// GET /api/v1/deliveries/:id
-  Future<CreatedDelivery> getDelivery(String id) async {
-    if (_isDemoMode) {
-      throw const ApiException(
-        message: 'Delivery lookup is unavailable in demo mode.',
-        code: 'DEMO_MODE',
-      );
-    }
-
-    final data = await _apiClient.get(
-      '/deliveries/$id',
-      authenticated: true,
-    );
-    return CreatedDelivery.fromJson(data);
-  }
-
-  /// GET /api/v1/deliveries
-  Future<List<CreatedDelivery>> listDeliveries() async {
+  /// GET /api/v1/deliveries?role=
+  Future<List<CreatedDelivery>> listDeliveries({String role = 'sender'}) async {
     if (_isDemoMode) return const [];
 
     final data = await _apiClient.get(
-      '/deliveries',
+      '/deliveries?role=${Uri.encodeQueryComponent(role)}',
       authenticated: true,
     );
     final list = data['deliveries'];
@@ -68,6 +55,77 @@ class DeliveryRepository {
     return list
         .whereType<Map>()
         .map((item) => CreatedDelivery.fromJson(Map<String, dynamic>.from(item)))
+        .toList();
+  }
+
+  /// GET /api/v1/deliveries/:id?role=
+  Future<CreatedDelivery> getDelivery(
+    String id, {
+    String? role,
+  }) async {
+    if (_isDemoMode) {
+      throw const ApiException(
+        message: 'Delivery lookup is unavailable in demo mode.',
+        code: 'DEMO_MODE',
+      );
+    }
+
+    final suffix = role == null || role.isEmpty
+        ? ''
+        : '?role=${Uri.encodeQueryComponent(role)}';
+    final data = await _apiClient.get(
+      '/deliveries/$id$suffix',
+      authenticated: true,
+    );
+    return CreatedDelivery.fromJson(data);
+  }
+
+  /// POST /api/v1/deliveries/:id/accept
+  Future<CreatedDelivery> acceptAsReceiver(String id) async {
+    if (_isDemoMode) {
+      throw const ApiException(
+        message: 'Accept is unavailable in demo mode.',
+        code: 'DEMO_MODE',
+      );
+    }
+    final data = await _apiClient.post(
+      '/deliveries/$id/accept',
+      authenticated: true,
+    );
+    return CreatedDelivery.fromJson(data);
+  }
+
+  /// POST /api/v1/deliveries/:id/decline
+  Future<CreatedDelivery> declineAsReceiver(String id) async {
+    if (_isDemoMode) {
+      throw const ApiException(
+        message: 'Decline is unavailable in demo mode.',
+        code: 'DEMO_MODE',
+      );
+    }
+    final data = await _apiClient.post(
+      '/deliveries/$id/decline',
+      authenticated: true,
+    );
+    return CreatedDelivery.fromJson(data);
+  }
+
+  /// GET /api/v1/deliveries/:id/matching-travelers
+  /// Backend filters to travelers whose trip To matches the delivery To.
+  Future<List<MatchingTraveler>> listMatchingTravelers(String deliveryId) async {
+    if (_isDemoMode) return const [];
+
+    final data = await _apiClient.get(
+      '/deliveries/$deliveryId/matching-travelers',
+      authenticated: true,
+    );
+    final list = data['travelers'];
+    if (list is! List) return const <MatchingTraveler>[];
+    return list
+        .whereType<Map>()
+        .map(
+          (item) => MatchingTraveler.fromJson(Map<String, dynamic>.from(item)),
+        )
         .toList();
   }
 
@@ -126,6 +184,35 @@ class DeliveryRepository {
         message: 'Select a meetup location.',
         code: 'VALIDATION_ERROR',
       );
+    }
+
+    final originCity = request.deliveryType == DeliveryType.cityToCity
+        ? (request.fromCity ?? '')
+        : (request.originCity ?? '');
+    if (originCity.trim().isNotEmpty) {
+      for (final loc in request.preferredMeetupLocations) {
+        if (!MeetupOriginValidation.labelBelongsToOrigin(loc, originCity)) {
+          throw const ApiException(
+            message: MeetupOriginValidation.message,
+            code: 'VALIDATION_ERROR',
+          );
+        }
+      }
+    }
+
+    final destinationCity = request.deliveryType == DeliveryType.cityToCity
+        ? (request.toCity ?? '')
+        : (request.destinationCity ?? request.destinationCountry ?? '');
+    if (destinationCity.trim().isNotEmpty) {
+      if (!MeetupDestinationValidation.labelBelongsToDestination(
+        request.receiverMeetupLocation!,
+        destinationCity,
+      )) {
+        throw const ApiException(
+          message: MeetupDestinationValidation.message,
+          code: 'VALIDATION_ERROR',
+        );
+      }
     }
   }
 

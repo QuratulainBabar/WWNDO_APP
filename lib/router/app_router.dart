@@ -313,14 +313,6 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/receiver-tracking',
       parentNavigatorKey: _rootNavigatorKey,
-      redirect: (context, state) {
-        final shipmentId = state.uri.queryParameters['shipmentId'];
-        if (shipmentId != null &&
-            !StaticData.canReceiverAccessParcelFeatures(shipmentId)) {
-          return '/receiver-incoming-request/$shipmentId';
-        }
-        return null;
-      },
       builder: (_, state) => ReceiverTrackingScreen(
         shipmentId: state.uri.queryParameters['shipmentId'],
       ),
@@ -908,27 +900,19 @@ Widget _inboxChatScreen({
   required String conversationId,
   required String backFallback,
 }) {
-  final conversation = StaticData.chatConversationById(role, conversationId);
-  final name = conversation?.name ?? 'Contact';
-  final initial = conversation?.initial ?? 'C';
-  final shipmentId = conversation?.shipmentId ?? StaticData.activeShipment.id;
-
   switch (role) {
     case WalletRole.sender:
-      final bid = StaticData.acceptedBidForShipment(shipmentId) ??
-          Bid(
-            id: 'inbox-$conversationId',
-            travelerName: name,
-            initial: initial,
-            rating: 4.8,
-            reviewCount: 12,
-            price: 28,
-            travelDate: DateTime.now(),
-            routeMatchConfidence: 90,
-            message: conversation?.lastMessage,
-          );
-      return SenderChatScreen(bid: bid, backFallback: backFallback);
+      return SenderChatScreen(
+        backFallback: backFallback,
+        conversationId: conversationId,
+      );
     case WalletRole.traveler:
+      final conversation =
+          StaticData.chatConversationById(role, conversationId);
+      final name = conversation?.name ?? 'Contact';
+      final initial = conversation?.initial ?? 'C';
+      final shipmentId =
+          conversation?.shipmentId ?? StaticData.activeShipment.id;
       return TravelerChatScreen(
         bid: TravelerBid(
           id: 'inbox-$conversationId',
@@ -947,7 +931,7 @@ Widget _inboxChatScreen({
     case WalletRole.receiver:
       return ReceiverChatScreen(
         backFallback: backFallback,
-        contactName: name,
+        conversationId: conversationId,
       );
   }
 }

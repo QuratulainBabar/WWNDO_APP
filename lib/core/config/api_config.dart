@@ -1,13 +1,15 @@
 /// API base URL for the WWNGO backend.
 ///
-/// Default points at the hosted API. Override for local/dev with:
-/// `flutter run --dart-define=API_BASE_URL=http://localhost:3000`
+/// Default is this machine's current LAN IP (physical device must reach it on
+/// the same network). Keep in sync with `ipconfig` / `hostname -I` when the
+/// host IP changes. Override with:
+/// `flutter run --dart-define=API_BASE_URL=https://wango.toolkitpro.cloud`
 class ApiConfig {
   ApiConfig._();
 
   static const String _configuredBase = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://wango.toolkitpro.cloud',
+    defaultValue: 'http://172.16.11.50:3000',
   );
 
   /// Hosted / configured API origin (no trailing slash).
@@ -20,6 +22,8 @@ class ApiConfig {
   static String get apiV1 => '$baseUrl/api/v1';
   static String get authBase => '$apiV1/auth';
   static String get deliveriesBase => '$apiV1/deliveries';
+  static String get tripsBase => '$apiV1/trips';
+  static String get walletBase => '$apiV1/wallet';
 
   /// Absolute URL for a relative upload path returned by the API.
   static String resolveUploadUrl(String relativeOrAbsolute) {

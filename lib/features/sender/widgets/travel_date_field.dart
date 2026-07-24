@@ -5,7 +5,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_labeled_field.dart';
 
-/// Calendar date picker for Post Delivery travel date.
+/// Calendar date picker for Post Delivery / Post Trip travel date.
 class TravelDateField extends StatelessWidget {
   const TravelDateField({
     super.key,
@@ -14,14 +14,16 @@ class TravelDateField extends StatelessWidget {
     this.errorText,
   });
 
-  final DateTime value;
+  final DateTime? value;
   final ValueChanged<DateTime> onChanged;
   final String? errorText;
 
   Future<void> _pickDate(BuildContext context) async {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final initial = value.isBefore(today) ? today : value;
+    final current = value;
+    final initial =
+        current == null || current.isBefore(today) ? today : current;
 
     final picked = await showDatePicker(
       context: context,
@@ -49,7 +51,8 @@ class TravelDateField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
-    final formatted = DateFormat('yyyy-MM-dd').format(value);
+    final formatted =
+        value == null ? '' : DateFormat('yyyy-MM-dd').format(value!);
 
     return AppLabeledField(
       label: 'Travel date',
@@ -63,6 +66,7 @@ class TravelDateField extends StatelessWidget {
               onTap: () => _pickDate(context),
               borderRadius: BorderRadius.circular(12),
               child: InputDecorator(
+                isEmpty: value == null,
                 decoration: InputDecoration(
                   hintText: 'Select travel date',
                   errorText: errorText,
@@ -71,7 +75,10 @@ class TravelDateField extends StatelessWidget {
                     color: AppColors.textSecondary,
                   ),
                 ),
-                child: Text(formatted, style: typo.input),
+                child: Text(
+                  formatted,
+                  style: typo.input,
+                ),
               ),
             ),
           ),

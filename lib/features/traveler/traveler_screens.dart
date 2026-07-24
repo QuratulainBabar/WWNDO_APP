@@ -18,6 +18,7 @@ import '../../core/widgets/scrollable_form_screen.dart';
 import '../../data/models/delivery_request.dart';
 import '../../data/models/meetup_location.dart';
 import '../../data/models/traveler_trip.dart';
+import '../../data/services/trip_repository.dart';
 import '../../data/static_data.dart';
 import '../../data/trip_creation_wallet_validation.dart';
 import '../../providers/auth_provider.dart';
@@ -36,39 +37,70 @@ class PostTripScreen extends StatefulWidget {
 class _PostTripScreenState extends State<PostTripScreen> {
   MeetupLocation? _fromLocation;
   MeetupLocation? _toLocation;
-  late DateTime _travelDate;
-  late int _luggageCapacityKg;
+  DateTime? _travelDate;
+  int _luggageCapacityKg = 0;
+  String? _travelDateError;
+  String? _capacityError;
   late final TextEditingController _flightNumberController;
 
   @override
   void initState() {
     super.initState();
-    final req = StaticData.deliveryRequests.first;
-    _fromLocation = MeetupLocation(
-      name: req.fromCity,
-      address: req.fromCity,
-    );
-    _toLocation = MeetupLocation(
-      name: req.toCity,
-      address: req.toCity,
-    );
-    final today = DateTime.now();
-    final todayDate = DateTime(today.year, today.month, today.day);
-    final travelDate = DateTime(
-      req.travelDate.year,
-      req.travelDate.month,
-      req.travelDate.day,
-    );
-    _travelDate = travelDate.isBefore(todayDate) ? todayDate : travelDate;
-    _luggageCapacityKg =
-        StaticData.travelerAvailableLuggageCapacityKg.round();
-    _flightNumberController = TextEditingController(text: 'BA083');
+    _flightNumberController = TextEditingController();
   }
 
   @override
   void dispose() {
     _flightNumberController.dispose();
     super.dispose();
+  }
+
+  void _postTrip() {
+    final origin = _fromLocation?.name.trim() ?? '';
+    final destination = _toLocation?.name.trim() ?? '';
+    if (origin.isEmpty || destination.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Select both From and To locations on the map.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _travelDateError =
+          _travelDate == null ? 'Select a travel date.' : null;
+      _capacityError = _luggageCapacityKg <= 0
+          ? 'Enter a valid capacity greater than 0.'
+          : null;
+    });
+    if (_travelDateError != null || _capacityError != null) return;
+
+    final fromCode = _fromLocation?.countryCode?.toUpperCase();
+    final toCode = _toLocation?.countryCode?.toUpperCase();
+
+    TripPostingActions.tryPostTrip(
+      context,
+      TravelerTrip(
+        origin: origin,
+        destination: destination,
+        travelDate: _travelDate!,
+        luggageCapacityKg: _luggageCapacityKg.toDouble(),
+      ),
+      request: CreateTripRequest(
+        tripType: TripType.cityToCity,
+        travelDate: _travelDate!,
+        luggageCapacityKg: _luggageCapacityKg.toDouble(),
+        fromCity: origin,
+        toCity: destination,
+        fromCode: fromCode,
+        toCode: toCode,
+        flightNumber: _flightNumberController.text.trim().isEmpty
+            ? null
+            : _flightNumberController.text.trim(),
+      ),
+    );
   }
 
   @override
@@ -86,28 +118,7 @@ class _PostTripScreenState extends State<PostTripScreen> {
         actions: [
           AppButton(
             label: 'Post trip →',
-            onPressed: () {
-              final origin = _fromLocation?.name.trim() ?? '';
-              final destination = _toLocation?.name.trim() ?? '';
-              if (origin.isEmpty || destination.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Select both From and To locations on the map.'),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-                return;
-              }
-              TripPostingActions.tryPostTrip(
-                context,
-                TravelerTrip(
-                  origin: origin,
-                  destination: destination,
-                  travelDate: _travelDate,
-                  luggageCapacityKg: _luggageCapacityKg.toDouble(),
-                ),
-              );
-            },
+            onPressed: _postTrip,
           ),
         ],
         child: Column(
@@ -150,7 +161,7 @@ class _PostTripScreenState extends State<PostTripScreen> {
                   RouteCityDropdown(
                     label: 'From city',
                     value: _fromLocation,
-                    hintText: 'Add from location on Google Maps',
+                    hintText: 'Search location',
                     mapTitle: 'From city',
                     searchHint: 'Search from city',
                     onChanged: (place) => setState(() {
@@ -160,7 +171,7 @@ class _PostTripScreenState extends State<PostTripScreen> {
                   RouteCityDropdown(
                     label: 'To city',
                     value: _toLocation,
-                    hintText: 'Add to location on Google Maps',
+                    hintText: 'Search location',
                     mapTitle: 'To city',
                     searchHint: 'Search to city',
                     onChanged: (place) => setState(() {
@@ -169,7 +180,11 @@ class _PostTripScreenState extends State<PostTripScreen> {
                   ),
                   TravelDateField(
                     value: _travelDate,
-                    onChanged: (date) => setState(() => _travelDate = date),
+                    errorText: _travelDateError,
+                    onChanged: (date) => setState(() {
+                      _travelDate = date;
+                      _travelDateError = null;
+                    }),
                   ),
                 ],
               ),
@@ -181,9 +196,18 @@ class _PostTripScreenState extends State<PostTripScreen> {
                   Text('Available Luggage Capacity', style: sectionTitleStyle),
                   const SizedBox(height: 12),
                   AvailableLuggageCapacityField(
-                    initialValue: _luggageCapacityKg,
-                    onChanged: (kg) => _luggageCapacityKg = kg,
+                    onChanged: (kg) => setState(() {
+                      _luggageCapacityKg = kg;
+                      _capacityError = null;
+                    }),
                   ),
+                  if (_capacityError != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      _capacityError!,
+                      style: context.typo.sm.copyWith(color: AppColors.danger),
+                    ),
+                  ],
                   AppLabeledField(
                     label: 'Flight number (optional)',
                     labelStyle: context.typo.inputLabel

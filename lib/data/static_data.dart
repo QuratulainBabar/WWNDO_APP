@@ -29,7 +29,6 @@ import 'models/security_log_entry.dart';
 
 /// Static data repository — replace with API layer later.
 abstract final class StaticData {
-  static const demoOtpCode = '123456';
   static const demoPassword = 'password123';
 
   static const currentUser = UserProfile(
@@ -39,7 +38,7 @@ abstract final class StaticData {
     countryCode: 'FR',
     rating: 4.9,
     reviewCount: 18,
-    walletBalance: 124.50,
+    walletBalance: 0,
     memberSince: 'May 2026',
     bio: 'Sending parcels between Europe and West Africa 🌍',
     isVerified: true,
@@ -955,6 +954,15 @@ abstract final class StaticData {
         .toList();
   }
 
+  /// Replaces matching-traveler list with backend-filtered results.
+  static void replaceMatchingTravelersFromApi({
+    required String shipmentId,
+    required List<Bid> bids,
+  }) {
+    bidRequestsByShipmentId[shipmentId] = List<Bid>.from(bids);
+    bidRequestsVersion.value++;
+  }
+
   static void rejectBid(String shipmentId, String bidId) {
     _bidReviewStatusById[bidId] = BidReviewStatus.rejected;
     if (shipmentId.isNotEmpty) {
@@ -1538,59 +1546,8 @@ abstract final class StaticData {
   static Bid? acceptedBidForShipment(String shipmentId) =>
       acceptedBidsByShipmentId[shipmentId];
 
-  /// Parcel requests matched to the traveler's posted route (London → Lagos, Jun 2026).
-  static final matchingRequests = [
-    MatchingRequest(
-      tripId: 'trip-1',
-      request: DeliveryRequest(
-        id: 'match-1',
-        fromCity: 'London',
-        toCity: 'Lagos',
-        travelDate: DateTime(2026, 6, 20),
-        maxBudget: 35,
-        category: 'objects',
-        weightKg: 2,
-        size: 'small box',
-        senderName: 'James O.',
-        senderInitial: 'J',
-        senderRating: 4.8,
-        description:
-            'Object package: personal clothing items for family — folded and sealed in a small box.',
-        senderMessage:
-            'Please deliver safely. I will cover all delivery fees and appreciate your help.',
-        meetupLocations: const ['Airport', 'Coffee Shop'],
-        photoCount: 2,
-        receiverName: 'Ahmed Ali',
-        receiverHandoffLocation: 'Lagos Airport',
-      ),
-      matchScore: 95,
-    ),
-    MatchingRequest(
-      tripId: 'trip-1',
-      request: DeliveryRequest(
-        id: 'match-2',
-        fromCity: 'London',
-        toCity: 'Lagos',
-        travelDate: DateTime(2026, 6, 18),
-        maxBudget: 20,
-        category: 'documents',
-        weightKg: 0.5,
-        size: 'envelope',
-        senderName: 'Fatima A.',
-        senderInitial: 'F',
-        senderRating: 5.0,
-        description:
-            'Document package: notarized university transcripts in a sealed envelope — handle with care.',
-        senderMessage:
-            'These are important sealed documents. Please do not bend or open the envelope.',
-        meetupLocations: const ['Airport', 'Hotel Lobby'],
-        photoCount: 1,
-        receiverName: 'Ibrahim Musa',
-        receiverHandoffLocation: 'Lagos Airport',
-      ),
-      matchScore: 92,
-    ),
-  ];
+  /// Parcel requests matched to the traveler's posted route (API when available).
+  static final matchingRequests = <MatchingRequest>[];
 
   static final deliveryRequests = [
     DeliveryRequest(
@@ -1813,80 +1770,7 @@ abstract final class StaticData {
     ),
   ];
 
-  static const travelerChatInbox = [
-    ChatConversationPreview(
-      id: 't1',
-      name: 'Marc L.',
-      initial: 'M',
-      lastMessage: "Looks good! See you then 👍",
-      time: '10:49 AM',
-      shipmentId: travelerTabChatShipmentId,
-      unreadCount: 1,
-      messages: travelerTabChatMessages,
-    ),
-    ChatConversationPreview(
-      id: 't2',
-      name: 'Sophie R.',
-      initial: 'S',
-      lastMessage: 'Can you carry a small documents envelope?',
-      time: '9:15 AM',
-      shipmentId: 'WW-48310',
-      unreadCount: 3,
-      messages: [
-        ChatMessage(
-          text: 'Can you carry a small documents envelope?',
-          isMine: false,
-          time: '9:15 AM',
-        ),
-      ],
-    ),
-    ChatConversationPreview(
-      id: 't3',
-      name: 'Jean-Paul M.',
-      initial: 'J',
-      lastMessage: 'Handoff at CDG worked perfectly. Thank you!',
-      time: 'Yesterday',
-      shipmentId: 'WW-48001',
-      messages: [
-        ChatMessage(
-          text: 'Handoff at CDG worked perfectly. Thank you!',
-          isMine: false,
-          time: '5:22 PM',
-        ),
-      ],
-    ),
-    ChatConversationPreview(
-      id: 't4',
-      name: 'Awa Diallo',
-      initial: 'A',
-      lastMessage: 'Receiver is ready at the hotel lobby.',
-      time: 'Tue',
-      shipmentId: 'WW-47660',
-      messages: [
-        ChatMessage(
-          text: 'Receiver is ready at the hotel lobby.',
-          isMine: false,
-          time: '1:08 PM',
-        ),
-      ],
-    ),
-    ChatConversationPreview(
-      id: 't5',
-      name: 'Omar Fall',
-      initial: 'O',
-      lastMessage: 'Budget confirmed — waiting for your bid acceptance.',
-      time: 'Mon',
-      shipmentId: 'WW-47520',
-      unreadCount: 1,
-      messages: [
-        ChatMessage(
-          text: 'Budget confirmed — waiting for your bid acceptance.',
-          isMine: false,
-          time: '8:44 AM',
-        ),
-      ],
-    ),
-  ];
+  static const travelerChatInbox = <ChatConversationPreview>[];
 
   static const receiverChatInbox = [
     ChatConversationPreview(
@@ -2159,6 +2043,7 @@ abstract final class StaticData {
     required String description,
     required int parcelPhotoCount,
     bool paysReceiverFee = false,
+    bool seedDemoMatches = true,
   }) {
     setPaysReceiverFee(shipmentId, paysReceiverFee);
     if (senderShipments.any((s) => s.id == shipmentId)) return;
@@ -2186,14 +2071,17 @@ abstract final class StaticData {
         parcelPhotoCount: parcelPhotoCount,
       ),
     );
-    // Demo: receiver already accepted so Matching Travelers is available immediately.
-    receiverAcceptedShipmentIds.add(shipmentId);
-    _seedDemoMatchingTravelers(
-      shipmentId: shipmentId,
-      travelDate: travelDate,
-      fromCity: fromCity,
-      toCity: toCity,
-    );
+    // Demo only: pretend the receiver already accepted so Matching Travelers
+    // can be exercised without a second account.
+    if (seedDemoMatches) {
+      receiverAcceptedShipmentIds.add(shipmentId);
+      _seedDemoMatchingTravelers(
+        shipmentId: shipmentId,
+        travelDate: travelDate,
+        fromCity: fromCity,
+        toCity: toCity,
+      );
+    }
     bidRequestsVersion.value++;
   }
 
@@ -2449,24 +2337,16 @@ abstract final class StaticData {
 
   static final deliveryRequestsVersion = ValueNotifier<int>(0);
 
-  static final travelerPostedTrips = <TravelerTrip>[
-    TravelerTrip(
-      id: 'trip-1',
-      origin: 'London',
-      destination: 'Lagos',
-      travelDate: DateTime(2026, 7, 20), // within 24h of demo "today" → cancel blocked
-      luggageCapacityKg: travelerAvailableLuggageCapacityKg,
-      status: TripStatus.openBid,
-    ),
-    TravelerTrip(
-      id: 'trip-4',
-      origin: 'Paris',
-      destination: 'Dakar',
-      travelDate: DateTime(2026, 7, 12),
-      luggageCapacityKg: 10,
-      status: TripStatus.inTransit,
-    ),
-  ];
+  static final travelerPostedTrips = <TravelerTrip>[];
+
+  /// Seeded demo listings — none while trips API is not available.
+  static const seedTravelerTripIds = <String>{};
+
+  /// Trips shown on traveler Home / My Trips (API-backed when available).
+  static List<TravelerTrip> travelerTripsForDisplay({required bool demoMode}) {
+    // No mock/seed trips — only user-posted entries once a trips API exists.
+    return List<TravelerTrip>.from(travelerPostedTrips);
+  }
 
   static var _nextTripId = 8;
 
@@ -2749,7 +2629,7 @@ abstract final class StaticData {
     countryCode: 'FR',
     rating: 4.9,
     reviewCount: 24,
-    walletBalance: 156.00,
+    walletBalance: 0,
     memberSince: 'Apr 2026',
     bio: 'Regular traveler between Europe and West Africa ✈️',
     isVerified: true,
@@ -3802,36 +3682,7 @@ abstract final class StaticData {
   }
 
   /// Traveler-side counter offers (Counter Offers Sent screen).
-  static final travelerBids = [
-    TravelerBid(
-      id: 'tb-1',
-      requestId: 'match-1',
-      tripId: 'trip-1',
-      senderName: 'James O.',
-      senderInitial: 'J',
-      fromCity: 'London',
-      toCity: 'Lagos',
-      deliveryDate: DateTime(2026, 6, 20),
-      amount: 28,
-      status: TravelerBidStatus.pending,
-      sentAt: DateTime(2026, 1, 20),
-      parcelPhotoCount: 2,
-    ),
-    TravelerBid(
-      id: 'tb-2',
-      requestId: 'match-2',
-      tripId: 'trip-1',
-      senderName: 'Fatima A.',
-      senderInitial: 'F',
-      fromCity: 'London',
-      toCity: 'Lagos',
-      deliveryDate: DateTime(2026, 6, 18),
-      amount: 18,
-      status: TravelerBidStatus.accepted,
-      sentAt: DateTime(2026, 1, 18),
-      parcelPhotoCount: 1,
-    ),
-  ];
+  static final travelerBids = <TravelerBid>[];
 
   static final travelerBidsVersion = ValueNotifier(0);
 
@@ -4078,8 +3929,7 @@ abstract final class StaticData {
         senderPlatformFeeUsd(category: category, paysReceiverFee: paysReceiver);
   }
 
-  static List<Shipment> get travelerShipments =>
-      shipments.where((s) => s.role == ShipmentRole.traveler).toList();
+  static List<Shipment> get travelerShipments => const <Shipment>[];
 
   static Shipment? shipmentById(String id, {bool travelerView = false}) {
     if (travelerView) {

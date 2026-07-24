@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import '../../core/api/api_exception.dart';
+import '../../core/config/demo_mode.dart';
 import '../../core/layout/responsive.dart';
 import '../../core/navigation/app_navigation.dart';
 import '../../core/platform/platform_ui.dart';
@@ -14,17 +16,22 @@ import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_svg_icon.dart';
 import '../../core/widgets/back_header.dart';
 import '../../core/widgets/back_link.dart';
-import '../../core/widgets/cancel_request_confirmation_dialog.dart';
 import '../../core/widgets/role_switch_card.dart';
 import '../../core/widgets/screen_body.dart';
 import '../../core/widgets/star_rating_display.dart';
-import '../../data/models/incoming_parcel_request.dart';
+import '../../data/models/created_delivery.dart';
+import '../../data/models/profile_trust_metrics.dart';
+import '../../data/models/receiver_delivery_status.dart';
 import '../../data/models/shipment.dart';
 import '../../data/models/chat_message.dart';
 import '../../data/models/wallet_role.dart';
+import '../../data/services/chat_repository.dart';
+import '../../data/services/delivery_repository.dart';
+import '../../data/services/trust_metrics_repository.dart';
 import '../../data/static_data.dart';
 import '../../data/wallet_service.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/wallet_provider.dart';
 import '../notifications/role_notifications_screen.dart';
 import '../profile/widgets/profile_header_card.dart';
 import '../profile/widgets/profile_trust_indicators.dart';
@@ -33,15 +40,91 @@ import '../chat/chat_conversation_mixin.dart';
 import '../chat/widgets/chat_composer.dart';
 import '../chat/widgets/chat_image_attachment.dart';
 
-class ReceiverProfileScreen extends StatelessWidget {
+class ReceiverProfileScreen extends StatefulWidget {
   const ReceiverProfileScreen({super.key});
+
+  @override
+  State<ReceiverProfileScreen> createState() => _ReceiverProfileScreenState();
+}
+
+class _ReceiverProfileScreenState extends State<ReceiverProfileScreen> {
+  int _incomingCount = 0;
+  int _deliveredCount = 0;
+  ProfileTrustMetrics? _trustMetrics;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context
+          .read<WalletProvider>()
+          .refresh(WalletRole.receiver, silent: true)
+          .ignore();
+      _loadCounts();
+      _loadTrust();
+    });
+  }
+
+  DeliveryRepository _deliveryRepository() {
+    final auth = context.read<AuthProvider>();
+    final demoMode = context.read<DemoModeProvider>();
+    return DeliveryRepository(
+      apiClient: auth.repository.apiClient,
+      demoMode: demoMode,
+    );
+  }
+
+  TrustMetricsRepository _trustRepository() {
+    final auth = context.read<AuthProvider>();
+    final demoMode = context.read<DemoModeProvider>();
+    return TrustMetricsRepository(
+      apiClient: auth.repository.apiClient,
+      demoMode: demoMode,
+    );
+  }
+
+  Future<void> _loadCounts() async {
+    try {
+      final list = await _deliveryRepository().listDeliveries(role: 'receiver');
+      if (!mounted) return;
+      var incoming = 0;
+      var delivered = 0;
+      for (final d in list) {
+        final status = ReceiverDeliveryStatus.fromDelivery(d);
+        if (status.isPast) {
+          if (d.status == 'delivered') delivered++;
+        } else {
+          incoming++;
+        }
+      }
+      setState(() {
+        _incomingCount = incoming;
+        _deliveredCount = delivered;
+      });
+    } catch (_) {
+      // Keep zeros on failure.
+    }
+  }
+
+  Future<void> _loadTrust() async {
+    try {
+      final metrics =
+          await _trustRepository().fetch(WalletRole.receiver);
+      if (!mounted) return;
+      setState(() => _trustMetrics = metrics);
+    } catch (_) {
+      // Keep null → fall back below.
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
     final authUser = context.watch<AuthProvider>().user;
     final user = authUser?.toUserProfile() ?? StaticData.receiverUser;
-    final activeCount = StaticData.receiverShipments.length;
+    final activeCount = _incomingCount;
+    final trust = _trustMetrics ?? StaticData.receiverTrustMetrics;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -92,22 +175,25 @@ class ReceiverProfileScreen extends StatelessWidget {
                   const SizedBox(width: 10),
                   _stat(context, '$activeCount', 'Incoming shipments'),
                   const SizedBox(width: 10),
-                  _stat(context, '${StaticData.receiverReceivedShipmentCount}', 'Delivered Parcels'),
+                  _stat(context, '$_deliveredCount', 'Delivered Parcels'),
                 ],
               ),
             ),
             const SizedBox(height: 10),
             Row(
               children: [
-                ValueListenableBuilder<int>(
-                  valueListenable: WalletService.walletVersion,
-                  builder: (context, _, __) => _stat(
-                    context,
-                    WalletService.formatCents(
-                      WalletService.availableCents(WalletRole.receiver),
+                Expanded(
+                  child: ValueListenableBuilder<int>(
+                    valueListenable: WalletService.walletVersion,
+                    builder: (context, _, __) => _stat(
+                      context,
+                      WalletService.formatCents(
+                        WalletService.availableCents(WalletRole.receiver),
+                      ),
+                      'Wallet',
+                      onTap: () => context.push('/wallet?role=receiver'),
+                      expand: false,
                     ),
-                    'Wallet',
-                    onTap: () => context.push('/wallet?role=receiver'),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -121,7 +207,7 @@ class ReceiverProfileScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             ProfileTrustIndicators(
-              metrics: StaticData.receiverTrustMetrics,
+              metrics: trust,
               authUser: authUser,
             ),
             const SizedBox(height: 16),
@@ -142,11 +228,15 @@ class ReceiverProfileScreen extends StatelessWidget {
             AppCard(
               child: Column(
                 children: [
-                  _prefRow(context, 'Handover location', 'Murtala Muhammed Airport, Lagos'),
+                  _prefRow(
+                    context,
+                    'Handover location',
+                    user.bio.trim().isNotEmpty ? user.bio : 'Not set',
+                  ),
                   const Divider(height: 24),
                   _prefRow(context, 'Preferred contact', user.phone),
                   const Divider(height: 24),
-                  _prefRow(context, 'NFC ready', 'Yes â€” phone supports tap'),
+                  _prefRow(context, 'NFC ready', 'Yes — phone supports tap'),
                 ],
               ),
             ),
@@ -162,12 +252,18 @@ class ReceiverProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _stat(BuildContext context, String value, String label, {VoidCallback? onTap, Widget? trailing}) {
+  Widget _stat(
+    BuildContext context,
+    String value,
+    String label, {
+    VoidCallback? onTap,
+    Widget? trailing,
+    bool expand = true,
+  }) {
     final typo = context.typo;
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: AppCard(
+    final content = GestureDetector(
+      onTap: onTap,
+      child: AppCard(
         margin: EdgeInsets.zero,
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
         child: Column(
@@ -191,8 +287,8 @@ class ReceiverProfileScreen extends StatelessWidget {
           ],
         ),
       ),
-      ),
     );
+    return expand ? Expanded(child: content) : content;
   }
 
   Widget _quickAction(BuildContext context, String iconAsset, String label, VoidCallback onTap) {
@@ -257,37 +353,102 @@ class ReceiverShipmentsScreen extends StatefulWidget {
   State<ReceiverShipmentsScreen> createState() => _ReceiverShipmentsScreenState();
 }
 
-class _ReceiverShipmentsScreenState extends State<ReceiverShipmentsScreen> {
+class _ReceiverShipmentsScreenState extends State<ReceiverShipmentsScreen>
+    with WidgetsBindingObserver {
   bool _showActive = true;
   bool _tabInitialized = false;
+  bool _loading = true;
+  String? _error;
+  List<CreatedDelivery> _deliveries = const [];
+  String? _lastMatchedLocation;
 
   @override
   void initState() {
     super.initState();
-    // One Traveler Selected card only (e.g. keep WW-48291, drop extras).
-    StaticData.purgeExtraReceiverTravelerSelected();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _load(silent: true);
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_tabInitialized) return;
-    _tabInitialized = true;
-    final tab = GoRouterState.of(context).uri.queryParameters['tab'];
-    if (tab == 'past') _showActive = false;
+    final location = GoRouterState.of(context).matchedLocation;
+    if (!_tabInitialized) {
+      _tabInitialized = true;
+      final tab = GoRouterState.of(context).uri.queryParameters['tab'];
+      if (tab == 'past') _showActive = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _load();
+      });
+    } else if (location.startsWith('/receiver-shipments') &&
+        _lastMatchedLocation != location) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _load(silent: true);
+      });
+    }
+    _lastMatchedLocation = location;
   }
 
-  List<Shipment> _shipmentsForTab() {
-    return StaticData.receiverShipments.where((s) {
-      final status = StaticData.effectiveStatus(s);
-      final isDelivered = status == ShipmentStatus.delivered;
-      return _showActive ? !isDelivered : isDelivered;
+  DeliveryRepository _repo() {
+    final auth = context.read<AuthProvider>();
+    final demoMode = context.read<DemoModeProvider>();
+    return DeliveryRepository(
+      apiClient: auth.repository.apiClient,
+      demoMode: demoMode,
+    );
+  }
+
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
+    try {
+      final list = await _repo().listDeliveries(role: 'receiver');
+      if (!mounted) return;
+      setState(() {
+        _deliveries = list;
+        _loading = false;
+        _error = null;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = e.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = 'Unable to load shipments.';
+      });
+    }
+  }
+
+  List<CreatedDelivery> get _visible {
+    return _deliveries.where((d) {
+      final status = ReceiverDeliveryStatus.fromDelivery(d);
+      return _showActive ? !status.isPast : status.isPast;
     }).toList();
   }
 
   @override
   Widget build(BuildContext context) {
     final horizontal = context.horizontalPadding;
+    final items = _visible;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -326,130 +487,136 @@ class _ReceiverShipmentsScreenState extends State<ReceiverShipmentsScreen> {
                 ],
               ),
             ),
-            Expanded(
-              child: ValueListenableBuilder<int>(
-                valueListenable: StaticData.incomingParcelRequestsVersion,
-                builder: (context, _, __) {
-                  return ValueListenableBuilder<int>(
-                    valueListenable: StaticData.nfcCheckpointVersion,
-                    builder: (context, _, __) {
-                      final shipments = _shipmentsForTab();
-                      final pendingRequests = _showActive
-                          ? StaticData.pendingIncomingParcelRequests
-                          : const <IncomingParcelRequest>[];
-                      if (shipments.isEmpty && pendingRequests.isEmpty) {
-                        return _EmptyShipmentsState(showActive: _showActive);
-                      }
-                      return ListView.builder(
-                        physics: PlatformUi.scrollPhysics,
-                        padding: EdgeInsets.fromLTRB(horizontal, 20, horizontal, 24),
-                        itemCount: pendingRequests.length + shipments.length,
-                        itemBuilder: (context, i) {
-                          if (i < pendingRequests.length) {
-                            final request = pendingRequests[i];
-                            return GestureDetector(
-                              onTap: () => context.push(
-                                '/receiver-incoming-request/${request.id}',
-                              ),
-                              child: AppCard(
-                                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-                                margin: const EdgeInsets.only(bottom: 14),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          request.id,
-                                          style: context.typo.h3.copyWith(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                        AppBadge(
-                                          label: request.status.label,
-                                          color: request.status.color,
-                                          backgroundColor: request.status.backgroundColor,
-                                          semiBold: true,
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 10),
-                                    Text(request.route, style: context.typo.sm.copyWith(color: AppColors.textPrimary)),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      'From ${request.senderName}',
-                                      style: context.typo.sm,
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Text(
-                                      'Review and accept or decline this request',
-                                      style: context.typo.sm.copyWith(color: AppColors.primary),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          }
-
-                          final s = shipments[i - pendingRequests.length];
-                          return GestureDetector(
-                            onTap: () {
-                              if (StaticData.isIncomingParcelRequestPending(s.id)) {
-                                context.push('/receiver-incoming-request/${s.id}');
-                              } else if (StaticData.needsReceiverPayment(s)) {
-                                context.push('/receiver-home/payment-approval', extra: s);
-                              } else if (StaticData.canReceiverAccessParcelFeatures(s.id)) {
-                                context.push('/receiver-tracking?shipmentId=${s.id}');
-                              } else {
-                                context.push('/receiver-incoming-request/${s.id}');
-                              }
-                            },
-                        child: AppCard(
-                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-                          margin: const EdgeInsets.only(bottom: 14),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    s.id,
-                                    style: context.typo.h3.copyWith(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  AppBadge.status(StaticData.effectiveStatus(s), semiBold: true, wide: true),
-                                ],
-                              ),
-                              const SizedBox(height: 10),
-                              Text(s.route, style: context.typo.sm.copyWith(color: AppColors.textPrimary)),
-                              const SizedBox(height: 8),
-                              Text(s.description, style: context.typo.sm),
-                              const SizedBox(height: 12),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text('From ${s.travelerName ?? 'Traveler'}', style: context.typo.sm),
-                                  Text(DateFormat('MMM d, yyyy').format(s.travelDate), style: context.typo.sm),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                        },
-                      );
-                    },
-                  );
-                },
-              ),
-            ),
+            Expanded(child: _body(context, horizontal, items)),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _body(BuildContext context, double horizontal, List<CreatedDelivery> items) {
+    if (_loading && _deliveries.isEmpty) {
+      return const Center(
+        child: SizedBox(
+          width: 22,
+          height: 22,
+          child: CircularProgressIndicator(
+            strokeWidth: 2.5,
+            color: AppColors.primary,
+          ),
+        ),
+      );
+    }
+
+    if (_error != null && _deliveries.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: context.pagePadding,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                _error!,
+                textAlign: TextAlign.center,
+                style: context.typo.sm.copyWith(color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 12),
+              TextButton(onPressed: () => _load(), child: const Text('Retry')),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (items.isEmpty) {
+      return _EmptyShipmentsState(showActive: _showActive);
+    }
+
+    return RefreshIndicator(
+      onRefresh: () => _load(silent: true),
+      child: ListView.builder(
+        physics: PlatformUi.scrollPhysics,
+        padding: EdgeInsets.fromLTRB(horizontal, 20, horizontal, 24),
+        itemCount: items.length,
+        itemBuilder: (context, i) {
+          final d = items[i];
+          final status = ReceiverDeliveryStatus.fromDelivery(d);
+          final travelDate = d.travelDateParsed;
+          return GestureDetector(
+            onTap: () async {
+              if (status.isPendingRequest) {
+                await context.push('/receiver-incoming-request/${d.displayId}');
+              } else {
+                await context.push('/receiver-tracking?shipmentId=${d.displayId}');
+              }
+              if (mounted) _load(silent: true);
+            },
+            child: AppCard(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+              margin: const EdgeInsets.only(bottom: 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        d.displayId,
+                        style: context.typo.h3.copyWith(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      AppBadge(
+                        label: status.label,
+                        color: status.color,
+                        backgroundColor: status.backgroundColor,
+                        semiBold: true,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    d.route.isNotEmpty ? d.route : '—',
+                    style: context.typo.sm.copyWith(color: AppColors.textPrimary),
+                  ),
+                  if (d.description.trim().isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(d.description, style: context.typo.sm),
+                  ],
+                  if (status.isPendingRequest) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'From ${d.senderName ?? 'Sender'}',
+                      style: context.typo.sm,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Review and accept or decline this request',
+                      style: context.typo.sm.copyWith(color: AppColors.primary),
+                    ),
+                  ] else ...[
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'From ${d.senderName ?? 'Sender'}',
+                          style: context.typo.sm,
+                        ),
+                        if (travelDate != null)
+                          Text(
+                            DateFormat('MMM d, yyyy').format(travelDate),
+                            style: context.typo.sm,
+                          ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -529,24 +696,42 @@ class ReceiverNotificationsScreen extends StatelessWidget {
 }
 
 class ReceiverChatScreen extends StatefulWidget {
-  const ReceiverChatScreen({super.key, this.backFallback, this.contactName});
+  const ReceiverChatScreen({
+    super.key,
+    this.backFallback,
+    this.contactName,
+    this.conversationId,
+  });
 
   final String? backFallback;
   /// When opened from inbox, show this contact instead of active shipment traveler.
   final String? contactName;
+  final String? conversationId;
 
   @override
   State<ReceiverChatScreen> createState() => _ReceiverChatScreenState();
 }
 
-class _ReceiverChatScreenState extends State<ReceiverChatScreen> with ChatConversationMixin {
+class _ReceiverChatScreenState extends State<ReceiverChatScreen>
+    with ChatConversationMixin {
   @override
-  ChatThread? get chatThread => ChatThread.travelerReceiver;
+  ChatThread? get chatThread => null;
+
+  bool _loading = true;
+  String? _error;
+  String _peerName = 'Contact';
+  String _shipmentId = '';
+  String? _conversationId;
 
   @override
   void initState() {
     super.initState();
-    initChatMessages(StaticData.chatMessagesForThread(ChatThread.travelerReceiver));
+    initChatMessages(const []);
+    _conversationId = widget.conversationId;
+    _peerName = widget.contactName ?? 'Contact';
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _load();
+    });
   }
 
   @override
@@ -555,13 +740,84 @@ class _ReceiverChatScreenState extends State<ReceiverChatScreen> with ChatConver
     super.dispose();
   }
 
+  ChatRepository _repo() {
+    final auth = context.read<AuthProvider>();
+    final demoMode = context.read<DemoModeProvider>();
+    return ChatRepository(
+      apiClient: auth.repository.apiClient,
+      demoMode: demoMode,
+    );
+  }
+
+  Future<void> _load() async {
+    final id = _conversationId;
+    if (id == null || id.isEmpty) {
+      setState(() {
+        _loading = false;
+        _error = 'Conversation not found.';
+      });
+      return;
+    }
+
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final detail = await _repo().getConversation(id);
+      if (!mounted) return;
+      setState(() {
+        chatMessages = List.of(detail.messages);
+        _peerName = widget.contactName ?? detail.name;
+        _shipmentId = detail.shipmentId;
+        _loading = false;
+      });
+      scrollChatToBottom();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = e.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = 'Unable to load conversation.';
+      });
+    }
+  }
+
+  Future<void> _sendApiMessage() async {
+    final text = chatController.text.trim();
+    final id = _conversationId;
+    if (text.isEmpty || id == null) return;
+
+    chatController.clear();
+    try {
+      final message = await _repo().sendMessage(id, text);
+      if (!mounted) return;
+      setState(() => chatMessages.add(message));
+      scrollChatToBottom();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to send message.')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
-    final shipment = StaticData.receiverActiveShipment;
-    final traveler = widget.contactName ?? shipment.travelerName ?? 'Traveler';
-    final unlocked = StaticData.isThreadUnlocked(ChatThread.travelerReceiver);
-    final lockReasons = StaticData.chatThreadLockReasons(ChatThread.travelerReceiver);
+    final traveler = _peerName;
+    final initial = traveler.isNotEmpty ? traveler[0] : '?';
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -574,71 +830,106 @@ class _ReceiverChatScreenState extends State<ReceiverChatScreen> with ChatConver
         children: [
           Container(
             width: double.infinity,
-            padding: EdgeInsets.fromLTRB(context.horizontalPadding, 0, context.horizontalPadding, 12),
+            padding: EdgeInsets.fromLTRB(
+              context.horizontalPadding,
+              0,
+              context.horizontalPadding,
+              12,
+            ),
             color: AppColors.surface,
             child: Text(
-              'Traveler â†” Receiver Â· ${shipment.id}',
+              _shipmentId.isEmpty
+                  ? 'Traveler ↔ Receiver'
+                  : 'Traveler ↔ Receiver · $_shipmentId',
               textAlign: TextAlign.center,
               style: typo.sm,
             ),
           ),
-          if (!unlocked)
-            Container(
-              width: double.infinity,
-              padding: EdgeInsets.fromLTRB(
-                context.horizontalPadding,
-                8,
-                context.horizontalPadding,
-                8,
-              ),
-              color: AppColors.warning.withValues(alpha: 0.12),
-              child: Text(
-                'Thread locked: ${lockReasons.join(' Â· ')}',
-                style: typo.sm.copyWith(
-                  color: AppColors.warning,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
           Expanded(
-            child: ValueListenableBuilder<int>(
-              valueListenable: StaticData.chatThreadsVersion,
-              builder: (context, _, __) {
-                chatMessages = List.of(
-                  StaticData.chatMessagesForThread(ChatThread.travelerReceiver),
-                );
-                return ListView(
-                  controller: chatScrollController,
-                  physics: PlatformUi.scrollPhysics,
-                  padding: EdgeInsets.all(context.horizontalPadding),
-                  children: [
-                    Center(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppColors.background,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text('Today', style: typo.datePill),
+            child: _loading
+                ? const Center(
+                    child: SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: AppColors.primary,
                       ),
                     ),
-                    const SizedBox(height: 14),
-                    ...chatMessages.map(
-                      (m) => _ChatBubble(message: m, travelerInitial: traveler[0]),
-                    ),
-                  ],
-                );
-              },
-            ),
+                  )
+                : _error != null
+                    ? Center(
+                        child: Padding(
+                          padding: context.pagePadding,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                _error!,
+                                textAlign: TextAlign.center,
+                                style: typo.sm.copyWith(
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: _load,
+                                child: const Text('Retry'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : ListView(
+                        controller: chatScrollController,
+                        physics: PlatformUi.scrollPhysics,
+                        padding: EdgeInsets.all(context.horizontalPadding),
+                        children: [
+                          if (chatMessages.isNotEmpty) ...[
+                            Center(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.background,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text('Today', style: typo.datePill),
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                          ],
+                          if (chatMessages.isEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 48),
+                              child: Center(
+                                child: Text(
+                                  'No messages yet.',
+                                  style: typo.sm.copyWith(
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ),
+                            )
+                          else
+                            ...chatMessages.map(
+                              (m) => _ChatBubble(
+                                message: m,
+                                travelerInitial: initial,
+                              ),
+                            ),
+                        ],
+                      ),
           ),
           ChatComposer(
             controller: chatController,
-            hintText: 'Message $travelerâ€¦',
-            onSend: sendChatTextMessage,
+            hintText: 'Message $traveler…',
+            onSend: _sendApiMessage,
             onAttach: showChatAttachmentOptions,
             borderRadius: 12,
             circularSendButton: false,
-            enabled: unlocked,
+            enabled: !_loading && _error == null && _conversationId != null,
           ),
         ],
       ),
@@ -738,286 +1029,258 @@ class _ChatBubble extends StatelessWidget {
   }
 }
 
-class ReceiverTrackingScreen extends StatelessWidget {
+class ReceiverTrackingScreen extends StatefulWidget {
   const ReceiverTrackingScreen({super.key, this.shipmentId});
 
   final String? shipmentId;
 
   @override
-  Widget build(BuildContext context) {
-    return ValueListenableBuilder<int>(
-      valueListenable: StaticData.bidRequestsVersion,
-      builder: (context, _, __) {
-        return ValueListenableBuilder<int>(
-          valueListenable: StaticData.nfcCheckpointVersion,
-          builder: (context, _, __) {
-        final typo = context.typo;
-        final shipment =
-            StaticData.receiverShipmentById(shipmentId) ??
-            StaticData.receiverShipmentById(
-              StaticData.receiverActiveShipment.id,
-            ) ??
-            StaticData.receiverActiveShipment;
-        final status = StaticData.effectiveStatus(shipment);
-        final stepProgress = StaticData.effectiveStepIndex(shipment);
-        final featuresUnlocked = StaticData.canReceiverAccessParcelFeatures(shipment.id);
+  State<ReceiverTrackingScreen> createState() => _ReceiverTrackingScreenState();
+}
 
-        return Scaffold(
-          backgroundColor: AppColors.background,
-          appBar: BackHeader(title: 'Track ${shipment.id}'),
-          body: SafeArea(
-            child: SingleChildScrollView(
-              physics: PlatformUi.scrollPhysics,
-              padding: context.pagePadding,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  AppBadge.status(status),
-                  const SizedBox(height: 16),
-                  AppCard(
-                    margin: EdgeInsets.zero,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (featuresUnlocked) ...[
-                          ShipmentTrackingSection(
-                            shipment: shipment,
-                            stepProgress: stepProgress,
-                          ),
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 20),
-                            child: Divider(height: 1),
-                          ),
-                        ],
-                        Text('Shipment details', style: typo.h3.copyWith(fontWeight: FontWeight.w700)),
-                        const SizedBox(height: 12),
-                        _detailRow(context, 'Route', shipment.route),
-                        _detailRow(context, 'Travel date', DateFormat('MMM d, yyyy').format(shipment.travelDate)),
-                        _detailRow(context, 'Traveler', shipment.travelerName ?? '—'),
-                        _detailRow(context, 'Flight', shipment.flightNumber ?? '—'),
-                        _detailRow(context, 'Parcel type', '${shipment.parcelCategory} · ${shipment.parcelWeightKg}kg'),
-                        if (featuresUnlocked) ...[
-                          const SizedBox(height: 16),
-                          ValueListenableBuilder<int>(
-                            valueListenable: WalletService.walletVersion,
-                            builder: (context, _, __) {
-                              final escrow = WalletService.escrowCentsForShipment(shipment.id);
-                              final frozen = WalletService.isEscrowFrozen(shipment.id);
-                              final statusText = frozen
-                                  ? 'Frozen — dispute'
-                                  : escrow > 0
-                                      ? 'Held until NFC CP2'
-                                      : WalletService.isEscrowReleased(shipment.id)
-                                          ? 'Released to traveler'
-                                          : 'No active escrow';
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('Shipment escrow', style: typo.h3.copyWith(fontWeight: FontWeight.w700)),
-                                  const SizedBox(height: 8),
-                                  _detailRow(context, 'Amount', WalletService.formatCents(escrow)),
-                                  _detailRow(context, 'Status', statusText),
-                                  const SizedBox(height: 8),
-                                ],
-                              );
-                            },
-                          ),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              if (WalletService.escrowCentsForShipment(shipment.id) > 0 ||
-                                  WalletService.isEscrowReleased(shipment.id))
-                                AppBadge.success('✓ Escrow active')
-                              else if (WalletService.isEscrowFrozen(shipment.id))
-                                AppBadge(
-                                  label: 'Escrow frozen',
-                                  color: AppColors.danger,
-                                  backgroundColor: AppColors.danger.withValues(alpha: 0.12),
-                                  small: true,
-                                ),
-                              AppBadge.success('✓ ID verified'),
-                              if (StaticData.isNfcCheckpoint1Confirmed(shipment.id))
-                                AppBadge.success('✓ NFC CP1')
-                              else
-                                AppBadge(
-                                  label: '○ NFC CP1',
-                                  color: AppColors.textDisabled,
-                                  backgroundColor: AppColors.textDisabled.withValues(alpha: 0.4),
-                                  small: true,
-                                ),
-                              if (StaticData.isNfcCheckpoint2Confirmed(shipment.id) ||
-                                  status == ShipmentStatus.delivered)
-                                AppBadge.success('✓ NFC CP2')
-                              else
-                                AppBadge(
-                                  label: '○ NFC CP2',
-                                  color: AppColors.textDisabled,
-                                  backgroundColor: AppColors.textDisabled.withValues(alpha: 0.4),
-                                  small: true,
-                                ),
-                            ],
-                          ),
-                        ] else ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            'Accept the parcel request to unlock tracking, NFC, and chat.',
-                            style: typo.sm.copyWith(color: AppColors.textSecondary),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  if (featuresUnlocked) ...[
-                    const SizedBox(height: 24),
-                    AppCard(
-                      margin: EdgeInsets.zero,
-                      child: _ReceiverNfcDeliverySection(
-                        status: status,
-                        shipmentId: shipment.id,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    AppButton(
-                      label: 'Chat with traveler',
-                      variant: AppButtonVariant.ghost,
-                      textStyle: typo.button.copyWith(fontWeight: FontWeight.w700, color: AppColors.primary),
-                      onPressed: () => context.go('/receiver-chats'),
-                    ),
-                    if (StaticData.isReceiverBookingCancellable(shipment)) ...[
-                      const SizedBox(height: AppButton.stackGap),
-                      AppButton(
-                        label: 'Cancel Request',
-                        variant: AppButtonVariant.danger,
-                        onPressed: () => _cancelReceiverRequest(context, shipment),
-                      ),
-                    ],
-                    if (status == ShipmentStatus.delivered) ...[
-                      const SizedBox(height: AppButton.stackGap),
-                      AppButton(
-                        label: 'Leave a review',
-                        onPressed: () => context.push('/delivery-review'),
-                      ),
-                    ],
-                    ..._buildDisputeActions(context, shipment, status),
-                  ],
-                ],
-              ),
+class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen> {
+  bool _loading = true;
+  String? _error;
+  CreatedDelivery? _delivery;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _load();
+    });
+  }
+
+  DeliveryRepository _repo() {
+    final auth = context.read<AuthProvider>();
+    final demoMode = context.read<DemoModeProvider>();
+    return DeliveryRepository(
+      apiClient: auth.repository.apiClient,
+      demoMode: demoMode,
+    );
+  }
+
+  Future<void> _load() async {
+    final id = widget.shipmentId;
+    if (id == null || id.isEmpty) {
+      // Fallback: pick first non-pending active delivery.
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+      try {
+        final list = await _repo().listDeliveries(role: 'receiver');
+        if (!mounted) return;
+        CreatedDelivery? pick;
+        for (final d in list) {
+          final status = ReceiverDeliveryStatus.fromDelivery(d);
+          if (!status.isPast && !status.isPendingRequest) {
+            pick = d;
+            break;
+          }
+        }
+        pick ??= list.isEmpty ? null : list.first;
+        if (pick == null) {
+          setState(() {
+            _loading = false;
+            _error = 'No shipments to track.';
+          });
+          return;
+        }
+        setState(() {
+          _delivery = pick;
+          _loading = false;
+        });
+      } on ApiException catch (e) {
+        if (!mounted) return;
+        setState(() {
+          _loading = false;
+          _error = e.message;
+        });
+      } catch (_) {
+        if (!mounted) return;
+        setState(() {
+          _loading = false;
+          _error = 'Unable to load tracking.';
+        });
+      }
+      return;
+    }
+
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final delivery = await _repo().getDelivery(id, role: 'receiver');
+      if (!mounted) return;
+      final status = ReceiverDeliveryStatus.fromDelivery(delivery);
+      if (status.isPendingRequest) {
+        context.go('/receiver-incoming-request/${delivery.displayId}');
+        return;
+      }
+      setState(() {
+        _delivery = delivery;
+        _loading = false;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = e.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = 'Unable to load tracking.';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: const BackHeader(title: 'Track parcel'),
+        body: const Center(
+          child: SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.5,
+              color: AppColors.primary,
             ),
           ),
-        );
-          },
-        );
-      },
-    );
-  }
-
-  Future<void> _cancelReceiverRequest(
-    BuildContext context,
-    Shipment shipment,
-  ) async {
-    if (!StaticData.isReceiverBookingCancellable(shipment)) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('This request can no longer be cancelled.'),
-          behavior: SnackBarBehavior.floating,
         ),
       );
-      return;
     }
 
-    final canonical =
-        StaticData.shipmentById(shipment.id) ??
-        StaticData.receiverShipmentById(shipment.id) ??
-        shipment;
-    final feesRefundable =
-        StaticData.isPlatformFeeRefundableOnCancel(canonical.travelDate);
-    final confirmed = await showCancelRequestConfirmation(context);
-    if (!confirmed || !context.mounted) return;
-
-    final cancelled = StaticData.cancelReceiverBooking(shipment.id);
-    if (!cancelled) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('This request can no longer be cancelled.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          StaticData.receiverBookingCancelResultMessage(
-            platformFeesRefunded: feesRefundable,
+    if (_error != null || _delivery == null) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: const BackHeader(title: 'Track parcel'),
+        body: Center(
+          child: Padding(
+            padding: context.pagePadding,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  _error ?? 'Shipment not found.',
+                  textAlign: TextAlign.center,
+                  style: context.typo.sm.copyWith(color: AppColors.textSecondary),
+                ),
+                TextButton(onPressed: _load, child: const Text('Retry')),
+              ],
+            ),
           ),
         ),
-        behavior: SnackBarBehavior.floating,
+      );
+    }
+
+    final typo = context.typo;
+    final delivery = _delivery!;
+    final shipment = delivery.toShipment();
+    final statusInfo = ReceiverDeliveryStatus.fromDelivery(delivery);
+    final status = statusInfo.shipmentStatus;
+    final stepProgress = shipment.trackingProgress;
+    final featuresUnlocked = delivery.isReceiverAccepted ||
+        delivery.status == 'matched' ||
+        delivery.status == 'in_transit' ||
+        delivery.status == 'delivered';
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: BackHeader(title: 'Track ${shipment.id}'),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          physics: PlatformUi.scrollPhysics,
+          padding: context.pagePadding,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AppBadge(
+                label: statusInfo.label,
+                color: statusInfo.color,
+                backgroundColor: statusInfo.backgroundColor,
+              ),
+              const SizedBox(height: 16),
+              AppCard(
+                margin: EdgeInsets.zero,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (featuresUnlocked) ...[
+                      ShipmentTrackingSection(
+                        shipment: shipment,
+                        stepProgress: stepProgress,
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 20),
+                        child: Divider(height: 1),
+                      ),
+                    ],
+                    Text(
+                      'Shipment details',
+                      style: typo.h3.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 12),
+                    _detailRow(
+                      context,
+                      'Route',
+                      delivery.route.isNotEmpty ? delivery.route : shipment.route,
+                    ),
+                    _detailRow(
+                      context,
+                      'Travel date',
+                      DateFormat('MMM d, yyyy').format(shipment.travelDate),
+                    ),
+                    _detailRow(
+                      context,
+                      'Sender',
+                      delivery.senderName ?? '—',
+                    ),
+                    _detailRow(
+                      context,
+                      'Parcel type',
+                      '${shipment.parcelCategory} · ${shipment.parcelWeightKg}kg',
+                    ),
+                    if (!featuresUnlocked) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        'Accept the parcel request to unlock tracking, NFC, and chat.',
+                        style: typo.sm.copyWith(color: AppColors.textSecondary),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (featuresUnlocked) ...[
+                const SizedBox(height: 24),
+                AppButton(
+                  label: 'Chat with traveler',
+                  variant: AppButtonVariant.ghost,
+                  textStyle: typo.button.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primary,
+                  ),
+                  onPressed: () => context.go('/receiver-chats'),
+                ),
+                if (status == ShipmentStatus.delivered) ...[
+                  const SizedBox(height: AppButton.stackGap),
+                  AppButton(
+                    label: 'Leave a review',
+                    onPressed: () => context.push('/delivery-review'),
+                  ),
+                ],
+              ],
+            ],
+          ),
+        ),
       ),
     );
-    context.go('/receiver-shipments');
-  }
-
-  List<Widget> _buildDisputeActions(
-    BuildContext context,
-    Shipment shipment,
-    ShipmentStatus status,
-  ) {
-    final typo = context.typo;
-    final actions = <Widget>[];
-
-    void addAction(Widget action) {
-      if (actions.isNotEmpty) {
-        actions.add(const SizedBox(height: AppButton.stackGap));
-      }
-      actions.add(action);
-    }
-
-    if (StaticData.isShipmentDisputed(shipment.id)) {
-      addAction(
-        AppButton(
-          label: 'View dispute',
-          variant: AppButtonVariant.danger,
-          onPressed: () => appNavigatePush(
-            disputeRoute(shipment.id, role: 'receiver'),
-          ),
-        ),
-      );
-      return [
-        const SizedBox(height: AppButton.stackGap),
-        ...actions,
-      ];
-    }
-
-    final canReportIssue = switch (status) {
-      ShipmentStatus.bidAccepted => true,
-      ShipmentStatus.photosUploaded => true,
-      ShipmentStatus.collected => true,
-      ShipmentStatus.inTransit => true,
-      _ => false,
-    };
-
-    if (canReportIssue) {
-      addAction(
-        AppButton(
-          label: 'Dispute',
-          variant: AppButtonVariant.danger,
-          textStyle: typo.buttonDanger.copyWith(fontWeight: FontWeight.w700),
-          onPressed: () => appNavigatePush(
-            disputeFormRoute(shipment.id, role: 'receiver'),
-          ),
-        ),
-      );
-    }
-
-    if (actions.isEmpty) return actions;
-
-    return [
-      const SizedBox(height: AppButton.stackGap),
-      ...actions,
-    ];
   }
 
   Widget _detailRow(BuildContext context, String label, String value) {
@@ -1028,162 +1291,15 @@ class ReceiverTrackingScreen extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: typo.sm),
-          Text(value, style: typo.bodyBold.copyWith(fontWeight: FontWeight.w700)),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: typo.bodyBold.copyWith(fontWeight: FontWeight.w700),
+            ),
+          ),
         ],
       ),
-    );
-  }
-}
-
-class _ReceiverNfcDeliverySection extends StatelessWidget {
-  const _ReceiverNfcDeliverySection({
-    required this.status,
-    required this.shipmentId,
-  });
-
-  final ShipmentStatus status;
-  final String shipmentId;
-
-  @override
-  Widget build(BuildContext context) {
-    final typo = context.typo;
-    final isDelivered = status == ShipmentStatus.delivered ||
-        StaticData.isNfcCheckpoint2Confirmed(shipmentId);
-    // Traveler enables NFC CP2 for both traveler and receiver.
-    final cp2Active = !isDelivered &&
-        (StaticData.isNfcCheckpoint2Activated(shipmentId) ||
-            StaticData.isNfcCheckpoint2Available(shipmentId));
-    final waitingForTravelerNfc =
-        !isDelivered && status == ShipmentStatus.inTransit && !cp2Active;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(
-              Icons.nfc,
-              size: 20,
-              color: isDelivered ? AppColors.success : AppColors.primary,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                'NFC Checkpoint 2 — Delivery',
-                style: typo.h3.copyWith(fontWeight: FontWeight.w700),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        if (isDelivered) ...[
-          Text(
-            'Delivery confirmed via NFC. Parcel is Delivered, escrow released, and Leave a review is available.',
-            style: typo.sm.copyWith(height: 1.5, color: AppColors.success),
-          ),
-          const SizedBox(height: 12),
-          AppBadge.success('✓ NFC CP2 confirmed'),
-        ] else if (cp2Active) ...[
-          Text(
-            'Traveler enabled NFC for delivery. Match phones with the traveler to mark the parcel Delivered.',
-            style: typo.sm.copyWith(height: 1.5),
-          ),
-          const SizedBox(height: 12),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: const Color(0xFFEFF6FF),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFBFDBFE)),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(Icons.info_outline, size: 20, color: Color(0xFF1D4ED8)),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Traveler enabled NFC for receiver.',
-                        style: typo.sm.copyWith(
-                          height: 1.4,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFF1D4ED8),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Start NFC verification. Both traveler and receiver must match to mark Delivered.',
-                        style: typo.sm.copyWith(
-                          height: 1.4,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          AppButton(
-            label: 'Start NFC Verification',
-            icon: const Icon(Icons.nfc, size: 18, color: Colors.white),
-            onPressed: () => context.push(
-              '/nfc-confirm',
-              extra: {
-                'shipmentId': shipmentId,
-                'checkpoint': 2,
-                'isTraveler': false,
-              },
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Icon(
-                Icons.lock_outline,
-                size: 14,
-                color: AppColors.textSecondary,
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  'Tap to open NFC screen and verify with traveler\'s device.',
-                  style: typo.caption.copyWith(color: AppColors.textSecondary),
-                ),
-              ),
-            ],
-          ),
-        ] else if (waitingForTravelerNfc) ...[
-          Text(
-            'Parcel is In Transit. NFC Checkpoint 2 unlocks when the traveler enables NFC for you.',
-            style: typo.sm.copyWith(height: 1.5),
-          ),
-          const SizedBox(height: 12),
-          AppBadge(
-            label: '○ Awaiting traveler Enable NFC',
-            color: AppColors.textDisabled,
-            backgroundColor: AppColors.textDisabled.withValues(alpha: 0.4),
-            small: true,
-          ),
-        ] else ...[
-          Text(
-            'Awaiting sender↔traveler handoff (NFC Checkpoint 1). After In Transit, the traveler enables NFC for final delivery.',
-            style: typo.sm.copyWith(height: 1.5),
-          ),
-          const SizedBox(height: 12),
-          AppBadge(
-            label: '○ Awaiting In Transit',
-            color: AppColors.textDisabled,
-            backgroundColor: AppColors.textDisabled.withValues(alpha: 0.4),
-            small: true,
-          ),
-        ],
-      ],
     );
   }
 }

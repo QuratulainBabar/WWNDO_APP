@@ -145,7 +145,7 @@ class WelcomeScreen extends StatelessWidget {
                                   // if (demoMode.enabled) ...[
                                   //   const SizedBox(height: 20),
                                   //   Text(
-                                  //     'Demo mode is on — no server needed.\nOTP code: ${StaticData.demoOtpCode}',
+                                  //     'Demo mode is on — no server needed.',
                                   //     textAlign: TextAlign.center,
                                   //     style: typo.sm.copyWith(
                                   //       color: Colors.white.withValues(alpha: 0.9),

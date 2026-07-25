@@ -1,15 +1,13 @@
 /// API base URL for the WWNGO backend.
 ///
-/// Default is this machine's current LAN IP (physical device must reach it on
-/// the same network). Keep in sync with `ipconfig` / `hostname -I` when the
-/// host IP changes. Override with:
-/// `flutter run --dart-define=API_BASE_URL=https://wango.toolkitpro.cloud`
+/// Default is the live hosted backend. Override for local development with:
+/// `flutter run --dart-define=API_BASE_URL=http://172.16.11.50:3000`
 class ApiConfig {
   ApiConfig._();
 
   static const String _configuredBase = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://172.16.11.50:3000',
+    defaultValue: 'https://wango.toolkitpro.cloud',
   );
 
   /// Hosted / configured API origin (no trailing slash).

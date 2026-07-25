@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/auth/auth_verification_guard.dart';
 import '../../core/auth/kyc_verification_guard.dart';
+import '../../core/config/demo_mode.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_card.dart';
@@ -14,6 +15,8 @@ import '../../core/widgets/screen_body.dart';
 import '../../core/widgets/wallet_card.dart';
 import '../../data/models/traveler_trip.dart';
 import '../../data/models/wallet_role.dart';
+import '../../data/services/trip_repository.dart';
+import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
 import 'trip_posting_actions.dart';
 
@@ -26,6 +29,8 @@ class TravelerHomeScreen extends StatefulWidget {
 
 class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
   String? _lastMatchedLocation;
+  final GlobalKey<_MyTripsSectionState> _tripsKey =
+      GlobalKey<_MyTripsSectionState>();
 
   @override
   void initState() {
@@ -45,6 +50,7 @@ class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         context.read<AuthProvider>().refreshUser();
+        _tripsKey.currentState?.reload(silent: true);
       });
     }
     _lastMatchedLocation = location;
@@ -136,7 +142,7 @@ class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
               ],
             ),
             const SizedBox(height: 12),
-            const _MyTripsSection(),
+            _MyTripsSection(key: _tripsKey),
             const SizedBox(height: 24),
             Text('Quick actions', style: typo.h3.copyWith(fontWeight: FontWeight.w700)),
             const SizedBox(height: 12),
@@ -218,21 +224,121 @@ class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
   }
 }
 
-class _MyTripsSection extends StatelessWidget {
-  const _MyTripsSection();
+class _MyTripsSection extends StatefulWidget {
+  const _MyTripsSection({super.key});
+
+  @override
+  State<_MyTripsSection> createState() => _MyTripsSectionState();
+}
+
+class _MyTripsSectionState extends State<_MyTripsSection> {
+  List<TravelerTrip> _trips = const [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    StaticData.travelerPostedTripsVersion.addListener(_onTripsChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) => reload());
+  }
+
+  @override
+  void dispose() {
+    StaticData.travelerPostedTripsVersion.removeListener(_onTripsChanged);
+    super.dispose();
+  }
+
+  void _onTripsChanged() {
+    if (!mounted) return;
+    final demoMode = context.read<DemoModeProvider>().enabled;
+    setState(() {
+      _trips = StaticData.travelerTripsForDisplay(demoMode: demoMode);
+      _loading = false;
+      _error = null;
+    });
+  }
+
+  TripRepository _repository() {
+    final auth = context.read<AuthProvider>();
+    final demoMode = context.read<DemoModeProvider>();
+    return TripRepository(
+      apiClient: auth.repository.apiClient,
+      demoMode: demoMode,
+    );
+  }
+
+  Future<void> reload({bool silent = false}) async {
+    if (!mounted) return;
+    final demoMode = context.read<DemoModeProvider>();
+
+    if (demoMode.enabled) {
+      setState(() {
+        _trips = StaticData.travelerTripsForDisplay(demoMode: true);
+        _loading = false;
+        _error = null;
+      });
+      return;
+    }
+
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
+
+    try {
+      final trips = await _repository().listMyTrips();
+      StaticData.replaceTravelerPostedTrips(trips);
+      if (!mounted) return;
+      setState(() {
+        _trips = List<TravelerTrip>.from(trips);
+        _loading = false;
+        _error = null;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _trips = StaticData.travelerTripsForDisplay(demoMode: false);
+        _loading = false;
+        if (_trips.isEmpty) {
+          _error = 'Unable to load your trips. Tap to retry.';
+        }
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
-    // No mock trips — empty until GET/POST /api/v1/trips exists.
-    const trips = <TravelerTrip>[];
 
-    if (trips.isEmpty) {
-      return AppCard(
-        margin: EdgeInsets.zero,
-        child: Text(
-          'No trips yet. Tap + Create Trip to post your first route.',
-          style: typo.sm.copyWith(color: AppColors.textSecondary, height: 1.4),
+    if (_loading && _trips.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 16),
+        child: Center(
+          child: SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.5,
+              color: AppColors.primary,
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (_trips.isEmpty) {
+      return GestureDetector(
+        onTap: _error != null ? () => reload() : null,
+        child: AppCard(
+          margin: EdgeInsets.zero,
+          child: Text(
+            _error ??
+                'No trips yet. Tap + Create Trip to post your first route.',
+            style: typo.sm.copyWith(color: AppColors.textSecondary, height: 1.4),
+          ),
         ),
       );
     }
@@ -240,9 +346,9 @@ class _MyTripsSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (var i = 0; i < trips.length; i++) ...[
+        for (var i = 0; i < _trips.length; i++) ...[
           if (i > 0) const SizedBox(height: 10),
-          _TripCard(trip: trips[i]),
+          _TripCard(trip: _trips[i]),
         ],
       ],
     );

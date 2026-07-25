@@ -267,7 +267,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     return Column(
       children: [
         for (var i = 0; i < _activeItems.length; i++) ...[
-          if (i > 0) const SizedBox(height: 10),
+          if (i > 0) const SizedBox(height: 8),
           _activeDeliveryCard(context, _activeItems[i]),
         ],
       ],
@@ -286,6 +286,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         if (mounted) _loadActiveDeliveries(silent: true);
       },
       child: AppCard(
+        margin: EdgeInsets.zero,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

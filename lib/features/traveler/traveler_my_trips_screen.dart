@@ -3,24 +3,106 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/config/demo_mode.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/back_link.dart';
 import '../../core/widgets/screen_body.dart';
 import '../../data/models/traveler_trip.dart';
+import '../../data/services/trip_repository.dart';
+import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
 
-/// My Trips — empty until trips API is available.
-class TravelerMyTripsScreen extends StatelessWidget {
+/// My Trips tab — lists trips from GET /api/v1/trips.
+class TravelerMyTripsScreen extends StatefulWidget {
   const TravelerMyTripsScreen({super.key});
+
+  @override
+  State<TravelerMyTripsScreen> createState() => _TravelerMyTripsScreenState();
+}
+
+class _TravelerMyTripsScreenState extends State<TravelerMyTripsScreen> {
+  List<TravelerTrip> _trips = const [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    StaticData.travelerPostedTripsVersion.addListener(_onTripsChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  @override
+  void dispose() {
+    StaticData.travelerPostedTripsVersion.removeListener(_onTripsChanged);
+    super.dispose();
+  }
+
+  void _onTripsChanged() {
+    if (!mounted) return;
+    final demoMode = context.read<DemoModeProvider>().enabled;
+    setState(() {
+      _trips = StaticData.travelerTripsForDisplay(demoMode: demoMode);
+      _loading = false;
+      _error = null;
+    });
+  }
+
+  TripRepository _repository() {
+    final auth = context.read<AuthProvider>();
+    final demoMode = context.read<DemoModeProvider>();
+    return TripRepository(
+      apiClient: auth.repository.apiClient,
+      demoMode: demoMode,
+    );
+  }
+
+  Future<void> _load({bool silent = false}) async {
+    if (!mounted) return;
+    final demoMode = context.read<DemoModeProvider>();
+
+    if (demoMode.enabled) {
+      setState(() {
+        _trips = StaticData.travelerTripsForDisplay(demoMode: true);
+        _loading = false;
+        _error = null;
+      });
+      return;
+    }
+
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
+
+    try {
+      final trips = await _repository().listMyTrips();
+      StaticData.replaceTravelerPostedTrips(trips);
+      if (!mounted) return;
+      setState(() {
+        _trips = List<TravelerTrip>.from(trips);
+        _loading = false;
+        _error = null;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _trips = StaticData.travelerTripsForDisplay(demoMode: false);
+        _loading = false;
+        if (_trips.isEmpty) {
+          _error = 'Unable to load your trips. Tap Retry.';
+        }
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
-    // Keep auth session warm; trips list has no backend endpoint yet.
-    context.watch<AuthProvider>();
-    const trips = <TravelerTrip>[];
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -32,18 +114,43 @@ class TravelerMyTripsScreen extends StatelessWidget {
             const SizedBox(height: 16),
             Text('My Trips', style: typo.h1),
             const SizedBox(height: 12),
-            if (trips.isEmpty)
+            if (_loading && _trips.isEmpty)
+              const Padding(
+                padding: EdgeInsets.only(top: 24),
+                child: Center(
+                  child: SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+              )
+            else if (_trips.isEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 24),
-                child: Text(
-                  'No trips yet. Create a trip from Home.',
-                  style: typo.sm.copyWith(color: AppColors.textSecondary),
+                child: Column(
+                  children: [
+                    Text(
+                      _error ?? 'No trips yet. Create a trip from Home.',
+                      style: typo.sm.copyWith(color: AppColors.textSecondary),
+                    ),
+                    if (_error != null) ...[
+                      const SizedBox(height: 12),
+                      TextButton(
+                        onPressed: () => _load(),
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ],
                 ),
               )
             else
-              for (var i = 0; i < trips.length; i++) ...[
+              for (var i = 0; i < _trips.length; i++) ...[
                 if (i > 0) const SizedBox(height: 10),
-                _TripCard(trip: trips[i]),
+                _TripCard(trip: _trips[i]),
               ],
           ],
         ),

@@ -2344,13 +2344,20 @@ abstract final class StaticData {
 
   /// Trips shown on traveler Home / My Trips (API-backed when available).
   static List<TravelerTrip> travelerTripsForDisplay({required bool demoMode}) {
-    // No mock/seed trips — only user-posted entries once a trips API exists.
     return List<TravelerTrip>.from(travelerPostedTrips);
   }
 
   static var _nextTripId = 8;
 
   static final travelerPostedTripsVersion = ValueNotifier(0);
+
+  /// Replaces in-memory trips with GET /trips results (keeps Home / My Trips in sync).
+  static void replaceTravelerPostedTrips(List<TravelerTrip> trips) {
+    travelerPostedTrips
+      ..clear()
+      ..addAll(trips);
+    travelerPostedTripsVersion.value++;
+  }
 
   static void addTravelerPostedTrip(TravelerTrip trip) {
     final tripWithId = trip.id.isEmpty

@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
+import '../../core/api/api_exception.dart';
+import '../../core/config/demo_mode.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_button.dart';
-import '../../core/widgets/app_card.dart';
+import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/back_header.dart';
 import '../../core/widgets/scrollable_form_screen.dart';
-import '../../data/models/shipment.dart';
-import '../../data/static_data.dart';
-import 'widgets/description_field.dart';
-import 'widgets/travel_date_field.dart';
-import 'widgets/weight_kg_field.dart';
+import '../../data/models/created_delivery.dart';
+import '../../data/services/delivery_repository.dart';
+import '../../providers/auth_provider.dart';
+import 'widgets/delivery_form_fields.dart';
 
 class EditPostedDeliveryScreen extends StatefulWidget {
   const EditPostedDeliveryScreen({super.key, required this.shipmentId});
@@ -24,120 +26,147 @@ class EditPostedDeliveryScreen extends StatefulWidget {
 }
 
 class _EditPostedDeliveryScreenState extends State<EditPostedDeliveryScreen> {
-  late final Shipment _parcel;
-  late DateTime _travelDate;
-  late double _weightKg;
-  late final TextEditingController _descriptionController;
-  String? _weightError;
+  final _formKey = GlobalKey<DeliveryFormFieldsState>();
+
+  CreatedDelivery? _delivery;
+  bool _loading = true;
+  String? _loadError;
+  bool _saving = false;
+
+  DeliveryRepository _repository() {
+    final auth = context.read<AuthProvider>();
+    final demoMode = context.read<DemoModeProvider>();
+    return DeliveryRepository(
+      apiClient: auth.repository.apiClient,
+      demoMode: demoMode,
+    );
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _loadError = null;
+    });
+
+    try {
+      final delivery = await _repository().getDelivery(widget.shipmentId);
+      if (!mounted) return;
+      setState(() {
+        _delivery = delivery;
+        _loading = false;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _loadError = e.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _loadError = 'Unable to load this delivery. Please try again.';
+      });
+    }
+  }
 
   @override
   void initState() {
     super.initState();
-    _parcel = StaticData.shipmentById(widget.shipmentId) ??
-        StaticData.senderShipments.firstWhere(
-          (s) => s.id == widget.shipmentId,
-          orElse: () => StaticData.activeShipment,
-        );
-    _travelDate = _parcel.travelDate;
-    _weightKg = _parcel.parcelWeightKg;
-    _descriptionController = TextEditingController(
-      text: _parcel.description.isNotEmpty
-          ? _parcel.description
-          : '${_parcel.parcelCategory} · ${_parcel.parcelSize}',
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
-  @override
-  void dispose() {
-    _descriptionController.dispose();
-    super.dispose();
-  }
+  Future<void> _save() async {
+    final delivery = _delivery;
+    if (delivery == null) return;
 
-  void _save() {
-    if (_weightKg <= 0) {
-      setState(() => _weightError = 'Enter a valid weight greater than 0.');
-      return;
+    final form = _formKey.currentState;
+    if (form == null || !form.validate()) return;
+
+    setState(() => _saving = true);
+    try {
+      await _repository().updateDelivery(
+        delivery.displayId,
+        form.buildUpdateRequest(),
+      );
+      if (!mounted) return;
+      AppToast.success(context, '${delivery.displayId} updated');
+      context.pop(true);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      AppToast.error(context, e.message);
+    } catch (_) {
+      if (!mounted) return;
+      AppToast.error(context, 'Unable to save changes. Please try again.');
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
-
-    StaticData.updateSenderShipment(
-      Shipment(
-        id: _parcel.id,
-        fromCity: _parcel.fromCity,
-        toCity: _parcel.toCity,
-        fromCode: _parcel.fromCode,
-        toCode: _parcel.toCode,
-        travelDate: _travelDate,
-        status: _parcel.status,
-        role: _parcel.role,
-        parcelCategory: _parcel.parcelCategory,
-        parcelWeightKg: _weightKg,
-        parcelSize: _parcel.parcelSize,
-        description: _descriptionController.text.trim(),
-        travelerName: _parcel.travelerName,
-        flightNumber: _parcel.flightNumber,
-        parcelPhotoCount: _parcel.parcelPhotoCount,
-      ),
-    );
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${_parcel.id} updated'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-    context.pop();
   }
 
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
 
+    if (_loading) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: const BackHeader(
+          title: 'Edit delivery',
+          fallbackRoute: '/my-posted-parcels',
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
+      );
+    }
+
+    if (_loadError != null || _delivery == null) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: const BackHeader(
+          title: 'Edit delivery',
+          fallbackRoute: '/my-posted-parcels',
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _loadError ?? 'Delivery not found.',
+                  textAlign: TextAlign.center,
+                  style: typo.sm.copyWith(color: AppColors.textSecondary),
+                ),
+                const SizedBox(height: 16),
+                TextButton(onPressed: _load, child: const Text('Retry')),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final delivery = _delivery!;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: BackHeader(
-        title: 'Edit ${_parcel.id}',
+        title: 'Edit ${delivery.displayId}',
         fallbackRoute: '/my-posted-parcels',
       ),
       body: ScrollableFormScreen(
         actions: [
-          AppButton(label: 'Save changes', onPressed: _save),
+          AppButton(
+            label: _saving ? 'Saving…' : 'Save changes',
+            onPressed: _saving ? null : _save,
+          ),
         ],
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            AppCard(
-              margin: EdgeInsets.zero,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(_parcel.id, style: typo.h3.copyWith(fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 6),
-                  Text(_parcel.route, style: typo.smPrimary),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${_parcel.parcelCategory} · ${_parcel.parcelSize}',
-                    style: typo.sm,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            TravelDateField(
-              value: _travelDate,
-              onChanged: (date) => setState(() => _travelDate = date),
-            ),
-            const SizedBox(height: 16),
-            WeightKgField(
-              initialValue: _weightKg,
-              errorText: _weightError,
-              onChanged: (value) => setState(() {
-                _weightKg = value;
-                _weightError = null;
-              }),
-            ),
-            const SizedBox(height: 16),
-            DescriptionField(controller: _descriptionController),
-          ],
+        child: DeliveryFormFields(
+          key: _formKey,
+          deliveryType: delivery.deliveryType,
+          initialDelivery: delivery,
+          isEditMode: true,
         ),
       ),
     );

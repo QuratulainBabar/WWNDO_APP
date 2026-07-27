@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/platform/keyboard_utils.dart';
 import '../../../core/geo/world_countries.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
@@ -175,6 +176,7 @@ class _RouteCountryPickerSheetState extends State<_RouteCountryPickerSheet> {
               child: TextField(
                 controller: _searchController,
                 onChanged: _onSearch,
+                onTapOutside: dismissKeyboardOnTapOutside,
                 autofocus: true,
                 style: typo.input,
                 decoration: InputDecoration(

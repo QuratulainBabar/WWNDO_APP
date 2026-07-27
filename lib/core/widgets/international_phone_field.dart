@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../platform/keyboard_utils.dart';
 import '../phone/phone_countries.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
@@ -57,6 +58,7 @@ class InternationalPhoneField extends StatelessWidget {
           const EdgeInsets.only(top: AppFieldSpacing.top, bottom: 12),
       child: TextFormField(
         controller: controller,
+        onTapOutside: dismissKeyboardOnTapOutside,
         keyboardType: TextInputType.phone,
         textInputAction: textInputAction,
         style: fieldInputStyle,
@@ -168,6 +170,7 @@ class _CountryPickerSheetState extends State<_CountryPickerSheet> {
               child: TextField(
                 controller: _searchController,
                 onChanged: _onSearch,
+                onTapOutside: dismissKeyboardOnTapOutside,
                 autofocus: true,
                 style: typo.input,
                 decoration: InputDecoration(

@@ -110,6 +110,36 @@ class DeliveryRepository {
     return CreatedDelivery.fromJson(data);
   }
 
+  /// Live counts for posted deliveries where the receiver has accepted.
+  Future<Map<String, int>> fetchMatchingTravelerCounts(
+    List<CreatedDelivery> deliveries,
+  ) async {
+    if (_isDemoMode) return {};
+
+    final counts = <String, int>{};
+    final eligible = deliveries.where(
+      (d) => d.status == 'posted' && d.isReceiverAccepted,
+    );
+
+    await Future.wait(
+      eligible.map((delivery) async {
+        final apiId = delivery.displayId;
+        try {
+          final travelers = await listMatchingTravelers(apiId);
+          final count = travelers.length;
+          counts[apiId] = count;
+          if (delivery.id.isNotEmpty) {
+            counts[delivery.id] = count;
+          }
+        } catch (_) {
+          // Non-critical: keep badge without a count on failure.
+        }
+      }),
+    );
+
+    return counts;
+  }
+
   /// GET /api/v1/deliveries/:id/matching-travelers
   /// Backend filters to travelers whose trip To matches the delivery To.
   Future<List<MatchingTraveler>> listMatchingTravelers(String deliveryId) async {
@@ -127,6 +157,59 @@ class DeliveryRepository {
           (item) => MatchingTraveler.fromJson(Map<String, dynamic>.from(item)),
         )
         .toList();
+  }
+
+  /// PATCH /api/v1/deliveries/:id
+  Future<CreatedDelivery> updateDelivery(
+    String id,
+    UpdateDeliveryRequest request,
+  ) async {
+    if (_isDemoMode) {
+      throw const ApiException(
+        message: 'Edit is unavailable in demo mode.',
+        code: 'DEMO_MODE',
+      );
+    }
+
+    final newPhotos = request.newPhotoPaths
+        .where((path) => path.trim().isNotEmpty && !path.startsWith('http'))
+        .toList();
+
+    if (newPhotos.isNotEmpty) {
+      final data = await _apiClient.patchMultipart(
+        '/deliveries/$id',
+        fields: request.toFormFields(),
+        files: [
+          for (final path in newPhotos)
+            MultipartFilePart(field: 'photos', filePath: path),
+        ],
+        authenticated: true,
+      );
+      return CreatedDelivery.fromJson(data);
+    }
+
+    final data = await _apiClient.patch(
+      '/deliveries/$id',
+      body: request.toFormFields(),
+      authenticated: true,
+    );
+    return CreatedDelivery.fromJson(data);
+  }
+
+  /// POST /api/v1/deliveries/:id/cancel
+  Future<CreatedDelivery> cancelDelivery(String id) async {
+    if (_isDemoMode) {
+      throw const ApiException(
+        message: 'Cancel is unavailable in demo mode.',
+        code: 'DEMO_MODE',
+      );
+    }
+
+    final data = await _apiClient.post(
+      '/deliveries/$id/cancel',
+      authenticated: true,
+    );
+    return CreatedDelivery.fromJson(data);
   }
 
   void _validateLocal(CreateDeliveryRequest request) {

@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import '../../core/platform/keyboard_utils.dart';
+import '../../core/config/demo_mode.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_badge.dart';
@@ -19,10 +22,13 @@ import '../../core/widgets/cancel_request_confirmation_dialog.dart';
 import '../../core/widgets/dispute_warning_icon.dart';
 import '../../core/widgets/scrollable_form_screen.dart';
 import '../../data/models/shipment.dart';
+import '../../data/services/delivery_repository.dart';
 import '../../data/static_data.dart';
 import '../../data/wallet_service.dart';
+import '../../providers/auth_provider.dart';
 import '../sender/bid_acceptance_payment_screen.dart';
 import '../sender/my_posted_parcels_screen.dart';
+import '../sender/sender_delivery_status.dart';
 import 'widgets/shipment_tracking_section.dart';
 
 /// Track tab — same list/flow as My Posted Deliveries, with Track heading.
@@ -54,11 +60,69 @@ class ShipmentDetailScreen extends StatefulWidget {
 
 class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
   late ShipmentStatus _selectedStatus;
+  int? _apiMatchingTravelerCount;
 
   @override
   void initState() {
     super.initState();
     _selectedStatus = ShipmentStatus.inTransit;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadApiMatchingCount());
+    StaticData.bidRequestsVersion.addListener(_onBidDataChanged);
+  }
+
+  @override
+  void dispose() {
+    StaticData.bidRequestsVersion.removeListener(_onBidDataChanged);
+    super.dispose();
+  }
+
+  void _onBidDataChanged() {
+    _loadApiMatchingCount();
+  }
+
+  DeliveryRepository _deliveryRepository() {
+    final auth = context.read<AuthProvider>();
+    final demoMode = context.read<DemoModeProvider>();
+    return DeliveryRepository(
+      apiClient: auth.repository.apiClient,
+      demoMode: demoMode,
+    );
+  }
+
+  Future<void> _loadApiMatchingCount() async {
+    final demoMode = context.read<DemoModeProvider>();
+    if (demoMode.enabled) return;
+
+    final shipment = StaticData.shipmentById(
+      widget.shipmentId,
+      travelerView: widget.isTravelerView,
+    );
+    if (shipment == null) return;
+
+    final phase = StaticData.senderPostedPhase(shipment);
+    if (phase != SenderPostedPhase.matchingTravelers &&
+        phase != SenderPostedPhase.travelerReviewing) {
+      return;
+    }
+
+    try {
+      final travelers = await _deliveryRepository().listMatchingTravelers(
+        widget.shipmentId,
+      );
+      if (!mounted) return;
+      setState(() => _apiMatchingTravelerCount = travelers.length);
+    } catch (_) {
+      // Badge falls back to StaticData demo count.
+    }
+  }
+
+  String _senderPostedBadgeLabel(SenderPostedPhase phase, String shipmentId) {
+    if (phase == SenderPostedPhase.matchingTravelers) {
+      final count = _apiMatchingTravelerCount ??
+          StaticData.matchingTravelerCountForShipment(shipmentId);
+      return SenderDeliveryStatus.matchingTravelersLabel(count);
+    }
+    return phase.badgeLabel;
   }
 
   List<ShipmentStatus> _statusOptionsFor(ShipmentStatus current) {
@@ -179,7 +243,7 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
                         return AppBadge.status(status);
                       }
 
-                      final label = StaticData.senderPostedBadgeLabel(
+                      final label = _senderPostedBadgeLabel(
                         phase,
                         shipment.id,
                       );
@@ -1759,6 +1823,7 @@ class _DisputeFormScreenState extends State<DisputeFormScreen> {
               padding: const EdgeInsets.only(top: AppFieldSpacing.top),
               child: TextField(
                 controller: _descriptionController,
+                onTapOutside: dismissKeyboardOnTapOutside,
                 maxLines: 5,
                 style: typo.input,
                 onChanged: (_) {
@@ -2002,6 +2067,7 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
               padding: const EdgeInsets.only(top: AppFieldSpacing.top),
               child: TextField(
                 controller: _messageController,
+                onTapOutside: dismissKeyboardOnTapOutside,
                 maxLines: 6,
                 style: typo.input,
                 onChanged: (_) {
@@ -2250,6 +2316,7 @@ class _DeliveryReviewScreenState extends State<DeliveryReviewScreen> {
                 padding: const EdgeInsets.only(top: AppFieldSpacing.top),
                 child: TextField(
                   controller: _reviewController,
+                  onTapOutside: dismissKeyboardOnTapOutside,
                   maxLines: 3,
                   decoration: const InputDecoration(),
                 ),

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../core/config/api_config.dart';
 import '../../../core/platform/platform_ui.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
@@ -16,11 +17,15 @@ class ParcelPhotosSection extends StatefulWidget {
     required this.photoPaths,
     required this.onChanged,
     this.errorText,
+    this.existingPhotos = const [],
+    this.onExistingPhotoRemoved,
   });
 
   final List<String> photoPaths;
   final ValueChanged<List<String>> onChanged;
   final String? errorText;
+  final List<({String id, String url})> existingPhotos;
+  final ValueChanged<String>? onExistingPhotoRemoved;
 
   @override
   State<ParcelPhotosSection> createState() => _ParcelPhotosSectionState();
@@ -33,7 +38,7 @@ class _ParcelPhotosSectionState extends State<ParcelPhotosSection> {
   final ImagePicker _imagePicker = ImagePicker();
 
   Future<void> _showPhotoSourceSheet() async {
-    final remaining = _maxPhotos - widget.photoPaths.length;
+    final remaining = _maxPhotos - widget.existingPhotos.length - widget.photoPaths.length;
     if (remaining <= 0) return;
 
     FocusScope.of(context).unfocus();
@@ -118,7 +123,8 @@ class _ParcelPhotosSectionState extends State<ParcelPhotosSection> {
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
-    final canAddMore = widget.photoPaths.length < _maxPhotos;
+    final totalCount = widget.existingPhotos.length + widget.photoPaths.length;
+    final canAddMore = totalCount < _maxPhotos;
 
     return AppLabeledField(
       label: 'Parcel Photos',
@@ -173,13 +179,20 @@ class _ParcelPhotosSectionState extends State<ParcelPhotosSection> {
             ),
           ),
           const SizedBox(height: 8),
-          if (widget.photoPaths.isEmpty)
+          if (widget.existingPhotos.isEmpty && widget.photoPaths.isEmpty)
             _EmptyPhotosPlaceholder(typo: typo)
           else
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: [
+                for (final photo in widget.existingPhotos)
+                  _RemotePhotoThumbnail(
+                    url: photo.url,
+                    onRemove: widget.onExistingPhotoRemoved == null
+                        ? null
+                        : () => widget.onExistingPhotoRemoved!(photo.id),
+                  ),
                 for (var i = 0; i < widget.photoPaths.length; i++)
                   _PhotoThumbnail(
                     path: widget.photoPaths[i],
@@ -228,6 +241,59 @@ class _EmptyPhotosPlaceholder extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _RemotePhotoThumbnail extends StatelessWidget {
+  const _RemotePhotoThumbnail({
+    required this.url,
+    this.onRemove,
+  });
+
+  final String url;
+  final VoidCallback? onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final resolved = ApiConfig.resolveUploadUrl(url);
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.network(
+            resolved,
+            width: 88,
+            height: 88,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => Container(
+              width: 88,
+              height: 88,
+              color: AppColors.background,
+              alignment: Alignment.center,
+              child: const Icon(Icons.image_outlined, color: AppColors.textSecondary),
+            ),
+          ),
+        ),
+        if (onRemove != null)
+          Positioned(
+            top: -6,
+            right: -6,
+            child: Material(
+              color: AppColors.surface,
+              shape: const CircleBorder(side: BorderSide(color: AppColors.border)),
+              child: InkWell(
+                onTap: onRemove,
+                customBorder: const CircleBorder(),
+                child: const Padding(
+                  padding: EdgeInsets.all(4),
+                  child: Icon(Icons.close, size: 16, color: AppColors.textSecondary),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

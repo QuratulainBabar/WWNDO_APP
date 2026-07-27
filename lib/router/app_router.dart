@@ -32,12 +32,13 @@ import '../features/sender/bid_traveler_profile_screen.dart';
 import '../features/sender/traveler_selected_confirmation_screen.dart';
 import '../features/sender/negotiate_meetup_screen.dart';
 import '../features/sender/discover_travelers_screen.dart';
+import '../features/sender/discover_trip_detail_screen.dart';
 import '../features/sender/parcel_creation_wizard_screen.dart';
 import '../features/sender/sender_chat_screen.dart';
 import '../features/sender/country_to_country_post_delivery_screen.dart';
 import '../features/sender/add_meetup_locations_screen.dart';
 import '../data/models/meetup_location.dart';
-import '../features/sender/post_delivery_redirect.dart';
+import '../features/sender/post_delivery_screen.dart';
 import '../features/sender/delivery_type_selection_screen.dart';
 import '../features/sender/edit_posted_delivery_screen.dart';
 import '../features/sender/cancel_posted_delivery_screen.dart';
@@ -60,6 +61,7 @@ import '../features/traveler/cancel_trip_screen.dart';
 import '../features/traveler/traveler_profile_screen.dart';
 import '../features/traveler/traveler_shell.dart';
 import '../features/traveler/country_to_country_post_trip_screen.dart';
+import '../features/traveler/post_trip_screen.dart';
 import '../features/traveler/traveler_deliveries_screen.dart';
 import '../features/traveler/traveler_screens.dart';
 import '../features/traveler/trip_type_selection_screen.dart';
@@ -569,6 +571,13 @@ final appRouter = GoRouter(
       parentNavigatorKey: _rootNavigatorKey,
       builder: (_, state) => DiscoverTravelersScreen(
         shipmentId: state.pathParameters['shipmentId'],
+      ),
+    ),
+    GoRoute(
+      path: '/discover-trips/:tripId',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (_, state) => DiscoverTripDetailScreen(
+        tripId: state.pathParameters['tripId']!,
       ),
     ),
     GoRoute(

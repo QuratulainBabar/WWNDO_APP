@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/platform/keyboard_utils.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_labeled_field.dart';
@@ -26,6 +27,7 @@ class DescriptionField extends StatelessWidget {
       labelStyle: typo.inputLabel.copyWith(fontWeight: FontWeight.w600),
       child: TextField(
         controller: controller,
+        onTapOutside: dismissKeyboardOnTapOutside,
         maxLines: 3,
         minLines: 3,
         textInputAction: TextInputAction.newline,

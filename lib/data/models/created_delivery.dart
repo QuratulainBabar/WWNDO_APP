@@ -103,8 +103,8 @@ class CreateDeliveryRequest {
       'description': description,
       'preferredMeetupLocations': jsonEncode(preferredMeetupLocations),
       'acknowledged': acknowledged ? 'true' : 'false',
-      'receiverEmail': receiverEmail,
-      'receiverPhone': receiverPhone,
+      'receiverEmail': receiverEmail.trim().toLowerCase(),
+      'receiverPhone': receiverPhone.trim(),
     };
 
     if (receiverMeetupLocation != null && receiverMeetupLocation!.trim().isNotEmpty) {
@@ -137,6 +137,139 @@ class CreateDeliveryRequest {
       }
     }
 
+    return fields;
+  }
+}
+
+/// PATCH /api/v1/deliveries/:id — same fields as create (multipart when photos change).
+class UpdateDeliveryRequest {
+  const UpdateDeliveryRequest({
+    required this.deliveryType,
+    required this.travelDate,
+    required this.parcelCategory,
+    required this.parcelSize,
+    required this.weightKg,
+    required this.maxBudget,
+    required this.description,
+    required this.preferredMeetupLocations,
+    required this.acknowledged,
+    required this.receiverEmail,
+    required this.receiverPhone,
+    this.receiverMeetupLocation,
+    this.fromCity,
+    this.fromCode,
+    this.toCity,
+    this.toCode,
+    this.originCountry,
+    this.originAirport,
+    this.originCity,
+    this.destinationCountry,
+    this.destinationAirport,
+    this.destinationCity,
+    this.platformFee,
+    this.platformFeeShare,
+    this.paysReceiverFee = false,
+    this.newPhotoPaths = const [],
+    this.retainedPhotoIds = const [],
+  });
+
+  final DeliveryType deliveryType;
+  final DateTime travelDate;
+  final String parcelCategory;
+  final String parcelSize;
+  final double weightKg;
+  final double maxBudget;
+  final String description;
+  final List<String> preferredMeetupLocations;
+  final bool acknowledged;
+  final String receiverEmail;
+  final String receiverPhone;
+  final String? receiverMeetupLocation;
+  final String? fromCity;
+  final String? fromCode;
+  final String? toCity;
+  final String? toCode;
+  final String? originCountry;
+  final String? originAirport;
+  final String? originCity;
+  final String? destinationCountry;
+  final String? destinationAirport;
+  final String? destinationCity;
+  final double? platformFee;
+  final double? platformFeeShare;
+  final bool paysReceiverFee;
+  final List<String> newPhotoPaths;
+  final List<String> retainedPhotoIds;
+
+  factory UpdateDeliveryRequest.fromCreateRequest(
+    CreateDeliveryRequest request, {
+    List<String> newPhotoPaths = const [],
+    List<String> retainedPhotoIds = const [],
+  }) {
+    return UpdateDeliveryRequest(
+      deliveryType: request.deliveryType,
+      travelDate: request.travelDate,
+      parcelCategory: request.parcelCategory,
+      parcelSize: request.parcelSize,
+      weightKg: request.weightKg,
+      maxBudget: request.maxBudget,
+      description: request.description,
+      preferredMeetupLocations: request.preferredMeetupLocations,
+      acknowledged: request.acknowledged,
+      receiverEmail: request.receiverEmail,
+      receiverPhone: request.receiverPhone,
+      receiverMeetupLocation: request.receiverMeetupLocation,
+      fromCity: request.fromCity,
+      fromCode: request.fromCode,
+      toCity: request.toCity,
+      toCode: request.toCode,
+      originCountry: request.originCountry,
+      originAirport: request.originAirport,
+      originCity: request.originCity,
+      destinationCountry: request.destinationCountry,
+      destinationAirport: request.destinationAirport,
+      destinationCity: request.destinationCity,
+      platformFee: request.platformFee,
+      platformFeeShare: request.platformFeeShare,
+      paysReceiverFee: request.paysReceiverFee,
+      newPhotoPaths: newPhotoPaths,
+      retainedPhotoIds: retainedPhotoIds,
+    );
+  }
+
+  Map<String, String> toFormFields() {
+    final create = CreateDeliveryRequest(
+      deliveryType: deliveryType,
+      travelDate: travelDate,
+      parcelCategory: parcelCategory,
+      parcelSize: parcelSize,
+      weightKg: weightKg,
+      maxBudget: maxBudget,
+      description: description,
+      preferredMeetupLocations: preferredMeetupLocations,
+      acknowledged: acknowledged,
+      photoPaths: const [],
+      receiverEmail: receiverEmail,
+      receiverPhone: receiverPhone,
+      receiverMeetupLocation: receiverMeetupLocation,
+      fromCity: fromCity,
+      fromCode: fromCode,
+      toCity: toCity,
+      toCode: toCode,
+      originCountry: originCountry,
+      originAirport: originAirport,
+      originCity: originCity,
+      destinationCountry: destinationCountry,
+      destinationAirport: destinationAirport,
+      destinationCity: destinationCity,
+      platformFee: platformFee,
+      platformFeeShare: platformFeeShare,
+      paysReceiverFee: paysReceiverFee,
+    );
+    final fields = create.toFormFields();
+    if (retainedPhotoIds.isNotEmpty) {
+      fields['retainedPhotoIds'] = jsonEncode(retainedPhotoIds);
+    }
     return fields;
   }
 }

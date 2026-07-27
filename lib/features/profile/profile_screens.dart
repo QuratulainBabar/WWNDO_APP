@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import '../../core/platform/keyboard_utils.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/auth/selected_role.dart';
 import '../../core/config/demo_mode.dart';
@@ -1368,6 +1369,7 @@ class _WalletScreenState extends State<WalletScreen> {
                         padding: const EdgeInsets.only(top: AppFieldSpacing.top),
                         child: TextField(
                           controller: _amountController,
+                          onTapOutside: dismissKeyboardOnTapOutside,
                           keyboardType: const TextInputType.numberWithOptions(
                             decimal: true,
                           ),

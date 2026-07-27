@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/platform/keyboard_utils.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_chip.dart';
@@ -323,6 +324,7 @@ class _ParcelCreationWizardScreenState extends State<ParcelCreationWizardScreen>
         AppLabeledField(
           label: 'Budget (USD)',
           child: TextField(
+            onTapOutside: dismissKeyboardOnTapOutside,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}'))],
             decoration: const InputDecoration(prefixText: '\$ '),
@@ -351,6 +353,7 @@ class _ParcelCreationWizardScreenState extends State<ParcelCreationWizardScreen>
         AppLabeledField(
           label: 'Description',
           child: TextField(
+            onTapOutside: dismissKeyboardOnTapOutside,
             maxLines: 4,
             controller: _descriptionController,
             decoration: const InputDecoration(

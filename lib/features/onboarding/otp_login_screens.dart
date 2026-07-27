@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/platform/keyboard_utils.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/auth/post_auth_navigation.dart';
 import '../../core/theme/app_colors.dart';
@@ -105,6 +106,7 @@ class _OtpLoginContactScreenState extends State<OtpLoginContactScreen> {
               padding: const EdgeInsets.only(top: AppFieldSpacing.top),
               child: TextField(
                 controller: _contactController,
+                onTapOutside: dismissKeyboardOnTapOutside,
                 keyboardType: _channel == OtpChannel.email
                     ? TextInputType.emailAddress
                     : TextInputType.phone,

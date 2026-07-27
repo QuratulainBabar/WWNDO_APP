@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import '../../core/platform/keyboard_utils.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/navigation/app_navigation.dart';
 import '../../core/phone/phone_countries.dart';
@@ -291,6 +292,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           labelStyle: typo.inputLabel.copyWith(fontWeight: FontWeight.w700),
           child: TextField(
             controller: _nameController,
+            onTapOutside: dismissKeyboardOnTapOutside,
             style: typo.input,
             decoration: InputDecoration(
               hintText: 'Your full name',
@@ -303,6 +305,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           labelStyle: typo.inputLabel.copyWith(fontWeight: FontWeight.w700),
           child: TextField(
             controller: _emailController,
+            onTapOutside: dismissKeyboardOnTapOutside,
             keyboardType: TextInputType.emailAddress,
             style: typo.input,
             decoration: InputDecoration(
@@ -530,6 +533,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       padding: const EdgeInsets.only(top: AppFieldSpacing.top, bottom: 12),
       child: TextField(
         controller: controller,
+        onTapOutside: dismissKeyboardOnTapOutside,
         obscureText: obscure,
         style: typo.input,
         decoration: InputDecoration(

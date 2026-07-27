@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/platform/keyboard_utils.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_button.dart';
@@ -113,6 +114,7 @@ class _PlaceBidSheetState extends State<PlaceBidSheet> {
                     typo.inputLabel.copyWith(fontWeight: FontWeight.w600),
                 child: TextField(
                   controller: _priceController,
+                  onTapOutside: dismissKeyboardOnTapOutside,
                   style: typo.input,
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
@@ -126,6 +128,7 @@ class _PlaceBidSheetState extends State<PlaceBidSheet> {
                     typo.inputLabel.copyWith(fontWeight: FontWeight.w600),
                 child: TextField(
                   controller: _messageController,
+                  onTapOutside: dismissKeyboardOnTapOutside,
                   maxLines: 4,
                   style: typo.input,
                   decoration: InputDecoration(

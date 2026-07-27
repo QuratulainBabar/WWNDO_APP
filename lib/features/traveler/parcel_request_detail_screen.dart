@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/platform/keyboard_utils.dart';
 import '../../core/layout/responsive.dart';
 import '../../core/platform/platform_ui.dart';
 import '../../core/theme/app_colors.dart';
@@ -209,6 +210,7 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
                         ),
                         child: TextField(
                           controller: _messageController,
+                          onTapOutside: dismissKeyboardOnTapOutside,
                           maxLines: 3,
                           style: typo.input,
                           textInputAction: TextInputAction.done,

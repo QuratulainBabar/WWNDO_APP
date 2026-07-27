@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/platform/keyboard_utils.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_labeled_field.dart';
@@ -72,6 +73,7 @@ class _MaximumBudgetFieldState extends State<MaximumBudgetField> {
         children: [
           TextField(
             controller: _controller,
+            onTapOutside: dismissKeyboardOnTapOutside,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             inputFormatters: [
               FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),

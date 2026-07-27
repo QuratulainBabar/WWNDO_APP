@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/platform/keyboard_utils.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 
@@ -57,6 +58,7 @@ class ChatComposer extends StatelessWidget {
             Expanded(
               child: TextField(
                 controller: controller,
+                onTapOutside: dismissKeyboardOnTapOutside,
                 enabled: enabled,
                 textInputAction: TextInputAction.send,
                 onSubmitted: (_) => enabled ? onSend() : null,

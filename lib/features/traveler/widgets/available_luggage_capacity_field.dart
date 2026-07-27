@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/platform/keyboard_utils.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 
@@ -63,6 +64,7 @@ class _AvailableLuggageCapacityFieldState
       children: [
         TextField(
           controller: _controller,
+          onTapOutside: dismissKeyboardOnTapOutside,
           keyboardType: TextInputType.number,
           inputFormatters: [
             FilteringTextInputFormatter.digitsOnly,

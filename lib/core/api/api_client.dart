@@ -60,6 +60,21 @@ class ApiClient {
     return _request('PATCH', path, body: body, authenticated: authenticated);
   }
 
+  Future<Map<String, dynamic>> patchMultipart(
+    String path, {
+    Map<String, String>? fields,
+    List<MultipartFilePart> files = const [],
+    bool authenticated = false,
+  }) {
+    return _request(
+      'PATCH',
+      path,
+      authenticated: authenticated,
+      multipartFields: fields,
+      multipartFiles: files,
+    );
+  }
+
   /// POST multipart/form-data (used for Create Delivery with parcel photos).
   Future<Map<String, dynamic>> postMultipart(
     String path, {
@@ -125,6 +140,7 @@ class ApiClient {
     try {
       if (isMultipart) {
         response = await _sendMultipart(
+          method,
           uri,
           headers,
           multipartFields ?? const {},
@@ -218,12 +234,13 @@ class ApiClient {
 
   /// Reads photo bytes via [XFile] so uploads work on Android, iOS, and web.
   Future<http.Response> _sendMultipart(
+    String method,
     Uri uri,
     Map<String, String> headers,
     Map<String, String> fields,
     List<MultipartFilePart> files,
   ) async {
-    final request = http.MultipartRequest('POST', uri);
+    final request = http.MultipartRequest(method, uri);
     request.headers.addAll(headers);
     request.fields.addAll(fields);
 

@@ -4,32 +4,17 @@ import 'package:provider/provider.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/config/demo_mode.dart';
-import '../../core/geo/meetup_destination_validation.dart';
-import '../../core/geo/meetup_origin_validation.dart';
-import '../../core/geo/world_airports.dart';
 import '../../core/geo/world_countries.dart';
 import '../../core/theme/app_colors.dart';
-import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_button.dart';
-import '../../core/widgets/app_chip.dart';
 import '../../core/widgets/back_header.dart';
 import '../../core/widgets/scrollable_form_screen.dart';
 import '../../data/models/created_delivery.dart';
-import '../../data/models/meetup_location.dart';
 import '../../data/services/delivery_repository.dart';
 import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
 import 'delivery_posting_actions.dart';
-import 'widgets/airport_route_search_fields.dart';
-import 'widgets/description_field.dart';
-import 'widgets/maximum_budget_field.dart';
-import 'widgets/meetup_locations_card.dart';
-import 'widgets/parcel_acknowledgement_section.dart';
-import 'widgets/parcel_photos_section.dart';
-import 'widgets/platform_fee_section.dart';
-import 'widgets/receiver_info_section.dart';
-import 'widgets/travel_date_field.dart';
-import 'widgets/weight_kg_field.dart';
+import 'widgets/delivery_form_fields.dart';
 
 class CountryToCountryPostDeliveryScreen extends StatefulWidget {
   const CountryToCountryPostDeliveryScreen({super.key});
@@ -41,117 +26,18 @@ class CountryToCountryPostDeliveryScreen extends StatefulWidget {
 
 class _CountryToCountryPostDeliveryScreenState
     extends State<CountryToCountryPostDeliveryScreen> {
-  String _category = 'documents';
-  String _size = 'small box';
-  bool _parcelAcknowledged = false;
+  final _formKey = GlobalKey<DeliveryFormFieldsState>();
   bool _submitting = false;
-  bool _paysReceiverFee = false;
-  final List<String> _photoPaths = [];
-  List<MeetupLocation> _meetupLocations = const [];
-  List<MeetupLocation> _receiverMeetupLocations = const [];
-  double _maxBudget = 0;
-  String? _photosError;
-  String? _meetupError;
-  String? _receiverMeetupError;
-  String? _budgetError;
-  DateTime? _travelDate;
-  double _weightKg = 0;
-  String? _weightError;
-  String? _travelDateError;
-  String? _receiverEmailError;
-  String? _receiverPhoneError;
-  String _receiverEmail = '';
-  String _receiverPhone = '';
-
-  WorldAirport? _fromAirport;
-  WorldAirport? _toAirport;
-  String? _fromAirportError;
-  String? _toAirportError;
-  String? _descriptionError;
-  late final TextEditingController _descriptionController;
-
-  @override
-  void initState() {
-    super.initState();
-    _descriptionController = TextEditingController();
-    _fromAirport = null;
-    _toAirport = null;
-  }
-
-  @override
-  void dispose() {
-    _descriptionController.dispose();
-    super.dispose();
-  }
 
   Future<void> _submit() async {
     if (!DeliveryPostingActions.ensureWalletAllowsParcelCreation(context)) {
       return;
     }
 
-    setState(() {
-      _photosError =
-          _photoPaths.isEmpty ? 'Upload at least 1 parcel photo.' : null;
-      _meetupError = _meetupLocations.isEmpty
-          ? 'Add at least one meetup location.'
-          : (_fromAirport == null
-              ? null
-              : MeetupOriginValidation.validateMeetupLocations(
-                  meetups: _meetupLocations,
-                  originCity: _fromAirport!.city,
-                  originCountryCode: _fromAirport!.countryIso,
-                ));
-      _receiverMeetupError = _receiverMeetupLocations.isEmpty
-          ? 'Select a meetup location.'
-          : (_toAirport == null
-              ? null
-              : MeetupDestinationValidation.validateMeetupLocations(
-                  meetups: _receiverMeetupLocations,
-                  destinationCity: _toAirport!.city,
-                  destinationCountryCode: _toAirport!.countryIso,
-                ));
-      _budgetError = _maxBudget <= 0 ? 'Enter a valid maximum budget.' : null;
-      _weightError =
-          _weightKg <= 0 ? 'Enter a valid weight greater than 0.' : null;
-      _travelDateError =
-          _travelDate == null ? 'Select a travel date.' : null;
-      _receiverEmailError = _validateReceiverEmail(_receiverEmail);
-      _receiverPhoneError = _validateReceiverPhone(_receiverPhone);
-      _fromAirportError =
-          _fromAirport == null ? 'Select an origin airport.' : null;
-      _toAirportError = _toAirport == null
-          ? 'Select a destination airport.'
-          : (_fromAirport != null && _toAirport!.code == _fromAirport!.code
-              ? 'Origin and destination airports must be different.'
-              : (_fromAirport != null &&
-                      _toAirport!.countryIso == _fromAirport!.countryIso
-                  ? 'Origin and destination countries must be different.'
-                  : null));
-      _descriptionError = _descriptionController.text.trim().isEmpty
-          ? 'Enter a parcel description.'
-          : null;
-    });
+    final form = _formKey.currentState;
+    if (form == null || !form.validate()) return;
 
-    if (!_parcelAcknowledged ||
-        _photosError != null ||
-        _meetupError != null ||
-        _receiverMeetupError != null ||
-        _budgetError != null ||
-        _weightError != null ||
-        _travelDateError != null ||
-        _receiverEmailError != null ||
-        _receiverPhoneError != null ||
-        _fromAirportError != null ||
-        _toAirportError != null ||
-        _descriptionError != null) {
-      return;
-    }
-
-    final from = _fromAirport!;
-    final to = _toAirport!;
-    final originCountry = WorldCountries.byIso(from.countryIso).name;
-    final destinationCountry = WorldCountries.byIso(to.countryIso).name;
-    final route = '$originCountry → $destinationCountry';
+    final request = form.buildCreateRequest();
     final auth = context.read<AuthProvider>();
     final demoMode = context.read<DemoModeProvider>();
     final repository = DeliveryRepository(
@@ -161,67 +47,45 @@ class _CountryToCountryPostDeliveryScreenState
 
     setState(() => _submitting = true);
     try {
-      final created = await repository.createDelivery(
-        CreateDeliveryRequest(
-          deliveryType: DeliveryType.countryToCountry,
-          originCountry: originCountry,
-          originAirport: from.label,
-          destinationCountry: destinationCountry,
-          destinationAirport: to.label,
-          travelDate: _travelDate!,
-          parcelCategory: _category,
-          parcelSize: _size,
-          weightKg: _weightKg,
-          maxBudget: _maxBudget,
-          description: _descriptionController.text.trim(),
-          preferredMeetupLocations:
-              _meetupLocations.map((l) => l.displayLabel).toList(),
-          acknowledged: _parcelAcknowledged,
-          photoPaths: List<String>.from(_photoPaths),
-          receiverEmail: _receiverEmail,
-          receiverPhone: _receiverPhone,
-          receiverMeetupLocation: _receiverMeetupLocations.isEmpty
-              ? null
-              : _receiverMeetupLocations.first.displayLabel,
-          originCity: from.city,
-          destinationCity: to.city,
-          platformFee: StaticData.senderPlatformFeeUsd(
-            category: _category,
-            paysReceiverFee: _paysReceiverFee,
-          ),
-          platformFeeShare: StaticData.travelerPlatformFeeUsd(_category),
-          paysReceiverFee: _paysReceiverFee,
-        ),
-      );
+      final created = await repository.createDelivery(request);
+      final fromIso = request.originCountry != null
+          ? WorldCountries.all
+              .where((c) => c.name == request.originCountry)
+              .map((c) => c.iso)
+              .firstOrNull
+          : null;
+      final toIso = request.destinationCountry != null
+          ? WorldCountries.all
+              .where((c) => c.name == request.destinationCountry)
+              .map((c) => c.iso)
+              .firstOrNull
+          : null;
 
       StaticData.registerPostedDelivery(
         shipmentId: created.publicId,
-        fromCity: originCountry,
-        toCity: destinationCountry,
-        fromCode: from.countryIso,
-        toCode: to.countryIso,
-        travelDate: _travelDate!,
-        parcelCategory: _category,
-        parcelWeightKg: _weightKg,
-        parcelSize: _size,
-        description: _descriptionController.text.trim(),
-        parcelPhotoCount: _photoPaths.length,
-        paysReceiverFee: _paysReceiverFee,
+        fromCity: request.originCountry ?? '',
+        toCity: request.destinationCountry ?? '',
+        fromCode: fromIso ?? 'WW',
+        toCode: toIso ?? 'WW',
+        travelDate: request.travelDate,
+        parcelCategory: request.parcelCategory,
+        parcelWeightKg: request.weightKg,
+        parcelSize: request.parcelSize,
+        description: request.description,
+        parcelPhotoCount: request.photoPaths.length,
+        paysReceiverFee: request.paysReceiverFee,
         seedDemoMatches: demoMode.enabled,
       );
 
       if (!mounted) return;
       context.pushReplacement(
         '/post-delivery/success',
-        extra: created.route.isNotEmpty ? created.route : route,
+        extra: created.route.isNotEmpty ? created.route : request.routeLabel,
       );
     } on ApiException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.message),
-          behavior: SnackBarBehavior.floating,
-        ),
+        SnackBar(content: Text(e.message), behavior: SnackBarBehavior.floating),
       );
     } catch (e) {
       if (!mounted) return;
@@ -248,191 +112,14 @@ class _CountryToCountryPostDeliveryScreenState
         actions: [
           AppButton(
             label: _submitting ? 'Posting…' : 'Post delivery →',
-            onPressed: (_parcelAcknowledged && !_submitting) ? _submit : null,
+            onPressed: _submitting ? null : _submit,
           ),
         ],
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Route',
-              style: context.typo.h3.copyWith(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 12),
-            AirportRouteSearchFields(
-              fromAirport: _fromAirport,
-              toAirport: _toAirport,
-              fromErrorText: _fromAirportError,
-              toErrorText: _toAirportError,
-              onFromChanged: (airport) => setState(() {
-                _fromAirport = airport;
-                _fromAirportError = null;
-                if (_toAirport != null &&
-                    airport != null &&
-                    _toAirport!.countryIso == airport.countryIso) {
-                  _toAirportError =
-                      'Origin and destination countries must be different.';
-                } else {
-                  _toAirportError = null;
-                }
-                if (_meetupLocations.isNotEmpty && airport != null) {
-                  _meetupError =
-                      MeetupOriginValidation.validateMeetupLocations(
-                    meetups: _meetupLocations,
-                    originCity: airport.city,
-                    originCountryCode: airport.countryIso,
-                  );
-                } else if (_meetupLocations.isNotEmpty && airport == null) {
-                  _meetupError = null;
-                }
-              }),
-              onToChanged: (airport) => setState(() {
-                _toAirport = airport;
-                if (airport != null &&
-                    _fromAirport != null &&
-                    airport.countryIso == _fromAirport!.countryIso) {
-                  _toAirportError =
-                      'Origin and destination countries must be different.';
-                } else {
-                  _toAirportError = null;
-                }
-                if (_receiverMeetupLocations.isNotEmpty && airport != null) {
-                  _receiverMeetupError =
-                      MeetupDestinationValidation.validateMeetupLocations(
-                    meetups: _receiverMeetupLocations,
-                    destinationCity: airport.city,
-                    destinationCountryCode: airport.countryIso,
-                  );
-                } else if (_receiverMeetupLocations.isNotEmpty &&
-                    airport == null) {
-                  _receiverMeetupError = null;
-                }
-              }),
-            ),
-            const SizedBox(height: 12),
-            TravelDateField(
-              value: _travelDate,
-              errorText: _travelDateError,
-              onChanged: (date) => setState(() {
-                _travelDate = date;
-                _travelDateError = null;
-              }),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Parcel',
-              style: context.typo.h3.copyWith(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 8),
-            AppChipRow(
-              options: StaticData.parcelCategories,
-              selected: _category,
-              onSelected: (v) => setState(() => _category = v),
-            ),
-            WeightKgField(
-              errorText: _weightError,
-              onChanged: (value) => setState(() {
-                _weightKg = value;
-                _weightError = null;
-              }),
-            ),
-            ParcelPhotosSection(
-              photoPaths: _photoPaths,
-              errorText: _photosError,
-              onChanged: (paths) => setState(() {
-                _photoPaths
-                  ..clear()
-                  ..addAll(paths);
-                _photosError = null;
-              }),
-            ),
-            MaximumBudgetField(
-              errorText: _budgetError,
-              onChanged: (value) => setState(() {
-                _maxBudget = value;
-                _budgetError = null;
-              }),
-            ),
-            MeetupLocationsCard(
-              locations: _meetupLocations,
-              errorText: _meetupError,
-              onTap: () async {
-                final result = await context.push<List<MeetupLocation>>(
-                  '/add-meetup-locations',
-                  extra: _meetupLocations,
-                );
-                if (result != null) {
-                  final origin = _fromAirport;
-                  setState(() {
-                    _meetupLocations = result;
-                    _meetupError = result.isEmpty || origin == null
-                        ? null
-                        : MeetupOriginValidation.validateMeetupLocations(
-                            meetups: result,
-                            originCity: origin.city,
-                            originCountryCode: origin.countryIso,
-                          );
-                  });
-                }
-              },
-            ),
-            DescriptionField(
-              controller: _descriptionController,
-              errorText: _descriptionError,
-            ),
-            const SizedBox(height: 12),
-            ReceiverInfoSection(
-              emailErrorText: _receiverEmailError,
-              phoneErrorText: _receiverPhoneError,
-              meetupErrorText: _receiverMeetupError,
-              meetupLocations: _receiverMeetupLocations,
-              onEmailChanged: (email) => setState(() {
-                _receiverEmail = email;
-                _receiverEmailError = null;
-              }),
-              onPhoneChanged: (phone) => setState(() {
-                _receiverPhone = phone;
-                _receiverPhoneError = null;
-              }),
-              onMeetupLocationsChanged: (locations) => setState(() {
-                _receiverMeetupLocations = locations;
-                final destination = _toAirport;
-                _receiverMeetupError =
-                    locations.isEmpty || destination == null
-                        ? null
-                        : MeetupDestinationValidation.validateMeetupLocations(
-                            meetups: locations,
-                            destinationCity: destination.city,
-                            destinationCountryCode: destination.countryIso,
-                          );
-              }),
-            ),
-            const SizedBox(height: 12),
-            ParcelAcknowledgementSection(
-              onChanged: (acknowledged) =>
-                  setState(() => _parcelAcknowledged = acknowledged),
-            ),
-            const SizedBox(height: 12),
-            PlatformFeeSection(
-              onChanged: (pays) => setState(() => _paysReceiverFee = pays),
-            ),
-          ],
+        child: DeliveryFormFields(
+          key: _formKey,
+          deliveryType: DeliveryType.countryToCountry,
         ),
       ),
     );
-  }
-
-  String? _validateReceiverEmail(String email) {
-    if (email.isEmpty) return 'Enter the receiver\'s email.';
-    final valid = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email);
-    if (!valid) return 'Enter a valid receiver email.';
-    return null;
-  }
-
-  String? _validateReceiverPhone(String phone) {
-    if (phone.isEmpty) return 'Enter the receiver\'s phone number.';
-    final digits = phone.replaceAll(RegExp(r'\D'), '');
-    if (digits.length < 8) return 'Enter a valid receiver phone number.';
-    return null;
   }
 }

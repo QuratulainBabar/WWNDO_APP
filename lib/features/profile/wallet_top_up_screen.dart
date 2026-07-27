@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/platform/keyboard_utils.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/layout/responsive.dart';
 import '../../core/theme/app_colors.dart';
@@ -95,6 +96,7 @@ class _WalletTopUpScreenState extends State<WalletTopUpScreen> {
               labelStyle: typo.inputLabel.copyWith(fontWeight: FontWeight.w600),
               child: TextField(
                 controller: _amountController,
+                onTapOutside: dismissKeyboardOnTapOutside,
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
                 style: typo.amountInput.copyWith(fontWeight: FontWeight.w700),

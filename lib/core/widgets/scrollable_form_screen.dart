@@ -28,6 +28,7 @@ class ScrollableFormScreen extends StatelessWidget {
             child: SingleChildScrollView(
               physics: PlatformUi.scrollPhysics,
               padding: scrollPadding,
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               child: child,
             ),
           ),

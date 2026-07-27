@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../core/api/api_exception.dart';
@@ -20,6 +21,7 @@ import '../../core/auth/auth_verification_guard.dart';
 import '../../core/auth/kyc_verification_guard.dart';
 import '../../providers/auth_provider.dart';
 import '../sender/delivery_posting_actions.dart';
+import '../sender/sender_delivery_status.dart';
 
 class MainShell extends StatelessWidget {
   const MainShell({super.key, required this.navigationShell});
@@ -105,8 +107,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   bool _activeLoading = true;
   String? _activeError;
   List<CreatedDelivery>? _activeDeliveries;
+  Map<String, int> _matchingTravelerCounts = {};
   int _unreadNotifications = 0;
   String? _lastMatchedLocation;
+  Timer? _notificationPollTimer;
 
   List<CreatedDelivery> get _activeItems =>
       _activeDeliveries ?? const <CreatedDelivery>[];
@@ -120,6 +124,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       context.read<AuthProvider>().refreshUser();
+      _loadUnreadNotifications();
+    });
+    _notificationPollTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+      if (!mounted) return;
+      _loadUnreadNotifications();
+      if (_activeItems.any(SenderDeliveryStatus.needsMatchingTravelerCount)) {
+        _refreshMatchingTravelerCounts();
+      }
     });
   }
 
@@ -141,6 +153,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _notificationPollTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -195,10 +208,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       final list = await _deliveryRepository().listDeliveries();
       if (!mounted) return;
       final active = list
-          .where((d) => _HomeDeliveryStatus.fromDelivery(d).isActive)
+          .where((d) => SenderDeliveryStatus.fromDelivery(d).isActive)
           .toList();
+      final counts =
+          await _deliveryRepository().fetchMatchingTravelerCounts(active);
+      if (!mounted) return;
       setState(() {
         _activeDeliveries = active;
+        _matchingTravelerCounts = counts;
         _activeLoading = false;
         _activeError = null;
       });
@@ -214,6 +231,22 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         _activeLoading = false;
         _activeError = 'Unable to load active deliveries.';
       });
+    }
+  }
+
+  Future<void> _refreshMatchingTravelerCounts() async {
+    final eligible = _activeItems
+        .where(SenderDeliveryStatus.needsMatchingTravelerCount)
+        .toList();
+    if (eligible.isEmpty) return;
+
+    try {
+      final counts =
+          await _deliveryRepository().fetchMatchingTravelerCounts(eligible);
+      if (!mounted) return;
+      setState(() => _matchingTravelerCounts = counts);
+    } catch (_) {
+      // Keep last known counts.
     }
   }
 
@@ -276,7 +309,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   Widget _activeDeliveryCard(BuildContext context, CreatedDelivery delivery) {
     final typo = context.typo;
-    final status = _HomeDeliveryStatus.fromDelivery(delivery);
+    final status = SenderDeliveryStatus.fromDelivery(
+      delivery,
+      matchingTravelerCount: SenderDeliveryStatus.countFromMap(
+        delivery,
+        _matchingTravelerCounts,
+      ),
+    );
     final idLabel =
         delivery.publicId.isNotEmpty ? delivery.publicId : delivery.id;
 
@@ -545,74 +584,4 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-}
-
-/// Badge mapping for home Active Deliveries (mirrors My Posted Deliveries).
-class _HomeDeliveryStatus {
-  const _HomeDeliveryStatus({
-    required this.label,
-    required this.color,
-    required this.isActive,
-  });
-
-  final String label;
-  final Color color;
-  final bool isActive;
-
-  Color get backgroundColor => color.withValues(alpha: 0.12);
-
-  static _HomeDeliveryStatus fromDelivery(CreatedDelivery d) {
-    return fromApi(d.status, receiverAccepted: d.isReceiverAccepted);
-  }
-
-  static _HomeDeliveryStatus fromApi(
-    String? status, {
-    bool receiverAccepted = false,
-  }) {
-    switch (status) {
-      case 'posted':
-        if (receiverAccepted) {
-          return const _HomeDeliveryStatus(
-            label: 'Matching Travelers',
-            color: Color(0xFF0D9488),
-            isActive: true,
-          );
-        }
-        return const _HomeDeliveryStatus(
-          label: 'Receiver Pending',
-          color: AppColors.warning,
-          isActive: true,
-        );
-      case 'matched':
-        return const _HomeDeliveryStatus(
-          label: 'Traveler Selected',
-          color: AppColors.primary,
-          isActive: true,
-        );
-      case 'in_transit':
-        return const _HomeDeliveryStatus(
-          label: 'In Transit',
-          color: AppColors.transit,
-          isActive: true,
-        );
-      case 'delivered':
-        return const _HomeDeliveryStatus(
-          label: 'Delivered',
-          color: AppColors.success,
-          isActive: false,
-        );
-      case 'cancelled':
-        return const _HomeDeliveryStatus(
-          label: 'Cancelled',
-          color: AppColors.danger,
-          isActive: false,
-        );
-      default:
-        return const _HomeDeliveryStatus(
-          label: 'Posted',
-          color: AppColors.success,
-          isActive: true,
-        );
-    }
-  }
 }

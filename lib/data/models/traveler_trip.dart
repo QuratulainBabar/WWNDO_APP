@@ -6,6 +6,7 @@ enum TripStatus {
   openBid,
   inTransit,
   delivered,
+  cancelled,
 }
 
 extension TripStatusX on TripStatus {
@@ -13,33 +14,83 @@ extension TripStatusX on TripStatus {
         TripStatus.openBid => 'Sender Requests',
         TripStatus.inTransit => 'In Transit',
         TripStatus.delivered => 'Delivered',
+        TripStatus.cancelled => 'Cancelled',
       };
 
   Color get color => switch (this) {
         TripStatus.openBid => AppColors.success,
         TripStatus.inTransit => AppColors.transit,
         TripStatus.delivered => AppColors.success,
+        TripStatus.cancelled => AppColors.danger,
       };
 
   Color get backgroundColor => color.withValues(alpha: 0.12);
+
+  bool get canEditOrCancel => this == TripStatus.openBid;
+}
+
+TripStatus tripStatusFromApi(String? value) {
+  switch (value) {
+    case 'in_transit':
+      return TripStatus.inTransit;
+    case 'delivered':
+      return TripStatus.delivered;
+    case 'cancelled':
+      return TripStatus.cancelled;
+    case 'open_bid':
+    default:
+      return TripStatus.openBid;
+  }
 }
 
 class TravelerTrip {
   const TravelerTrip({
     this.id = '',
+    this.publicId,
     required this.origin,
     required this.destination,
     required this.travelDate,
     required this.luggageCapacityKg,
     this.status = TripStatus.openBid,
+    this.tripType,
+    this.travelerName,
+    this.travelerRating,
+    this.travelerReviewCount,
+    this.flightNumber,
+    this.fromCode,
+    this.toCode,
+    this.originCountry,
+    this.destinationCountry,
+    this.originCountryCode,
+    this.destinationCountryCode,
+    this.originAirport,
+    this.destinationAirport,
   });
 
   final String id;
+  final String? publicId;
   final String origin;
   final String destination;
   final DateTime travelDate;
   final double luggageCapacityKg;
   final TripStatus status;
+  final String? tripType;
+  final String? travelerName;
+  final double? travelerRating;
+  final int? travelerReviewCount;
+  final String? flightNumber;
+  final String? fromCode;
+  final String? toCode;
+  final String? originCountry;
+  final String? destinationCountry;
+  final String? originCountryCode;
+  final String? destinationCountryCode;
+  final String? originAirport;
+  final String? destinationAirport;
 
   String get route => '$origin → $destination';
+
+  String get displayId => (publicId?.trim().isNotEmpty ?? false) ? publicId! : id;
+
+  bool get isCountryToCountry => tripType == 'country_to_country';
 }

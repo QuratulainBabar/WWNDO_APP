@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/platform/keyboard_utils.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_button.dart';
@@ -103,6 +104,7 @@ class _SendCounterOfferScreenState extends State<SendCounterOfferScreen> {
                     typo.inputLabel.copyWith(fontWeight: FontWeight.w600),
                 child: TextField(
                   controller: _budgetController,
+                  onTapOutside: dismissKeyboardOnTapOutside,
                   style: typo.input,
                   autofocus: true,
                   keyboardType: const TextInputType.numberWithOptions(

@@ -5,6 +5,7 @@ import 'app.dart';
 import 'core/config/demo_mode.dart';
 import 'providers/auth_provider.dart';
 import 'providers/kyc_provider.dart';
+import 'providers/notification_realtime_provider.dart';
 import 'providers/wallet_provider.dart';
 
 Future<void> main() async {
@@ -29,6 +30,7 @@ Future<void> main() async {
     authRepository: authProvider.repository,
     demoMode: demoMode,
   );
+  final notificationRealtimeProvider = NotificationRealtimeProvider();
 
   runApp(
     MultiProvider(
@@ -37,6 +39,9 @@ Future<void> main() async {
         ChangeNotifierProvider<AuthProvider>.value(value: authProvider),
         ChangeNotifierProvider<KycProvider>.value(value: kycProvider),
         ChangeNotifierProvider<WalletProvider>.value(value: walletProvider),
+        ChangeNotifierProvider<NotificationRealtimeProvider>.value(
+          value: notificationRealtimeProvider,
+        ),
       ],
       child: const WwngoApp(),
     ),

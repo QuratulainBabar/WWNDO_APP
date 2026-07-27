@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/platform/keyboard_utils.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/config/demo_mode.dart';
 import '../../core/theme/app_colors.dart';
@@ -140,6 +141,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
             const SizedBox(height: 16),
             TextField(
               controller: _searchController,
+              onTapOutside: dismissKeyboardOnTapOutside,
               textInputAction: TextInputAction.search,
               onChanged: (value) => setState(() => _query = value),
               style: typo.input,

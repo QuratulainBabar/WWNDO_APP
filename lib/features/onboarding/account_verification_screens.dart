@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/platform/keyboard_utils.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/auth/post_auth_navigation.dart';
 import '../../core/theme/app_colors.dart';
@@ -59,6 +60,7 @@ class AccountVerificationScreen extends StatelessWidget {
           label: 'Phone',
           child: TextField(
             controller: controller,
+            onTapOutside: dismissKeyboardOnTapOutside,
             keyboardType: TextInputType.phone,
             decoration: const InputDecoration(hintText: '+33 612 345 678'),
           ),

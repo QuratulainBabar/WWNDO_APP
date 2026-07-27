@@ -48,40 +48,147 @@ class CreateTripRequest {
   final String? destinationAirport;
   final String? flightNumber;
 
-  Map<String, dynamic> toJson() {
-    final date =
-        '${travelDate.year.toString().padLeft(4, '0')}-${travelDate.month.toString().padLeft(2, '0')}-${travelDate.day.toString().padLeft(2, '0')}';
-    final body = <String, dynamic>{
-      'tripType': tripType.apiValue,
-      'travelDate': date,
-      'luggageCapacityKg': luggageCapacityKg,
-    };
-    if (flightNumber != null && flightNumber!.trim().isNotEmpty) {
-      body['flightNumber'] = flightNumber!.trim();
-    }
-    if (tripType == TripType.cityToCity) {
-      body['fromCity'] = fromCity;
-      body['toCity'] = toCity;
-      if (fromCode != null && fromCode!.isNotEmpty) body['fromCode'] = fromCode;
-      if (toCode != null && toCode!.isNotEmpty) body['toCode'] = toCode;
-    } else {
-      body['originCountry'] = originCountry;
-      body['destinationCountry'] = destinationCountry;
-      if (originCountryCode != null && originCountryCode!.isNotEmpty) {
-        body['originCountryCode'] = originCountryCode;
-      }
-      if (destinationCountryCode != null && destinationCountryCode!.isNotEmpty) {
-        body['destinationCountryCode'] = destinationCountryCode;
-      }
-      if (originAirport != null && originAirport!.isNotEmpty) {
-        body['originAirport'] = originAirport;
-      }
-      if (destinationAirport != null && destinationAirport!.isNotEmpty) {
-        body['destinationAirport'] = destinationAirport;
-      }
-    }
-    return body;
+  Map<String, dynamic> toJson() => _tripBodyJson(
+        tripType: tripType,
+        travelDate: travelDate,
+        luggageCapacityKg: luggageCapacityKg,
+        fromCity: fromCity,
+        fromCode: fromCode,
+        toCity: toCity,
+        toCode: toCode,
+        originCountry: originCountry,
+        originCountryCode: originCountryCode,
+        destinationCountry: destinationCountry,
+        destinationCountryCode: destinationCountryCode,
+        originAirport: originAirport,
+        destinationAirport: destinationAirport,
+        flightNumber: flightNumber,
+      );
+}
+
+/// PATCH /api/v1/trips/:id — same fields as create (except trip type).
+class UpdateTripRequest {
+  const UpdateTripRequest({
+    required this.travelDate,
+    required this.luggageCapacityKg,
+    required this.tripType,
+    this.fromCity,
+    this.fromCode,
+    this.toCity,
+    this.toCode,
+    this.originCountry,
+    this.originCountryCode,
+    this.destinationCountry,
+    this.destinationCountryCode,
+    this.originAirport,
+    this.destinationAirport,
+    this.flightNumber,
+  });
+
+  final DateTime travelDate;
+  final double luggageCapacityKg;
+  final TripType tripType;
+  final String? fromCity;
+  final String? fromCode;
+  final String? toCity;
+  final String? toCode;
+  final String? originCountry;
+  final String? originCountryCode;
+  final String? destinationCountry;
+  final String? destinationCountryCode;
+  final String? originAirport;
+  final String? destinationAirport;
+  final String? flightNumber;
+
+  factory UpdateTripRequest.fromCreateRequest(CreateTripRequest request) {
+    return UpdateTripRequest(
+      travelDate: request.travelDate,
+      luggageCapacityKg: request.luggageCapacityKg,
+      tripType: request.tripType,
+      fromCity: request.fromCity,
+      fromCode: request.fromCode,
+      toCity: request.toCity,
+      toCode: request.toCode,
+      originCountry: request.originCountry,
+      originCountryCode: request.originCountryCode,
+      destinationCountry: request.destinationCountry,
+      destinationCountryCode: request.destinationCountryCode,
+      originAirport: request.originAirport,
+      destinationAirport: request.destinationAirport,
+      flightNumber: request.flightNumber,
+    );
   }
+
+  Map<String, dynamic> toJson() => _tripBodyJson(
+        tripType: tripType,
+        travelDate: travelDate,
+        luggageCapacityKg: luggageCapacityKg,
+        fromCity: fromCity,
+        fromCode: fromCode,
+        toCity: toCity,
+        toCode: toCode,
+        originCountry: originCountry,
+        originCountryCode: originCountryCode,
+        destinationCountry: destinationCountry,
+        destinationCountryCode: destinationCountryCode,
+        originAirport: originAirport,
+        destinationAirport: destinationAirport,
+        flightNumber: flightNumber,
+        includeEmptyFlightNumber: true,
+      );
+}
+
+Map<String, dynamic> _tripBodyJson({
+  required TripType tripType,
+  required DateTime travelDate,
+  required double luggageCapacityKg,
+  String? fromCity,
+  String? fromCode,
+  String? toCity,
+  String? toCode,
+  String? originCountry,
+  String? originCountryCode,
+  String? destinationCountry,
+  String? destinationCountryCode,
+  String? originAirport,
+  String? destinationAirport,
+  String? flightNumber,
+  bool includeEmptyFlightNumber = false,
+}) {
+  final date =
+      '${travelDate.year.toString().padLeft(4, '0')}-${travelDate.month.toString().padLeft(2, '0')}-${travelDate.day.toString().padLeft(2, '0')}';
+  final body = <String, dynamic>{
+    'tripType': tripType.apiValue,
+    'travelDate': date,
+    'luggageCapacityKg': luggageCapacityKg,
+  };
+  if (flightNumber != null && flightNumber.trim().isNotEmpty) {
+    body['flightNumber'] = flightNumber.trim();
+  } else if (includeEmptyFlightNumber) {
+    body['flightNumber'] = '';
+  }
+  if (tripType == TripType.cityToCity) {
+    body['fromCity'] = fromCity;
+    body['toCity'] = toCity;
+    if (fromCode != null && fromCode.isNotEmpty) body['fromCode'] = fromCode;
+    if (toCode != null && toCode.isNotEmpty) body['toCode'] = toCode;
+  } else {
+    body['originCountry'] = originCountry;
+    body['destinationCountry'] = destinationCountry;
+    if (originCountryCode != null && originCountryCode.isNotEmpty) {
+      body['originCountryCode'] = originCountryCode;
+    }
+    if (destinationCountryCode != null && destinationCountryCode.isNotEmpty) {
+      body['destinationCountryCode'] = destinationCountryCode;
+    }
+    if (originAirport != null && originAirport.isNotEmpty) {
+      body['originAirport'] = originAirport;
+    }
+    if (destinationAirport != null && destinationAirport.isNotEmpty) {
+      body['destinationAirport'] = destinationAirport;
+    }
+  }
+  return body;
 }
 
 /// Backend trips API for traveler trip posting and listing.
@@ -114,6 +221,45 @@ class TripRepository {
     return _mapTrip(data);
   }
 
+  /// GET /api/v1/trips/discover
+  Future<List<TravelerTrip>> listDiscoverableTrips({
+    TripType? tripType,
+    int limit = 50,
+  }) async {
+    if (_isDemoMode) return const [];
+
+    final query = <String>['limit=$limit'];
+    if (tripType != null) {
+      query.add('tripType=${tripType.apiValue}');
+    }
+    final data = await _apiClient.get(
+      '/trips/discover?${query.join('&')}',
+      authenticated: true,
+    );
+    final list = data['trips'];
+    if (list is! List) return const <TravelerTrip>[];
+    return list
+        .whereType<Map>()
+        .map((item) => _mapTrip(Map<String, dynamic>.from(item)))
+        .toList();
+  }
+
+  /// GET /api/v1/trips/discover/:id
+  Future<TravelerTrip> getDiscoverableTrip(String idOrPublicId) async {
+    if (_isDemoMode) {
+      throw const ApiException(
+        message: 'Trip details are unavailable in demo mode.',
+        code: 'DEMO_MODE',
+      );
+    }
+
+    final data = await _apiClient.get(
+      '/trips/discover/$idOrPublicId',
+      authenticated: true,
+    );
+    return _mapTrip(data);
+  }
+
   /// GET /api/v1/trips
   Future<List<TravelerTrip>> listMyTrips() async {
     if (_isDemoMode) return const [];
@@ -125,6 +271,58 @@ class TripRepository {
         .whereType<Map>()
         .map((item) => _mapTrip(Map<String, dynamic>.from(item)))
         .toList();
+  }
+
+  /// GET /api/v1/trips/:id
+  Future<TravelerTrip> getMyTrip(String idOrPublicId) async {
+    if (_isDemoMode) {
+      throw const ApiException(
+        message: 'Trip lookup is unavailable in demo mode.',
+        code: 'DEMO_MODE',
+      );
+    }
+
+    final data = await _apiClient.get(
+      '/trips/$idOrPublicId',
+      authenticated: true,
+    );
+    return _mapTrip(data);
+  }
+
+  /// PATCH /api/v1/trips/:id
+  Future<TravelerTrip> updateTrip(
+    String idOrPublicId,
+    UpdateTripRequest request,
+  ) async {
+    if (_isDemoMode) {
+      throw const ApiException(
+        message: 'Edit is unavailable in demo mode.',
+        code: 'DEMO_MODE',
+      );
+    }
+
+    final data = await _apiClient.patch(
+      '/trips/$idOrPublicId',
+      body: request.toJson(),
+      authenticated: true,
+    );
+    return _mapTrip(data);
+  }
+
+  /// POST /api/v1/trips/:id/cancel
+  Future<TravelerTrip> cancelTrip(String idOrPublicId) async {
+    if (_isDemoMode) {
+      throw const ApiException(
+        message: 'Cancel is unavailable in demo mode.',
+        code: 'DEMO_MODE',
+      );
+    }
+
+    final data = await _apiClient.post(
+      '/trips/$idOrPublicId/cancel',
+      authenticated: true,
+    );
+    return _mapTrip(data);
   }
 
   TravelerTrip _mapTrip(Map<String, dynamic> json) {
@@ -142,11 +340,25 @@ class TripRepository {
         '';
     return TravelerTrip(
       id: json['id'] as String? ?? json['publicId'] as String? ?? '',
+      publicId: json['publicId'] as String?,
       origin: origin,
       destination: destination,
       travelDate: travelDate,
       luggageCapacityKg: (json['luggageCapacityKg'] as num?)?.toDouble() ?? 0,
-      status: TripStatus.openBid,
+      status: tripStatusFromApi(json['status'] as String?),
+      tripType: json['tripType'] as String?,
+      travelerName: json['travelerName'] as String?,
+      travelerRating: (json['travelerRating'] as num?)?.toDouble(),
+      travelerReviewCount: (json['travelerReviewCount'] as num?)?.toInt(),
+      flightNumber: json['flightNumber'] as String?,
+      fromCode: json['fromCode'] as String?,
+      toCode: json['toCode'] as String?,
+      originCountry: json['originCountry'] as String?,
+      destinationCountry: json['destinationCountry'] as String?,
+      originCountryCode: json['originCountryCode'] as String?,
+      destinationCountryCode: json['destinationCountryCode'] as String?,
+      originAirport: json['originAirport'] as String?,
+      destinationAirport: json['destinationAirport'] as String?,
     );
   }
 }

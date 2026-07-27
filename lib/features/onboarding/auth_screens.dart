@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/layout/responsive.dart';
+import '../../core/platform/keyboard_utils.dart';
 import '../../core/platform/biometric_auth_service.dart';
 import '../../core/platform/platform_ui.dart';
 import '../../core/theme/app_colors.dart';
@@ -241,6 +242,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       padding: const EdgeInsets.only(top: AppFieldSpacing.top, bottom: 12),
       child: TextFormField(
         controller: controller,
+        onTapOutside: dismissKeyboardOnTapOutside,
         obscureText: obscure,
         keyboardType: keyboardType,
         textInputAction: TextInputAction.next,
@@ -460,6 +462,7 @@ class _LoginScreenState extends State<LoginScreen> {
       padding: EdgeInsets.only(top: AppFieldSpacing.top, bottom: context.fieldGap),
       child: TextFormField(
         controller: controller,
+        onTapOutside: dismissKeyboardOnTapOutside,
         obscureText: obscure,
         keyboardType: keyboardType,
         textInputAction: obscure ? TextInputAction.done : TextInputAction.next,

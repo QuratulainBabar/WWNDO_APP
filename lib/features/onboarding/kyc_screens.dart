@@ -34,8 +34,6 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
   void initState() {
     super.initState();
     _flow = widget.initialFlow ?? KycFlowData();
-    // Demo mode UI is disabled — always use real Sumsub flow.
-    _demoMode = false;
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadStatus());
   }
 
@@ -96,7 +94,7 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
       if (!_flow.verificationComplete) {
         setState(() => _flow.applyDemoVerification());
       }
-      await KycFlowActions.submitForReview(context);
+      await KycFlowActions.completeDemoAndOpenApp(context);
       return;
     }
 
@@ -121,7 +119,7 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
       _demoMode = true;
       _flow.applyDemoVerification();
     });
-    await KycFlowActions.submitForReview(context);
+    await KycFlowActions.completeDemoAndOpenApp(context);
   }
 
   @override
@@ -255,13 +253,12 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
                           onTap: _openSelfieFlow,
                         ),
                       ],
-                      // Demo mode toggle — commented out; use real Sumsub verification.
-                      // const SizedBox(height: 20),
-                      // _DemoModeCard(
-                      //   enabled: _demoMode,
-                      //   onChanged: (value) => setState(() => _demoMode = value),
-                      //   onCompleteDemo: _completeDemoVerification,
-                      // ),
+                      const SizedBox(height: 20),
+                      _DemoModeCard(
+                        enabled: _demoMode,
+                        onChanged: (value) => setState(() => _demoMode = value),
+                        onCompleteDemo: _completeDemoVerification,
+                      ),
                       const SizedBox(height: 20),
                       if (_notice != null) ...[
                         Text(
@@ -734,9 +731,7 @@ class _KycPendingReviewScreenState extends State<KycPendingReviewScreen> {
   Future<void> _maybeAutoApproveDemo() async {
     final demoMode = context.read<DemoModeProvider>().enabled;
     if (!demoMode || !mounted) return;
-    await Future<void>.delayed(const Duration(seconds: 2));
-    if (!mounted) return;
-    await KycFlowActions.approveDemo(context);
+    await KycFlowActions.completeDemoAndOpenApp(context);
   }
 
   @override
@@ -782,18 +777,18 @@ class _KycPendingReviewScreenState extends State<KycPendingReviewScreen> {
                       : () => KycFlowActions.refreshAndRoute(context),
                 ),
               ],
+              const SizedBox(height: 16),
+              AppButton(
+                label: 'Complete verification (demo)',
+                variant: AppButtonVariant.ghost,
+                onPressed: () => KycFlowActions.completeDemoAndOpenApp(context),
+              ),
               if (demoMode) ...[
-                const SizedBox(height: 16),
+                const SizedBox(height: 8),
                 Text(
-                  'Demo mode: auto-approving in a moment…',
+                  'App demo mode is on — auto-opening shortly…',
                   textAlign: TextAlign.center,
                   style: typo.smPrimary.copyWith(color: AppColors.primary),
-                ),
-                const SizedBox(height: 16),
-                AppButton(
-                  label: 'Simulate Sumsub approval',
-                  variant: AppButtonVariant.ghost,
-                  onPressed: () => KycFlowActions.approveDemo(context),
                 ),
               ],
               const SizedBox(height: 24),

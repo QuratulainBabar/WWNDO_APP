@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import '../../core/platform/keyboard_utils.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
@@ -149,6 +150,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               padding: const EdgeInsets.only(top: AppFieldSpacing.top),
               child: TextField(
                 controller: _contactController,
+                onTapOutside: dismissKeyboardOnTapOutside,
                 keyboardType: _channel == OtpChannel.email
                     ? TextInputType.emailAddress
                     : TextInputType.phone,
@@ -371,6 +373,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
               padding: const EdgeInsets.only(top: AppFieldSpacing.top),
               child: TextField(
                 controller: _passwordController,
+                onTapOutside: dismissKeyboardOnTapOutside,
                 obscureText: _obscurePassword,
                 style: typo.input,
                 decoration: InputDecoration(
@@ -390,6 +393,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
               label: 'Confirm password',
               child: TextField(
                 controller: _confirmController,
+                onTapOutside: dismissKeyboardOnTapOutside,
                 obscureText: _obscureConfirm,
                 textInputAction: TextInputAction.done,
                 onSubmitted: (_) => _resetPassword(),

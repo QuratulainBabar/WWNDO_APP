@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
@@ -15,6 +16,7 @@ import '../../data/models/wallet_role.dart';
 import '../../data/notification_service.dart';
 import '../../data/services/notification_repository.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/notification_realtime_provider.dart';
 
 class RoleNotificationsScreen extends StatefulWidget {
   const RoleNotificationsScreen({
@@ -39,6 +41,9 @@ class _RoleNotificationsScreenState extends State<RoleNotificationsScreen>
   String? _error;
   List<AppNotification> _apiNotifications = const [];
   String? _lastMatchedLocation;
+  Timer? _pollTimer;
+  VoidCallback? _realtimeListener;
+  NotificationRealtimeProvider? _realtimeProvider;
 
   bool get _useApi =>
       widget.role == WalletRole.receiver || widget.role == WalletRole.sender;
@@ -50,10 +55,44 @@ class _RoleNotificationsScreenState extends State<RoleNotificationsScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _load();
     });
+    if (_useApi) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _attachRealtimeListener();
+      });
+      _pollTimer = Timer.periodic(const Duration(seconds: 45), (_) {
+        if (!mounted) return;
+        final connected = _realtimeProvider?.isConnected ?? false;
+        if (!connected) {
+          _load(silent: _apiNotifications.isNotEmpty);
+        }
+      });
+    }
+  }
+
+  void _attachRealtimeListener() {
+    if (!_useApi || widget.role != WalletRole.receiver) return;
+    final realtime = context.read<NotificationRealtimeProvider>();
+    _realtimeProvider = realtime;
+
+    _realtimeListener ??= () {
+      final incoming = realtime.consumeIncoming();
+      if (!mounted || incoming.isEmpty) return;
+      setState(() {
+        for (final notification in incoming.reversed) {
+          _apiNotifications.removeWhere((item) => item.id == notification.id);
+          _apiNotifications.insert(0, notification);
+        }
+      });
+    };
+    realtime.addListener(_realtimeListener!);
   }
 
   @override
   void dispose() {
+    _pollTimer?.cancel();
+    if (_realtimeListener != null) {
+      _realtimeProvider?.removeListener(_realtimeListener!);
+    }
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -112,6 +151,17 @@ class _RoleNotificationsScreenState extends State<RoleNotificationsScreen>
         _loading = false;
         _error = null;
       });
+      if (widget.role == WalletRole.receiver) {
+        final auth = context.read<AuthProvider>();
+        final demoMode = context.read<DemoModeProvider>();
+        unawaited(
+          context.read<NotificationRealtimeProvider>().refreshUnread(
+                role: widget.role,
+                authRepository: auth.repository,
+                demoMode: demoMode,
+              ),
+        );
+      }
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -137,6 +187,12 @@ class _RoleNotificationsScreenState extends State<RoleNotificationsScreen>
               .map((item) => item.id == n.id ? item.markRead() : item)
               .toList();
         });
+        if (widget.role == WalletRole.receiver && n.unread) {
+          final realtime = context.read<NotificationRealtimeProvider>();
+          realtime.setUnreadCount(
+            (realtime.unreadCount - 1).clamp(0, 999),
+          );
+        }
       } catch (_) {
         // Still navigate even if mark-read fails.
       }
@@ -293,6 +349,8 @@ class _NotificationTile extends StatelessWidget {
       '/receiver-chats',
       '/receiver-notifications',
       '/receiver-profile',
+      '/discover-travelers',
+      '/discover-trips',
     };
     final path = Uri.tryParse(route)?.path ?? route;
     return shellRoutes.contains(path);

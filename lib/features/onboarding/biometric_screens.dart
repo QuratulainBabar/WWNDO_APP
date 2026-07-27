@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/navigation/app_navigation.dart';
+import '../../core/platform/keyboard_utils.dart';
 import '../../core/platform/biometric_auth_service.dart';
 import '../../core/platform/biometric_prefs.dart';
 import '../../core/platform/platform_ui.dart';
@@ -142,6 +143,7 @@ class _BiometricSetupScreenState extends State<BiometricSetupScreen> {
               padding: const EdgeInsets.only(top: AppFieldSpacing.top),
               child: TextField(
                 controller: _passwordController,
+                onTapOutside: dismissKeyboardOnTapOutside,
                 obscureText: _obscurePassword,
                 textInputAction: TextInputAction.done,
                 onSubmitted: (_) => _enableBiometricLogin(),

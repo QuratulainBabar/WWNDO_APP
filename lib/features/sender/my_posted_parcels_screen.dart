@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -10,11 +11,11 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_badge.dart';
 import '../../core/widgets/app_card.dart';
-import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/back_header.dart';
 import '../../data/models/created_delivery.dart';
 import '../../data/services/delivery_repository.dart';
 import '../../providers/auth_provider.dart';
+import 'sender_delivery_status.dart';
 
 class MyPostedParcelsScreen extends StatefulWidget {
   const MyPostedParcelsScreen({
@@ -30,20 +31,36 @@ class MyPostedParcelsScreen extends StatefulWidget {
   State<MyPostedParcelsScreen> createState() => _MyPostedParcelsScreenState();
 }
 
-class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen> {
+class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen>
+    with WidgetsBindingObserver {
   bool _showActive = true;
   bool _loading = true;
   String? _error;
   // Nullable so hot-reload on web cannot leave a non-null List field as JS undefined.
   List<CreatedDelivery>? _deliveries;
+  Map<String, int> _matchingTravelerCounts = {};
 
   List<CreatedDelivery> get _items => _deliveries ?? const <CreatedDelivery>[];
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _deliveries = const [];
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _load(silent: true);
+    }
   }
 
   DeliveryRepository _repository() {
@@ -66,8 +83,12 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen> {
     try {
       final list = await _repository().listDeliveries();
       if (!mounted) return;
+      final deliveries = List<CreatedDelivery>.from(list);
+      final counts = await _repository().fetchMatchingTravelerCounts(deliveries);
+      if (!mounted) return;
       setState(() {
-        _deliveries = List<CreatedDelivery>.from(list);
+        _deliveries = deliveries;
+        _matchingTravelerCounts = counts;
         _loading = false;
         _error = null;
       });
@@ -89,17 +110,26 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen> {
   List<CreatedDelivery> get _visible {
     return _items.where((d) {
       final active =
-          _DeliveryStatusUi.fromDelivery(d).isActive;
+          SenderDeliveryStatus.fromDelivery(d).isActive;
       return _showActive ? active : !active;
     }).toList();
   }
 
-  void _onMenuSelected(String value) {
-    final action = value == 'edit' ? 'Editing' : 'Cancelling';
-    AppToast.info(
-      context,
-      '$action live deliveries will be available soon.',
-    );
+  Future<void> _onMenuSelected(String value, CreatedDelivery parcel) async {
+    final id = parcel.publicId.isNotEmpty ? parcel.publicId : parcel.id;
+    if (value == 'edit') {
+      final updated = await context.push<bool>('/edit-posted-delivery/$id');
+      if (updated == true && mounted) {
+        await _load(silent: true);
+      }
+      return;
+    }
+    if (value == 'cancel') {
+      await context.push('/cancel-posted-delivery/$id');
+      if (mounted) {
+        await _load(silent: true);
+      }
+    }
   }
 
   List<PopupMenuEntry<String>> _menuItems(BuildContext context) {
@@ -236,7 +266,13 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen> {
         itemCount: parcels.length,
         itemBuilder: (context, i) {
           final parcel = parcels[i];
-          final statusUi = _DeliveryStatusUi.fromDelivery(parcel);
+          final statusUi = SenderDeliveryStatus.fromDelivery(
+            parcel,
+            matchingTravelerCount: SenderDeliveryStatus.countFromMap(
+              parcel,
+              _matchingTravelerCounts,
+            ),
+          );
           final showMenu = _showActive && statusUi.canEditOrCancel;
 
           return AppCard(
@@ -295,7 +331,7 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen> {
                           minHeight: 36,
                         ),
                         tooltip: 'More options',
-                        onSelected: _onMenuSelected,
+                        onSelected: (value) => _onMenuSelected(value, parcel),
                         itemBuilder: _menuItems,
                       ),
                   ],
@@ -355,84 +391,5 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen> {
         ],
       ),
     );
-  }
-}
-
-/// Maps backend `delivery_status` values to My Posted Deliveries badge UI.
-class _DeliveryStatusUi {
-  const _DeliveryStatusUi({
-    required this.label,
-    required this.color,
-    required this.isActive,
-    this.description,
-    this.canEditOrCancel = false,
-  });
-
-  final String label;
-  final Color color;
-  final bool isActive;
-  final String? description;
-  final bool canEditOrCancel;
-
-  Color get backgroundColor => color.withValues(alpha: 0.12);
-
-  static _DeliveryStatusUi fromDelivery(CreatedDelivery d) {
-    return fromApi(d.status, receiverAccepted: d.isReceiverAccepted);
-  }
-
-  static _DeliveryStatusUi fromApi(
-    String? status, {
-    bool receiverAccepted = false,
-  }) {
-    switch (status) {
-      case 'posted':
-        if (receiverAccepted) {
-          return const _DeliveryStatusUi(
-            label: 'Matching Travelers',
-            color: Color(0xFF0D9488),
-            isActive: true,
-            canEditOrCancel: true,
-            description: 'Receiver accepted. Choose a matching traveler.',
-          );
-        }
-        return const _DeliveryStatusUi(
-          label: 'Receiver Pending',
-          color: AppColors.warning,
-          isActive: true,
-          canEditOrCancel: true,
-          description: 'Receiver has not accepted the parcel request yet.',
-        );
-      case 'matched':
-        return const _DeliveryStatusUi(
-          label: 'Traveler Selected',
-          color: AppColors.primary,
-          isActive: true,
-        );
-      case 'in_transit':
-        return const _DeliveryStatusUi(
-          label: 'In Transit',
-          color: AppColors.transit,
-          isActive: true,
-        );
-      case 'delivered':
-        return const _DeliveryStatusUi(
-          label: 'Delivered',
-          color: AppColors.success,
-          isActive: false,
-        );
-      case 'cancelled':
-        return const _DeliveryStatusUi(
-          label: 'Cancelled',
-          color: AppColors.danger,
-          isActive: false,
-        );
-      default:
-        return const _DeliveryStatusUi(
-          label: 'Posted',
-          color: AppColors.success,
-          isActive: true,
-          canEditOrCancel: true,
-        );
-    }
   }
 }

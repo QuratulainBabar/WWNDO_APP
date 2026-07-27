@@ -628,7 +628,7 @@ class PostDeliveryPostedSuccessScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      "We've notified your receiver.\n"
+                      "We've sent an email notification to your receiver.\n"
                       'The matching process will start once they accept.',
                       style: typo.sm.copyWith(
                         height: 1.5,

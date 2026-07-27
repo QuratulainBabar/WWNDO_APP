@@ -5,12 +5,13 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/config/demo_mode.dart';
+import '../../core/config/demo_mode.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_svg_icon.dart';
 import '../../data/models/wallet_role.dart';
-import '../../data/services/notification_repository.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/notification_realtime_provider.dart';
 
 class ReceiverShell extends StatefulWidget {
   const ReceiverShell({super.key, required this.navigationShell});
@@ -23,60 +24,86 @@ class ReceiverShell extends StatefulWidget {
 
 class _ReceiverShellState extends State<ReceiverShell>
     with WidgetsBindingObserver {
-  int _unreadAlerts = 0;
-  Timer? _pollTimer;
+  Timer? _fallbackPollTimer;
+  VoidCallback? _realtimeListener;
+  NotificationRealtimeProvider? _realtimeProvider;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _loadUnread();
+      if (!mounted) return;
+      _startRealtime();
+      _refreshUnread();
     });
-    _pollTimer = Timer.periodic(const Duration(seconds: 20), (_) {
-      if (mounted) _loadUnread();
+    _fallbackPollTimer = Timer.periodic(const Duration(seconds: 45), (_) {
+      if (!mounted) return;
+      final realtime = context.read<NotificationRealtimeProvider>();
+      if (!realtime.isConnected) _refreshUnread();
     });
   }
 
   @override
   void dispose() {
-    _pollTimer?.cancel();
+    _fallbackPollTimer?.cancel();
+    final realtime = _realtimeProvider;
+    if (_realtimeListener != null && realtime != null) {
+      realtime.removeListener(_realtimeListener!);
+    }
+    realtime?.stop();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _loadUnread();
+    if (state == AppLifecycleState.resumed) {
+      _startRealtime();
+      _refreshUnread();
+    }
   }
 
-  NotificationRepository _repo() {
+  void _startRealtime() {
     final auth = context.read<AuthProvider>();
     final demoMode = context.read<DemoModeProvider>();
-    return NotificationRepository(
-      apiClient: auth.repository.apiClient,
+    final realtime = context.read<NotificationRealtimeProvider>();
+    _realtimeProvider = realtime;
+
+    if (_realtimeListener == null) {
+      _realtimeListener = () {
+        if (mounted) setState(() {});
+      };
+      realtime.addListener(_realtimeListener!);
+    }
+
+    realtime.start(
+      role: WalletRole.receiver,
+      authRepository: auth.repository,
       demoMode: demoMode,
     );
   }
 
-  Future<void> _loadUnread() async {
-    try {
-      final count = await _repo().unreadCount(role: WalletRole.receiver);
-      if (!mounted) return;
-      if (count != _unreadAlerts) {
-        setState(() => _unreadAlerts = count);
-      }
-    } catch (_) {
-      // Badge is non-critical.
-    }
+  Future<void> _refreshUnread() async {
+    final demoMode = context.read<DemoModeProvider>();
+    final auth = context.read<AuthProvider>();
+    await (_realtimeProvider ?? context.read<NotificationRealtimeProvider>())
+        .refreshUnread(
+      role: WalletRole.receiver,
+      authRepository: auth.repository,
+      demoMode: demoMode,
+    );
   }
+
+  int get _unreadAlerts =>
+      context.watch<NotificationRealtimeProvider>().unreadCount;
 
   void _onTabTap(int index) {
     widget.navigationShell.goBranch(index, initialLocation: true);
     if (index == 3) {
-      Future<void>.delayed(const Duration(milliseconds: 400), _loadUnread);
+      Future<void>.delayed(const Duration(milliseconds: 400), _refreshUnread);
     } else {
-      _loadUnread();
+      _refreshUnread();
     }
   }
 

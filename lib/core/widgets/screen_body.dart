@@ -3,6 +3,10 @@ import '../layout/responsive.dart';
 import '../platform/platform_ui.dart';
 
 /// Scrollable screen body with responsive padding and platform scroll physics.
+///
+/// When [keyboardDismiss] is true, dragging the scroll view dismisses the
+/// keyboard. Do not wrap the body in a [GestureDetector] that unfocuses on tap —
+/// that races with text field focus on MIUI / ColorOS devices.
 class ScreenBody extends StatelessWidget {
   const ScreenBody({
     super.key,
@@ -24,16 +28,11 @@ class ScreenBody extends StatelessWidget {
     Widget body = SingleChildScrollView(
       physics: PlatformUi.scrollPhysics,
       padding: effectivePadding,
+      keyboardDismissBehavior: keyboardDismiss
+          ? ScrollViewKeyboardDismissBehavior.onDrag
+          : ScrollViewKeyboardDismissBehavior.manual,
       child: child,
     );
-
-    if (keyboardDismiss) {
-      body = GestureDetector(
-        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-        behavior: HitTestBehavior.translucent,
-        child: body,
-      );
-    }
 
     if (safeArea) {
       body = SafeArea(child: body);

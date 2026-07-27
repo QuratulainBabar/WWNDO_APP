@@ -309,6 +309,51 @@ class _MyTripsSectionState extends State<_MyTripsSection> {
     }
   }
 
+  Future<void> _onMenuSelected(String value, TravelerTrip trip) async {
+    final id = trip.displayId;
+    if (value == 'edit') {
+      final updated = await context.push<bool>('/edit-trip/$id');
+      if (updated == true && mounted) {
+        await reload(silent: true);
+      }
+      return;
+    }
+    if (value == 'cancel') {
+      await context.push('/cancel-trip/$id');
+      if (mounted) {
+        await reload(silent: true);
+      }
+    }
+  }
+
+  List<PopupMenuEntry<String>> _menuItems(BuildContext context) {
+    final typo = context.typo;
+    final itemStyle = typo.body.copyWith(fontWeight: FontWeight.w400);
+
+    return [
+      PopupMenuItem(
+        value: 'edit',
+        height: 42,
+        child: Text('Edit', style: itemStyle),
+      ),
+      const PopupMenuItem<String>(
+        enabled: false,
+        height: 1,
+        padding: EdgeInsets.zero,
+        child: Divider(
+          height: 1,
+          thickness: 1,
+          color: AppColors.border,
+        ),
+      ),
+      PopupMenuItem(
+        value: 'cancel',
+        height: 42,
+        child: Text('Cancel', style: itemStyle),
+      ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
@@ -348,7 +393,11 @@ class _MyTripsSectionState extends State<_MyTripsSection> {
       children: [
         for (var i = 0; i < _trips.length; i++) ...[
           if (i > 0) const SizedBox(height: 10),
-          _TripCard(trip: _trips[i]),
+          _TripCard(
+            trip: _trips[i],
+            onMenuSelected: (value) => _onMenuSelected(value, _trips[i]),
+            menuItems: _menuItems,
+          ),
         ],
       ],
     );
@@ -356,41 +405,72 @@ class _MyTripsSectionState extends State<_MyTripsSection> {
 }
 
 class _TripCard extends StatelessWidget {
-  const _TripCard({required this.trip});
+  const _TripCard({
+    required this.trip,
+    required this.onMenuSelected,
+    required this.menuItems,
+  });
 
   final TravelerTrip trip;
+  final ValueChanged<String> onMenuSelected;
+  final List<PopupMenuEntry<String>> Function(BuildContext context) menuItems;
 
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
-    return GestureDetector(
-      onTap: () => context.push('/traveler-trips'),
-      child: AppCard(
-        margin: EdgeInsets.zero,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              trip.route,
-              style: typo.h3.copyWith(fontWeight: FontWeight.w800),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              DateFormat('MMM d, yyyy').format(trip.travelDate),
-              style: typo.sm.copyWith(color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '${trip.luggageCapacityKg.toStringAsFixed(0)} kg luggage available',
-              style: typo.sm.copyWith(
-                color: AppColors.primary,
-                fontWeight: FontWeight.w600,
+    final showMenu = trip.status.canEditOrCancel;
+
+    return AppCard(
+      margin: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => context.push('/traveler-trips'),
+                  child: Text(
+                    trip.route,
+                    style: typo.h3.copyWith(fontWeight: FontWeight.w800),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               ),
+              if (showMenu)
+                PopupMenuButton<String>(
+                  icon: const Icon(
+                    Icons.more_vert,
+                    color: AppColors.textSecondary,
+                    size: 22,
+                  ),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 36,
+                    minHeight: 36,
+                  ),
+                  tooltip: 'More options',
+                  onSelected: onMenuSelected,
+                  itemBuilder: menuItems,
+                ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            DateFormat('MMM d, yyyy').format(trip.travelDate),
+            style: typo.sm.copyWith(color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${trip.luggageCapacityKg.toStringAsFixed(0)} kg luggage available',
+            style: typo.sm.copyWith(
+              color: AppColors.primary,
+              fontWeight: FontWeight.w600,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

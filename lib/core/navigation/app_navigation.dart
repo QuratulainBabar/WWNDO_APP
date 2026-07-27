@@ -196,6 +196,7 @@ const _routeFallbacks = <String, String>{
   '/legal/terms': '/register',
   '/delivery-type': '/home',
   '/parcel/create': '/discover-travelers',
+  '/discover-trips': '/discover-travelers',
   '/add-meetup-locations': '/post-delivery',
   '/post-delivery': '/delivery-type',
   '/post-delivery/country-to-country': '/delivery-type',

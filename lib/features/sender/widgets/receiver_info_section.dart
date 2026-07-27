@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/platform/keyboard_utils.dart';
 import '../../../core/phone/phone_countries.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
@@ -16,6 +17,8 @@ class ReceiverInfoSection extends StatefulWidget {
     this.phoneErrorText,
     this.meetupErrorText,
     this.meetupLocations = const [],
+    this.initialEmail,
+    this.initialPhone,
     this.onEmailChanged,
     this.onPhoneChanged,
     this.onMeetupLocationsChanged,
@@ -25,6 +28,8 @@ class ReceiverInfoSection extends StatefulWidget {
   final String? phoneErrorText;
   final String? meetupErrorText;
   final List<MeetupLocation> meetupLocations;
+  final String? initialEmail;
+  final String? initialPhone;
   final ValueChanged<String>? onEmailChanged;
   final ValueChanged<String>? onPhoneChanged;
   final ValueChanged<List<MeetupLocation>>? onMeetupLocationsChanged;
@@ -42,6 +47,16 @@ class _ReceiverInfoSectionState extends State<ReceiverInfoSection> {
   @override
   void initState() {
     super.initState();
+    final email = widget.initialEmail?.trim();
+    if (email != null && email.isNotEmpty) {
+      _emailController.text = email;
+    }
+    final phone = widget.initialPhone?.trim();
+    if (phone != null && phone.isNotEmpty) {
+      final parsed = PhoneCountries.parse(phone);
+      _phoneCountry = parsed.country;
+      _phoneController.text = parsed.national;
+    }
     _phoneController.addListener(_emitPhone);
   }
 
@@ -94,7 +109,8 @@ class _ReceiverInfoSectionState extends State<ReceiverInfoSection> {
         ),
         const SizedBox(height: 4),
         Text(
-          'Enter the receiver\'s contact details so they can be notified about this delivery.',
+          'Enter the receiver\'s contact details. When you post this delivery, '
+          'we\'ll send an email notification to the address below.',
           style: typo.sm.copyWith(color: AppColors.textSecondary),
         ),
         const SizedBox(height: 4),
@@ -103,6 +119,7 @@ class _ReceiverInfoSectionState extends State<ReceiverInfoSection> {
           labelStyle: typo.inputLabel.copyWith(fontWeight: FontWeight.w600),
           child: TextField(
             controller: _emailController,
+            onTapOutside: dismissKeyboardOnTapOutside,
             keyboardType: TextInputType.emailAddress,
             textInputAction: TextInputAction.next,
             autocorrect: false,

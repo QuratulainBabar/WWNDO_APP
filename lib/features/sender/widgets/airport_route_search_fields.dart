@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/platform/keyboard_utils.dart';
 import '../../../core/geo/world_airports.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
@@ -375,6 +376,7 @@ class _AirportSearchField extends StatelessWidget {
         TextField(
           controller: controller,
           focusNode: focusNode,
+          onTapOutside: dismissKeyboardOnTapOutside,
           style: typo.input.copyWith(
             fontWeight: hasValue ? FontWeight.w600 : FontWeight.w400,
           ),

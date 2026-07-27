@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
+import '../../core/api/api_exception.dart';
+import '../../core/config/demo_mode.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_button.dart';
@@ -10,24 +13,77 @@ import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/back_header.dart';
 import '../../core/widgets/cancel_request_confirmation_dialog.dart';
 import '../../core/widgets/scrollable_form_screen.dart';
-import '../../data/models/shipment.dart';
+import '../../data/models/created_delivery.dart';
+import '../../data/services/delivery_repository.dart';
 import '../../data/static_data.dart';
+import '../../providers/auth_provider.dart';
 
-class CancelPostedDeliveryScreen extends StatelessWidget {
+class CancelPostedDeliveryScreen extends StatefulWidget {
   const CancelPostedDeliveryScreen({super.key, required this.shipmentId});
 
   final String shipmentId;
 
-  Shipment get _parcel =>
-      StaticData.shipmentById(shipmentId) ??
-      StaticData.senderShipments.firstWhere(
-        (s) => s.id == shipmentId,
-        orElse: () => StaticData.activeShipment,
-      );
+  @override
+  State<CancelPostedDeliveryScreen> createState() =>
+      _CancelPostedDeliveryScreenState();
+}
 
-  Future<void> _confirmCancel(BuildContext context) async {
-    final parcel = _parcel;
-    if (!StaticData.canSenderCancelBeforeTravel(parcel.travelDate)) {
+class _CancelPostedDeliveryScreenState extends State<CancelPostedDeliveryScreen> {
+  CreatedDelivery? _delivery;
+  bool _loading = true;
+  String? _loadError;
+  bool _cancelling = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  DeliveryRepository _repository() {
+    final auth = context.read<AuthProvider>();
+    final demoMode = context.read<DemoModeProvider>();
+    return DeliveryRepository(
+      apiClient: auth.repository.apiClient,
+      demoMode: demoMode,
+    );
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _loadError = null;
+    });
+
+    try {
+      final delivery = await _repository().getDelivery(widget.shipmentId);
+      if (!mounted) return;
+      setState(() {
+        _delivery = delivery;
+        _loading = false;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _loadError = e.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _loadError = 'Unable to load this delivery. Please try again.';
+      });
+    }
+  }
+
+  Future<void> _confirmCancel() async {
+    final delivery = _delivery;
+    if (delivery == null) return;
+
+    final travelDate = delivery.travelDateParsed;
+    if (travelDate == null ||
+        !StaticData.canSenderCancelBeforeTravel(travelDate)) {
       AppToast.error(context, StaticData.senderCancelBlockedMessage);
       return;
     }
@@ -35,39 +91,90 @@ class CancelPostedDeliveryScreen extends StatelessWidget {
     final confirmed = await showCancelRequestConfirmation(context);
     if (!confirmed || !context.mounted) return;
 
-    final cancelled = StaticData.cancelOpenBidDelivery(shipmentId);
-    if (!cancelled) {
-      AppToast.error(context, StaticData.senderCancelBlockedMessage);
-      return;
-    }
+    setState(() => _cancelling = true);
 
-    AppToast.success(context, '${parcel.id} cancelled');
-    context.go('/track');
+    try {
+      await _repository().cancelDelivery(delivery.displayId);
+      if (!context.mounted) return;
+
+      AppToast.success(context, '${delivery.displayId} cancelled');
+      context.go('/my-posted-parcels');
+    } on ApiException catch (e) {
+      if (!context.mounted) return;
+      AppToast.error(context, e.message);
+    } catch (_) {
+      if (!context.mounted) return;
+      AppToast.error(context, 'Unable to cancel this delivery. Please try again.');
+    } finally {
+      if (mounted) setState(() => _cancelling = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
-    final parcel = _parcel;
-    final canCancel = StaticData.canSenderCancelBeforeTravel(parcel.travelDate);
+
+    if (_loading) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: BackHeader(
+          title: 'Cancel delivery',
+          fallbackRoute: '/my-posted-parcels',
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
+      );
+    }
+
+    if (_loadError != null || _delivery == null) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: BackHeader(
+          title: 'Cancel delivery',
+          fallbackRoute: '/my-posted-parcels',
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _loadError ?? 'Delivery not found.',
+                  textAlign: TextAlign.center,
+                  style: typo.sm.copyWith(color: AppColors.textSecondary),
+                ),
+                const SizedBox(height: 16),
+                TextButton(onPressed: _load, child: const Text('Retry')),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final delivery = _delivery!;
+    final travelDate = delivery.travelDateParsed ?? DateTime.now();
+    final canCancel = StaticData.canSenderCancelBeforeTravel(travelDate);
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: BackHeader(
-        title: 'Cancel ${parcel.id}',
-        fallbackRoute: '/track',
+        title: 'Cancel ${delivery.displayId}',
+        fallbackRoute: '/my-posted-parcels',
       ),
       body: ScrollableFormScreen(
         actions: [
           AppButton(
-            label: 'Cancel delivery',
+            label: _cancelling ? 'Cancelling…' : 'Cancel delivery',
             variant: AppButtonVariant.danger,
-            onPressed: () => _confirmCancel(context),
+            onPressed: _cancelling ? null : _confirmCancel,
           ),
           AppButton(
             label: 'Keep delivery',
             variant: AppButtonVariant.ghost,
-            onPressed: () => context.pop(),
+            onPressed: _cancelling ? null : () => context.pop(),
           ),
         ],
         child: Column(
@@ -113,17 +220,17 @@ class CancelPostedDeliveryScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      parcel.route,
+                      delivery.route,
                       style: typo.h3.copyWith(fontWeight: FontWeight.w800),
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      DateFormat('MMM d, yyyy').format(parcel.travelDate),
+                      DateFormat('MMM d, yyyy').format(travelDate),
                       style: typo.sm.copyWith(color: AppColors.textSecondary),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${parcel.parcelCategory} · ${parcel.parcelWeightKg} kg',
+                      '${delivery.parcelCategory} · ${delivery.weightKg} kg',
                       style: typo.sm.copyWith(
                         color: AppColors.primary,
                         fontWeight: FontWeight.w600,

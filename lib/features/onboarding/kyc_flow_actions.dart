@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/auth/post_auth_navigation.dart';
 import '../../core/widgets/app_toast.dart';
 import '../../data/models/kyc_models.dart';
 import '../../data/notification_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/kyc_provider.dart';
+import '../../providers/wallet_provider.dart';
 
 /// KYC submission helpers — live Sumsub path + demo fallbacks.
 abstract final class KycFlowActions {
@@ -90,6 +92,24 @@ abstract final class KycFlowActions {
     NotificationService.notifyKycApproved();
     if (!context.mounted) return;
     context.go('/kyc-approved');
+  }
+
+  /// Instantly approves KYC in demo and routes into the app (skips pending review).
+  static Future<void> completeDemoAndOpenApp(BuildContext context) async {
+    final auth = context.read<AuthProvider>();
+    await auth.approveKyc();
+    NotificationService.notifyKycApproved();
+    if (!context.mounted) return;
+    try {
+      await context.read<WalletProvider>().ensureKycWelcomeCredit();
+    } catch (_) {
+      // Demo bypass — welcome credit is best-effort on live API.
+    }
+    if (!context.mounted) return;
+    await PostAuthNavigation.continueAfterAuth(
+      context,
+      offerBiometricSetup: false,
+    );
   }
 
   static Future<void> rejectDemo(BuildContext context) async {

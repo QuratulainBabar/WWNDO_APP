@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/platform/keyboard_utils.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../data/models/meetup_location.dart';
@@ -412,6 +413,7 @@ class _AddMeetupLocationsScreenState extends State<AddMeetupLocationsScreen> {
                         child: TextField(
                           controller: _searchController,
                           focusNode: _searchFocus,
+                          onTapOutside: dismissKeyboardOnTapOutside,
                           style: typo.input,
                           onChanged: _onSearchChanged,
                           textInputAction: TextInputAction.search,

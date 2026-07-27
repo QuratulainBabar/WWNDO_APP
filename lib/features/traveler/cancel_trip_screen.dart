@@ -1,65 +1,210 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
+import '../../core/api/api_exception.dart';
+import '../../core/config/demo_mode.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/back_header.dart';
+import '../../core/widgets/cancel_request_confirmation_dialog.dart';
 import '../../core/widgets/scrollable_form_screen.dart';
 import '../../data/models/traveler_trip.dart';
+import '../../data/services/trip_repository.dart';
 import '../../data/static_data.dart';
+import '../../providers/auth_provider.dart';
 
-class CancelTripScreen extends StatelessWidget {
+class CancelTripScreen extends StatefulWidget {
   const CancelTripScreen({super.key, required this.tripId});
 
   final String tripId;
 
-  TravelerTrip get _trip =>
-      StaticData.travelerTripById(tripId) ?? StaticData.travelerPostedTrips.first;
+  @override
+  State<CancelTripScreen> createState() => _CancelTripScreenState();
+}
 
-  void _confirmCancel(BuildContext context) {
+class _CancelTripScreenState extends State<CancelTripScreen> {
+  TravelerTrip? _trip;
+  bool _loading = true;
+  String? _loadError;
+  bool _cancelling = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  TripRepository _repository() {
+    final auth = context.read<AuthProvider>();
+    final demoMode = context.read<DemoModeProvider>();
+    return TripRepository(
+      apiClient: auth.repository.apiClient,
+      demoMode: demoMode,
+    );
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _loadError = null;
+    });
+
+    final demoMode = context.read<DemoModeProvider>().enabled;
+    if (demoMode) {
+      final trip = StaticData.travelerTripById(widget.tripId) ??
+          (StaticData.travelerPostedTrips.isNotEmpty
+              ? StaticData.travelerPostedTrips.first
+              : null);
+      if (!mounted) return;
+      if (trip == null) {
+        setState(() {
+          _loading = false;
+          _loadError = 'Trip not found.';
+        });
+        return;
+      }
+      setState(() {
+        _trip = trip;
+        _loading = false;
+      });
+      return;
+    }
+
+    try {
+      final trip = await _repository().getMyTrip(widget.tripId);
+      if (!mounted) return;
+      setState(() {
+        _trip = trip;
+        _loading = false;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _loadError = e.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _loadError = 'Unable to load this trip. Please try again.';
+      });
+    }
+  }
+
+  Future<void> _confirmCancel() async {
     final trip = _trip;
+    if (trip == null) return;
+
     if (!StaticData.canTravelerCancelTrip(trip)) {
       AppToast.error(context, StaticData.travelerCancelBlockedMessage);
       return;
     }
 
-    final cancelled = StaticData.tryCancelTravelerTrip(tripId);
-    if (!cancelled) {
-      AppToast.error(context, StaticData.travelerCancelBlockedMessage);
+    final confirmed = await showCancelRequestConfirmation(context);
+    if (!confirmed || !mounted) return;
+
+    final demoMode = context.read<DemoModeProvider>().enabled;
+    if (demoMode) {
+      final cancelled = StaticData.tryCancelTravelerTrip(trip.id);
+      if (!cancelled) {
+        AppToast.error(context, StaticData.travelerCancelBlockedMessage);
+        return;
+      }
+      AppToast.success(context, '${trip.displayId} cancelled');
+      context.go('/traveler-trips');
       return;
     }
 
-    AppToast.success(context, '${trip.id} cancelled');
-    context.go('/traveler-trips');
+    setState(() => _cancelling = true);
+    try {
+      await _repository().cancelTrip(trip.displayId);
+      if (!mounted) return;
+      StaticData.cancelTravelerTrip(trip.id);
+      AppToast.success(context, '${trip.displayId} cancelled');
+      context.go('/traveler-trips');
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      AppToast.error(context, e.message);
+    } catch (_) {
+      if (!mounted) return;
+      AppToast.error(context, 'Unable to cancel this trip. Please try again.');
+    } finally {
+      if (mounted) setState(() => _cancelling = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
-    final trip = _trip;
+
+    if (_loading) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: const BackHeader(
+          title: 'Cancel trip',
+          fallbackRoute: '/traveler-trips',
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
+      );
+    }
+
+    if (_loadError != null || _trip == null) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: const BackHeader(
+          title: 'Cancel trip',
+          fallbackRoute: '/traveler-trips',
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _loadError ?? 'Trip not found.',
+                  textAlign: TextAlign.center,
+                  style: typo.sm.copyWith(color: AppColors.textSecondary),
+                ),
+                const SizedBox(height: 16),
+                TextButton(onPressed: _load, child: const Text('Retry')),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final trip = _trip!;
     final canCancel = StaticData.canTravelerCancelTrip(trip);
+    final noRequests = StaticData.matchingRequestCountForTrip(trip.id) == 0 &&
+        trip.status == TripStatus.openBid;
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: BackHeader(
-        title: 'Cancel ${trip.id}',
+        title: 'Cancel ${trip.displayId}',
         fallbackRoute: '/traveler-trips',
       ),
       body: ScrollableFormScreen(
         actions: [
           AppButton(
-            label: 'Cancel trip',
+            label: _cancelling ? 'Cancelling…' : 'Cancel trip',
             variant: AppButtonVariant.danger,
-            onPressed: () => _confirmCancel(context),
+            onPressed: _cancelling ? null : _confirmCancel,
           ),
           AppButton(
             label: 'Keep trip',
             variant: AppButtonVariant.ghost,
-            onPressed: () => context.pop(),
+            onPressed: _cancelling ? null : () => context.pop(),
           ),
         ],
         child: Column(
@@ -86,8 +231,7 @@ class CancelTripScreen extends StatelessWidget {
               ),
               child: Text(
                 canCancel
-                    ? StaticData.matchingRequestCountForTrip(trip.id) == 0 &&
-                            trip.status == TripStatus.openBid
+                    ? noRequests
                         ? 'You can cancel this trip because it has no sender requests yet.'
                         : 'You can cancel this trip because it is still more than '
                             '${StaticData.travelerCancelMinHoursBeforeTravel} hours before the flight.'

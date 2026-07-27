@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../platform/keyboard_utils.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
 
@@ -65,6 +66,7 @@ class _OtpCodeFieldState extends State<OtpCodeField> {
           child: TextField(
             controller: controller,
             focusNode: widget.focusNode,
+            onTapOutside: dismissKeyboardOnTapOutside,
             keyboardType: TextInputType.number,
             maxLength: widget.length,
             autofocus: true,

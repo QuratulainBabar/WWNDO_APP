@@ -289,6 +289,7 @@ class TripFormFieldsState extends State<TripFormFields> {
                     .copyWith(fontWeight: FontWeight.w600),
                 child: TextField(
                   controller: _flightNumberController,
+                  onTap: ensureSoftKeyboardVisible,
                   onTapOutside: dismissKeyboardOnTapOutside,
                   style: context.typo.input,
                   textCapitalization: TextCapitalization.characters,

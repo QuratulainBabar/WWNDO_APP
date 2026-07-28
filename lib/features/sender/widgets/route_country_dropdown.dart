@@ -176,6 +176,7 @@ class _RouteCountryPickerSheetState extends State<_RouteCountryPickerSheet> {
               child: TextField(
                 controller: _searchController,
                 onChanged: _onSearch,
+                onTap: ensureSoftKeyboardVisible,
                 onTapOutside: dismissKeyboardOnTapOutside,
                 autofocus: true,
                 style: typo.input,

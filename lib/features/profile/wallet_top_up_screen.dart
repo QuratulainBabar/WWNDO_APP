@@ -39,6 +39,7 @@ class _WalletTopUpScreenState extends State<WalletTopUpScreen> {
   }
 
   Future<void> _pay(WalletRole role) async {
+    FocusManager.instance.primaryFocus?.unfocus();
     final cents = _parseAmountCents();
     if (cents <= 0) {
       setState(() => _error = 'Enter a valid amount');
@@ -62,7 +63,7 @@ class _WalletTopUpScreenState extends State<WalletTopUpScreen> {
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _error = e.message);
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() => _error = 'Top-up failed. Please try again.');
     } finally {
@@ -96,6 +97,7 @@ class _WalletTopUpScreenState extends State<WalletTopUpScreen> {
               labelStyle: typo.inputLabel.copyWith(fontWeight: FontWeight.w600),
               child: TextField(
                 controller: _amountController,
+                onTap: ensureSoftKeyboardVisible,
                 onTapOutside: dismissKeyboardOnTapOutside,
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),

@@ -242,6 +242,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       padding: const EdgeInsets.only(top: AppFieldSpacing.top, bottom: 12),
       child: TextFormField(
         controller: controller,
+        onTap: () => ensureSoftKeyboardVisible(retry: obscure),
         onTapOutside: dismissKeyboardOnTapOutside,
         obscureText: obscure,
         keyboardType: keyboardType,
@@ -462,6 +463,7 @@ class _LoginScreenState extends State<LoginScreen> {
       padding: EdgeInsets.only(top: AppFieldSpacing.top, bottom: context.fieldGap),
       child: TextFormField(
         controller: controller,
+        onTap: () => ensureSoftKeyboardVisible(retry: obscure),
         onTapOutside: dismissKeyboardOnTapOutside,
         obscureText: obscure,
         keyboardType: keyboardType,

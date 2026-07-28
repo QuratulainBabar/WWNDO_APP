@@ -30,6 +30,8 @@ class _DiscoverTripDetailScreenState extends State<DiscoverTripDetailScreen> {
   String? _error;
   TravelerTrip? _trip;
 
+  String get _tripId => widget.tripId.trim();
+
   @override
   void initState() {
     super.initState();
@@ -46,13 +48,22 @@ class _DiscoverTripDetailScreenState extends State<DiscoverTripDetailScreen> {
   }
 
   Future<void> _load() async {
+    final tripId = _tripId;
+    if (tripId.isEmpty) {
+      setState(() {
+        _loading = false;
+        _error = 'Trip not found.';
+      });
+      return;
+    }
+
     setState(() {
       _loading = true;
       _error = null;
     });
 
     try {
-      final trip = await _repo().getDiscoverableTrip(widget.tripId);
+      final trip = await _repo().getDiscoverableTrip(tripId);
       if (!mounted) return;
       setState(() {
         _trip = trip;
@@ -75,14 +86,19 @@ class _DiscoverTripDetailScreenState extends State<DiscoverTripDetailScreen> {
 
   void _createDelivery() {
     final trip = _trip;
-    if (trip == null) return;
-    context.push('/parcel/create', extra: trip);
+    if (trip == null || trip.status == TripStatus.cancelled) return;
+    final path = trip.isCountryToCountry
+        ? '/post-delivery/country-to-country'
+        : '/post-delivery';
+    context.push(path, extra: trip);
   }
 
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
     final trip = _trip;
+    final canSendParcel =
+        trip != null && trip.status != TripStatus.cancelled;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -130,6 +146,13 @@ class _DiscoverTripDetailScreenState extends State<DiscoverTripDetailScreen> {
                               '${trip.travelerRating!.toStringAsFixed(1)} rating'
                               '${trip.travelerReviewCount != null ? ' · ${trip.travelerReviewCount} reviews' : ''}',
                               style: typo.sm,
+                            ),
+                          ],
+                          if (trip.status == TripStatus.cancelled) ...[
+                            const SizedBox(height: 12),
+                            Text(
+                              'This trip is no longer available.',
+                              style: typo.sm.copyWith(color: AppColors.danger),
                             ),
                           ],
                           const SizedBox(height: 16),
@@ -180,14 +203,18 @@ class _DiscoverTripDetailScreenState extends State<DiscoverTripDetailScreen> {
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            'If this route works for your parcel, create a delivery and match with this traveler.',
+                            canSendParcel
+                                ? 'If this route works for your parcel, create a delivery and match with this traveler.'
+                                : 'You can still view this trip, but it can no longer accept parcels.',
                             style: typo.sm.copyWith(color: AppColors.textSecondary),
                           ),
-                          const SizedBox(height: 20),
-                          AppButton(
-                            label: 'Send parcel on this route',
-                            onPressed: _createDelivery,
-                          ),
+                          if (canSendParcel) ...[
+                            const SizedBox(height: 20),
+                            AppButton(
+                              label: 'Send parcel on this route',
+                              onPressed: _createDelivery,
+                            ),
+                          ],
                         ],
                       ),
       ),

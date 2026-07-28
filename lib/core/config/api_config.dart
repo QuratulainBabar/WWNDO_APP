@@ -8,7 +8,7 @@ class ApiConfig {
 
   static const String _configuredBase = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://172.16.11.50:3000',
+    defaultValue: 'http://192.168.100.6:3000',
   );
 
   /// Hosted / configured API origin (no trailing slash).

@@ -1,18 +1,106 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+
+import '../../core/config/demo_mode.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_svg_icon.dart';
+import '../../data/models/wallet_role.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/notification_realtime_provider.dart';
 
-class TravelerShell extends StatelessWidget {
+class TravelerShell extends StatefulWidget {
   const TravelerShell({super.key, required this.navigationShell});
 
   final StatefulNavigationShell navigationShell;
 
   @override
+  State<TravelerShell> createState() => _TravelerShellState();
+}
+
+class _TravelerShellState extends State<TravelerShell>
+    with WidgetsBindingObserver {
+  Timer? _fallbackPollTimer;
+  VoidCallback? _realtimeListener;
+  NotificationRealtimeProvider? _realtimeProvider;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _startRealtime();
+      _refreshUnread();
+    });
+    _fallbackPollTimer = Timer.periodic(const Duration(seconds: 45), (_) {
+      if (!mounted) return;
+      final realtime = context.read<NotificationRealtimeProvider>();
+      if (!realtime.isConnected) _refreshUnread();
+    });
+  }
+
+  @override
+  void dispose() {
+    _fallbackPollTimer?.cancel();
+    final realtime = _realtimeProvider;
+    if (_realtimeListener != null && realtime != null) {
+      realtime.removeListener(_realtimeListener!);
+    }
+    realtime?.stop();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _startRealtime();
+      _refreshUnread();
+    }
+  }
+
+  void _startRealtime() {
+    final auth = context.read<AuthProvider>();
+    final demoMode = context.read<DemoModeProvider>();
+    final realtime = context.read<NotificationRealtimeProvider>();
+    _realtimeProvider = realtime;
+
+    if (_realtimeListener == null) {
+      _realtimeListener = () {
+        if (mounted) setState(() {});
+      };
+      realtime.addListener(_realtimeListener!);
+    }
+
+    realtime.start(
+      role: WalletRole.traveler,
+      authRepository: auth.repository,
+      demoMode: demoMode,
+    );
+  }
+
+  Future<void> _refreshUnread() async {
+    final demoMode = context.read<DemoModeProvider>();
+    final auth = context.read<AuthProvider>();
+    await (_realtimeProvider ?? context.read<NotificationRealtimeProvider>())
+        .refreshUnread(
+      role: WalletRole.traveler,
+      authRepository: auth.repository,
+      demoMode: demoMode,
+    );
+  }
+
+  int get _unreadAlerts =>
+      context.watch<NotificationRealtimeProvider>().unreadCount;
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: navigationShell,
+      body: widget.navigationShell,
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
           color: AppColors.surface,
@@ -25,31 +113,32 @@ class TravelerShell extends StatelessWidget {
             child: Row(
               children: [
                 _Tab(
-                  navigationShell: navigationShell,
+                  navigationShell: widget.navigationShell,
                   index: 0,
                   icon: _TabIcon.svg(AppIcons.home),
                   label: 'Home',
                 ),
                 _Tab(
-                  navigationShell: navigationShell,
+                  navigationShell: widget.navigationShell,
                   index: 1,
                   icon: _TabIcon.svg(AppIcons.trips),
                   label: 'Trips',
                 ),
                 _Tab(
-                  navigationShell: navigationShell,
+                  navigationShell: widget.navigationShell,
                   index: 2,
                   icon: const _TabIcon.material(Icons.notifications_outlined),
                   label: 'Alerts',
+                  badge: _unreadAlerts,
                 ),
                 _Tab(
-                  navigationShell: navigationShell,
+                  navigationShell: widget.navigationShell,
                   index: 3,
                   icon: _TabIcon.svg(AppIcons.chat),
                   label: 'Chat',
                 ),
                 _Tab(
-                  navigationShell: navigationShell,
+                  navigationShell: widget.navigationShell,
                   index: 4,
                   icon: _TabIcon.svg(AppIcons.profile),
                   label: 'Profile',
@@ -77,12 +166,14 @@ class _Tab extends StatelessWidget {
     required this.index,
     required this.icon,
     required this.label,
+    this.badge = 0,
   });
 
   final StatefulNavigationShell navigationShell;
   final int index;
   final _TabIcon icon;
   final String label;
+  final int badge;
 
   @override
   Widget build(BuildContext context) {
@@ -96,14 +187,45 @@ class _Tab extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            if (icon.asset != null)
-              AppSvgIcon(asset: icon.asset!, size: 22, color: color)
-            else
-              Icon(icon.icon, size: 22, color: color),
-            const SizedBox(height: 3),
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                if (icon.asset != null)
+                  AppSvgIcon(asset: icon.asset!, size: 22, color: color)
+                else
+                  Icon(icon.icon, size: 22, color: color),
+                if (badge > 0)
+                  Positioned(
+                    right: -10,
+                    top: -6,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 1,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.danger,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        badge > 99 ? '99+' : '$badge',
+                        style: typo.caption.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 4),
             Text(
               label,
-              style: typo.tabLabelActive(color),
+              style: typo.caption.copyWith(
+                color: color,
+                fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+              ),
             ),
           ],
         ),

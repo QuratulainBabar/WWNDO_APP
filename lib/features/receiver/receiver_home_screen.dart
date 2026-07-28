@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -18,6 +20,7 @@ import '../../data/models/receiver_delivery_status.dart';
 import '../../data/models/wallet_role.dart';
 import '../../data/services/delivery_repository.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/notification_realtime_provider.dart';
 
 class ReceiverHomeScreen extends StatefulWidget {
   const ReceiverHomeScreen({super.key});
@@ -32,6 +35,10 @@ class _ReceiverHomeScreenState extends State<ReceiverHomeScreen>
   String? _error;
   CreatedDelivery? _active;
   String? _lastMatchedLocation;
+  VoidCallback? _realtimeListener;
+  NotificationRealtimeProvider? _realtimeProvider;
+  int _lastDeliveryUpdateTick = 0;
+  Timer? _fallbackPollTimer;
 
   @override
   void initState() {
@@ -40,7 +47,14 @@ class _ReceiverHomeScreenState extends State<ReceiverHomeScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       context.read<AuthProvider>().refreshUser();
+      _attachRealtimeListener();
       _load(silent: false);
+    });
+    _fallbackPollTimer = Timer.periodic(const Duration(seconds: 45), (_) {
+      if (!mounted) return;
+      if (!(_realtimeProvider?.isConnected ?? false)) {
+        _load(silent: _active != null);
+      }
     });
   }
 
@@ -58,8 +72,28 @@ class _ReceiverHomeScreenState extends State<ReceiverHomeScreen>
 
   @override
   void dispose() {
+    _fallbackPollTimer?.cancel();
+    if (_realtimeListener != null) {
+      _realtimeProvider?.removeListener(_realtimeListener!);
+    }
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  void _attachRealtimeListener() {
+    final realtime = context.read<NotificationRealtimeProvider>();
+    _realtimeProvider = realtime;
+    _lastDeliveryUpdateTick = realtime.deliveryUpdateTick;
+
+    _realtimeListener ??= () {
+      if (!mounted) return;
+      final tick = realtime.deliveryUpdateTick;
+      if (tick != _lastDeliveryUpdateTick) {
+        _lastDeliveryUpdateTick = tick;
+        _load(silent: _active != null);
+      }
+    };
+    realtime.addListener(_realtimeListener!);
   }
 
   @override
@@ -89,17 +123,27 @@ class _ReceiverHomeScreenState extends State<ReceiverHomeScreen>
     try {
       final list = await _repo().listDeliveries(role: 'receiver');
       if (!mounted) return;
+
+      // Prefer action-needed New Request, then other active, then latest Rejected.
       CreatedDelivery? active;
       for (final d in list) {
-        final status = ReceiverDeliveryStatus.fromDelivery(d);
-        if (!status.isPast && !status.isPendingRequest) {
+        if (ReceiverDeliveryStatus.fromDelivery(d).isPendingRequest) {
           active = d;
           break;
         }
       }
       if (active == null) {
         for (final d in list) {
-          if (!ReceiverDeliveryStatus.fromDelivery(d).isPast) {
+          final status = ReceiverDeliveryStatus.fromDelivery(d);
+          if (!status.isPast) {
+            active = d;
+            break;
+          }
+        }
+      }
+      if (active == null) {
+        for (final d in list) {
+          if (ReceiverDeliveryStatus.fromDelivery(d).label == 'Rejected') {
             active = d;
             break;
           }

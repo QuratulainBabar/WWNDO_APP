@@ -106,6 +106,7 @@ class _OtpLoginContactScreenState extends State<OtpLoginContactScreen> {
               padding: const EdgeInsets.only(top: AppFieldSpacing.top),
               child: TextField(
                 controller: _contactController,
+                onTap: ensureSoftKeyboardVisible,
                 onTapOutside: dismissKeyboardOnTapOutside,
                 keyboardType: _channel == OtpChannel.email
                     ? TextInputType.emailAddress

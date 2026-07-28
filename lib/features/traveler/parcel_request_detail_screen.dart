@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/api/api_exception.dart';
+import '../../core/config/demo_mode.dart';
 import '../../core/platform/keyboard_utils.dart';
 import '../../core/layout/responsive.dart';
 import '../../core/platform/platform_ui.dart';
@@ -16,7 +18,10 @@ import '../../core/widgets/app_labeled_field.dart';
 import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/back_header.dart';
 import '../../data/models/delivery_request.dart';
+import '../../data/models/matching_request.dart';
+import '../../data/models/sender_trip_request.dart';
 import '../../data/models/traveler_bid.dart';
+import '../../data/services/trip_repository.dart';
 import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
 
@@ -32,22 +37,18 @@ class ParcelRequestDetailScreen extends StatefulWidget {
 
 class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
   late final TextEditingController _messageController;
-
-  DeliveryRequest get _request {
-    final matching = StaticData.matchingRequestById(widget.requestId);
-    return matching?.request ?? StaticData.matchingRequests.first.request;
-  }
-
-  int? get _matchScore =>
-      StaticData.matchingRequestById(widget.requestId)?.matchScore;
-
-  String get _tripId =>
-      StaticData.matchingRequestById(widget.requestId)?.tripId ?? '';
+  bool _loading = true;
+  String? _error;
+  SenderTripRequest? _apiRequest;
+  DeliveryRequest? _request;
+  int? _matchScore;
+  String _tripId = '';
 
   @override
   void initState() {
     super.initState();
     _messageController = TextEditingController();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
   @override
@@ -56,8 +57,112 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
     super.dispose();
   }
 
+  TripRepository _repo() {
+    final auth = context.read<AuthProvider>();
+    final demoMode = context.read<DemoModeProvider>();
+    return TripRepository(
+      apiClient: auth.repository.apiClient,
+      demoMode: demoMode,
+    );
+  }
+
+  void _cacheMatching(SenderTripRequest api, DeliveryRequest request) {
+    final tripKey =
+        api.tripPublicId.isNotEmpty ? api.tripPublicId : api.tripId;
+    StaticData.matchingRequests.removeWhere((m) => m.request.id == api.id);
+    StaticData.matchingRequests.add(
+      MatchingRequest(
+        request: request,
+        matchScore: api.matchScore,
+        tripId: tripKey,
+      ),
+    );
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    // Prefer live API; fall back to static matching data (browse/demo).
+    try {
+      final api = await _repo().getSenderRequest(widget.requestId);
+      if (!mounted) return;
+      final request = api.toDeliveryRequest();
+      _cacheMatching(api, request);
+
+      // Keep Accept / Counter buttons accurate after app restart.
+      try {
+        final offers = await _repo().listCounterOffers();
+        if (!mounted) return;
+        StaticData.syncTravelerBidsFromApi(offers);
+      } catch (_) {
+        // Ignore — parcel details can still render.
+      }
+
+      setState(() {
+        _apiRequest = api;
+        _request = request;
+        _matchScore = api.matchScore;
+        _tripId = api.tripPublicId.isNotEmpty ? api.tripPublicId : api.tripId;
+        _loading = false;
+      });
+      return;
+    } catch (_) {
+      // Fall through to static.
+    }
+
+    final matching = StaticData.matchingRequestById(widget.requestId);
+    if (matching != null) {
+      if (!mounted) return;
+      setState(() {
+        _request = matching.request;
+        _matchScore = matching.matchScore;
+        _tripId = matching.tripId;
+        _loading = false;
+      });
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _loading = false;
+      _error = 'Unable to load parcel request details.';
+    });
+  }
+
   Future<void> _submitBid(double amount) async {
     final request = _request;
+    if (request == null) return;
+
+    try {
+      final offer = await _repo().sendCounterOffer(
+        requestId: widget.requestId,
+        amount: amount,
+      );
+      if (!mounted) return;
+      StaticData.upsertTravelerBid(offer);
+      FocusScope.of(context).unfocus();
+      context.push(
+        '/bid-submitted',
+        extra: {
+          'route': request.route,
+          'price': amount,
+          'tripId': _tripId,
+        },
+      );
+      return;
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      if (e.code != 'DEMO_MODE') {
+        AppToast.error(context, e.message);
+        return;
+      }
+    } catch (_) {
+      // Fall through to static demo path.
+    }
+
     final authUser = context.read<AuthProvider>().user;
     final error = StaticData.sendTravelerFinalBudget(
       request: request,
@@ -85,7 +190,9 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
   }
 
   Future<void> _acceptOffer() async {
-    await _submitBid(_request.maxBudget);
+    final request = _request;
+    if (request == null) return;
+    await _submitBid(request.maxBudget);
   }
 
   Future<void> _onSendCounterOfferTap() async {
@@ -99,12 +206,47 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
-    final request = _request;
+
+    if (_loading) {
+      return const Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: BackHeader(title: 'Parcel Request Details'),
+        body: Center(
+          child: SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.5,
+              color: AppColors.primary,
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (_error != null || _request == null) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: const BackHeader(title: 'Parcel Request Details'),
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _error ?? 'Request not found.',
+                style: typo.sm.copyWith(color: AppColors.textSecondary),
+              ),
+              TextButton(onPressed: _load, child: const Text('Retry')),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final request = _request!;
     final matchScore = _matchScore;
     final existingBid = StaticData.travelerBidForRequest(request.id);
     final canAcceptOffer = existingBid == null;
-    // Counter-offer stays available so travelers can open the budget screen
-    // even when a pending/seed bid already exists. Only block after acceptance.
     final canSendCounterOffer =
         existingBid == null || existingBid.status != TravelerBidStatus.accepted;
 
@@ -142,7 +284,7 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
                                   ),
                                 ),
                                 Text(
-                                  '★ ${request.senderRating}',
+                                  '★ ${request.senderRating > 0 ? request.senderRating.toStringAsFixed(1) : (_apiRequest?.senderRating?.toStringAsFixed(1) ?? '—')}',
                                   style: typo.sm.copyWith(
                                     color: AppColors.textPrimary,
                                   ),
@@ -210,6 +352,7 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
                         ),
                         child: TextField(
                           controller: _messageController,
+                          onTap: ensureSoftKeyboardVisible,
                           onTapOutside: dismissKeyboardOnTapOutside,
                           maxLines: 3,
                           style: typo.input,
@@ -229,7 +372,7 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
                         Text(
                           existingBid.isAccepted
                               ? 'This offer was already accepted. Counter offers are closed.'
-                              : 'You already sent a budget for this request. You can still send a counter offer.',
+                              : 'Your offer is ${existingBid.status.label}. You can still send an updated counter offer.',
                           style: typo.sm.copyWith(
                             color: existingBid.isAccepted
                                 ? AppColors.danger

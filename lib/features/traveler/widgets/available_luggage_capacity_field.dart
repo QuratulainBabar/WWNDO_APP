@@ -64,6 +64,7 @@ class _AvailableLuggageCapacityFieldState
       children: [
         TextField(
           controller: _controller,
+          onTap: ensureSoftKeyboardVisible,
           onTapOutside: dismissKeyboardOnTapOutside,
           keyboardType: TextInputType.number,
           inputFormatters: [

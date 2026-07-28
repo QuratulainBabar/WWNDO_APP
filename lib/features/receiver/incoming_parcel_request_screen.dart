@@ -298,9 +298,9 @@ class _IncomingParcelRequestScreenState
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           AppBadge(
-                            label: current.status.label,
-                            color: current.status.color,
-                            backgroundColor: current.status.backgroundColor,
+                            label: status.label,
+                            color: status.color,
+                            backgroundColor: status.backgroundColor,
                             semiBold: true,
                           ),
                           const SizedBox(height: 12),

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/config/demo_mode.dart';
+import '../../core/api/api_exception.dart';
 import '../../core/layout/responsive.dart';
 import '../../core/platform/platform_ui.dart';
 import '../../core/theme/app_colors.dart';
@@ -133,11 +134,32 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
     }
   }
 
-  void _selectTraveler(Bid bid) {
+  void _selectTraveler(Bid bid) async {
+    final demoMode = context.read<DemoModeProvider>();
+    if (!demoMode.enabled) {
+      try {
+        await _repository().requestTraveler(
+          deliveryId: widget.shipmentId,
+          tripId: bid.id,
+          matchScore: bid.routeMatchConfidence,
+        );
+      } catch (e) {
+        if (!mounted) return;
+        final message = e is ApiException
+            ? e.message
+            : 'Unable to send request to this traveler.';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+        );
+        return;
+      }
+    }
+
     StaticData.selectMatchingTraveler(
       shipmentId: widget.shipmentId,
       bid: bid,
     );
+    if (!mounted) return;
     context.push(
       '/traveler-selected-confirmation',
       extra: BidAcceptanceContext(

@@ -143,6 +143,7 @@ class _BiometricSetupScreenState extends State<BiometricSetupScreen> {
               padding: const EdgeInsets.only(top: AppFieldSpacing.top),
               child: TextField(
                 controller: _passwordController,
+                onTap: () => ensureSoftKeyboardVisible(retry: true),
                 onTapOutside: dismissKeyboardOnTapOutside,
                 obscureText: _obscurePassword,
                 textInputAction: TextInputAction.done,

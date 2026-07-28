@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
+import '../../core/api/api_exception.dart';
+import '../../core/config/demo_mode.dart';
 import '../../core/layout/responsive.dart';
 import '../../core/platform/platform_ui.dart';
 import '../../core/theme/app_colors.dart';
@@ -12,11 +15,13 @@ import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/back_header.dart';
 import '../../data/models/bid.dart';
+import '../../data/services/delivery_repository.dart';
 import '../../data/static_data.dart';
+import '../../providers/auth_provider.dart';
 import 'bid_acceptance_payment_screen.dart';
 
 /// Public traveler profile opened from Matching Travelers.
-class BidTravelerProfileScreen extends StatelessWidget {
+class BidTravelerProfileScreen extends StatefulWidget {
   const BidTravelerProfileScreen({
     super.key,
     required this.bid,
@@ -26,18 +31,65 @@ class BidTravelerProfileScreen extends StatelessWidget {
   final Bid bid;
   final String? shipmentId;
 
-  void _selectTraveler(BuildContext context) {
-    final id = shipmentId;
-    if (id == null) return;
-    StaticData.selectMatchingTraveler(shipmentId: id, bid: bid);
+  @override
+  State<BidTravelerProfileScreen> createState() =>
+      _BidTravelerProfileScreenState();
+}
+
+class _BidTravelerProfileScreenState extends State<BidTravelerProfileScreen> {
+  bool _requesting = false;
+
+  Future<void> _selectTraveler() async {
+    final id = widget.shipmentId;
+    if (id == null || _requesting) return;
+
+    final demoMode = context.read<DemoModeProvider>();
+    if (!demoMode.enabled) {
+      setState(() => _requesting = true);
+      try {
+        final auth = context.read<AuthProvider>();
+        await DeliveryRepository(
+          apiClient: auth.repository.apiClient,
+          demoMode: demoMode,
+        ).requestTraveler(
+          deliveryId: id,
+          tripId: widget.bid.id,
+          matchScore: widget.bid.routeMatchConfidence,
+        );
+      } on ApiException catch (e) {
+        if (!mounted) return;
+        setState(() => _requesting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message), behavior: SnackBarBehavior.floating),
+        );
+        return;
+      } catch (_) {
+        if (!mounted) return;
+        setState(() => _requesting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unable to send request to this traveler.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+      if (!mounted) return;
+      setState(() => _requesting = false);
+    }
+
+    StaticData.selectMatchingTraveler(shipmentId: id, bid: widget.bid);
+    if (!mounted) return;
     context.push(
       '/traveler-selected-confirmation',
-      extra: BidAcceptanceContext(bid: bid, shipmentId: id),
+      extra: BidAcceptanceContext(bid: widget.bid, shipmentId: id),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final bid = widget.bid;
+    final shipmentId = widget.shipmentId;
     final typo = context.typo;
     final travelDate = DateFormat('MMM d, yyyy').format(bid.travelDate);
     final matchColor = bid.routeMatchConfidence >= 90
@@ -46,7 +98,7 @@ class BidTravelerProfileScreen extends StatelessWidget {
             ? AppColors.primary
             : AppColors.warning;
     final shipment =
-        shipmentId == null ? null : StaticData.shipmentById(shipmentId!);
+        shipmentId == null ? null : StaticData.shipmentById(shipmentId);
     final reviewStatus = StaticData.bidReviewStatus(bid.id);
     final isSelected = reviewStatus == BidReviewStatus.deliveryRequested ||
         reviewStatus == BidReviewStatus.accepted ||
@@ -176,7 +228,7 @@ class BidTravelerProfileScreen extends StatelessWidget {
                       : isLocked
                           ? 'Unavailable'
                           : 'Send Request',
-                  onPressed: canSelect ? () => _selectTraveler(context) : null,
+                  onPressed: canSelect && !_requesting ? _selectTraveler : null,
                 ),
               ),
             ),

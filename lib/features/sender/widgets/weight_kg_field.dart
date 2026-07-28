@@ -65,6 +65,7 @@ class _WeightKgFieldState extends State<WeightKgField> {
       labelStyle: typo.inputLabel.copyWith(fontWeight: FontWeight.w600),
       child: TextField(
         controller: _controller,
+        onTap: ensureSoftKeyboardVisible,
         onTapOutside: dismissKeyboardOnTapOutside,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         inputFormatters: [

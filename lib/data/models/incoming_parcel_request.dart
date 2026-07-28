@@ -7,13 +7,13 @@ enum IncomingParcelRequestStatus { pending, accepted, rejected }
 extension IncomingParcelRequestStatusX on IncomingParcelRequestStatus {
   String get label => switch (this) {
         IncomingParcelRequestStatus.pending => 'New Request',
-        IncomingParcelRequestStatus.accepted => 'Accepted',
-        IncomingParcelRequestStatus.rejected => 'Declined',
+        IncomingParcelRequestStatus.accepted => 'Receiver Accepted',
+        IncomingParcelRequestStatus.rejected => 'Rejected',
       };
 
   Color get color => switch (this) {
         IncomingParcelRequestStatus.pending => AppColors.transit,
-        IncomingParcelRequestStatus.accepted => AppColors.success,
+        IncomingParcelRequestStatus.accepted => const Color(0xFF0D9488),
         IncomingParcelRequestStatus.rejected => AppColors.danger,
       };
 

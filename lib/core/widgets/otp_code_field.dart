@@ -28,6 +28,10 @@ class _OtpCodeFieldState extends State<OtpCodeField> {
   void initState() {
     super.initState();
     widget.controller.addListener(_onControllerChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      requestSoftKeyboard(widget.focusNode);
+    });
   }
 
   @override
@@ -66,6 +70,7 @@ class _OtpCodeFieldState extends State<OtpCodeField> {
           child: TextField(
             controller: controller,
             focusNode: widget.focusNode,
+            onTap: ensureSoftKeyboardVisible,
             onTapOutside: dismissKeyboardOnTapOutside,
             keyboardType: TextInputType.number,
             maxLength: widget.length,

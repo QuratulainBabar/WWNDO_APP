@@ -3,6 +3,7 @@ import '../../core/theme/app_colors.dart';
 
 enum ShipmentStatus {
   open,
+  receiverAccepted,
   bidAccepted,
   photosUploaded,
   collected,
@@ -56,6 +57,7 @@ extension SenderPostedPhaseX on SenderPostedPhase {
 extension ShipmentStatusX on ShipmentStatus {
   String get label => switch (this) {
         ShipmentStatus.open => 'Open',
+        ShipmentStatus.receiverAccepted => 'Receiver Accepted',
         ShipmentStatus.bidAccepted => 'Traveler Selected',
         ShipmentStatus.photosUploaded => 'Photos Uploaded',
         ShipmentStatus.collected => 'Collected',
@@ -66,6 +68,7 @@ extension ShipmentStatusX on ShipmentStatus {
 
   Color get color => switch (this) {
         ShipmentStatus.open => AppColors.success,
+        ShipmentStatus.receiverAccepted => const Color(0xFF0D9488),
         ShipmentStatus.bidAccepted => AppColors.primary,
         ShipmentStatus.photosUploaded => AppColors.primary,
         ShipmentStatus.collected => AppColors.warning,
@@ -162,10 +165,10 @@ class Shipment {
 
   int get currentStepIndex => trackingProgress;
 
-  /// Lifecycle steps shown on the status timeline.
+  /// Lifecycle steps shown on the status timeline (step 2 label is dynamic via [DeliveryTracking]).
   static const trackingSteps = [
     'Open',
-    'Traveler Selected',
+    'Receiver Accepted',
     'Collected',
     'In Transit',
     'Delivered',
@@ -174,6 +177,7 @@ class Shipment {
   /// Progress through [trackingSteps]: 0 before open, 5 when delivered.
   int get trackingProgress => switch (status) {
         ShipmentStatus.open => 1,
+        ShipmentStatus.receiverAccepted => 2,
         ShipmentStatus.bidAccepted => 2,
         ShipmentStatus.photosUploaded => 2,
         ShipmentStatus.collected => 3,

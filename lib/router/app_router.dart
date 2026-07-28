@@ -33,7 +33,6 @@ import '../features/sender/traveler_selected_confirmation_screen.dart';
 import '../features/sender/negotiate_meetup_screen.dart';
 import '../features/sender/discover_travelers_screen.dart';
 import '../features/sender/discover_trip_detail_screen.dart';
-import '../features/sender/parcel_creation_wizard_screen.dart';
 import '../features/sender/sender_chat_screen.dart';
 import '../features/sender/country_to_country_post_delivery_screen.dart';
 import '../features/sender/add_meetup_locations_screen.dart';
@@ -467,19 +466,33 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/parcel/create',
       parentNavigatorKey: _rootNavigatorKey,
-      builder: (_, state) => ParcelCreationWizardScreen(
-        initialTrip: state.extra as TravelerTrip?,
-      ),
+      builder: (_, state) {
+        final trip = state.extra is TravelerTrip
+            ? state.extra as TravelerTrip
+            : null;
+        if (trip?.isCountryToCountry == true) {
+          return CountryToCountryPostDeliveryScreen(initialTrip: trip);
+        }
+        return PostDeliveryScreen(initialTrip: trip);
+      },
     ),
     GoRoute(
       path: '/post-delivery',
       parentNavigatorKey: _rootNavigatorKey,
-      builder: (_, __) => const PostDeliveryScreen(),
+      builder: (_, state) => PostDeliveryScreen(
+        initialTrip: state.extra is TravelerTrip
+            ? state.extra as TravelerTrip
+            : null,
+      ),
     ),
     GoRoute(
       path: '/post-delivery/country-to-country',
       parentNavigatorKey: _rootNavigatorKey,
-      builder: (_, __) => const CountryToCountryPostDeliveryScreen(),
+      builder: (_, state) => CountryToCountryPostDeliveryScreen(
+        initialTrip: state.extra is TravelerTrip
+            ? state.extra as TravelerTrip
+            : null,
+      ),
     ),
     GoRoute(
       path: '/add-meetup-locations',
@@ -733,9 +746,19 @@ final appRouter = GoRouter(
       builder: (_, __) => const TravelerMyBidsScreen(),
     ),
     GoRoute(
+      path: '/traveler-bid-detail/:id',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (_, state) => TravelerBidDetailScreen(
+        offerId: state.pathParameters['id'],
+        bid: state.extra is TravelerBid ? state.extra as TravelerBid : null,
+      ),
+    ),
+    GoRoute(
       path: '/traveler-bid-detail',
       parentNavigatorKey: _rootNavigatorKey,
-      builder: (_, state) => TravelerBidDetailScreen(bid: state.extra! as TravelerBid),
+      builder: (_, state) => TravelerBidDetailScreen(
+        bid: state.extra is TravelerBid ? state.extra as TravelerBid : null,
+      ),
     ),
     GoRoute(
       path: '/traveler-chat',

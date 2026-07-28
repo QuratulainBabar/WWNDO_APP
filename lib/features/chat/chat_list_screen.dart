@@ -141,6 +141,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
             const SizedBox(height: 16),
             TextField(
               controller: _searchController,
+              onTap: ensureSoftKeyboardVisible,
               onTapOutside: dismissKeyboardOnTapOutside,
               textInputAction: TextInputAction.search,
               onChanged: (value) => setState(() => _query = value),

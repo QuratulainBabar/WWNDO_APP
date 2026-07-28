@@ -1019,9 +1019,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               _tile(
                 'Top up via Stripe',
-                onTap: () => context.push(
-                  _routeWithRole('/wallet/top-up', roleParam),
-                ),
+                onTap: () {
+                  FocusManager.instance.primaryFocus?.unfocus();
+                  context.push(
+                    _routeWithRole('/wallet/top-up', roleParam),
+                  );
+                },
               ),
               if (WalletRole.fromQuery(roleParam) != WalletRole.sender)
                 _tile(
@@ -1107,13 +1110,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border),
       ),
-      child: Column(
-        children: [
-          for (var i = 0; i < children.length; i++) ...[
-            children[i],
-            if (i < children.length - 1) const Divider(height: 1),
+      clipBehavior: Clip.antiAlias,
+      child: Material(
+        color: AppColors.surface,
+        child: Column(
+          children: [
+            for (var i = 0; i < children.length; i++) ...[
+              children[i],
+              if (i < children.length - 1) const Divider(height: 1),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -1337,9 +1344,14 @@ class _WalletScreenState extends State<WalletScreen> {
                           child: AppButton(
                             label: 'Top up (Stripe)',
                             small: true,
-                            onPressed: () => context.push(
-                              _routeWithRole('/wallet/top-up', role),
-                            ),
+                            onPressed: () {
+                              // Unfocus first so MIUI phantom insets don't
+                              // block the next screen's layout / Pay CTA.
+                              FocusManager.instance.primaryFocus?.unfocus();
+                              context.push(
+                                _routeWithRole('/wallet/top-up', role),
+                              );
+                            },
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -1369,6 +1381,7 @@ class _WalletScreenState extends State<WalletScreen> {
                         padding: const EdgeInsets.only(top: AppFieldSpacing.top),
                         child: TextField(
                           controller: _amountController,
+                          onTap: ensureSoftKeyboardVisible,
                           onTapOutside: dismissKeyboardOnTapOutside,
                           keyboardType: const TextInputType.numberWithOptions(
                             decimal: true,

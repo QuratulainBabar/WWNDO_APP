@@ -6,7 +6,9 @@ import '../platform/platform_ui.dart';
 ///
 /// When [keyboardDismiss] is true, dragging the scroll view dismisses the
 /// keyboard. Do not wrap the body in a [GestureDetector] that unfocuses on tap —
-/// that races with text field focus on MIUI / ColorOS devices.
+/// that races with text field focus on MIUI / ColorOS devices
+/// (flutter/flutter#185675). Keyboard inset is handled by Scaffold resize;
+/// [pagePaddingWithKeyboard] only adds a small cushion, not a second full inset.
 class ScreenBody extends StatelessWidget {
   const ScreenBody({
     super.key,

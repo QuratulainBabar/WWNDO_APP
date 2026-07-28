@@ -16,10 +16,10 @@ import '../../core/widgets/wallet_card.dart';
 import '../../data/models/created_delivery.dart';
 import '../../data/models/wallet_role.dart';
 import '../../data/services/delivery_repository.dart';
-import '../../data/services/notification_repository.dart';
 import '../../core/auth/auth_verification_guard.dart';
 import '../../core/auth/kyc_verification_guard.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/notification_realtime_provider.dart';
 import '../sender/delivery_posting_actions.dart';
 import '../sender/sender_delivery_status.dart';
 
@@ -108,7 +108,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   String? _activeError;
   List<CreatedDelivery>? _activeDeliveries;
   Map<String, int> _matchingTravelerCounts = {};
-  int _unreadNotifications = 0;
   String? _lastMatchedLocation;
   Timer? _notificationPollTimer;
 
@@ -124,6 +123,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       context.read<AuthProvider>().refreshUser();
+      _startNotificationRealtime();
       _loadUnreadNotifications();
     });
     _notificationPollTimer = Timer.periodic(const Duration(seconds: 20), (_) {
@@ -162,8 +162,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _loadActiveDeliveries(silent: true);
+      _startNotificationRealtime();
       _loadUnreadNotifications();
     }
+  }
+
+  void _startNotificationRealtime() {
+    final auth = context.read<AuthProvider>();
+    final demoMode = context.read<DemoModeProvider>();
+    context.read<NotificationRealtimeProvider>().start(
+          role: WalletRole.sender,
+          authRepository: auth.repository,
+          demoMode: demoMode,
+        );
   }
 
   DeliveryRepository _deliveryRepository() {
@@ -175,22 +186,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  NotificationRepository _notificationRepository() {
+  Future<void> _loadUnreadNotifications() async {
     final auth = context.read<AuthProvider>();
     final demoMode = context.read<DemoModeProvider>();
-    return NotificationRepository(
-      apiClient: auth.repository.apiClient,
-      demoMode: demoMode,
-    );
-  }
-
-  Future<void> _loadUnreadNotifications() async {
     try {
-      final count = await _notificationRepository().unreadCount(
-        role: WalletRole.sender,
-      );
-      if (!mounted) return;
-      setState(() => _unreadNotifications = count);
+      await context.read<NotificationRealtimeProvider>().refreshUnread(
+            role: WalletRole.sender,
+            authRepository: auth.repository,
+            demoMode: demoMode,
+          );
     } catch (_) {
       // Badge is non-critical; keep last known count.
     }
@@ -364,6 +368,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final typo = context.typo;
     final authUser = context.watch<AuthProvider>().user;
+    final unreadNotifications =
+        context.watch<NotificationRealtimeProvider>().unreadCount;
     final firstName = (authUser?.firstName.trim().isNotEmpty ?? false)
         ? authUser!.firstName
         : 'there';
@@ -452,7 +458,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               title: 'Notifications',
               subtitle: 'View delivery updates and important alerts.',
               route: '/sender-notifications',
-              badge: _unreadNotifications,
+              badge: unreadNotifications,
               refreshUnreadOnReturn: true,
             ),
             SizedBox(height: context.blockGap),

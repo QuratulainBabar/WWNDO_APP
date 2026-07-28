@@ -60,6 +60,7 @@ class AccountVerificationScreen extends StatelessWidget {
           label: 'Phone',
           child: TextField(
             controller: controller,
+            onTap: ensureSoftKeyboardVisible,
             onTapOutside: dismissKeyboardOnTapOutside,
             keyboardType: TextInputType.phone,
             decoration: const InputDecoration(hintText: '+33 612 345 678'),

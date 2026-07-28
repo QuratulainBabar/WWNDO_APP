@@ -292,6 +292,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           labelStyle: typo.inputLabel.copyWith(fontWeight: FontWeight.w700),
           child: TextField(
             controller: _nameController,
+            onTap: ensureSoftKeyboardVisible,
             onTapOutside: dismissKeyboardOnTapOutside,
             style: typo.input,
             decoration: InputDecoration(
@@ -305,6 +306,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           labelStyle: typo.inputLabel.copyWith(fontWeight: FontWeight.w700),
           child: TextField(
             controller: _emailController,
+            onTap: ensureSoftKeyboardVisible,
             onTapOutside: dismissKeyboardOnTapOutside,
             keyboardType: TextInputType.emailAddress,
             style: typo.input,
@@ -533,6 +535,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       padding: const EdgeInsets.only(top: AppFieldSpacing.top, bottom: 12),
       child: TextField(
         controller: controller,
+        onTap: () => ensureSoftKeyboardVisible(retry: true),
         onTapOutside: dismissKeyboardOnTapOutside,
         obscureText: obscure,
         style: typo.input,

@@ -95,6 +95,28 @@ class DeliveryRepository {
     return CreatedDelivery.fromJson(data);
   }
 
+  /// POST /api/v1/deliveries/:id/request-traveler
+  Future<void> requestTraveler({
+    required String deliveryId,
+    required String tripId,
+    int matchScore = 0,
+  }) async {
+    if (_isDemoMode) {
+      throw const ApiException(
+        message: 'Request traveler is unavailable in demo mode.',
+        code: 'DEMO_MODE',
+      );
+    }
+    await _apiClient.post(
+      '/deliveries/$deliveryId/request-traveler',
+      authenticated: true,
+      body: {
+        'tripId': tripId,
+        'matchScore': matchScore,
+      },
+    );
+  }
+
   /// POST /api/v1/deliveries/:id/decline
   Future<CreatedDelivery> declineAsReceiver(String id) async {
     if (_isDemoMode) {

@@ -9,6 +9,7 @@ import '../../core/widgets/app_button.dart';
 import '../../core/widgets/back_header.dart';
 import '../../core/widgets/scrollable_form_screen.dart';
 import '../../data/models/created_delivery.dart';
+import '../../data/models/traveler_trip.dart';
 import '../../data/services/delivery_repository.dart';
 import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
@@ -16,7 +17,9 @@ import 'delivery_posting_actions.dart';
 import 'widgets/delivery_form_fields.dart';
 
 class PostDeliveryScreen extends StatefulWidget {
-  const PostDeliveryScreen({super.key});
+  const PostDeliveryScreen({super.key, this.initialTrip});
+
+  final TravelerTrip? initialTrip;
 
   @override
   State<PostDeliveryScreen> createState() => _PostDeliveryScreenState();
@@ -88,11 +91,14 @@ class _PostDeliveryScreenState extends State<PostDeliveryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final fromTrip = widget.initialTrip != null;
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: const BackHeader(
+      appBar: BackHeader(
         title: 'Post delivery',
-        fallbackRoute: '/delivery-type',
+        fallbackRoute: fromTrip
+            ? '/discover-trips/${widget.initialTrip!.displayId}'
+            : '/delivery-type',
       ),
       body: ScrollableFormScreen(
         actions: [
@@ -104,6 +110,7 @@ class _PostDeliveryScreenState extends State<PostDeliveryScreen> {
         child: DeliveryFormFields(
           key: _formKey,
           deliveryType: DeliveryType.cityToCity,
+          initialTrip: widget.initialTrip,
         ),
       ),
     );

@@ -121,6 +121,7 @@ String? backFallbackFor(String path) {
     return '/matching-requests';
   }
   if (path.startsWith('/matching-requests/')) return '/matching-requests';
+  if (path.startsWith('/traveler-bid-detail')) return '/traveler-bids';
   if (path.startsWith('/edit-posted-delivery/')) return '/my-posted-parcels';
   if (path.startsWith('/edit-trip/')) return '/traveler-trips';
   if (path.startsWith('/cancel-trip/')) return '/traveler-trips';

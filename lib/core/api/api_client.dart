@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:cross_file/cross_file.dart';
@@ -31,11 +32,15 @@ class ApiClient {
     http.Client? httpClient,
     this.getAccessToken,
     this.refreshTokens,
+    this.timeout = const Duration(seconds: 20),
   }) : _http = httpClient ?? http.Client();
 
   final http.Client _http;
   final TokenProvider? getAccessToken;
   final TokenRefresher? refreshTokens;
+
+  /// Caps hung requests (common on Xiaomi when the LAN host is unreachable).
+  final Duration timeout;
 
   Future<Map<String, dynamic>> get(
     String path, {
@@ -145,9 +150,9 @@ class ApiClient {
           headers,
           multipartFields ?? const {},
           multipartFiles,
-        );
+        ).timeout(timeout);
       } else {
-        response = await _send(method, uri, headers, body);
+        response = await _send(method, uri, headers, body).timeout(timeout);
       }
     } on ApiException {
       rethrow;
@@ -155,6 +160,11 @@ class ApiClient {
       throw const ApiException(
         message: 'Unable to reach the server. Check your connection and try again.',
         code: 'NETWORK_ERROR',
+      );
+    } on TimeoutException {
+      throw const ApiException(
+        message: 'Request timed out. Check your connection and try again.',
+        code: 'TIMEOUT',
       );
     } catch (e) {
       if (kDebugMode) {

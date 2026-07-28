@@ -58,6 +58,7 @@ class InternationalPhoneField extends StatelessWidget {
           const EdgeInsets.only(top: AppFieldSpacing.top, bottom: 12),
       child: TextFormField(
         controller: controller,
+        onTap: ensureSoftKeyboardVisible,
         onTapOutside: dismissKeyboardOnTapOutside,
         keyboardType: TextInputType.phone,
         textInputAction: textInputAction,
@@ -170,6 +171,7 @@ class _CountryPickerSheetState extends State<_CountryPickerSheet> {
               child: TextField(
                 controller: _searchController,
                 onChanged: _onSearch,
+                onTap: ensureSoftKeyboardVisible,
                 onTapOutside: dismissKeyboardOnTapOutside,
                 autofocus: true,
                 style: typo.input,

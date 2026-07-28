@@ -58,6 +58,7 @@ class ChatComposer extends StatelessWidget {
             Expanded(
               child: TextField(
                 controller: controller,
+                onTap: ensureSoftKeyboardVisible,
                 onTapOutside: dismissKeyboardOnTapOutside,
                 enabled: enabled,
                 textInputAction: TextInputAction.send,

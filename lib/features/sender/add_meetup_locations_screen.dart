@@ -68,14 +68,14 @@ class _AddMeetupLocationsScreenState extends State<AddMeetupLocationsScreen> {
       _mode = _PickerMode.search;
       _editingStopIndex = _stops.isEmpty ? null : 0;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _searchFocus.requestFocus();
+        if (mounted) requestSoftKeyboard(_searchFocus);
       });
     } else if (_stops.isNotEmpty) {
       _mode = _PickerMode.multiStop;
     } else {
       _mode = _PickerMode.search;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _searchFocus.requestFocus();
+        if (mounted) requestSoftKeyboard(_searchFocus);
       });
     }
   }
@@ -99,7 +99,7 @@ class _AddMeetupLocationsScreenState extends State<AddMeetupLocationsScreen> {
       _searchController.clear();
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _searchFocus.requestFocus();
+      if (mounted) requestSoftKeyboard(_searchFocus);
     });
   }
 
@@ -194,7 +194,7 @@ class _AddMeetupLocationsScreenState extends State<AddMeetupLocationsScreen> {
         _mode = _PickerMode.search;
         _editingStopIndex = null;
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _searchFocus.requestFocus();
+          if (mounted) requestSoftKeyboard(_searchFocus);
         });
       }
     });
@@ -413,6 +413,7 @@ class _AddMeetupLocationsScreenState extends State<AddMeetupLocationsScreen> {
                         child: TextField(
                           controller: _searchController,
                           focusNode: _searchFocus,
+                          onTap: ensureSoftKeyboardVisible,
                           onTapOutside: dismissKeyboardOnTapOutside,
                           style: typo.input,
                           onChanged: _onSearchChanged,

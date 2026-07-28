@@ -156,6 +156,7 @@ class _EditPostedDeliveryScreenState extends State<EditPostedDeliveryScreen> {
         fallbackRoute: '/my-posted-parcels',
       ),
       body: ScrollableFormScreen(
+        pinActions: false,
         actions: [
           AppButton(
             label: _saving ? 'Saving…' : 'Save changes',

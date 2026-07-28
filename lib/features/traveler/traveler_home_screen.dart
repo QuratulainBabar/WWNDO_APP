@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -18,6 +20,7 @@ import '../../data/models/wallet_role.dart';
 import '../../data/services/trip_repository.dart';
 import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/notification_realtime_provider.dart';
 import 'trip_posting_actions.dart';
 
 class TravelerHomeScreen extends StatefulWidget {
@@ -31,14 +34,25 @@ class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
   String? _lastMatchedLocation;
   final GlobalKey<_MyTripsSectionState> _tripsKey =
       GlobalKey<_MyTripsSectionState>();
+  VoidCallback? _realtimeListener;
+  NotificationRealtimeProvider? _realtimeProvider;
+  int _lastDeliveryUpdateTick = 0;
+  Timer? _fallbackPollTimer;
 
   @override
   void initState() {
     super.initState();
-    // Keep greeting in sync with `/auth/me` (name/rating from API).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       context.read<AuthProvider>().refreshUser();
+      _attachRealtimeListener();
+      _refreshSenderRequestBadge();
+    });
+    _fallbackPollTimer = Timer.periodic(const Duration(seconds: 45), (_) {
+      if (!mounted) return;
+      if (!(_realtimeProvider?.isConnected ?? false)) {
+        _refreshSenderRequestBadge();
+      }
     });
   }
 
@@ -51,13 +65,61 @@ class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
         if (!mounted) return;
         context.read<AuthProvider>().refreshUser();
         _tripsKey.currentState?.reload(silent: true);
+        _refreshSenderRequestBadge();
       });
     }
     _lastMatchedLocation = location;
   }
 
+  @override
+  void dispose() {
+    _fallbackPollTimer?.cancel();
+    if (_realtimeListener != null) {
+      _realtimeProvider?.removeListener(_realtimeListener!);
+    }
+    super.dispose();
+  }
+
+  void _attachRealtimeListener() {
+    final realtime = context.read<NotificationRealtimeProvider>();
+    _realtimeProvider = realtime;
+    _lastDeliveryUpdateTick = realtime.deliveryUpdateTick;
+    _realtimeListener ??= () {
+      if (!mounted) return;
+      final tick = realtime.deliveryUpdateTick;
+      if (tick != _lastDeliveryUpdateTick) {
+        _lastDeliveryUpdateTick = tick;
+        _refreshSenderRequestBadge();
+      }
+    };
+    realtime.addListener(_realtimeListener!);
+  }
+
+  TripRepository _tripRepo() {
+    final auth = context.read<AuthProvider>();
+    final demoMode = context.read<DemoModeProvider>();
+    return TripRepository(
+      apiClient: auth.repository.apiClient,
+      demoMode: demoMode,
+    );
+  }
+
+  Future<void> _refreshSenderRequestBadge() async {
+    final demoMode = context.read<DemoModeProvider>();
+    if (demoMode.enabled) return;
+
+    try {
+      final count = await _tripRepo().countSenderRequests();
+      if (!mounted) return;
+      context.read<NotificationRealtimeProvider>().setSenderRequestUnreadCount(
+            count,
+          );
+    } catch (_) {
+      // Keep last known badge count; home should stay usable offline.
+    }
+  }
+
   void _onCreateTrip() {
-    // Wallet balance gate first — must not be masked by auth/KYC dialogs.
     if (!TripPostingActions.ensureWalletAllowsTripCreation(context)) return;
     if (!AuthVerificationGuard.ensureVerifiedForTransaction(context)) return;
     if (!KycVerificationGuard.ensureKycApproved(context)) return;
@@ -68,6 +130,8 @@ class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
   Widget build(BuildContext context) {
     final typo = context.typo;
     final authUser = context.watch<AuthProvider>().user;
+    final senderRequestCount =
+        context.watch<NotificationRealtimeProvider>().senderRequestUnreadCount;
     final firstName = (authUser?.firstName.trim().isNotEmpty ?? false)
         ? authUser!.firstName
         : 'there';
@@ -98,7 +162,6 @@ class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
                     ],
                   ),
                 ),
-                // Wallet is already wired to live balance — leave unchanged.
                 WalletCard(role: WalletRole.traveler),
               ],
             ),
@@ -152,7 +215,11 @@ class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
                   context,
                   AppIcons.roleSender,
                   'Sender Requests',
-                  () => context.push('/matching-requests'),
+                  () async {
+                    await context.push('/matching-requests');
+                    if (mounted) _refreshSenderRequestBadge();
+                  },
+                  badgeCount: senderRequestCount,
                 ),
                 const SizedBox(width: 10),
                 _quickAction(
@@ -186,8 +253,9 @@ class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
     BuildContext context,
     String iconAsset,
     String label,
-    VoidCallback onTap,
-  ) {
+    VoidCallback onTap, {
+    int badgeCount = 0,
+  }) {
     final typo = context.typo;
     return Expanded(
       child: GestureDetector(
@@ -200,22 +268,42 @@ class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: AppColors.border),
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+          child: Stack(
+            clipBehavior: Clip.none,
             children: [
-              AppSvgIcon(asset: iconAsset, size: 28, color: AppColors.primary),
-              const SizedBox(height: 10),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                style: typo.actionLabel.copyWith(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
-                  height: 1.2,
+              Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    AppSvgIcon(asset: iconAsset, size: 28, color: AppColors.primary),
+                    const SizedBox(height: 10),
+                    Text(
+                      label,
+                      textAlign: TextAlign.center,
+                      style: typo.sm.copyWith(fontWeight: FontWeight.w600),
+                    ),
+                  ],
                 ),
-                maxLines: 2,
               ),
+              if (badgeCount > 0)
+                Positioned(
+                  top: -4,
+                  right: 4,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.danger,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      badgeCount > 99 ? '99+' : '$badgeCount',
+                      style: typo.caption.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
@@ -475,3 +563,4 @@ class _TripCard extends StatelessWidget {
     );
   }
 }
+

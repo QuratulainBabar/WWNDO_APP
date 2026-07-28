@@ -119,6 +119,7 @@ class _ReceiverInfoSectionState extends State<ReceiverInfoSection> {
           labelStyle: typo.inputLabel.copyWith(fontWeight: FontWeight.w600),
           child: TextField(
             controller: _emailController,
+            onTap: ensureSoftKeyboardVisible,
             onTapOutside: dismissKeyboardOnTapOutside,
             keyboardType: TextInputType.emailAddress,
             textInputAction: TextInputAction.next,

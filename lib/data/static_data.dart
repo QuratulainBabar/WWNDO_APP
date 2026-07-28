@@ -164,6 +164,7 @@ abstract final class StaticData {
     // Active / confirmed shipments: map old status labels to new flow wording.
     if (status != ShipmentStatus.open) {
       return switch (status) {
+        ShipmentStatus.receiverAccepted => null,
         ShipmentStatus.bidAccepted ||
         ShipmentStatus.photosUploaded =>
           SenderPostedPhase.travelerSelected,
@@ -368,8 +369,9 @@ abstract final class StaticData {
     final initial = travelerName.isNotEmpty ? travelerName[0].toUpperCase() : 'T';
     final matchScore = matchingRequestById(request.id)?.matchScore ?? 90;
 
-    // Record traveler-side bid (My Bids) when missing.
-    if (travelerBidForRequest(request.id) == null) {
+    // Record / revise traveler-side counter offer (My Bids).
+    final existingTravelerBid = travelerBidForRequest(request.id);
+    if (existingTravelerBid == null) {
       travelerBids.add(
         TravelerBid(
           id: 'tb-$_nextTravelerBidId',
@@ -388,6 +390,27 @@ abstract final class StaticData {
       );
       _nextTravelerBidId++;
       travelerBidsVersion.value++;
+    } else if (existingTravelerBid.status == TravelerBidStatus.pending ||
+        existingTravelerBid.status == TravelerBidStatus.updated) {
+      final index = travelerBids.indexWhere((b) => b.id == existingTravelerBid.id);
+      if (index >= 0) {
+        travelerBids[index] = TravelerBid(
+          id: existingTravelerBid.id,
+          requestId: existingTravelerBid.requestId,
+          tripId: existingTravelerBid.tripId,
+          senderName: existingTravelerBid.senderName,
+          senderInitial: existingTravelerBid.senderInitial,
+          fromCity: existingTravelerBid.fromCity,
+          toCity: existingTravelerBid.toCity,
+          deliveryDate: existingTravelerBid.deliveryDate,
+          amount: amount,
+          status: TravelerBidStatus.updated,
+          sentAt: DateTime.now(),
+          parcelPhotoCount: existingTravelerBid.parcelPhotoCount,
+          deliveryPublicId: existingTravelerBid.deliveryPublicId,
+        );
+        travelerBidsVersion.value++;
+      }
     }
 
     final existingProposal = finalBudgetProposalsByShipmentId[shipmentId];
@@ -3579,8 +3602,14 @@ abstract final class StaticData {
   }
 
   static int effectiveStepIndex(Shipment shipment) {
-    return switch (effectiveStatus(shipment)) {
+    final status = effectiveStatus(shipment);
+    if (status == ShipmentStatus.open &&
+        receiverAcceptedShipmentIds.contains(shipment.id)) {
+      return 2;
+    }
+    return switch (status) {
       ShipmentStatus.open => 1,
+      ShipmentStatus.receiverAccepted => 2,
       ShipmentStatus.bidAccepted => 2,
       ShipmentStatus.photosUploaded => 2,
       ShipmentStatus.collected => 3,
@@ -3796,6 +3825,33 @@ abstract final class StaticData {
       if (bid.id == id) return bid;
     }
     return null;
+  }
+
+  /// Upserts an API-backed counter offer into the local traveler bids list.
+  static void upsertTravelerBid(TravelerBid offer) {
+    final byId = travelerBids.indexWhere((b) => b.id == offer.id);
+    if (byId >= 0) {
+      travelerBids[byId] = offer;
+      travelerBidsVersion.value++;
+      return;
+    }
+    final byRequest =
+        travelerBids.indexWhere((b) => b.requestId == offer.requestId);
+    if (byRequest >= 0) {
+      travelerBids[byRequest] = offer;
+      travelerBidsVersion.value++;
+      return;
+    }
+    travelerBids.insert(0, offer);
+    travelerBidsVersion.value++;
+  }
+
+  /// Replaces local traveler bids with the latest API list (keeps order).
+  static void syncTravelerBidsFromApi(List<TravelerBid> offers) {
+    travelerBids
+      ..clear()
+      ..addAll(offers);
+    travelerBidsVersion.value++;
   }
 
   static const travelerChatMessages = [

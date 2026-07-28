@@ -27,6 +27,7 @@ class DescriptionField extends StatelessWidget {
       labelStyle: typo.inputLabel.copyWith(fontWeight: FontWeight.w600),
       child: TextField(
         controller: controller,
+        onTap: ensureSoftKeyboardVisible,
         onTapOutside: dismissKeyboardOnTapOutside,
         maxLines: 3,
         minLines: 3,

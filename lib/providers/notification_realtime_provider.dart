@@ -9,7 +9,7 @@ import '../data/services/auth_repository.dart';
 import '../data/services/notification_realtime_service.dart';
 import '../data/services/notification_repository.dart';
 
-/// Keeps receiver/sender notification badges and inbox in sync via SSE.
+/// Keeps sender / traveler / receiver notification badges and inbox in sync via SSE.
 class NotificationRealtimeProvider extends ChangeNotifier {
   NotificationRealtimeProvider({
     NotificationRealtimeService? realtimeService,
@@ -20,11 +20,16 @@ class NotificationRealtimeProvider extends ChangeNotifier {
 
   WalletRole? _activeRole;
   int _unreadCount = 0;
+  int _senderRequestUnreadCount = 0;
+  int _deliveryUpdateTick = 0;
   bool _connected = false;
   StreamSubscription<AppNotification>? _notificationSub;
   StreamSubscription<int>? _unreadSub;
 
   int get unreadCount => _unreadCount;
+  /// Traveler home "Sender Requests" quick-action badge (unread pending requests).
+  int get senderRequestUnreadCount => _senderRequestUnreadCount;
+  int get deliveryUpdateTick => _deliveryUpdateTick;
   bool get isConnected => _connected;
   WalletRole? get activeRole => _activeRole;
 
@@ -66,6 +71,9 @@ class NotificationRealtimeProvider extends ChangeNotifier {
     _notificationSub = _realtimeService.onNotification.listen((notification) {
       _recentIncoming.removeWhere((item) => item.id == notification.id);
       _recentIncoming.insert(0, notification);
+      if (notification.isDeliveryRelated) {
+        _deliveryUpdateTick++;
+      }
       notifyListeners();
     });
 
@@ -113,6 +121,14 @@ class NotificationRealtimeProvider extends ChangeNotifier {
     }
   }
 
+  void setSenderRequestUnreadCount(int count) {
+    final next = count < 0 ? 0 : count;
+    if (_senderRequestUnreadCount != next) {
+      _senderRequestUnreadCount = next;
+      notifyListeners();
+    }
+  }
+
   Future<void> stop() async {
     await _notificationSub?.cancel();
     await _unreadSub?.cancel();
@@ -121,6 +137,8 @@ class NotificationRealtimeProvider extends ChangeNotifier {
     await _realtimeService.disconnect();
     _connected = false;
     _activeRole = null;
+    _deliveryUpdateTick = 0;
+    _senderRequestUnreadCount = 0;
     _recentIncoming.clear();
     notifyListeners();
   }

@@ -324,6 +324,7 @@ class _ParcelCreationWizardScreenState extends State<ParcelCreationWizardScreen>
         AppLabeledField(
           label: 'Budget (USD)',
           child: TextField(
+            onTap: ensureSoftKeyboardVisible,
             onTapOutside: dismissKeyboardOnTapOutside,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}'))],
@@ -353,6 +354,7 @@ class _ParcelCreationWizardScreenState extends State<ParcelCreationWizardScreen>
         AppLabeledField(
           label: 'Description',
           child: TextField(
+            onTap: ensureSoftKeyboardVisible,
             onTapOutside: dismissKeyboardOnTapOutside,
             maxLines: 4,
             controller: _descriptionController,

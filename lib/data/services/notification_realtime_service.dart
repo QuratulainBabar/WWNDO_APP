@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
-import '../config/api_config.dart';
+import '../../core/config/api_config.dart';
 import '../models/app_notification.dart';
 import '../models/wallet_role.dart';
 

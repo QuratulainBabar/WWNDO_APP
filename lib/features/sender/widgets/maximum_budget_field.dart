@@ -73,6 +73,7 @@ class _MaximumBudgetFieldState extends State<MaximumBudgetField> {
         children: [
           TextField(
             controller: _controller,
+            onTap: ensureSoftKeyboardVisible,
             onTapOutside: dismissKeyboardOnTapOutside,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             inputFormatters: [

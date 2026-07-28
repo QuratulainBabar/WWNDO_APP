@@ -65,7 +65,7 @@ class TravelerSelectedConfirmationScreen extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                '$name has been selected and accepted your request in demo mode.\nYou can pay securely to confirm the booking.',
+                '$name has been selected and notified of your parcel request.\nYou can pay securely to confirm the booking.',
                 textAlign: TextAlign.center,
                 style: typo.sm.copyWith(height: 1.5, color: AppColors.textSecondary),
               ),

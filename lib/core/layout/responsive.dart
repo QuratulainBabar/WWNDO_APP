@@ -60,12 +60,19 @@ extension ResponsiveContext on BuildContext {
         verticalPadding,
       );
 
-  /// Adds keyboard inset to bottom padding so scrollable content stays visible.
+  /// Bottom padding while the IME may be open.
+  ///
+  /// [Scaffold] already shrinks its body when `resizeToAvoidBottomInset` is
+  /// true (the app default). Re-adding the full [MediaQuery.viewInsets] bottom
+  /// value double-counts the inset. On MIUI / HyperOS that is especially bad:
+  /// phantom keyboard space can be reserved without a visible IME
+  /// (flutter/flutter#185675), pushing CTAs like Wallet Top-up Pay off-screen.
   EdgeInsets pagePaddingWithKeyboard([EdgeInsets? base]) {
     final resolved = base ?? pagePadding;
     final keyboard = MediaQuery.viewInsetsOf(this).bottom;
     if (keyboard <= 0) return resolved;
-    return resolved.copyWith(bottom: math.max(resolved.bottom, keyboard + 8));
+    // Small cushion only — Scaffold already accounted for the IME height.
+    return resolved.copyWith(bottom: resolved.bottom + 8);
   }
 
   /// Vertical gap between major screen sections.

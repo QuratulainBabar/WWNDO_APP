@@ -114,6 +114,7 @@ class _PlaceBidSheetState extends State<PlaceBidSheet> {
                     typo.inputLabel.copyWith(fontWeight: FontWeight.w600),
                 child: TextField(
                   controller: _priceController,
+                  onTap: ensureSoftKeyboardVisible,
                   onTapOutside: dismissKeyboardOnTapOutside,
                   style: typo.input,
                   keyboardType: const TextInputType.numberWithOptions(
@@ -128,6 +129,7 @@ class _PlaceBidSheetState extends State<PlaceBidSheet> {
                     typo.inputLabel.copyWith(fontWeight: FontWeight.w600),
                 child: TextField(
                   controller: _messageController,
+                  onTap: ensureSoftKeyboardVisible,
                   onTapOutside: dismissKeyboardOnTapOutside,
                   maxLines: 4,
                   style: typo.input,

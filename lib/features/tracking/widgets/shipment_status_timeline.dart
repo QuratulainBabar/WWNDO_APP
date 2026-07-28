@@ -10,9 +10,13 @@ class ShipmentStatusTimeline extends StatelessWidget {
   const ShipmentStatusTimeline({
     super.key,
     required this.stepProgress,
+    this.stepLabels,
   });
 
   final int stepProgress;
+  final List<String>? stepLabels;
+
+  List<String> get _labels => stepLabels ?? Shipment.trackingSteps;
 
   @override
   Widget build(BuildContext context) {
@@ -23,12 +27,12 @@ class ShipmentStatusTimeline extends StatelessWidget {
       children: [
         Text('Status timeline', style: typo.h3.copyWith(fontWeight: FontWeight.w700)),
         const SizedBox(height: 12),
-        ...List.generate(Shipment.trackingSteps.length, (i) {
+        ...List.generate(_labels.length, (i) {
           return _TimelineStep(
-            label: Shipment.trackingSteps[i],
+            label: _labels[i],
             isDone: trackingStepIsDone(stepProgress, i),
             isCurrent: trackingStepIsCurrent(stepProgress, i),
-            isLast: i == Shipment.trackingSteps.length - 1,
+            isLast: i == _labels.length - 1,
           );
         }),
       ],

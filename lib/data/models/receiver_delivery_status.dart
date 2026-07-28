@@ -26,6 +26,15 @@ class ReceiverDeliveryStatus {
     final accepted = d.isReceiverAccepted;
 
     if (status == 'cancelled') {
+      // Receiver decline (before accept) shows as Rejected; other cancels stay Cancelled.
+      if (!accepted) {
+        return const ReceiverDeliveryStatus(
+          label: 'Rejected',
+          color: AppColors.danger,
+          isPast: true,
+          isPendingRequest: false,
+        );
+      }
       return const ReceiverDeliveryStatus(
         label: 'Cancelled',
         color: AppColors.danger,
@@ -49,7 +58,15 @@ class ReceiverDeliveryStatus {
         isPendingRequest: true,
       );
     }
-    if (status == 'matched' || (status == 'posted' && accepted)) {
+    if (status == 'posted' && accepted) {
+      return const ReceiverDeliveryStatus(
+        label: 'Receiver Accepted',
+        color: Color(0xFF0D9488),
+        isPast: false,
+        isPendingRequest: false,
+      );
+    }
+    if (status == 'matched') {
       return const ReceiverDeliveryStatus(
         label: 'Traveler Selected',
         color: AppColors.primary,
@@ -91,7 +108,12 @@ class ReceiverDeliveryStatus {
       case 'Collected':
         return ShipmentStatus.collected;
       case 'Cancelled':
+      case 'Rejected':
         return ShipmentStatus.disputed;
+      case 'Receiver Accepted':
+        return ShipmentStatus.receiverAccepted;
+      case 'Traveler Selected':
+        return ShipmentStatus.bidAccepted;
       default:
         return ShipmentStatus.bidAccepted;
     }

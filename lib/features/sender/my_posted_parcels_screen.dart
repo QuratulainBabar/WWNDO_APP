@@ -295,12 +295,33 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen>
                             ),
                           ),
                           const SizedBox(height: 8),
-                          AppBadge(
-                            label: statusUi.label,
-                            color: statusUi.color,
-                            backgroundColor: statusUi.backgroundColor,
-                            semiBold: true,
-                            wide: true,
+                          Builder(
+                            builder: (context) {
+                              final badge = AppBadge(
+                                label: statusUi.label,
+                                color: statusUi.color,
+                                backgroundColor: statusUi.backgroundColor,
+                                semiBold: true,
+                                wide: true,
+                              );
+                              if (!SenderDeliveryStatus.needsMatchingTravelerCount(
+                                parcel,
+                              )) {
+                                return badge;
+                              }
+                              final shipmentId = parcel.publicId.isNotEmpty
+                                  ? parcel.publicId
+                                  : parcel.id;
+                              return GestureDetector(
+                                onTap: () async {
+                                  await context.push(
+                                    '/bid-requests/$shipmentId',
+                                  );
+                                  if (mounted) await _load(silent: true);
+                                },
+                                child: badge,
+                              );
+                            },
                           ),
                           const SizedBox(height: 8),
                           Text(

@@ -12,6 +12,7 @@ import '../../../core/validation/receiver_contact_validation.dart';
 import '../../../core/widgets/app_chip.dart';
 import '../../../data/models/created_delivery.dart';
 import '../../../data/models/meetup_location.dart';
+import '../../../data/models/traveler_trip.dart';
 import '../../../data/static_data.dart';
 import '../../../providers/auth_provider.dart';
 import '../../traveler/widgets/route_city_dropdown.dart';
@@ -33,11 +34,13 @@ class DeliveryFormFields extends StatefulWidget {
     super.key,
     required this.deliveryType,
     this.initialDelivery,
+    this.initialTrip,
     this.isEditMode = false,
   });
 
   final DeliveryType deliveryType;
   final CreatedDelivery? initialDelivery;
+  final TravelerTrip? initialTrip;
   final bool isEditMode;
 
   @override
@@ -112,6 +115,57 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
       _maxBudget = 0;
       _weightKg = 0;
       _descriptionController = TextEditingController();
+      _applyInitialTrip(widget.initialTrip);
+    }
+  }
+
+  void _applyInitialTrip(TravelerTrip? trip) {
+    if (trip == null) return;
+
+    _travelDate = trip.travelDate;
+
+    if (_isCountry) {
+      final originIso = trip.originCountryCode?.trim().isNotEmpty == true
+          ? trip.originCountryCode!.trim().toUpperCase()
+          : WorldCountries.all
+              .where(
+                (c) =>
+                    c.name.toLowerCase() ==
+                    (trip.originCountry ?? trip.origin).trim().toLowerCase(),
+              )
+              .map((c) => c.iso)
+              .firstOrNull;
+      final destinationIso =
+          trip.destinationCountryCode?.trim().isNotEmpty == true
+              ? trip.destinationCountryCode!.trim().toUpperCase()
+              : WorldCountries.all
+                  .where(
+                    (c) =>
+                        c.name.toLowerCase() ==
+                        (trip.destinationCountry ?? trip.destination)
+                            .trim()
+                            .toLowerCase(),
+                  )
+                  .map((c) => c.iso)
+                  .firstOrNull;
+
+      _fromAirport = WorldAirports.byLabel(trip.originAirport ?? '') ??
+          (originIso != null ? WorldAirports.firstForCountry(originIso) : null);
+      _toAirport = WorldAirports.byLabel(trip.destinationAirport ?? '') ??
+          (destinationIso != null
+              ? WorldAirports.firstForCountry(destinationIso)
+              : null);
+    } else {
+      _fromLocation = MeetupLocation(
+        name: trip.origin,
+        address: trip.origin,
+        countryCode: trip.fromCode,
+      );
+      _toLocation = MeetupLocation(
+        name: trip.destination,
+        address: trip.destination,
+        countryCode: trip.toCode,
+      );
     }
   }
 

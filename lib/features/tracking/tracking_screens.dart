@@ -21,6 +21,7 @@ import '../../core/widgets/back_link.dart';
 import '../../core/widgets/cancel_request_confirmation_dialog.dart';
 import '../../core/widgets/dispute_warning_icon.dart';
 import '../../core/widgets/scrollable_form_screen.dart';
+import '../../data/models/delivery_tracking.dart';
 import '../../data/models/shipment.dart';
 import '../../data/services/delivery_repository.dart';
 import '../../data/static_data.dart';
@@ -192,6 +193,14 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
             StaticData.activeShipment;
         final status = StaticData.effectiveStatus(shipment);
         final stepProgress = StaticData.effectiveStepIndex(shipment);
+        final postedPhase = status == ShipmentStatus.open && !widget.isTravelerView
+            ? StaticData.senderPostedPhase(shipment)
+            : null;
+        final tracking = DeliveryTracking.fromShipmentContext(
+          effectiveStatus: status,
+          postedPhase: postedPhase,
+          effectiveStepIndex: stepProgress,
+        );
         final isDisputed = StaticData.isShipmentDisputed(shipment.id);
         // Traveler marks In Transit after NFC CP1 matching sets Collected.
         final canMarkInTransit = status == ShipmentStatus.collected &&
@@ -285,7 +294,8 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
                       children: [
                         ShipmentTrackingSection(
                           shipment: shipment,
-                          stepProgress: stepProgress,
+                          stepProgress: tracking.progress,
+                          stepLabels: tracking.stepLabels,
                         ),
                         const Padding(
                           padding: EdgeInsets.symmetric(vertical: 20),
@@ -1823,6 +1833,7 @@ class _DisputeFormScreenState extends State<DisputeFormScreen> {
               padding: const EdgeInsets.only(top: AppFieldSpacing.top),
               child: TextField(
                 controller: _descriptionController,
+                onTap: ensureSoftKeyboardVisible,
                 onTapOutside: dismissKeyboardOnTapOutside,
                 maxLines: 5,
                 style: typo.input,
@@ -2067,6 +2078,7 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
               padding: const EdgeInsets.only(top: AppFieldSpacing.top),
               child: TextField(
                 controller: _messageController,
+                onTap: ensureSoftKeyboardVisible,
                 onTapOutside: dismissKeyboardOnTapOutside,
                 maxLines: 6,
                 style: typo.input,
@@ -2316,6 +2328,7 @@ class _DeliveryReviewScreenState extends State<DeliveryReviewScreen> {
                 padding: const EdgeInsets.only(top: AppFieldSpacing.top),
                 child: TextField(
                   controller: _reviewController,
+                  onTap: ensureSoftKeyboardVisible,
                   onTapOutside: dismissKeyboardOnTapOutside,
                   maxLines: 3,
                   decoration: const InputDecoration(),

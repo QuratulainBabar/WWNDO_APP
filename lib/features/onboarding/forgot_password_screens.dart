@@ -150,6 +150,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               padding: const EdgeInsets.only(top: AppFieldSpacing.top),
               child: TextField(
                 controller: _contactController,
+                onTap: ensureSoftKeyboardVisible,
                 onTapOutside: dismissKeyboardOnTapOutside,
                 keyboardType: _channel == OtpChannel.email
                     ? TextInputType.emailAddress
@@ -373,6 +374,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
               padding: const EdgeInsets.only(top: AppFieldSpacing.top),
               child: TextField(
                 controller: _passwordController,
+                onTap: () => ensureSoftKeyboardVisible(retry: true),
                 onTapOutside: dismissKeyboardOnTapOutside,
                 obscureText: _obscurePassword,
                 style: typo.input,
@@ -393,6 +395,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
               label: 'Confirm password',
               child: TextField(
                 controller: _confirmController,
+                onTap: () => ensureSoftKeyboardVisible(retry: true),
                 onTapOutside: dismissKeyboardOnTapOutside,
                 obscureText: _obscureConfirm,
                 textInputAction: TextInputAction.done,

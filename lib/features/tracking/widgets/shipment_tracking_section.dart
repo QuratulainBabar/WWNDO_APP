@@ -11,10 +11,12 @@ class ShipmentTrackingSection extends StatelessWidget {
     super.key,
     required this.shipment,
     required this.stepProgress,
+    this.stepLabels,
   });
 
   final Shipment shipment;
   final int stepProgress;
+  final List<String>? stepLabels;
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +25,10 @@ class ShipmentTrackingSection extends StatelessWidget {
       children: [
         ShipmentRouteMap(shipment: shipment, stepProgress: stepProgress),
         const SizedBox(height: 24),
-        ShipmentStatusTimeline(stepProgress: stepProgress),
+        ShipmentStatusTimeline(
+          stepProgress: stepProgress,
+          stepLabels: stepLabels,
+        ),
         const SizedBox(height: 24),
         ParcelPhotoViewer(photoCount: shipment.parcelPhotoCount),
       ],

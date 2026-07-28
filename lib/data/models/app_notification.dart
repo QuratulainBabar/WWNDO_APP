@@ -7,7 +7,9 @@ enum AppNotificationType {
   bidAccepted,
   counterOffer,
   matching,
+  tripAvailable,
   parcelRequest,
+  senderRequest,
   receiverPayment,
   nfcPrompt,
   deliveryStatus,
@@ -35,6 +37,23 @@ class AppNotification {
   final String time;
   final bool unread;
   final String? route;
+
+  /// Whether this notification should trigger a receiver delivery list refresh.
+  bool get isDeliveryRelated {
+    switch (type) {
+      case AppNotificationType.parcelRequest:
+      case AppNotificationType.senderRequest:
+      case AppNotificationType.deliveryStatus:
+      case AppNotificationType.matching:
+      case AppNotificationType.tripAvailable:
+      case AppNotificationType.cancellation:
+      case AppNotificationType.nfcPrompt:
+      case AppNotificationType.receiverPayment:
+        return true;
+      default:
+        return false;
+    }
+  }
 
   AppNotification markRead() => AppNotification(
         id: id,
@@ -79,9 +98,14 @@ class AppNotification {
       case 'counterOffer':
         return AppNotificationType.counterOffer;
       case 'matching':
-        return AppNotificationType.matching;
+        // Legacy backend type — treat as delivery status so "Matching" badge never shows.
+        return AppNotificationType.deliveryStatus;
+      case 'tripAvailable':
+        return AppNotificationType.tripAvailable;
       case 'parcelRequest':
         return AppNotificationType.parcelRequest;
+      case 'senderRequest':
+        return AppNotificationType.senderRequest;
       case 'receiverPayment':
         return AppNotificationType.receiverPayment;
       case 'nfcPrompt':

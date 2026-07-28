@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -21,6 +23,7 @@ import '../../core/widgets/screen_body.dart';
 import '../../core/widgets/star_rating_display.dart';
 import '../../data/models/created_delivery.dart';
 import '../../data/models/profile_trust_metrics.dart';
+import '../../data/models/delivery_tracking.dart';
 import '../../data/models/receiver_delivery_status.dart';
 import '../../data/models/shipment.dart';
 import '../../data/models/chat_message.dart';
@@ -31,6 +34,7 @@ import '../../data/services/trust_metrics_repository.dart';
 import '../../data/static_data.dart';
 import '../../data/wallet_service.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/notification_realtime_provider.dart';
 import '../../providers/wallet_provider.dart';
 import '../notifications/role_notifications_screen.dart';
 import '../profile/widgets/profile_header_card.dart';
@@ -361,15 +365,49 @@ class _ReceiverShipmentsScreenState extends State<ReceiverShipmentsScreen>
   String? _error;
   List<CreatedDelivery> _deliveries = const [];
   String? _lastMatchedLocation;
+  VoidCallback? _realtimeListener;
+  NotificationRealtimeProvider? _realtimeProvider;
+  int _lastDeliveryUpdateTick = 0;
+  Timer? _fallbackPollTimer;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _attachRealtimeListener();
+    });
+    _fallbackPollTimer = Timer.periodic(const Duration(seconds: 45), (_) {
+      if (!mounted) return;
+      if (!(_realtimeProvider?.isConnected ?? false)) {
+        _load(silent: _deliveries.isNotEmpty);
+      }
+    });
+  }
+
+  void _attachRealtimeListener() {
+    final realtime = context.read<NotificationRealtimeProvider>();
+    _realtimeProvider = realtime;
+    _lastDeliveryUpdateTick = realtime.deliveryUpdateTick;
+
+    _realtimeListener ??= () {
+      if (!mounted) return;
+      final tick = realtime.deliveryUpdateTick;
+      if (tick != _lastDeliveryUpdateTick) {
+        _lastDeliveryUpdateTick = tick;
+        _load(silent: _deliveries.isNotEmpty);
+      }
+    };
+    realtime.addListener(_realtimeListener!);
   }
 
   @override
   void dispose() {
+    _fallbackPollTimer?.cancel();
+    if (_realtimeListener != null) {
+      _realtimeProvider?.removeListener(_realtimeListener!);
+    }
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -1184,8 +1222,7 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen> {
     final delivery = _delivery!;
     final shipment = delivery.toShipment();
     final statusInfo = ReceiverDeliveryStatus.fromDelivery(delivery);
-    final status = statusInfo.shipmentStatus;
-    final stepProgress = shipment.trackingProgress;
+    final tracking = DeliveryTracking.fromDelivery(delivery);
     final featuresUnlocked = delivery.isReceiverAccepted ||
         delivery.status == 'matched' ||
         delivery.status == 'in_transit' ||
@@ -1215,7 +1252,8 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen> {
                     if (featuresUnlocked) ...[
                       ShipmentTrackingSection(
                         shipment: shipment,
-                        stepProgress: stepProgress,
+                        stepProgress: tracking.progress,
+                        stepLabels: tracking.stepLabels,
                       ),
                       const Padding(
                         padding: EdgeInsets.symmetric(vertical: 20),
@@ -1268,7 +1306,7 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen> {
                   ),
                   onPressed: () => context.go('/receiver-chats'),
                 ),
-                if (status == ShipmentStatus.delivered) ...[
+                if (delivery.status == 'delivered') ...[
                   const SizedBox(height: AppButton.stackGap),
                   AppButton(
                     label: 'Leave a review',

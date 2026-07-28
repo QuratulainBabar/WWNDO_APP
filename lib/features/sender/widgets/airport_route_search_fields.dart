@@ -205,11 +205,11 @@ class _AirportRouteSearchFieldsState extends State<AirportRouteSearchFields> {
     if (isFrom) {
       _fromController.clear();
       widget.onFromChanged(null);
-      _fromFocus.requestFocus();
+      requestSoftKeyboard(_fromFocus);
     } else {
       _toController.clear();
       widget.onToChanged(null);
-      _toFocus.requestFocus();
+      requestSoftKeyboard(_toFocus);
     }
     setState(() {
       _showAll = false;
@@ -376,6 +376,7 @@ class _AirportSearchField extends StatelessWidget {
         TextField(
           controller: controller,
           focusNode: focusNode,
+          onTap: ensureSoftKeyboardVisible,
           onTapOutside: dismissKeyboardOnTapOutside,
           style: typo.input.copyWith(
             fontWeight: hasValue ? FontWeight.w600 : FontWeight.w400,

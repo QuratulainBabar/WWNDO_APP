@@ -1,6 +1,8 @@
 import '../../core/api/api_client.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/config/demo_mode.dart';
+import '../models/sender_trip_request.dart';
+import '../models/traveler_bid.dart';
 import '../models/traveler_trip.dart';
 
 enum TripType {
@@ -244,6 +246,149 @@ class TripRepository {
         .toList();
   }
 
+  /// GET /api/v1/trips/sender-requests/count
+  Future<int> countSenderRequests() async {
+    if (_isDemoMode) return 0;
+    final data = await _apiClient.get(
+      '/trips/sender-requests/count',
+      authenticated: true,
+    );
+    return (data['count'] as num?)?.toInt() ?? 0;
+  }
+
+  /// GET /api/v1/trips/sender-requests
+  Future<List<SenderTripRequest>> listSenderRequests() async {
+    if (_isDemoMode) return const [];
+    final data = await _apiClient.get(
+      '/trips/sender-requests',
+      authenticated: true,
+    );
+    final list = data['requests'];
+    if (list is! List) return const <SenderTripRequest>[];
+    return list
+        .whereType<Map>()
+        .map((item) => SenderTripRequest.fromJson(Map<String, dynamic>.from(item)))
+        .toList();
+  }
+
+  /// GET /api/v1/trips/sender-request-trips
+  Future<List<({TravelerTrip trip, int requestCount})>>
+      listSenderRequestTrips() async {
+    if (_isDemoMode) return const [];
+    final data = await _apiClient.get(
+      '/trips/sender-request-trips',
+      authenticated: true,
+    );
+    final list = data['trips'];
+    if (list is! List) return const [];
+    return list.whereType<Map>().map((item) {
+      final map = Map<String, dynamic>.from(item);
+      return (
+        trip: _mapTrip(map),
+        requestCount: (map['requestCount'] as num?)?.toInt() ?? 0,
+      );
+    }).toList();
+  }
+
+  /// GET /api/v1/trips/:id/sender-requests
+  Future<List<SenderTripRequest>> listSenderRequestsForTrip(
+    String tripId,
+  ) async {
+    if (_isDemoMode) return const [];
+    final data = await _apiClient.get(
+      '/trips/$tripId/sender-requests',
+      authenticated: true,
+    );
+    final list = data['requests'];
+    if (list is! List) return const <SenderTripRequest>[];
+    return list
+        .whereType<Map>()
+        .map((item) => SenderTripRequest.fromJson(Map<String, dynamic>.from(item)))
+        .toList();
+  }
+
+  /// GET /api/v1/trips/sender-requests/:requestId
+  Future<SenderTripRequest> getSenderRequest(String requestId) async {
+    if (_isDemoMode) {
+      throw const ApiException(
+        message: 'Sender request details are unavailable in demo mode.',
+        code: 'DEMO_MODE',
+      );
+    }
+    final data = await _apiClient.get(
+      '/trips/sender-requests/${Uri.encodeComponent(requestId)}',
+      authenticated: true,
+    );
+    return SenderTripRequest.fromJson(Map<String, dynamic>.from(data));
+  }
+
+  /// POST /api/v1/trips/sender-requests/:requestId/counter-offers
+  Future<TravelerBid> sendCounterOffer({
+    required String requestId,
+    required double amount,
+  }) async {
+    if (_isDemoMode) {
+      throw const ApiException(
+        message: 'Counter offers are unavailable in demo mode.',
+        code: 'DEMO_MODE',
+      );
+    }
+    final data = await _apiClient.post(
+      '/trips/sender-requests/${Uri.encodeComponent(requestId)}/counter-offers',
+      body: {'amount': amount},
+      authenticated: true,
+    );
+    return TravelerBid.fromJson(Map<String, dynamic>.from(data));
+  }
+
+  /// GET /api/v1/trips/counter-offers
+  Future<List<TravelerBid>> listCounterOffers() async {
+    if (_isDemoMode) return const [];
+    final data = await _apiClient.get(
+      '/trips/counter-offers',
+      authenticated: true,
+    );
+    final list = data['offers'];
+    if (list is! List) return const <TravelerBid>[];
+    return list
+        .whereType<Map>()
+        .map((item) => TravelerBid.fromJson(Map<String, dynamic>.from(item)))
+        .toList();
+  }
+
+  /// GET /api/v1/trips/counter-offers/:offerId
+  Future<TravelerBid> getCounterOffer(String offerId) async {
+    if (_isDemoMode) {
+      throw const ApiException(
+        message: 'Counter offer details are unavailable in demo mode.',
+        code: 'DEMO_MODE',
+      );
+    }
+    final data = await _apiClient.get(
+      '/trips/counter-offers/${Uri.encodeComponent(offerId)}',
+      authenticated: true,
+    );
+    return TravelerBid.fromJson(Map<String, dynamic>.from(data));
+  }
+
+  /// POST /api/v1/trips/:id/sender-requests/read
+  /// Marks pending requests for the trip as read; returns remaining unread count.
+  Future<({int markedCount, int unreadCount, int notificationsUnread})>
+      markSenderRequestsRead(String tripId) async {
+    if (_isDemoMode) {
+      return (markedCount: 0, unreadCount: 0, notificationsUnread: 0);
+    }
+    final data = await _apiClient.post(
+      '/trips/$tripId/sender-requests/read',
+      authenticated: true,
+    );
+    return (
+      markedCount: (data['markedCount'] as num?)?.toInt() ?? 0,
+      unreadCount: (data['unreadCount'] as num?)?.toInt() ?? 0,
+      notificationsUnread: (data['notificationsUnread'] as num?)?.toInt() ?? 0,
+    );
+  }
+
   /// GET /api/v1/trips/discover/:id
   Future<TravelerTrip> getDiscoverableTrip(String idOrPublicId) async {
     if (_isDemoMode) {
@@ -253,8 +398,17 @@ class TripRepository {
       );
     }
 
+    final id = idOrPublicId.trim();
+    if (id.isEmpty) {
+      throw const ApiException(
+        message: 'Trip not found',
+        code: 'NOT_FOUND',
+        statusCode: 404,
+      );
+    }
+
     final data = await _apiClient.get(
-      '/trips/discover/$idOrPublicId',
+      '/trips/discover/${Uri.encodeComponent(id)}',
       authenticated: true,
     );
     return _mapTrip(data);

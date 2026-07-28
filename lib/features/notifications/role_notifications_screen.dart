@@ -330,6 +330,13 @@ class _NotificationTile extends StatelessWidget {
         n.title == 'New traveler trip on your routes') {
       return 'New Traveler Trip Available';
     }
+    if (n.type == AppNotificationType.counterOffer) {
+      final lower = n.title.toLowerCase();
+      if (lower.contains('updated')) return 'Counter offer updated';
+      if (lower.contains('new') || lower.contains('sent')) {
+        return 'New counter offer';
+      }
+    }
     return n.title;
   }
 
@@ -396,6 +403,29 @@ class _NotificationTile extends StatelessWidget {
         onTap: () {
           onOpen();
           final rawRoute = n.route?.trim();
+
+          // Counter Offer notifications open the sender detail screen.
+          if (n.type == AppNotificationType.counterOffer &&
+              role == WalletRole.sender) {
+            final path = Uri.tryParse(rawRoute ?? '')?.path ?? rawRoute ?? '';
+            if (path.startsWith('/sender-counter-offer')) {
+              context.push(rawRoute!);
+              return;
+            }
+            // Legacy deep link: /shipment/{deliveryPublicId}
+            final shipmentMatch =
+                RegExp(r'^/shipment/([^/?#]+)').firstMatch(path);
+            if (shipmentMatch != null) {
+              final deliveryId = shipmentMatch.group(1)!;
+              context.push('/sender-counter-offer?delivery=$deliveryId');
+              return;
+            }
+            if (rawRoute != null && rawRoute.isNotEmpty) {
+              context.push(rawRoute);
+            }
+            return;
+          }
+
           if (rawRoute == null || rawRoute.isEmpty) return;
 
           // Trip detail is a stacked page, never a shell tab.

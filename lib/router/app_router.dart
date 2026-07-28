@@ -29,6 +29,7 @@ import '../features/sender/bid_payment_success_screen.dart';
 import '../features/sender/bid_accepted_screen.dart';
 import '../features/sender/bid_requests_screen.dart';
 import '../features/sender/bid_traveler_profile_screen.dart';
+import '../features/sender/counter_offer_detail_screen.dart';
 import '../features/sender/traveler_selected_confirmation_screen.dart';
 import '../features/sender/negotiate_meetup_screen.dart';
 import '../features/sender/discover_travelers_screen.dart';
@@ -598,6 +599,21 @@ final appRouter = GoRouter(
       path: '/sender-notifications',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (_, __) => const SenderNotificationsScreen(),
+    ),
+    GoRoute(
+      path: '/sender-counter-offer/:offerId',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (_, state) => CounterOfferDetailScreen(
+        offerId: state.pathParameters['offerId'],
+        deliveryPublicId: state.uri.queryParameters['delivery'],
+      ),
+    ),
+    GoRoute(
+      path: '/sender-counter-offer',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (_, state) => CounterOfferDetailScreen(
+        deliveryPublicId: state.uri.queryParameters['delivery'],
+      ),
     ),
     GoRoute(
       path: '/bid-traveler-profile',

@@ -1,6 +1,7 @@
 import '../../core/api/api_client.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/config/demo_mode.dart';
+import '../models/sender_counter_offer.dart';
 import '../models/sender_trip_request.dart';
 import '../models/traveler_bid.dart';
 import '../models/traveler_trip.dart';
@@ -369,6 +370,69 @@ class TripRepository {
       authenticated: true,
     );
     return TravelerBid.fromJson(Map<String, dynamic>.from(data));
+  }
+
+  /// GET /api/v1/trips/sender-counter-offers/:offerId
+  Future<SenderCounterOffer> getSenderCounterOffer(String offerId) async {
+    if (_isDemoMode) {
+      throw const ApiException(
+        message: 'Counter offer details are unavailable in demo mode.',
+        code: 'DEMO_MODE',
+      );
+    }
+    final data = await _apiClient.get(
+      '/trips/sender-counter-offers/${Uri.encodeComponent(offerId)}',
+      authenticated: true,
+    );
+    return SenderCounterOffer.fromJson(Map<String, dynamic>.from(data));
+  }
+
+  /// GET /api/v1/trips/sender-counter-offers/by-delivery/:deliveryPublicId
+  Future<SenderCounterOffer> getSenderCounterOfferByDelivery(
+    String deliveryPublicId,
+  ) async {
+    if (_isDemoMode) {
+      throw const ApiException(
+        message: 'Counter offer details are unavailable in demo mode.',
+        code: 'DEMO_MODE',
+      );
+    }
+    final data = await _apiClient.get(
+      '/trips/sender-counter-offers/by-delivery/'
+      '${Uri.encodeComponent(deliveryPublicId)}',
+      authenticated: true,
+    );
+    return SenderCounterOffer.fromJson(Map<String, dynamic>.from(data));
+  }
+
+  /// POST /api/v1/trips/sender-counter-offers/:offerId/accept
+  Future<SenderCounterOffer> acceptSenderCounterOffer(String offerId) async {
+    if (_isDemoMode) {
+      throw const ApiException(
+        message: 'Accepting counter offers is unavailable in demo mode.',
+        code: 'DEMO_MODE',
+      );
+    }
+    final data = await _apiClient.post(
+      '/trips/sender-counter-offers/${Uri.encodeComponent(offerId)}/accept',
+      authenticated: true,
+    );
+    return SenderCounterOffer.fromJson(Map<String, dynamic>.from(data));
+  }
+
+  /// POST /api/v1/trips/sender-counter-offers/:offerId/reject
+  Future<SenderCounterOffer> rejectSenderCounterOffer(String offerId) async {
+    if (_isDemoMode) {
+      throw const ApiException(
+        message: 'Rejecting counter offers is unavailable in demo mode.',
+        code: 'DEMO_MODE',
+      );
+    }
+    final data = await _apiClient.post(
+      '/trips/sender-counter-offers/${Uri.encodeComponent(offerId)}/reject',
+      authenticated: true,
+    );
+    return SenderCounterOffer.fromJson(Map<String, dynamic>.from(data));
   }
 
   /// POST /api/v1/trips/:id/sender-requests/read

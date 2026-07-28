@@ -13,6 +13,7 @@ import 'notification_service.dart';
 import 'models/app_notification.dart';
 import 'models/final_budget_proposal.dart';
 import 'models/review.dart';
+import 'models/sender_counter_offer.dart';
 import 'models/shipment.dart';
 import 'models/user.dart';
 import 'models/traveler_bid.dart';
@@ -450,21 +451,94 @@ abstract final class StaticData {
       proposedBudgetUsd: amount,
     );
 
+    final routeLabel = '${request.fromCity} → ${request.toCity}';
+    final isUpdate = existingProposal != null;
     NotificationService.push(
       AppNotification(
         id: 'snd-final-budget-$shipmentId-${DateTime.now().microsecondsSinceEpoch}',
         role: WalletRole.sender,
         type: AppNotificationType.counterOffer,
-        title: 'Counter offer sent by traveler',
-        body:
-            '$travelerName sent a counter offer of \$${amount.toStringAsFixed(2)} for $shipmentId. Review parcel details to accept.',
+        title: isUpdate ? 'Counter offer updated' : 'New counter offer',
+        body: isUpdate
+            ? '$travelerName updated their counter offer to \$${amount.toStringAsFixed(2)} for $shipmentId ($routeLabel).'
+            : '$travelerName sent a counter offer of \$${amount.toStringAsFixed(2)} for $shipmentId ($routeLabel).',
         time: 'Just now',
-        route: '/shipment/$shipmentId',
+        route: '/sender-counter-offer/$bidId?delivery=$shipmentId',
       ),
     );
 
     bidRequestsVersion.value++;
     return null;
+  }
+
+  /// Demo helper: resolve a sender-facing counter offer for the detail screen.
+  static SenderCounterOffer? senderCounterOfferFor({
+    String? offerId,
+    String? deliveryPublicId,
+  }) {
+    FinalBudgetProposal? proposal;
+    if (deliveryPublicId != null && deliveryPublicId.isNotEmpty) {
+      proposal = finalBudgetProposalFor(deliveryPublicId);
+    }
+    if (proposal == null && offerId != null && offerId.isNotEmpty) {
+      for (final entry in finalBudgetProposalsByShipmentId.entries) {
+        if (entry.value.bidId == offerId) {
+          proposal = entry.value;
+          break;
+        }
+      }
+    }
+    if (proposal == null) return null;
+
+    final bid = bidById(proposal.bidId);
+    final shipment = shipmentById(proposal.shipmentId);
+    final travelerName = bid?.travelerName ?? proposal.travelerName;
+    final initial = bid?.initial ??
+        (travelerName.isNotEmpty ? travelerName[0].toUpperCase() : 'T');
+
+    return SenderCounterOffer(
+      id: proposal.bidId,
+      requestId: proposal.bidId,
+      tripId: bid?.id ?? '',
+      travelerName: travelerName,
+      travelerInitial: initial,
+      travelerRating: bid?.rating,
+      travelerReviewCount: bid?.reviewCount ?? 0,
+      travelerBio: bid?.bio,
+      fromCity: shipment?.fromCity ?? '',
+      toCity: shipment?.toCity ?? '',
+      travelDate: bid?.travelDate ?? shipment?.travelDate ?? DateTime.now(),
+      amount: proposal.proposedBudgetUsd,
+      maxBudget: proposal.originalBudgetUsd,
+      status: proposal.accepted
+          ? TravelerBidStatus.accepted
+          : TravelerBidStatus.pending,
+      deliveryPublicId: proposal.shipmentId,
+    );
+  }
+
+  /// Demo helper: mark a sender counter offer as rejected.
+  static void rejectSenderCounterOffer({
+    String? offerId,
+    String? deliveryPublicId,
+  }) {
+    String? shipmentId = deliveryPublicId?.trim();
+    if (shipmentId == null || shipmentId.isEmpty) {
+      for (final entry in finalBudgetProposalsByShipmentId.entries) {
+        if (entry.value.bidId == offerId) {
+          shipmentId = entry.key;
+          break;
+        }
+      }
+    }
+    if (shipmentId == null || shipmentId.isEmpty) return;
+
+    final proposal = finalBudgetProposalsByShipmentId[shipmentId];
+    if (proposal != null) {
+      finalBudgetProposalsByShipmentId.remove(shipmentId);
+      rejectBid(shipmentId, proposal.bidId);
+    }
+    bidRequestsVersion.value++;
   }
 
   /// Sender accepts the traveler's final proposed budget (frontend demo).
@@ -487,6 +561,23 @@ abstract final class StaticData {
       selectMatchingTraveler(shipmentId: shipmentId, bid: bid);
       _bidReviewStatusById[bid.id] = BidReviewStatus.approved;
     }
+
+    final amount = current.proposedBudgetUsd;
+    final shipment = shipmentById(shipmentId);
+    final routeLabel = shipment?.route ?? 'your route';
+    NotificationService.push(
+      AppNotification(
+        id: 'trv-counter-accepted-$shipmentId-${DateTime.now().microsecondsSinceEpoch}',
+        role: WalletRole.traveler,
+        type: AppNotificationType.bidAccepted,
+        title: 'Counter offer accepted',
+        body:
+            'A sender accepted your counter offer of \$${amount.toStringAsFixed(2)} for $shipmentId ($routeLabel).',
+        time: 'Just now',
+        route: '/traveler-bid-detail/${current.bidId}',
+      ),
+    );
+
     bidRequestsVersion.value++;
     return updated;
   }

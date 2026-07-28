@@ -7,6 +7,7 @@ import '../models/auth_user.dart';
 import '../models/otp_channel.dart';
 import '../static_data.dart';
 import 'demo_auth_service.dart';
+import 'delivery_repository.dart';
 import 'token_storage.dart';
 
 class AuthRepository {
@@ -42,10 +43,19 @@ class AuthRepository {
       _tokenStorage.getAccessToken(),
       _tokenStorage.getRefreshToken(),
     ]);
-    if (_isDemoMode) return;
 
     final access = await _tokenStorage.getAccessToken();
     final refreshToken = await _tokenStorage.getRefreshToken();
+    final isDemoToken = access == DemoAuthService.accessTokenForDetect ||
+        refreshToken == DemoAuthService.refreshTokenForDetect;
+
+    // Real API session left demo_mode_enabled=true in prefs → fake local
+    // deliveries with no Alerts/email. Force API mode when tokens are real.
+    if (_isDemoMode && !isDemoToken && refreshToken != null && refreshToken.isNotEmpty) {
+      await _demoMode?.setEnabled(false);
+    }
+
+    if (_isDemoMode) return;
 
     // Soft-locked for biometric unlock: keep refresh token, do not auto-login.
     if ((access == null || access.isEmpty) &&
@@ -210,6 +220,10 @@ class AuthRepository {
       user: user,
     );
     _currentUser = user;
+    // Real API session — never leave demo mode on (blocks Alerts/email/API lists).
+    if (_demoMode?.enabled == true) {
+      await _demoMode!.setEnabled(false);
+    }
     return user;
   }
 
@@ -241,10 +255,12 @@ class AuthRepository {
       if (biometricEnabled) {
         await _tokenStorage.lockForBiometric();
         _currentUser = null;
+        DeliveryRepository.clearSessionCreated();
         return;
       }
       await DemoAuthService.logout(_tokenStorage);
       _currentUser = null;
+      DeliveryRepository.clearSessionCreated();
       return;
     }
 
@@ -252,12 +268,14 @@ class AuthRepository {
     if (biometricEnabled) {
       await _tokenStorage.lockForBiometric();
       _currentUser = null;
+      DeliveryRepository.clearSessionCreated();
       return;
     }
 
     final refreshToken = await _tokenStorage.getRefreshToken();
     await _tokenStorage.clear();
     _currentUser = null;
+    DeliveryRepository.clearSessionCreated();
 
     if (refreshToken == null) return;
 

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import '../../core/config/demo_mode.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_avatar.dart';
@@ -17,6 +19,9 @@ import '../../core/widgets/back_header.dart';
 import '../../data/models/bid.dart';
 import '../../data/models/parcel_creation_result.dart';
 import '../../data/static_data.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/notification_realtime_provider.dart';
+import '../../providers/sender_deliveries_provider.dart';
 import 'bid_sort.dart';
 
 class BrowseBidsScreen extends StatefulWidget {
@@ -642,13 +647,37 @@ class PostDeliveryPostedSuccessScreen extends StatelessWidget {
               const SizedBox(height: 24),
               AppButton(
                 label: 'View My Deliveries',
-                onPressed: () => context.go('/my-posted-parcels'),
+                onPressed: () {
+                  final auth = context.read<AuthProvider>();
+                  final demoMode = context.read<DemoModeProvider>();
+                  context.read<SenderDeliveriesProvider>().refresh(
+                        authRepository: auth.repository,
+                        demoMode: demoMode,
+                        silent: true,
+                      );
+                  context
+                      .read<NotificationRealtimeProvider>()
+                      .notifyDeliveryUpdated();
+                  context.go('/my-posted-parcels');
+                },
               ),
               const SizedBox(height: AppButton.stackGap),
               AppButton(
                 label: 'Back to Home',
                 variant: AppButtonVariant.outline,
-                onPressed: () => context.go('/home'),
+                onPressed: () {
+                  final auth = context.read<AuthProvider>();
+                  final demoMode = context.read<DemoModeProvider>();
+                  context.read<SenderDeliveriesProvider>().refresh(
+                        authRepository: auth.repository,
+                        demoMode: demoMode,
+                        silent: true,
+                      );
+                  context
+                      .read<NotificationRealtimeProvider>()
+                      .notifyDeliveryUpdated();
+                  context.go('/home');
+                },
               ),
             ],
           ),

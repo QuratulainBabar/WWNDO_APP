@@ -22,7 +22,6 @@ class NotificationRealtimeProvider extends ChangeNotifier {
   int _unreadCount = 0;
   int _senderRequestUnreadCount = 0;
   int _deliveryUpdateTick = 0;
-  bool _connected = false;
   StreamSubscription<AppNotification>? _notificationSub;
   StreamSubscription<int>? _unreadSub;
 
@@ -30,7 +29,8 @@ class NotificationRealtimeProvider extends ChangeNotifier {
   /// Traveler home "Sender Requests" quick-action badge (unread pending requests).
   int get senderRequestUnreadCount => _senderRequestUnreadCount;
   int get deliveryUpdateTick => _deliveryUpdateTick;
-  bool get isConnected => _connected;
+  /// True only when the SSE subscription is actually open (not a stale flag).
+  bool get isConnected => _realtimeService.isConnected;
   WalletRole? get activeRole => _activeRole;
 
   /// New notifications pushed since the last [consumeIncoming] call.
@@ -51,7 +51,7 @@ class NotificationRealtimeProvider extends ChangeNotifier {
       return;
     }
 
-    if (_activeRole == role && _connected) return;
+    if (_activeRole == role && _realtimeService.isConnected) return;
 
     await stop();
     _activeRole = role;
@@ -88,7 +88,6 @@ class NotificationRealtimeProvider extends ChangeNotifier {
       role: role,
       tokenProvider: authRepository.tokenStorage.getAccessToken,
     );
-    _connected = true;
     notifyListeners();
   }
 
@@ -129,13 +128,19 @@ class NotificationRealtimeProvider extends ChangeNotifier {
     }
   }
 
+  /// Local invalidation when the current user creates/updates a delivery
+  /// (SSE may not notify the actor, e.g. sender after posting).
+  void notifyDeliveryUpdated() {
+    _deliveryUpdateTick++;
+    notifyListeners();
+  }
+
   Future<void> stop() async {
     await _notificationSub?.cancel();
     await _unreadSub?.cancel();
     _notificationSub = null;
     _unreadSub = null;
     await _realtimeService.disconnect();
-    _connected = false;
     _activeRole = null;
     _deliveryUpdateTick = 0;
     _senderRequestUnreadCount = 0;

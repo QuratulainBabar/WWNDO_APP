@@ -516,6 +516,7 @@ final appRouter = GoRouter(
                 ? searchHint.trim()
                 : 'Search meetup location',
             citySearch: extra['citySearch'] == true,
+            airportSearch: extra['airportSearch'] == true,
           );
         }
         final initial =

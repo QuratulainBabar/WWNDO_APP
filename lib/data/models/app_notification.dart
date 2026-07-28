@@ -38,11 +38,14 @@ class AppNotification {
   final bool unread;
   final String? route;
 
-  /// Whether this notification should trigger a receiver delivery list refresh.
+  /// Whether this notification should trigger a delivery / bid list refresh.
   bool get isDeliveryRelated {
     switch (type) {
       case AppNotificationType.parcelRequest:
       case AppNotificationType.senderRequest:
+      case AppNotificationType.counterOffer:
+      case AppNotificationType.bid:
+      case AppNotificationType.bidAccepted:
       case AppNotificationType.deliveryStatus:
       case AppNotificationType.matching:
       case AppNotificationType.tripAvailable:

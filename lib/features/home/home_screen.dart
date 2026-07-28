@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import '../../core/api/api_exception.dart';
 import '../../core/config/demo_mode.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/theme/app_colors.dart';
@@ -15,11 +14,11 @@ import '../../core/widgets/screen_body.dart';
 import '../../core/widgets/wallet_card.dart';
 import '../../data/models/created_delivery.dart';
 import '../../data/models/wallet_role.dart';
-import '../../data/services/delivery_repository.dart';
 import '../../core/auth/auth_verification_guard.dart';
 import '../../core/auth/kyc_verification_guard.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_realtime_provider.dart';
+import '../../providers/sender_deliveries_provider.dart';
 import '../sender/delivery_posting_actions.dart';
 import '../sender/sender_delivery_status.dart';
 
@@ -104,46 +103,41 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
-  bool _activeLoading = true;
-  String? _activeError;
-  List<CreatedDelivery>? _activeDeliveries;
-  Map<String, int> _matchingTravelerCounts = {};
   String? _lastMatchedLocation;
   Timer? _notificationPollTimer;
-
-  List<CreatedDelivery> get _activeItems =>
-      _activeDeliveries ?? const <CreatedDelivery>[];
+  VoidCallback? _realtimeListener;
+  NotificationRealtimeProvider? _realtimeProvider;
+  int _lastDeliveryUpdateTick = 0;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _activeDeliveries = const [];
-    // Keep greeting in sync with `/auth/me` (name/rating from API).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       context.read<AuthProvider>().refreshUser();
       _startNotificationRealtime();
+      _attachRealtimeListener();
       _loadUnreadNotifications();
+      _loadActiveDeliveries(silent: false);
     });
     _notificationPollTimer = Timer.periodic(const Duration(seconds: 20), (_) {
       if (!mounted) return;
       _loadUnreadNotifications();
-      if (_activeItems.any(SenderDeliveryStatus.needsMatchingTravelerCount)) {
-        _refreshMatchingTravelerCounts();
-      }
+      _loadActiveDeliveries(silent: true);
     });
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Reload when landing on Home (tab switch or go('/home') after posting).
     final location = GoRouterState.of(context).matchedLocation;
     if (location == '/home' && _lastMatchedLocation != '/home') {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          _loadActiveDeliveries(silent: _activeItems.isNotEmpty);
+          _loadActiveDeliveries(
+            silent: context.read<SenderDeliveriesProvider>().activeDeliveries.isNotEmpty,
+          );
           _loadUnreadNotifications();
         }
       });
@@ -154,6 +148,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     _notificationPollTimer?.cancel();
+    if (_realtimeListener != null) {
+      _realtimeProvider?.removeListener(_realtimeListener!);
+    }
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -163,6 +160,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       _loadActiveDeliveries(silent: true);
       _startNotificationRealtime();
+      _attachRealtimeListener();
       _loadUnreadNotifications();
     }
   }
@@ -177,13 +175,28 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         );
   }
 
-  DeliveryRepository _deliveryRepository() {
-    final auth = context.read<AuthProvider>();
-    final demoMode = context.read<DemoModeProvider>();
-    return DeliveryRepository(
-      apiClient: auth.repository.apiClient,
-      demoMode: demoMode,
-    );
+  void _attachRealtimeListener() {
+    final realtime = context.read<NotificationRealtimeProvider>();
+    if (_realtimeProvider == realtime && _realtimeListener != null) {
+      // Do not sync tick forward here — that would drop in-flight create bumps.
+      return;
+    }
+    if (_realtimeListener != null) {
+      _realtimeProvider?.removeListener(_realtimeListener!);
+    }
+    _realtimeProvider = realtime;
+    _lastDeliveryUpdateTick = realtime.deliveryUpdateTick;
+    _realtimeListener = () {
+      if (!mounted) return;
+      final tick = realtime.deliveryUpdateTick;
+      if (tick != _lastDeliveryUpdateTick) {
+        _lastDeliveryUpdateTick = tick;
+        _loadActiveDeliveries(
+          silent: context.read<SenderDeliveriesProvider>().activeDeliveries.isNotEmpty,
+        );
+      }
+    };
+    realtime.addListener(_realtimeListener!);
   }
 
   Future<void> _loadUnreadNotifications() async {
@@ -201,63 +214,24 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _loadActiveDeliveries({bool silent = false}) async {
-    if (!silent) {
-      setState(() {
-        _activeLoading = true;
-        _activeError = null;
-      });
-    }
-
-    try {
-      final list = await _deliveryRepository().listDeliveries();
-      if (!mounted) return;
-      final active = list
-          .where((d) => SenderDeliveryStatus.fromDelivery(d).isActive)
-          .toList();
-      final counts =
-          await _deliveryRepository().fetchMatchingTravelerCounts(active);
-      if (!mounted) return;
-      setState(() {
-        _activeDeliveries = active;
-        _matchingTravelerCounts = counts;
-        _activeLoading = false;
-        _activeError = null;
-      });
-    } on ApiException catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _activeLoading = false;
-        _activeError = e.message;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _activeLoading = false;
-        _activeError = 'Unable to load active deliveries.';
-      });
-    }
-  }
-
-  Future<void> _refreshMatchingTravelerCounts() async {
-    final eligible = _activeItems
-        .where(SenderDeliveryStatus.needsMatchingTravelerCount)
-        .toList();
-    if (eligible.isEmpty) return;
-
-    try {
-      final counts =
-          await _deliveryRepository().fetchMatchingTravelerCounts(eligible);
-      if (!mounted) return;
-      setState(() => _matchingTravelerCounts = counts);
-    } catch (_) {
-      // Keep last known counts.
-    }
+    final auth = context.read<AuthProvider>();
+    final demoMode = context.read<DemoModeProvider>();
+    await context.read<SenderDeliveriesProvider>().refresh(
+          authRepository: auth.repository,
+          demoMode: demoMode,
+          silent: silent,
+        );
   }
 
   Widget _activeDeliveriesSection(BuildContext context) {
     final typo = context.typo;
+    final provider = context.watch<SenderDeliveriesProvider>();
+    final activeItems = provider.activeDeliveries;
+    final activeLoading = provider.loading;
+    final activeError = provider.error;
+    final matchingTravelerCounts = provider.matchingTravelerCounts;
 
-    if (_activeLoading && _activeItems.isEmpty) {
+    if (activeLoading && activeItems.isEmpty) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 12),
         child: Center(
@@ -273,13 +247,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       );
     }
 
-    if (_activeError != null && _activeItems.isEmpty) {
+    if (activeError != null && activeItems.isEmpty) {
       return AppCard(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              _activeError!,
+              activeError,
               style: typo.sm.copyWith(color: AppColors.textSecondary),
             ),
             const SizedBox(height: 8),
@@ -292,7 +266,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       );
     }
 
-    if (_activeItems.isEmpty) {
+    if (activeItems.isEmpty) {
       return AppCard(
         child: Text(
           'No active deliveries yet.',
@@ -303,21 +277,29 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     return Column(
       children: [
-        for (var i = 0; i < _activeItems.length; i++) ...[
+        for (var i = 0; i < activeItems.length; i++) ...[
           if (i > 0) const SizedBox(height: 8),
-          _activeDeliveryCard(context, _activeItems[i]),
+          _activeDeliveryCard(
+            context,
+            activeItems[i],
+            matchingTravelerCounts,
+          ),
         ],
       ],
     );
   }
 
-  Widget _activeDeliveryCard(BuildContext context, CreatedDelivery delivery) {
+  Widget _activeDeliveryCard(
+    BuildContext context,
+    CreatedDelivery delivery,
+    Map<String, int> matchingTravelerCounts,
+  ) {
     final typo = context.typo;
     final status = SenderDeliveryStatus.fromDelivery(
       delivery,
       matchingTravelerCount: SenderDeliveryStatus.countFromMap(
         delivery,
-        _matchingTravelerCounts,
+        matchingTravelerCounts,
       ),
     );
     final idLabel =

@@ -3,14 +3,12 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
 
 import '../../core/platform/keyboard_utils.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../data/models/meetup_location.dart';
 import '../../data/services/places_search_service.dart';
-import '../../providers/auth_provider.dart';
 
 /// Location picker (search + multi-stop) used for From/To city and meetup spots.
 /// Plain background — no map. Selecting a place returns immediately to the caller.
@@ -22,6 +20,7 @@ class AddMeetupLocationsScreen extends StatefulWidget {
     this.title = 'Meetup locations',
     this.searchHint = 'Search meetup location',
     this.citySearch = false,
+    this.airportSearch = false,
   });
 
   final List<MeetupLocation> initialLocations;
@@ -29,8 +28,11 @@ class AddMeetupLocationsScreen extends StatefulWidget {
   final String title;
   final String searchHint;
 
-  /// When true, search cities only (From / To route fields).
+  /// When true, search cities only (From / To city fields).
   final bool citySearch;
+
+  /// When true, search airports only (country-to-country route pickers).
+  final bool airportSearch;
 
   @override
   State<AddMeetupLocationsScreen> createState() =>
@@ -54,9 +56,7 @@ class _AddMeetupLocationsScreenState extends State<AddMeetupLocationsScreen> {
   String? _searchError;
 
   PlacesSearchService get _places {
-    return _placesService ??= PlacesSearchService(
-      apiClient: context.read<AuthProvider>().repository.apiClient,
-    );
+    return _placesService ??= PlacesSearchService();
   }
 
   @override
@@ -144,7 +144,9 @@ class _AddMeetupLocationsScreenState extends State<AddMeetupLocationsScreen> {
       try {
         final results = widget.citySearch
             ? await _places.searchCities(value)
-            : await _places.search(value);
+            : widget.airportSearch
+                ? await _places.searchAirports(value)
+                : await _places.search(value);
         if (!mounted) return;
         setState(() {
           _suggestions = results;

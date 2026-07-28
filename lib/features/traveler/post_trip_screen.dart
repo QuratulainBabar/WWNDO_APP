@@ -35,6 +35,7 @@ class _PostTripScreenState extends State<PostTripScreen> {
       backgroundColor: AppColors.background,
       appBar: const BackHeader(title: 'Post a trip'),
       body: ScrollableFormScreen(
+        pinActions: false,
         actions: [
           AppButton(
             label: 'Post trip →',

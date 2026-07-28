@@ -1,11 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/platform/keyboard_utils.dart';
-import '../../../core/geo/world_airports.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../data/models/meetup_location.dart';
+import '../../../data/services/places_search_service.dart';
 
-/// From / To airport search fields for country-to-country posting.
+/// From / To airport search for country-to-country posting (Google Places API).
 class AirportRouteSearchFields extends StatefulWidget {
   const AirportRouteSearchFields({
     super.key,
@@ -17,12 +20,12 @@ class AirportRouteSearchFields extends StatefulWidget {
     required this.onToChanged,
   });
 
-  final WorldAirport? fromAirport;
-  final WorldAirport? toAirport;
+  final MeetupLocation? fromAirport;
+  final MeetupLocation? toAirport;
   final String? fromErrorText;
   final String? toErrorText;
-  final ValueChanged<WorldAirport?> onFromChanged;
-  final ValueChanged<WorldAirport?> onToChanged;
+  final ValueChanged<MeetupLocation?> onFromChanged;
+  final ValueChanged<MeetupLocation?> onToChanged;
 
   @override
   State<AirportRouteSearchFields> createState() =>
@@ -39,12 +42,21 @@ class _AirportRouteSearchFieldsState extends State<AirportRouteSearchFields> {
   final _fromFocus = FocusNode();
   final _toFocus = FocusNode();
 
+  PlacesSearchService? _placesService;
+  Timer? _debounce;
+
   _ActiveField _active = _ActiveField.none;
-  List<WorldAirport> _suggestions = const [];
+  List<MeetupLocation> _suggestions = const [];
   int _totalMatches = 0;
   bool _showAll = false;
+  bool _searching = false;
+  String? _searchError;
   String _query = '';
   bool _applyingSelection = false;
+
+  PlacesSearchService get _places {
+    return _placesService ??= PlacesSearchService();
+  }
 
   @override
   void initState() {
@@ -59,23 +71,24 @@ class _AirportRouteSearchFieldsState extends State<AirportRouteSearchFields> {
     super.didUpdateWidget(oldWidget);
     if (!_fromFocus.hasFocus &&
         !_applyingSelection &&
-        oldWidget.fromAirport?.code != widget.fromAirport?.code) {
-      _fromController.text = widget.fromAirport?.resultTitle ?? '';
+        oldWidget.fromAirport?.placeId != widget.fromAirport?.placeId) {
+      _fromController.text = widget.fromAirport?.displayLabel ?? '';
     }
     if (!_toFocus.hasFocus &&
         !_applyingSelection &&
-        oldWidget.toAirport?.code != widget.toAirport?.code) {
-      _toController.text = widget.toAirport?.resultTitle ?? '';
+        oldWidget.toAirport?.placeId != widget.toAirport?.placeId) {
+      _toController.text = widget.toAirport?.displayLabel ?? '';
     }
   }
 
   void _syncControllersFromProps() {
-    _fromController.text = widget.fromAirport?.resultTitle ?? '';
-    _toController.text = widget.toAirport?.resultTitle ?? '';
+    _fromController.text = widget.fromAirport?.displayLabel ?? '';
+    _toController.text = widget.toAirport?.displayLabel ?? '';
   }
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _fromFocus.removeListener(_onFromFocus);
     _toFocus.removeListener(_onToFocus);
     _fromController.dispose();
@@ -109,7 +122,6 @@ class _AirportRouteSearchFieldsState extends State<AirportRouteSearchFields> {
     _handleBlur(isFrom: false);
   }
 
-  /// Delay blur cleanup so a suggestion tap can apply before the panel closes.
   void _handleBlur({required bool isFrom}) {
     Future<void>.delayed(const Duration(milliseconds: 120), () {
       if (!mounted || _applyingSelection) return;
@@ -120,10 +132,9 @@ class _AirportRouteSearchFieldsState extends State<AirportRouteSearchFields> {
       final selected = isFrom ? widget.fromAirport : widget.toAirport;
       final controller = isFrom ? _fromController : _toController;
       if (selected != null) {
-        controller.text = selected.resultTitle;
-        controller.selection = TextSelection.collapsed(
-          offset: controller.text.length,
-        );
+        controller.text = selected.displayLabel;
+      } else if (controller.text.trim().length < 2) {
+        controller.clear();
       }
 
       setState(() {
@@ -132,19 +143,52 @@ class _AirportRouteSearchFieldsState extends State<AirportRouteSearchFields> {
         _totalMatches = 0;
         _query = '';
         _showAll = false;
+        _searchError = null;
       });
     });
   }
 
   void _runSearch(String value) {
     final q = value.trim();
+    _debounce?.cancel();
+
+    if (q.length < 2) {
+      setState(() {
+        _query = q;
+        _suggestions = const [];
+        _totalMatches = 0;
+        _searching = false;
+        _searchError = null;
+      });
+      return;
+    }
+
     setState(() {
       _query = q;
-      _totalMatches = WorldAirports.searchCount(q);
-      _suggestions = WorldAirports.search(
-        q,
-        limit: _showAll ? 0 : _previewLimit,
-      );
+      _searching = true;
+      _searchError = null;
+    });
+
+    _debounce = Timer(const Duration(milliseconds: 350), () async {
+      try {
+        final results = await _places.searchAirports(q);
+        if (!mounted) return;
+        setState(() {
+          _totalMatches = results.length;
+          _suggestions = _showAll
+              ? results
+              : results.take(_previewLimit).toList();
+          _searching = false;
+        });
+      } catch (_) {
+        if (!mounted) return;
+        setState(() {
+          _suggestions = const [];
+          _totalMatches = 0;
+          _searching = false;
+          _searchError = 'Could not search airports. Try again.';
+        });
+      }
     });
   }
 
@@ -159,9 +203,18 @@ class _AirportRouteSearchFieldsState extends State<AirportRouteSearchFields> {
     _runSearch(value);
   }
 
-  void _selectAirport(WorldAirport airport, {required bool isFrom}) {
+  Future<void> _selectAirport(MeetupLocation place, {required bool isFrom}) async {
     _applyingSelection = true;
-    final title = airport.resultTitle;
+    setState(() => _searching = true);
+
+    MeetupLocation resolved = place;
+    if (place.placeId != null && place.placeId!.isNotEmpty) {
+      resolved = await _places.resolveDetails(place);
+    }
+
+    if (!mounted) return;
+
+    final title = resolved.displayLabel;
     final controller = isFrom ? _fromController : _toController;
     controller.value = TextEditingValue(
       text: title,
@@ -169,9 +222,9 @@ class _AirportRouteSearchFieldsState extends State<AirportRouteSearchFields> {
     );
 
     if (isFrom) {
-      widget.onFromChanged(airport);
+      widget.onFromChanged(resolved);
     } else {
-      widget.onToChanged(airport);
+      widget.onToChanged(resolved);
     }
 
     setState(() {
@@ -180,24 +233,13 @@ class _AirportRouteSearchFieldsState extends State<AirportRouteSearchFields> {
       _totalMatches = 0;
       _query = '';
       _showAll = false;
+      _searching = false;
     });
 
     FocusManager.instance.primaryFocus?.unfocus();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _applyingSelection = false;
-      // Ensure parent rebuild didn't wipe the selected label.
-      if (isFrom) {
-        _fromController.value = TextEditingValue(
-          text: title,
-          selection: TextSelection.collapsed(offset: title.length),
-        );
-      } else {
-        _toController.value = TextEditingValue(
-          text: title,
-          selection: TextSelection.collapsed(offset: title.length),
-        );
-      }
     });
   }
 
@@ -216,7 +258,24 @@ class _AirportRouteSearchFieldsState extends State<AirportRouteSearchFields> {
       _suggestions = const [];
       _totalMatches = 0;
       _query = '';
+      _searchError = null;
     });
+  }
+
+  void _viewMoreResults() async {
+    setState(() => _showAll = true);
+    if (_query.trim().length >= 2) {
+      try {
+        final results = await _places.searchAirports(_query);
+        if (!mounted) return;
+        setState(() {
+          _totalMatches = results.length;
+          _suggestions = results;
+        });
+      } catch (_) {
+        // Keep current preview list.
+      }
+    }
   }
 
   @override
@@ -286,15 +345,11 @@ class _AirportRouteSearchFieldsState extends State<AirportRouteSearchFields> {
                         suggestions: _suggestions,
                         totalMatches: _totalMatches,
                         showAll: _showAll,
+                        searching: _searching,
+                        searchError: _searchError,
                         onSelect: (airport) =>
                             _selectAirport(airport, isFrom: true),
-                        onViewMore: () {
-                          setState(() {
-                            _showAll = true;
-                            _suggestions =
-                                WorldAirports.search(_query, limit: 0);
-                          });
-                        },
+                        onViewMore: _viewMoreResults,
                       ),
                     const SizedBox(height: 12),
                     Align(
@@ -320,15 +375,11 @@ class _AirportRouteSearchFieldsState extends State<AirportRouteSearchFields> {
                         suggestions: _suggestions,
                         totalMatches: _totalMatches,
                         showAll: _showAll,
+                        searching: _searching,
+                        searchError: _searchError,
                         onSelect: (airport) =>
                             _selectAirport(airport, isFrom: false),
-                        onViewMore: () {
-                          setState(() {
-                            _showAll = true;
-                            _suggestions =
-                                WorldAirports.search(_query, limit: 0);
-                          });
-                        },
+                        onViewMore: _viewMoreResults,
                       ),
                   ],
                 ),
@@ -438,15 +489,19 @@ class _SuggestionPanel extends StatelessWidget {
     required this.suggestions,
     required this.totalMatches,
     required this.showAll,
+    required this.searching,
+    required this.searchError,
     required this.onSelect,
     required this.onViewMore,
   });
 
   final String query;
-  final List<WorldAirport> suggestions;
+  final List<MeetupLocation> suggestions;
   final int totalMatches;
   final bool showAll;
-  final ValueChanged<WorldAirport> onSelect;
+  final bool searching;
+  final String? searchError;
+  final ValueChanged<MeetupLocation> onSelect;
   final VoidCallback onViewMore;
 
   @override
@@ -472,7 +527,33 @@ class _SuggestionPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (suggestions.isEmpty)
+          if (searching && suggestions.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    'Searching airports…',
+                    style: typo.sm.copyWith(color: AppColors.textSecondary),
+                  ),
+                ],
+              ),
+            )
+          else if (searchError != null)
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                searchError!,
+                style: typo.sm.copyWith(color: AppColors.danger),
+              ),
+            )
+          else if (suggestions.isEmpty)
             Padding(
               padding: const EdgeInsets.all(16),
               child: Text(
@@ -485,7 +566,6 @@ class _SuggestionPanel extends StatelessWidget {
               (airport) => Material(
                 color: Colors.transparent,
                 child: InkWell(
-                  // onTapDown fires before TextField blur, so full label is applied.
                   onTapDown: (_) => onSelect(airport),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
@@ -505,18 +585,23 @@ class _SuggestionPanel extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                airport.resultTitle,
+                                airport.name.isNotEmpty
+                                    ? airport.name
+                                    : airport.displayLabel,
                                 style: typo.input.copyWith(
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
-                              const SizedBox(height: 2),
-                              Text(
-                                airport.locationSubtitle,
-                                style: typo.sm.copyWith(
-                                  color: AppColors.textSecondary,
+                              if (airport.address.isNotEmpty &&
+                                  airport.address != airport.name) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  airport.address,
+                                  style: typo.sm.copyWith(
+                                    color: AppColors.textSecondary,
+                                  ),
                                 ),
-                              ),
+                              ],
                             ],
                           ),
                         ),
@@ -526,7 +611,7 @@ class _SuggestionPanel extends StatelessWidget {
                 ),
               ),
             ),
-          if (!showAll && remaining > 0)
+          if (!searching && !showAll && remaining > 0)
             InkWell(
               onTap: onViewMore,
               child: Padding(

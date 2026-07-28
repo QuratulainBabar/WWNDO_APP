@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/config/demo_mode.dart';
-import '../../core/config/demo_mode.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_svg_icon.dart';
@@ -37,10 +36,9 @@ class _ReceiverShellState extends State<ReceiverShell>
       _startRealtime();
       _refreshUnread();
     });
-    _fallbackPollTimer = Timer.periodic(const Duration(seconds: 45), (_) {
+    _fallbackPollTimer = Timer.periodic(const Duration(seconds: 20), (_) {
       if (!mounted) return;
-      final realtime = context.read<NotificationRealtimeProvider>();
-      if (!realtime.isConnected) _refreshUnread();
+      _refreshUnread();
     });
   }
 

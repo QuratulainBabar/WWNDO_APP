@@ -12,6 +12,10 @@ abstract final class DemoAuthService {
   static const _refreshToken = 'demo-refresh-token';
   static const _resetToken = 'demo-reset-token';
 
+  /// Used by [AuthRepository] to detect a demo session vs a real API session.
+  static const accessTokenForDetect = _accessToken;
+  static const refreshTokenForDetect = _refreshToken;
+
   static AuthUser? _sessionUser;
 
   static Future<void> simulateNetworkDelay() =>

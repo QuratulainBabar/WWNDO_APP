@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 
 import '../../../core/geo/meetup_destination_validation.dart';
 import '../../../core/geo/meetup_origin_validation.dart';
-import '../../../core/geo/world_airports.dart';
 import '../../../core/geo/world_countries.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
@@ -70,8 +69,8 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
 
   MeetupLocation? _fromLocation;
   MeetupLocation? _toLocation;
-  WorldAirport? _fromAirport;
-  WorldAirport? _toAirport;
+  MeetupLocation? _fromAirport;
+  MeetupLocation? _toAirport;
   String? _fromAirportError;
   String? _toAirportError;
   DateTime? _travelDate;
@@ -103,8 +102,8 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
       _receiverPhone = delivery.receiverPhone ?? '';
       _fromLocation = delivery.fromMeetupLocation;
       _toLocation = delivery.toMeetupLocation;
-      _fromAirport = delivery.fromAirport;
-      _toAirport = delivery.toAirport;
+      _fromAirport = delivery.fromAirportPlace;
+      _toAirport = delivery.toAirportPlace;
       for (final photo in delivery.existingPhotoItems) {
         _existingPhotos[photo.id] = photo;
       }
@@ -149,11 +148,27 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
                   .map((c) => c.iso)
                   .firstOrNull;
 
-      _fromAirport = WorldAirports.byLabel(trip.originAirport ?? '') ??
-          (originIso != null ? WorldAirports.firstForCountry(originIso) : null);
-      _toAirport = WorldAirports.byLabel(trip.destinationAirport ?? '') ??
-          (destinationIso != null
-              ? WorldAirports.firstForCountry(destinationIso)
+      _fromAirport = trip.originAirport?.trim().isNotEmpty == true
+          ? meetupFromLabel(
+              trip.originAirport!.trim(),
+              countryCode: originIso,
+            )
+          : (originIso != null
+              ? meetupFromLabel(
+                  WorldCountries.byIso(originIso).name,
+                  countryCode: originIso,
+                )
+              : null);
+      _toAirport = trip.destinationAirport?.trim().isNotEmpty == true
+          ? meetupFromLabel(
+              trip.destinationAirport!.trim(),
+              countryCode: destinationIso,
+            )
+          : (destinationIso != null
+              ? meetupFromLabel(
+                  WorldCountries.byIso(destinationIso).name,
+                  countryCode: destinationIso,
+                )
               : null);
     } else {
       _fromLocation = MeetupLocation(
@@ -258,8 +273,8 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
               ? null
               : MeetupOriginValidation.validateMeetupLocations(
                   meetups: _meetupLocations,
-                  originCity: _fromAirport!.city,
-                  originCountryCode: _fromAirport!.countryIso,
+                  originCity: deliveryAirportCity(_fromAirport!),
+                  originCountryCode: deliveryCodeFromPlace(_fromAirport!),
                 ));
       _receiverMeetupError = _receiverMeetupLocations.isEmpty
           ? 'Select a meetup location.'
@@ -267,8 +282,8 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
               ? null
               : MeetupDestinationValidation.validateMeetupLocations(
                   meetups: _receiverMeetupLocations,
-                  destinationCity: _toAirport!.city,
-                  destinationCountryCode: _toAirport!.countryIso,
+                  destinationCity: deliveryAirportCity(_toAirport!),
+                  destinationCountryCode: deliveryCodeFromPlace(_toAirport!),
                 ));
       _budgetError = _maxBudget <= 0 ? 'Enter a valid maximum budget.' : null;
       _weightError =
@@ -281,10 +296,9 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
           _fromAirport == null ? 'Select an origin airport.' : null;
       _toAirportError = _toAirport == null
           ? 'Select a destination airport.'
-          : (_fromAirport != null && _toAirport!.code == _fromAirport!.code
+          : (_sameAirportSelected()
               ? 'Origin and destination airports must be different.'
-              : (_fromAirport != null &&
-                      _toAirport!.countryIso == _fromAirport!.countryIso
+              : (_sameCountryAirports()
                   ? 'Origin and destination countries must be different.'
                   : null));
       _descriptionError = _descriptionController.text.trim().isEmpty
@@ -326,12 +340,12 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
         receiverEmail: common.receiverEmail,
         receiverPhone: common.receiverPhone,
         receiverMeetupLocation: common.receiverMeetupLocation,
-        originCountry: WorldCountries.byIso(from.countryIso).name,
-        originAirport: from.label,
-        destinationCountry: WorldCountries.byIso(to.countryIso).name,
-        destinationAirport: to.label,
-        originCity: from.city,
-        destinationCity: to.city,
+        originCountry: deliveryCountryName(from),
+        originAirport: from.displayLabel,
+        destinationCountry: deliveryCountryName(to),
+        destinationAirport: to.displayLabel,
+        originCity: deliveryAirportCity(from),
+        destinationCity: deliveryAirportCity(to),
         platformFee: common.platformFee,
         platformFeeShare: common.platformFeeShare,
         paysReceiverFee: common.paysReceiverFee,
@@ -418,6 +432,28 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
   String? _validateReceiverPhone(String phone) {
     final user = context.read<AuthProvider>().user;
     return ReceiverContactValidation.validatePhoneForUser(phone, user);
+  }
+
+  bool _sameAirportSelected() {
+    if (_fromAirport == null || _toAirport == null) return false;
+    final fromId = _fromAirport!.placeId?.trim();
+    final toId = _toAirport!.placeId?.trim();
+    if (fromId != null &&
+        toId != null &&
+        fromId.isNotEmpty &&
+        toId.isNotEmpty) {
+      return fromId == toId;
+    }
+    return _fromAirport!.displayLabel.trim().toLowerCase() ==
+        _toAirport!.displayLabel.trim().toLowerCase();
+  }
+
+  bool _sameCountryAirports() {
+    if (_fromAirport == null || _toAirport == null) return false;
+    final fromCode = deliveryCodeFromPlace(_fromAirport!);
+    final toCode = deliveryCodeFromPlace(_toAirport!);
+    if (fromCode == 'XX' || toCode == 'XX') return false;
+    return fromCode == toCode;
   }
 
   @override

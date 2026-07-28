@@ -1,12 +1,28 @@
+import 'dart:convert';
+
+import 'package:http/http.dart' as http;
+
 import '../../core/api/api_client.dart';
 import '../../core/api/api_exception.dart';
+import '../../core/config/api_config.dart';
 import '../models/meetup_location.dart';
 
-/// Location search via WWNGO backend Places proxy (`GOOGLE_MAPS_API_KEY` on server).
+/// Location search via Google Places API (same key as backend `GOOGLE_MAPS_API_KEY`).
 class PlacesSearchService {
-  PlacesSearchService({required ApiClient apiClient}) : _apiClient = apiClient;
+  PlacesSearchService({
+    ApiClient? apiClient,
+    http.Client? httpClient,
+    String? googleMapsApiKey,
+  })  : _http = httpClient ?? http.Client(),
+        _apiKey = (googleMapsApiKey ?? ApiConfig.googleMapsApiKey).trim();
 
-  final ApiClient _apiClient;
+  static const _autocompleteUrl =
+      'https://maps.googleapis.com/maps/api/place/autocomplete/json';
+  static const _detailsUrl =
+      'https://maps.googleapis.com/maps/api/place/details/json';
+
+  final http.Client _http;
+  final String _apiKey;
 
   Future<List<MeetupLocation>> search(String query) {
     return _autocomplete(query, mode: 'places');
@@ -17,49 +33,159 @@ class PlacesSearchService {
     return _autocomplete(query, mode: 'cities');
   }
 
+  /// Airport autocomplete for country-to-country route fields.
+  Future<List<MeetupLocation>> searchAirports(String query) {
+    return _autocomplete(query, mode: 'airports');
+  }
+
   Future<List<MeetupLocation>> _autocomplete(
     String query, {
     required String mode,
   }) async {
     final trimmed = query.trim();
     if (trimmed.length < 2) return const [];
+    _assertConfigured();
 
-    final encoded = Uri.encodeQueryComponent(trimmed);
-    final data = await _apiClient.get(
-      '/places/autocomplete?q=$encoded&mode=$mode',
-      authenticated: true,
+    final types = switch (mode) {
+      'cities' => '(cities)',
+      'airports' => 'airport',
+      _ => 'establishment|geocode',
+    };
+
+    final uri = Uri.parse(_autocompleteUrl).replace(
+      queryParameters: {
+        'input': trimmed,
+        'key': _apiKey,
+        'types': types,
+      },
     );
 
-    final list = data['predictions'];
-    if (list is! List) return const [];
-    return list
-        .whereType<Map<String, dynamic>>()
-        .map(MeetupLocation.fromJson)
-        .where((p) => p.name.isNotEmpty || p.address.isNotEmpty)
-        .toList();
+    try {
+      final response = await _http.get(uri);
+      final json = _decodeJson(response.body);
+      final status = json['status'] as String? ?? 'UNKNOWN';
+
+      if (status != 'OK' && status != 'ZERO_RESULTS') {
+        throw ApiException(
+          message: json['error_message'] as String? ??
+              'Places autocomplete failed ($status)',
+          statusCode: response.statusCode,
+          code: 'PLACES_API_ERROR',
+        );
+      }
+
+      final list = json['predictions'];
+      if (list is! List) return const [];
+
+      return list.whereType<Map>().map((item) {
+        final map = Map<String, dynamic>.from(item);
+        final structured = map['structured_formatting'];
+        final structuredMap = structured is Map
+            ? Map<String, dynamic>.from(structured)
+            : const <String, dynamic>{};
+        return MeetupLocation(
+          name: structuredMap['main_text'] as String? ??
+              map['description'] as String? ??
+              '',
+          address: map['description'] as String? ?? '',
+          placeId: map['place_id'] as String?,
+        );
+      }).where((p) => p.name.isNotEmpty || p.address.isNotEmpty).toList();
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      throw ApiException(
+        message: 'Unable to search locations. Please try again.',
+        code: 'PLACES_NETWORK_ERROR',
+      );
+    }
   }
 
   /// Enrich a prediction with country ISO + coordinates (Places Details).
   Future<MeetupLocation> resolveDetails(MeetupLocation place) async {
     final placeId = place.placeId?.trim();
     if (placeId == null || placeId.isEmpty) return place;
+    if (_apiKey.isEmpty) return place;
 
     try {
-      final data = await _apiClient.get(
-        '/places/details?placeId=${Uri.encodeQueryComponent(placeId)}',
-        authenticated: true,
+      final uri = Uri.parse(_detailsUrl).replace(
+        queryParameters: {
+          'place_id': placeId,
+          'fields':
+              'place_id,name,formatted_address,geometry,address_component',
+          'key': _apiKey,
+        },
       );
-      final detailed = MeetupLocation.fromJson(data);
+
+      final response = await _http.get(uri);
+      final json = _decodeJson(response.body);
+      final status = json['status'] as String? ?? 'UNKNOWN';
+      if (status != 'OK') return place;
+
+      final result = json['result'];
+      if (result is! Map) return place;
+      final resultMap = Map<String, dynamic>.from(result);
+
+      final components = resultMap['address_components'];
+      String? countryCode;
+      String? localityName;
+      if (components is List) {
+        for (final raw in components.whereType<Map>()) {
+          final component = Map<String, dynamic>.from(raw);
+          final types = component['types'];
+          if (types is! List) continue;
+          final typeSet = types.map((t) => t.toString()).toSet();
+          if (typeSet.contains('country')) {
+            countryCode = component['short_name'] as String?;
+          }
+          if (localityName == null &&
+              (typeSet.contains('locality') ||
+                  typeSet.contains('administrative_area_level_1'))) {
+            localityName = component['long_name'] as String?;
+          }
+        }
+      }
+
+      final geometry = resultMap['geometry'];
+      final location = geometry is Map ? geometry['location'] : null;
+      final lat = location is Map ? (location['lat'] as num?)?.toDouble() : null;
+      final lng = location is Map ? (location['lng'] as num?)?.toDouble() : null;
+
+      final name = (localityName ?? resultMap['name'] as String? ?? '').trim();
+      final address = (resultMap['formatted_address'] as String? ??
+              resultMap['name'] as String? ??
+              '')
+          .trim();
+
       return place.copyWith(
-        name: detailed.name.isNotEmpty ? detailed.name : place.name,
-        address: detailed.address.isNotEmpty ? detailed.address : place.address,
-        placeId: detailed.placeId ?? place.placeId,
-        latitude: detailed.latitude ?? place.latitude,
-        longitude: detailed.longitude ?? place.longitude,
-        countryCode: detailed.countryCode ?? place.countryCode,
+        name: name.isNotEmpty ? name : place.name,
+        address: address.isNotEmpty ? address : place.address,
+        placeId: resultMap['place_id'] as String? ?? place.placeId,
+        latitude: lat ?? place.latitude,
+        longitude: lng ?? place.longitude,
+        countryCode: countryCode ?? place.countryCode,
       );
-    } on ApiException {
+    } catch (_) {
       return place;
     }
+  }
+
+  void _assertConfigured() {
+    if (_apiKey.isEmpty) {
+      throw const ApiException(
+        message:
+            'Google Maps is not configured. Set GOOGLE_MAPS_API_KEY for the app.',
+        code: 'MAPS_NOT_CONFIGURED',
+        statusCode: 503,
+      );
+    }
+  }
+
+  Map<String, dynamic> _decodeJson(String body) {
+    if (body.isEmpty) return const {};
+    final decoded = jsonDecode(body);
+    if (decoded is Map<String, dynamic>) return decoded;
+    if (decoded is Map) return Map<String, dynamic>.from(decoded);
+    return const {};
   }
 }

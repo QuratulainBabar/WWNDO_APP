@@ -1,5 +1,4 @@
 import '../../../core/config/api_config.dart';
-import '../../../core/geo/world_airports.dart';
 import '../../../core/geo/world_cities.dart';
 import '../../../core/geo/world_countries.dart';
 import '../../../data/models/created_delivery.dart';
@@ -40,6 +39,22 @@ MeetupLocation meetupFromLabel(String label, {String? countryCode}) {
   );
 }
 
+String deliveryCountryName(MeetupLocation place) {
+  final code = place.countryCode?.trim().toUpperCase();
+  if (code != null && code.length == 2 && WorldCountries.containsIso(code)) {
+    return WorldCountries.byIso(code).name;
+  }
+  return place.displayLabel;
+}
+
+String deliveryAirportCity(MeetupLocation place) {
+  final name = place.name.trim();
+  if (name.isNotEmpty) return name;
+  final parts = place.address.split(',');
+  if (parts.length >= 2) return parts[parts.length - 2].trim();
+  return place.displayLabel;
+}
+
 extension CreatedDeliveryFormX on CreatedDelivery {
   bool get isCountryDelivery =>
       deliveryType == DeliveryType.countryToCountry;
@@ -64,11 +79,17 @@ extension CreatedDeliveryFormX on CreatedDelivery {
     return meetupFromLabel(toCity ?? '', countryCode: toCode);
   }
 
-  WorldAirport? get fromAirport =>
-      WorldAirports.byLabel(originAirport ?? '');
+  MeetupLocation? get fromAirportPlace {
+    final label = originAirport?.trim();
+    if (label == null || label.isEmpty) return null;
+    return meetupFromLabel(label, countryCode: fromCode);
+  }
 
-  WorldAirport? get toAirport =>
-      WorldAirports.byLabel(destinationAirport ?? '');
+  MeetupLocation? get toAirportPlace {
+    final label = destinationAirport?.trim();
+    if (label == null || label.isEmpty) return null;
+    return meetupFromLabel(label, countryCode: toCode);
+  }
 
   List<MeetupLocation> get preferredMeetupLocationModels =>
       preferredMeetupLocations

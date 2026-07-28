@@ -24,6 +24,13 @@ class ApiConfig {
   static String get tripsBase => '$apiV1/trips';
   static String get walletBase => '$apiV1/wallet';
 
+  /// Same Google Maps / Places key used by the backend (`GOOGLE_MAPS_API_KEY`).
+  /// Override with: `flutter run --dart-define=GOOGLE_MAPS_API_KEY=...`
+  static const String googleMapsApiKey = String.fromEnvironment(
+    'GOOGLE_MAPS_API_KEY',
+    defaultValue: 'AIzaSyBM9mGr8VU88NzvMs0CD1up5panX8Ec8Go',
+  );
+
   /// Absolute URL for a relative upload path returned by the API.
   static String resolveUploadUrl(String relativeOrAbsolute) {
     if (relativeOrAbsolute.startsWith('http://') ||

@@ -19,14 +19,30 @@ class DeliveryRepository {
   final ApiClient _apiClient;
   final DemoModeProvider? _demoMode;
 
+  /// In-memory deliveries created this session (demo mode + create race buffer).
+  static final List<CreatedDelivery> _sessionCreated = [];
+
   bool get _isDemoMode => _demoMode?.enabled ?? false;
+
+  static void rememberCreated(CreatedDelivery delivery) {
+    _sessionCreated.removeWhere(
+      (d) => d.id == delivery.id || d.displayId == delivery.displayId,
+    );
+    _sessionCreated.insert(0, delivery);
+  }
+
+  static void clearSessionCreated() => _sessionCreated.clear();
 
   /// POST /api/v1/deliveries (multipart)
   Future<CreatedDelivery> createDelivery(CreateDeliveryRequest request) async {
     _validateLocal(request);
 
     if (_isDemoMode) {
-      return _demoCreate(request);
+      throw const ApiException(
+        message:
+            'Demo mode is on — the parcel is not saved on the server, so the receiver will not get Alerts or email. Turn off Demo mode, sign in again, then post the delivery.',
+        code: 'DEMO_MODE',
+      );
     }
 
     final data = await _apiClient.postMultipart(
@@ -39,23 +55,55 @@ class DeliveryRepository {
       authenticated: true,
     );
 
-    return CreatedDelivery.fromJson(data);
+    final created = CreatedDelivery.fromJson(data);
+    rememberCreated(created);
+    return created;
   }
 
   /// GET /api/v1/deliveries?role=
   Future<List<CreatedDelivery>> listDeliveries({String role = 'sender'}) async {
-    if (_isDemoMode) return const [];
+    if (_isDemoMode) {
+      // Never treat sender session creates as receiver "incoming" parcels.
+      // That fake list had no Alerts / email and looked like a live delivery.
+      if (role == 'receiver') return const [];
+      return List<CreatedDelivery>.unmodifiable(_sessionCreated);
+    }
 
     final data = await _apiClient.get(
       '/deliveries?role=${Uri.encodeQueryComponent(role)}',
       authenticated: true,
     );
-    final list = data['deliveries'];
-    if (list is! List) return const <CreatedDelivery>[];
-    return list
-        .whereType<Map>()
-        .map((item) => CreatedDelivery.fromJson(Map<String, dynamic>.from(item)))
-        .toList();
+    final list = _extractDeliveriesList(data);
+    final parsed = <CreatedDelivery>[];
+    for (final item in list) {
+      if (item is! Map) continue;
+      try {
+        parsed.add(
+          CreatedDelivery.fromJson(Map<String, dynamic>.from(item)),
+        );
+      } catch (e) {
+        assert(() {
+          // Ignore malformed rows so one bad item cannot blank the whole list.
+          // ignore: avoid_print
+          print('listDeliveries parse skip: $e');
+          return true;
+        }());
+      }
+    }
+    return parsed;
+  }
+
+  static List<dynamic> _extractDeliveriesList(Map<String, dynamic> data) {
+    final direct = data['deliveries'];
+    if (direct is List) return direct;
+    // Some gateways nest again: { data: { deliveries: [...] } } already unwrapped
+    // by ApiClient — still accept a bare list under alternate keys.
+    final nested = data['data'];
+    if (nested is Map && nested['deliveries'] is List) {
+      return nested['deliveries'] as List;
+    }
+    if (nested is List) return nested;
+    return const [];
   }
 
   /// GET /api/v1/deliveries/:id?role=

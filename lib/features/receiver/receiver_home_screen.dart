@@ -50,11 +50,10 @@ class _ReceiverHomeScreenState extends State<ReceiverHomeScreen>
       _attachRealtimeListener();
       _load(silent: false);
     });
-    _fallbackPollTimer = Timer.periodic(const Duration(seconds: 45), (_) {
+    _fallbackPollTimer = Timer.periodic(const Duration(seconds: 20), (_) {
       if (!mounted) return;
-      if (!(_realtimeProvider?.isConnected ?? false)) {
-        _load(silent: _active != null);
-      }
+      // Always refresh — SSE can look "connected" while stalled after role switches.
+      _load(silent: _active != null);
     });
   }
 

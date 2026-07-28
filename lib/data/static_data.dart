@@ -455,9 +455,9 @@ abstract final class StaticData {
         id: 'snd-final-budget-$shipmentId-${DateTime.now().microsecondsSinceEpoch}',
         role: WalletRole.sender,
         type: AppNotificationType.counterOffer,
-        title: 'Traveler sent the final budget.',
+        title: 'Counter offer sent by traveler',
         body:
-            '$travelerName proposed a final budget of \$${amount.toStringAsFixed(2)} for $shipmentId. Review parcel details to accept.',
+            '$travelerName sent a counter offer of \$${amount.toStringAsFixed(2)} for $shipmentId. Review parcel details to accept.',
         time: 'Just now',
         route: '/shipment/$shipmentId',
       ),

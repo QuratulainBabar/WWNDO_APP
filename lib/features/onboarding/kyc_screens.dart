@@ -114,13 +114,13 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
     await KycFlowActions.submitForReview(context);
   }
 
-  Future<void> _completeDemoVerification() async {
-    setState(() {
-      _demoMode = true;
-      _flow.applyDemoVerification();
-    });
-    await KycFlowActions.completeDemoAndOpenApp(context);
-  }
+  // Future<void> _completeDemoVerification() async {
+  //   setState(() {
+  //     _demoMode = true;
+  //     _flow.applyDemoVerification();
+  //   });
+  //   await KycFlowActions.completeDemoAndOpenApp(context);
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -253,12 +253,13 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
                           onTap: _openSelfieFlow,
                         ),
                       ],
-                      const SizedBox(height: 20),
-                      _DemoModeCard(
-                        enabled: _demoMode,
-                        onChanged: (value) => setState(() => _demoMode = value),
-                        onCompleteDemo: _completeDemoVerification,
-                      ),
+                      // Demo mode toggle hidden from Identity Verification UI.
+                      // const SizedBox(height: 20),
+                      // _DemoModeCard(
+                      //   enabled: _demoMode,
+                      //   onChanged: (value) => setState(() => _demoMode = value),
+                      //   // onCompleteDemo: _completeDemoVerification,
+                      // ),
                       const SizedBox(height: 20),
                       if (_notice != null) ...[
                         Text(
@@ -481,12 +482,12 @@ class _DemoModeCard extends StatelessWidget {
   const _DemoModeCard({
     required this.enabled,
     required this.onChanged,
-    required this.onCompleteDemo,
+    // required this.onCompleteDemo,
   });
 
   final bool enabled;
   final ValueChanged<bool> onChanged;
-  final VoidCallback onCompleteDemo;
+  // final VoidCallback onCompleteDemo;
 
   @override
   Widget build(BuildContext context) {
@@ -539,17 +540,17 @@ class _DemoModeCard extends StatelessWidget {
                 border: Border.all(color: AppColors.warning.withValues(alpha: 0.25)),
               ),
               child: Text(
-                'Demo mode is on. Tap each step to fill demo data, or complete everything instantly below.',
+                'Demo mode is on. Tap each step to fill demo data.',
                 style: typo.sm.copyWith(height: 1.4),
               ),
             ),
-            const SizedBox(height: 12),
-            AppButton(
-              label: 'Complete verification (demo)',
-              variant: AppButtonVariant.ghost,
-              textStyle: typo.button.copyWith(fontWeight: FontWeight.w700),
-              onPressed: onCompleteDemo,
-            ),
+            // const SizedBox(height: 12),
+            // AppButton(
+            //   label: 'Complete verification (demo)',
+            //   variant: AppButtonVariant.ghost,
+            //   textStyle: typo.button.copyWith(fontWeight: FontWeight.w700),
+            //   onPressed: onCompleteDemo,
+            // ),
           ],
         ],
       ),

@@ -14,6 +14,8 @@ import '../../data/models/traveler_trip.dart';
 import '../../data/services/delivery_repository.dart';
 import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/notification_realtime_provider.dart';
+import '../../providers/sender_deliveries_provider.dart';
 import 'delivery_posting_actions.dart';
 import 'widgets/delivery_form_fields.dart';
 
@@ -81,6 +83,10 @@ class _CountryToCountryPostDeliveryScreenState
       );
 
       if (!mounted) return;
+      // Optimistic + realtime invalidation so Home Active Deliveries updates
+      // even when the shell route does not remount.
+      context.read<SenderDeliveriesProvider>().upsert(created);
+      context.read<NotificationRealtimeProvider>().notifyDeliveryUpdated();
       context.pushReplacement(
         '/post-delivery/success',
         extra: created.route.isNotEmpty ? created.route : request.routeLabel,
@@ -115,6 +121,7 @@ class _CountryToCountryPostDeliveryScreenState
             : '/delivery-type',
       ),
       body: ScrollableFormScreen(
+        pinActions: false,
         actions: [
           AppButton(
             label: _submitting ? 'Posting…' : 'Post delivery →',

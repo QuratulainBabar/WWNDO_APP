@@ -54,12 +54,9 @@ class _RoleNotificationsScreenState extends State<RoleNotificationsScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _attachRealtimeListener();
     });
-    _pollTimer = Timer.periodic(const Duration(seconds: 45), (_) {
+    _pollTimer = Timer.periodic(const Duration(seconds: 20), (_) {
       if (!mounted) return;
-      final connected = _realtimeProvider?.isConnected ?? false;
-      if (!connected) {
-        _load(silent: _apiNotifications.isNotEmpty);
-      }
+      _load(silent: _apiNotifications.isNotEmpty);
     });
   }
 

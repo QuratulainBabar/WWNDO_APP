@@ -36,6 +36,8 @@ class NotificationRealtimeService {
     required WalletRole role,
     required AccessTokenProvider tokenProvider,
   }) async {
+    // Role switches call disconnect() then connect() — must allow reopen.
+    _disposed = false;
     _role = role;
     _tokenProvider = tokenProvider;
     _reconnectAttempt = 0;
@@ -43,7 +45,8 @@ class NotificationRealtimeService {
   }
 
   Future<void> disconnect() async {
-    _disposed = true;
+    // Temporary stop only. Do NOT set _disposed here — that permanently
+    // blocked SSE after leaving a role shell (badge + live alerts died).
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
     await _subscription?.cancel();

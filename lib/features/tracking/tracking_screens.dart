@@ -17,13 +17,16 @@ import '../../core/navigation/app_navigation.dart';
 import '../../core/platform/platform_ui.dart';
 import '../../core/widgets/app_labeled_field.dart';
 import '../../core/widgets/back_header.dart';
+import '../../core/widgets/delivery_status_badge.dart';
 import '../../core/widgets/back_link.dart';
 import '../../core/widgets/cancel_request_confirmation_dialog.dart';
 import '../../core/widgets/dispute_warning_icon.dart';
+import '../../core/utils/external_links.dart';
 import '../../core/widgets/scrollable_form_screen.dart';
 import '../../data/models/delivery_tracking.dart';
 import '../../data/models/shipment.dart';
 import '../../data/services/delivery_repository.dart';
+import '../../data/services/fulfillment_repository.dart';
 import '../../data/static_data.dart';
 import '../../data/wallet_service.dart';
 import '../../providers/auth_provider.dart';
@@ -62,12 +65,18 @@ class ShipmentDetailScreen extends StatefulWidget {
 class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
   late ShipmentStatus _selectedStatus;
   int? _apiMatchingTravelerCount;
+  String? _apiDeliveryStatus;
+  bool _apiCp1Confirmed = false;
+  bool _apiCp2Confirmed = false;
 
   @override
   void initState() {
     super.initState();
     _selectedStatus = ShipmentStatus.inTransit;
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadApiMatchingCount());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadApiMatchingCount();
+      _loadFulfillmentFromApi();
+    });
     StaticData.bidRequestsVersion.addListener(_onBidDataChanged);
   }
 
@@ -88,6 +97,43 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
       apiClient: auth.repository.apiClient,
       demoMode: demoMode,
     );
+  }
+
+  FulfillmentRepository _fulfillmentRepository() {
+    final auth = context.read<AuthProvider>();
+    return FulfillmentRepository(apiClient: auth.repository.apiClient);
+  }
+
+  Future<void> _loadFulfillmentFromApi() async {
+    final demoMode = context.read<DemoModeProvider>();
+    if (demoMode.enabled) return;
+
+    try {
+      final timeline =
+          await _fulfillmentRepository().getTimeline(widget.shipmentId);
+      final checkpoints =
+          await _fulfillmentRepository().listNfcCheckpoints(widget.shipmentId);
+      if (!mounted) return;
+
+      final cp1 = checkpoints.any(
+        (c) =>
+            c['checkpoint'] == 'handoff_sender_traveler' &&
+            c['confirmedAt'] != null,
+      );
+      final cp2 = checkpoints.any(
+        (c) =>
+            c['checkpoint'] == 'delivery_traveler_receiver' &&
+            c['confirmedAt'] != null,
+      );
+
+      setState(() {
+        _apiDeliveryStatus = timeline['status'] as String?;
+        _apiCp1Confirmed = cp1;
+        _apiCp2Confirmed = cp2;
+      });
+    } catch (_) {
+      // Falls back to StaticData demo state.
+    }
   }
 
   Future<void> _loadApiMatchingCount() async {
@@ -202,16 +248,20 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
           effectiveStepIndex: stepProgress,
         );
         final isDisputed = StaticData.isShipmentDisputed(shipment.id);
+        final cp1Confirmed = _apiCp1Confirmed ||
+            StaticData.isNfcCheckpoint1Confirmed(shipment.id);
+        final cp2Confirmed = _apiCp2Confirmed ||
+            StaticData.isNfcCheckpoint2Confirmed(shipment.id);
         // Traveler marks In Transit after NFC CP1 matching sets Collected.
         final canMarkInTransit = status == ShipmentStatus.collected &&
-            StaticData.isNfcCheckpoint1Confirmed(shipment.id) &&
+            cp1Confirmed &&
             !StaticData.isNfcCheckpoint2Activated(shipment.id) &&
-            !StaticData.isNfcCheckpoint2Confirmed(shipment.id);
+            !cp2Confirmed;
         // Traveler enables NFC for receiver while In Transit (before CP2 matching).
         final canEnableNfcForReceiver = status == ShipmentStatus.inTransit &&
-            StaticData.isNfcCheckpoint1Confirmed(shipment.id) &&
+            cp1Confirmed &&
             !StaticData.isNfcCheckpoint2Activated(shipment.id) &&
-            !StaticData.isNfcCheckpoint2Confirmed(shipment.id);
+            !cp2Confirmed;
         final showStatusUpdate = widget.isTravelerView &&
             !isDisputed &&
             (canMarkInTransit || canEnableNfcForReceiver);
@@ -240,6 +290,10 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (_apiDeliveryStatus != null) ...[
+                    DeliveryStatusBadge(_apiDeliveryStatus, semiBold: true),
+                    const SizedBox(height: 12),
+                  ],
                   // Sender open parcels: Receiver Pending or tappable Matching Travelers (n).
                   Builder(
                     builder: (context) {
@@ -1370,7 +1424,7 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
     appNavigateBackFromContext(context, fallback: fallback);
   }
 
-  void _complete() {
+  Future<void> _complete() async {
     if (!mounted || _confirmed || _cancelled) return;
     _confirmed = true;
     _autoCompleteTimer?.cancel();
@@ -1381,12 +1435,31 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
                 : StaticData.receiverActiveShipment.id)
             : StaticData.activeShipment.id);
 
+    final demoMode = context.read<DemoModeProvider>().enabled;
+    if (!demoMode) {
+      try {
+        final auth = context.read<AuthProvider>();
+        final repo = FulfillmentRepository(apiClient: auth.repository.apiClient);
+        await repo.confirmNfc(
+          deliveryId: shipmentId,
+          checkpoint: _isCheckpoint2 ? 2 : 1,
+        );
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('NFC checkpoint failed: $e')),
+          );
+        }
+      }
+    }
+
     if (_isCheckpoint2) {
-      // Both traveler and receiver must complete NFC matching before Delivered.
-      final bothDone = StaticData.confirmNfcCheckpoint2Party(
-        shipmentId,
-        isTraveler: widget.isTraveler,
-      );
+      final bothDone = demoMode
+          ? StaticData.confirmNfcCheckpoint2Party(
+              shipmentId,
+              isTraveler: widget.isTraveler,
+            )
+          : true;
       if (widget.isTraveler) {
         context.pushReplacement(
           '/traveler-nfc-success',
@@ -1407,10 +1480,12 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
       return;
     }
 
-    final bothDone = StaticData.confirmNfcCheckpoint1Party(
-      shipmentId,
-      isTraveler: widget.isTraveler,
-    );
+    final bothDone = demoMode
+        ? StaticData.confirmNfcCheckpoint1Party(
+            shipmentId,
+            isTraveler: widget.isTraveler,
+          )
+        : true;
     context.pushReplacement(
       '/nfc-confirm/success',
       extra: {
@@ -1756,7 +1831,7 @@ class _DisputeFormScreenState extends State<DisputeFormScreen> {
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     FocusManager.instance.primaryFocus?.unfocus();
     final category = _category ?? 'Damaged parcel';
     final description = _descriptionController.text.trim();
@@ -1767,7 +1842,29 @@ class _DisputeFormScreenState extends State<DisputeFormScreen> {
     final reason = description.isNotEmpty
         ? '$category — $description'
         : 'Parcel arrived damaged — screen cracked on electronics item. Photos submitted.';
-    StaticData.fileDispute(widget.shipmentId, reason: reason);
+
+    final demoMode = context.read<DemoModeProvider>().enabled;
+    if (!demoMode) {
+      try {
+        final auth = context.read<AuthProvider>();
+        final repo = FulfillmentRepository(apiClient: auth.repository.apiClient);
+        await repo.openDispute(
+          deliveryId: widget.shipmentId,
+          reason: reason,
+        );
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not open dispute: $e')),
+          );
+        }
+        return;
+      }
+    } else {
+      StaticData.fileDispute(widget.shipmentId, reason: reason);
+    }
+
+    if (!mounted) return;
     final ctx = disputeContextFromUri(GoRouterState.of(context).uri);
     appNavigatePushReplacement(
       disputeRoute(
@@ -2025,13 +2122,32 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
     super.dispose();
   }
 
-  void _send() {
+  Future<void> _send() async {
     final message = _messageController.text.trim();
     if (message.isEmpty) {
       setState(() => _error = 'Please enter a message');
       return;
     }
-    context.pushReplacement('/contact-support/success', extra: widget.shipmentId);
+
+    final shipmentLine = widget.shipmentId != null
+        ? 'Related shipment: ${widget.shipmentId}\n\n'
+        : '';
+    final body = '$shipmentLine$message';
+
+    final sent = await ExternalLinks.emailSupport(
+      subject: widget.shipmentId != null
+          ? 'WWNGO support — ${widget.shipmentId}'
+          : 'WWNGO support request',
+      body: body,
+    );
+
+    if (!mounted) return;
+
+    if (sent) {
+      context.pushReplacement('/contact-support/success', extra: widget.shipmentId);
+    } else {
+      setState(() => _error = 'Could not open email app. Try support@wwngo.com');
+    }
   }
 
   @override
@@ -2093,9 +2209,22 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            Text(
-              'You can also email us at support@wwngo.com',
-              style: typo.sm.copyWith(height: 1.5),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'You can also email us at ',
+                    style: typo.sm.copyWith(height: 1.5),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () => ExternalLinks.emailSupport(
+                    subject: 'WWNGO support',
+                    body: '',
+                  ),
+                  child: Text('support@wwngo.com', style: typo.link),
+                ),
+              ],
             ),
           ],
         ),

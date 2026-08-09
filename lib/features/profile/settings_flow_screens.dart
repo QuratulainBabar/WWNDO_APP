@@ -106,7 +106,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   void _onCountryChanged(String iso) {
     setState(() {
       _countryIso = iso;
-      // Auto-update phone flag + dial code; user can still override manually.
       _phoneCountry = PhoneCountries.byIso(iso);
     });
   }
@@ -157,7 +156,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         phone: PhoneCountries.formatFull(_phoneCountry, _phoneController.text),
         countryCode: _countryIso!,
       );
-      ProfileDemoStore.setPhotoPath(_walletRole, _photoPath);
+      if (_photoPath != null) {
+        ProfileDemoStore.setPhotoPath(_walletRole, _photoPath);
+        try {
+          await auth.repository.uploadAvatar(_photoPath!);
+        } catch (_) {
+          // Non-fatal — profile fields still saved.
+        }
+      }
       if (!mounted) return;
       AppToast.success(context, 'Profile updated');
       context.pushReplacement('/edit-profile/success', extra: widget.role);
@@ -326,7 +332,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           label: 'Phone number',
           controller: _phoneController,
           country: _phoneCountry,
-          onCountryChanged: (c) => setState(() => _phoneCountry = c),
+          onCountryChanged: (c) => setState(() {
+            _phoneCountry = c;
+            _countryIso = c.iso;
+          }),
           hintText: '6 12 34 56 78',
           labelStyle: typo.inputLabel.copyWith(fontWeight: FontWeight.w700),
           inputStyle: typo.input,

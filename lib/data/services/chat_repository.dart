@@ -30,10 +30,15 @@ class ChatRepository {
 
   bool get _isDemoMode => _demoMode?.enabled ?? false;
 
-  Future<List<ChatConversationPreview>> listConversations() async {
+  Future<List<ChatConversationPreview>> listConversations({
+    String? threadType,
+  }) async {
     if (_isDemoMode) return const [];
 
-    final data = await _apiClient.get('/chats', authenticated: true);
+    final query = threadType != null && threadType.isNotEmpty
+        ? '?threadType=${Uri.encodeQueryComponent(threadType)}'
+        : '';
+    final data = await _apiClient.get('/chats$query', authenticated: true);
     final list = data['conversations'];
     if (list is! List) return const [];
     return list
@@ -91,6 +96,28 @@ class ChatRepository {
     final data = await _apiClient.post(
       '/chats/$conversationId/messages',
       body: {'text': text},
+      authenticated: true,
+    );
+    return ChatMessage.fromJson(data);
+  }
+
+  Future<ChatMessage> sendImage(String conversationId, String filePath) async {
+    if (_isDemoMode) {
+      return ChatMessage(
+        text: '',
+        isMine: true,
+        time: 'Just now',
+        isImage: true,
+        imageName: filePath.split('/').last,
+        imagePath: filePath,
+      );
+    }
+
+    final data = await _apiClient.postMultipart(
+      '/chats/$conversationId/messages/image',
+      files: [
+        MultipartFilePart(field: 'image', filePath: filePath),
+      ],
       authenticated: true,
     );
     return ChatMessage.fromJson(data);

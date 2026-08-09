@@ -44,8 +44,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
         WalletRole.receiver => '/receiver-home',
       };
 
-  bool get _useApi =>
-      widget.role == WalletRole.receiver || widget.role == WalletRole.sender;
+  bool get _useApi => !context.read<DemoModeProvider>().enabled;
 
   @override
   void initState() {
@@ -88,7 +87,12 @@ class _ChatListScreenState extends State<ChatListScreen> {
     }
 
     try {
-      final list = await _repo().listConversations();
+      final threadType = widget.role == WalletRole.traveler
+          ? 'sender_traveler'
+          : widget.role == WalletRole.receiver
+              ? 'traveler_receiver'
+              : null;
+      final list = await _repo().listConversations(threadType: threadType);
       if (!mounted) return;
       setState(() {
         _conversations = list;

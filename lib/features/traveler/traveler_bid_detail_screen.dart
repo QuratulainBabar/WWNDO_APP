@@ -15,6 +15,7 @@ import '../../core/widgets/app_card.dart';
 import '../../core/widgets/back_header.dart';
 import '../../data/models/traveler_bid.dart';
 import '../../data/services/trip_repository.dart';
+import '../../data/services/platform_repository.dart';
 import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
 
@@ -37,6 +38,9 @@ class _TravelerBidDetailScreenState extends State<TravelerBidDetailScreen> {
   bool _loading = true;
   String? _error;
   TravelerBid? _bid;
+  String? _meetupLocation;
+  bool _travelerAcceptedMeetup = false;
+  bool _agreeingMeetup = false;
 
   @override
   void initState() {
@@ -52,6 +56,62 @@ class _TravelerBidDetailScreenState extends State<TravelerBidDetailScreen> {
       apiClient: auth.repository.apiClient,
       demoMode: demoMode,
     );
+  }
+
+  PlatformRepository _platformRepo() {
+    final auth = context.read<AuthProvider>();
+    return PlatformRepository(apiClient: auth.repository.apiClient);
+  }
+
+  Future<void> _loadMeetup(String deliveryId) async {
+    final demoMode = context.read<DemoModeProvider>();
+    if (demoMode.enabled) {
+      setState(() {
+        _meetupLocation = StaticData.thread1ProposedMeetupLocation;
+        _travelerAcceptedMeetup = StaticData.travelerLocationAgreementAccepted;
+      });
+      return;
+    }
+
+    try {
+      final status = await _platformRepo().getMeetupStatus(deliveryId);
+      if (!mounted) return;
+      setState(() {
+        _meetupLocation = status['location'] as String?;
+        _travelerAcceptedMeetup = status['agreedByTraveler'] == true;
+      });
+    } catch (_) {
+      // Meetup may not exist yet.
+    }
+  }
+
+  Future<void> _agreeMeetup(String deliveryId) async {
+    setState(() => _agreeingMeetup = true);
+    try {
+      final demoMode = context.read<DemoModeProvider>();
+      if (demoMode.enabled) {
+        StaticData.acceptThread1LocationAgreement(bySender: false);
+      } else {
+        await _platformRepo().agreeMeetup(deliveryId);
+      }
+      if (!mounted) return;
+      await _loadMeetup(deliveryId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Meetup location accepted. Thread 1 can now unlock.',
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to accept meetup location.')),
+      );
+    } finally {
+      if (mounted) setState(() => _agreeingMeetup = false);
+    }
   }
 
   Future<void> _load() async {
@@ -83,6 +143,9 @@ class _TravelerBidDetailScreenState extends State<TravelerBidDetailScreen> {
         _loading = false;
         _error = null;
       });
+      if (offer.isAccepted && (offer.deliveryPublicId ?? '').isNotEmpty) {
+        await _loadMeetup(offer.deliveryPublicId!);
+      }
     } catch (_) {
       if (!mounted) return;
       final fallback =
@@ -139,8 +202,10 @@ class _TravelerBidDetailScreenState extends State<TravelerBidDetailScreen> {
     }
 
     final deliveryDate = DateFormat('MMM d, yyyy').format(bid.deliveryDate);
-    final proposedMeetup = StaticData.thread1ProposedMeetupLocation;
-    final travelerAccepted = StaticData.travelerLocationAgreementAccepted;
+    final proposedMeetup = _meetupLocation ?? StaticData.thread1ProposedMeetupLocation;
+    final travelerAccepted =
+        _travelerAcceptedMeetup || StaticData.travelerLocationAgreementAccepted;
+    final deliveryId = bid.deliveryPublicId ?? '';
     final amountLabel = bid.isAccepted
         ? 'Accepted bid amount'
         : 'Offer amount';
@@ -234,24 +299,16 @@ class _TravelerBidDetailScreenState extends State<TravelerBidDetailScreen> {
                           ),
                           const SizedBox(height: 12),
                           AppButton(
-                            label: travelerAccepted
-                                ? 'Location accepted'
-                                : 'Accept meetup location',
-                            onPressed: travelerAccepted
+                            label: _agreeingMeetup
+                                ? 'Accepting…'
+                                : travelerAccepted
+                                    ? 'Location accepted'
+                                    : 'Accept meetup location',
+                            onPressed: travelerAccepted ||
+                                    deliveryId.isEmpty ||
+                                    _agreeingMeetup
                                 ? null
-                                : () {
-                                    StaticData.acceptThread1LocationAgreement(
-                                      bySender: false,
-                                    );
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          'Meetup location accepted. Thread 1 can now unlock.',
-                                        ),
-                                      ),
-                                    );
-                                    setState(() {});
-                                  },
+                                : () => _agreeMeetup(deliveryId),
                           ),
                         ],
                       ),

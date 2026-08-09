@@ -36,8 +36,11 @@ import '../../data/models/wallet_role.dart';
 import '../../data/services/delivery_repository.dart';
 import '../../data/services/review_repository.dart';
 import '../../data/services/trust_metrics_repository.dart';
+import '../../core/utils/external_links.dart';
+import '../../data/services/wallet_repository.dart';
 import '../../data/static_data.dart';
 import '../../data/wallet_service.dart';
+import 'legal_screens.dart';
 import 'settings_flow_screens.dart';
 import 'widgets/profile_header_card.dart';
 import 'widgets/profile_trust_indicators.dart';
@@ -841,6 +844,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _emailNotifications = true;
   bool _biometricEnabled = false;
   bool _biometricBusy = false;
+  bool _connectLoading = false;
+  String? _connectStatusLabel;
 
   @override
   void initState() {
@@ -851,7 +856,61 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final roleParam = GoRouterState.of(context).uri.queryParameters['role'];
       final role = WalletRole.fromQuery(roleParam);
       context.read<WalletProvider>().refresh(role, silent: true).ignore();
+      if (role != WalletRole.sender) {
+        _loadConnectStatus();
+      }
     });
+  }
+
+  WalletRepository _walletRepository() {
+    final auth = context.read<AuthProvider>();
+    return WalletRepository(apiClient: auth.repository.apiClient);
+  }
+
+  Future<void> _loadConnectStatus() async {
+    try {
+      final status = await _walletRepository().fetchConnectStatus();
+      if (!mounted) return;
+      final linked = status['linked'] == true;
+      final ready = status['ready'] == true;
+      setState(() {
+        _connectStatusLabel = !linked
+            ? 'Not linked'
+            : ready
+                ? 'Ready for payouts'
+                : 'Complete onboarding';
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _connectStatusLabel = null);
+    }
+  }
+
+  Future<void> _linkStripeConnect() async {
+    setState(() => _connectLoading = true);
+    try {
+      final result = await _walletRepository().startConnectOnboarding();
+      final url = result['onboardingUrl'] as String?;
+      if (url == null || url.isEmpty) {
+        throw Exception('No onboarding URL returned');
+      }
+      final opened = await ExternalLinks.openUrl(url);
+      if (!mounted) return;
+      if (!opened) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open Stripe Connect onboarding.')),
+        );
+      } else {
+        await _loadConnectStatus();
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Stripe Connect: ${e.toString()}')),
+      );
+    } finally {
+      if (mounted) setState(() => _connectLoading = false);
+    }
   }
 
   Future<void> _loadBiometricPreference() async {
@@ -1028,6 +1087,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               if (WalletRole.fromQuery(roleParam) != WalletRole.sender)
                 _tile(
+                  _connectLoading ? 'Linking Stripe Connect…' : 'Link Stripe Connect',
+                  subtitle: _connectStatusLabel ?? 'Required for bank withdrawals',
+                  onTap: _connectLoading ? () {} : _linkStripeConnect,
+                ),
+              if (WalletRole.fromQuery(roleParam) != WalletRole.sender)
+                _tile(
                   'Withdraw via Stripe Connect',
                   onTap: () => context.push(_routeWithRole('/wallet', roleParam)),
                 ),
@@ -1076,11 +1141,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _toggle('Push notifications', _pushNotifications, (v) => setState(() => _pushNotifications = v)),
               _toggle('Email notifications', _emailNotifications, (v) => setState(() => _emailNotifications = v)),
             ]),
+            _sectionLabel('Help & legal'),
+            _settingsGroup([
+              _tile(
+                'Help & support',
+                subtitle: 'FAQ, safety, contact',
+                onTap: () => context.push(_routeWithRole('/help', roleParam)),
+              ),
+              _tile(
+                'Legal & policies',
+                subtitle: 'Privacy, terms, cookies',
+                onTap: () => context.push(_routeWithRole('/legal', roleParam)),
+              ),
+            ]),
             _sectionLabel('Account'),
+            AppButton(
+              label: 'Sign out',
+              variant: AppButtonVariant.outline,
+              onPressed: () async {
+                await context.read<AuthProvider>().logout();
+                if (context.mounted) context.go('/welcome');
+              },
+            ),
+            const SizedBox(height: 12),
             AppButton(
               label: 'Delete account',
               variant: AppButtonVariant.danger,
               onPressed: () => context.go('/account-suspended'),
+            ),
+            const SizedBox(height: 24),
+            Center(
+              child: Text(
+                'WWNGO v1.0.0',
+                style: context.typo.caption.copyWith(color: AppColors.textSecondary),
+              ),
             ),
           ],
         ),

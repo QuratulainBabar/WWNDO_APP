@@ -1,3 +1,6 @@
+import '../geo/world_countries.dart';
+import 'country_dial_codes.dart';
+
 /// ISO country + dial-code catalog for international phone inputs.
 class PhoneCountry {
   const PhoneCountry({
@@ -116,10 +119,17 @@ abstract final class PhoneCountries {
 
   static PhoneCountry byIso(String iso, {String fallback = 'FR'}) {
     final upper = iso.toUpperCase();
-    return all.firstWhere(
-      (c) => c.iso == upper,
-      orElse: () => all.firstWhere((c) => c.iso == fallback),
-    );
+    for (final country in all) {
+      if (country.iso == upper) return country;
+    }
+    if (WorldCountries.containsIso(upper)) {
+      final dialCode = CountryDialCodes.forIso(upper);
+      if (dialCode != null) {
+        final world = WorldCountries.byIso(upper);
+        return PhoneCountry(iso: upper, name: world.name, dialCode: dialCode);
+      }
+    }
+    return all.firstWhere((c) => c.iso == fallback);
   }
 
   /// Longest-prefix match so `+234` wins over shorter codes.
@@ -159,7 +169,7 @@ abstract final class PhoneCountries {
         .toList();
   }
 
-  /// Preferred trio markets first, then A–Z by name (excluding duplicates).
+  /// Preferred markets first, then remaining world countries A–Z by name.
   static List<PhoneCountry> ordered() {
     final preferred = <PhoneCountry>[];
     final rest = <PhoneCountry>[];
@@ -170,10 +180,12 @@ abstract final class PhoneCountries {
       preferred.add(country);
       seen.add(country.iso);
     }
-    for (final country in all) {
-      if (seen.add(country.iso)) rest.add(country);
+    for (final world in WorldCountries.ordered()) {
+      if (!seen.add(world.iso)) continue;
+      final dialCode = CountryDialCodes.forIso(world.iso);
+      if (dialCode == null) continue;
+      rest.add(PhoneCountry(iso: world.iso, name: world.name, dialCode: dialCode));
     }
-    rest.sort((a, b) => a.name.compareTo(b.name));
     return [...preferred, ...rest];
   }
 

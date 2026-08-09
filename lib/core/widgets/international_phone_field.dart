@@ -8,7 +8,8 @@ import '../theme/app_typography.dart';
 import 'app_labeled_field.dart';
 
 /// International phone input: flag + dial code picker + national number field.
-/// Matches [InputDecorationTheme] used by other form fields.
+/// Uses a [Row] layout instead of [InputDecoration.prefixIcon] so dial-code
+/// updates reliably on Flutter web when the country changes from another field.
 class InternationalPhoneField extends StatelessWidget {
   const InternationalPhoneField({
     super.key,
@@ -56,54 +57,143 @@ class InternationalPhoneField extends StatelessWidget {
       labelStyle: labelStyle,
       padding: padding ??
           const EdgeInsets.only(top: AppFieldSpacing.top, bottom: 12),
-      child: TextFormField(
+      child: _PhoneInputRow(
+        key: ValueKey(country.iso),
         controller: controller,
-        onTap: ensureSoftKeyboardVisible,
-        onTapOutside: dismissKeyboardOnTapOutside,
-        keyboardType: TextInputType.phone,
+        country: country,
+        fieldInputStyle: fieldInputStyle,
+        hintText: hintText,
         textInputAction: textInputAction,
-        style: fieldInputStyle,
-        inputFormatters: [
-          FilteringTextInputFormatter.allow(RegExp(r'[\d\s]')),
-        ],
-        decoration: InputDecoration(
-          hintText: hintText,
-          hintStyle: fieldInputStyle.copyWith(color: AppColors.textDisabled),
-          prefixIcon: InkWell(
-            onTap: () => _openPicker(context),
-            borderRadius: BorderRadius.circular(12),
-            child: Padding(
-              padding: const EdgeInsets.only(left: 12, right: 8),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(country.flag, style: const TextStyle(fontSize: 22)),
-                  const SizedBox(width: 6),
-                  Text(
-                    country.dialCode,
-                    style: fieldInputStyle.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
+        onOpenPicker: () => _openPicker(context),
+      ),
+    );
+  }
+}
+
+class _PhoneInputRow extends StatefulWidget {
+  const _PhoneInputRow({
+    super.key,
+    required this.controller,
+    required this.country,
+    required this.fieldInputStyle,
+    required this.hintText,
+    required this.textInputAction,
+    required this.onOpenPicker,
+  });
+
+  final TextEditingController controller;
+  final PhoneCountry country;
+  final TextStyle fieldInputStyle;
+  final String? hintText;
+  final TextInputAction textInputAction;
+  final VoidCallback onOpenPicker;
+
+  @override
+  State<_PhoneInputRow> createState() => _PhoneInputRowState();
+}
+
+class _PhoneInputRowState extends State<_PhoneInputRow> {
+  final _focusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(_onFocusChange);
+  }
+
+  @override
+  void dispose() {
+    _focusNode.removeListener(_onFocusChange);
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _onFocusChange() => setState(() {});
+
+  @override
+  Widget build(BuildContext context) {
+    final focused = _focusNode.hasFocus;
+    final borderColor = focused ? AppColors.primary : AppColors.border;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: borderColor, width: 1.5),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: widget.onOpenPicker,
+              borderRadius: const BorderRadius.horizontal(
+                left: Radius.circular(11),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 14, 8, 14),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      widget.country.flag,
+                      style: const TextStyle(fontSize: 22),
                     ),
-                  ),
-                  const SizedBox(width: 2),
-                  const Icon(
-                    Icons.keyboard_arrow_down_rounded,
-                    size: 20,
-                    color: AppColors.textSecondary,
-                  ),
-                  Container(
-                    width: 1,
-                    height: 24,
-                    margin: const EdgeInsets.only(left: 8),
-                    color: AppColors.border,
-                  ),
-                ],
+                    const SizedBox(width: 6),
+                    Text(
+                      widget.country.dialCode,
+                      style: widget.fieldInputStyle.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(width: 2),
+                    const Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      size: 20,
+                      color: AppColors.textSecondary,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-          prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
-        ),
+          Container(
+            width: 1,
+            height: 24,
+            color: AppColors.border,
+          ),
+          Expanded(
+            child: TextFormField(
+              controller: widget.controller,
+              focusNode: _focusNode,
+              onTap: ensureSoftKeyboardVisible,
+              onTapOutside: dismissKeyboardOnTapOutside,
+              keyboardType: TextInputType.phone,
+              textInputAction: widget.textInputAction,
+              style: widget.fieldInputStyle,
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[\d\s]')),
+              ],
+              decoration: InputDecoration(
+                hintText: widget.hintText,
+                hintStyle: widget.fieldInputStyle.copyWith(
+                  color: AppColors.textDisabled,
+                ),
+                filled: false,
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 14,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

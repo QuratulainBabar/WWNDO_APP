@@ -14,6 +14,7 @@ import '../features/onboarding/login_otp_verification_screen.dart';
 import '../features/onboarding/account_verification_screens.dart';
 import '../features/onboarding/role_selection_screen.dart';
 import '../features/onboarding/splash_welcome_screens.dart';
+import '../features/profile/legal_screens.dart';
 import '../features/profile/profile_screens.dart';
 import '../features/profile/security_logs_screen.dart';
 import '../features/profile/settings_flow_screens.dart';
@@ -925,7 +926,11 @@ final appRouter = GoRouter(
       parentNavigatorKey: _rootNavigatorKey,
       builder: (_, __) => const ChangePasswordSuccessScreen(),
     ),
-    GoRoute(path: '/legal/terms', parentNavigatorKey: _rootNavigatorKey, builder: (_, __) => const TermsPrivacyScreen()),
+    GoRoute(path: '/help', parentNavigatorKey: _rootNavigatorKey, builder: (_, __) => const HelpSupportScreen()),
+    GoRoute(path: '/legal', parentNavigatorKey: _rootNavigatorKey, builder: (_, __) => const LegalHubScreen()),
+    GoRoute(path: '/legal/privacy', parentNavigatorKey: _rootNavigatorKey, builder: (_, __) => const PrivacyPolicyScreen()),
+    GoRoute(path: '/legal/terms', parentNavigatorKey: _rootNavigatorKey, builder: (_, __) => const TermsOfServiceScreen()),
+    GoRoute(path: '/legal/cookies', parentNavigatorKey: _rootNavigatorKey, builder: (_, __) => const CookiePolicyScreen()),
     GoRoute(path: '/kyc-status', parentNavigatorKey: _rootNavigatorKey, builder: (_, __) => const KycStatusScreen()),
     GoRoute(path: '/security-logs', parentNavigatorKey: _rootNavigatorKey, builder: (_, __) => const SecurityLogsScreen()),
     GoRoute(
@@ -975,6 +980,7 @@ Widget _inboxChatScreen({
           amount: 28,
           status: TravelerBidStatus.accepted,
         ),
+        conversationId: conversationId,
         backFallback: backFallback,
       );
     case WalletRole.receiver:

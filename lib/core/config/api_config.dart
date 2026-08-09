@@ -8,7 +8,12 @@ class ApiConfig {
 
   static const String _configuredBase = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://192.168.100.6:3000',
+    defaultValue: 'http://10.227.35.163:3000',
+  );
+
+  static const String _configuredWebsite = String.fromEnvironment(
+    'WEBSITE_URL',
+    defaultValue: 'http://10.227.35.163:3001',
   );
 
   /// Hosted / configured API origin (no trailing slash).
@@ -23,6 +28,21 @@ class ApiConfig {
   static String get deliveriesBase => '$apiV1/deliveries';
   static String get tripsBase => '$apiV1/trips';
   static String get walletBase => '$apiV1/wallet';
+
+  /// Marketing site (legal pages, FAQ, contact).
+  static String get websiteUrl {
+    final raw = _configuredWebsite.trim();
+    if (raw.endsWith('/')) return raw.substring(0, raw.length - 1);
+    return raw;
+  }
+
+  static String legalUrl(String path) {
+    final p = path.startsWith('/') ? path : '/$path';
+    return '$websiteUrl$p';
+  }
+
+  /// Socket.io endpoint (same host as REST API).
+  static String get socketUrl => baseUrl;
 
   /// Same Google Maps / Places key used by the backend (`GOOGLE_MAPS_API_KEY`).
   /// Override with: `flutter run --dart-define=GOOGLE_MAPS_API_KEY=...`

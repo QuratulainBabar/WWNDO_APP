@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -11,6 +13,7 @@ import '../../core/widgets/app_avatar.dart';
 import '../../core/widgets/back_header.dart';
 import '../../data/models/chat_message.dart';
 import '../../data/services/chat_repository.dart';
+import '../../data/services/socket_chat_service.dart';
 import '../../providers/auth_provider.dart';
 import '../chat/chat_conversation_mixin.dart';
 import '../chat/widgets/chat_composer.dart';
@@ -43,6 +46,8 @@ class _SenderChatScreenState extends State<SenderChatScreen>
   String _peerName = 'Contact';
   String _shipmentId = '';
   String? _conversationId;
+  StreamSubscription<ChatMessage>? _socketSub;
+  SocketChatService? _socket;
 
   @override
   void initState() {
@@ -57,6 +62,11 @@ class _SenderChatScreenState extends State<SenderChatScreen>
 
   @override
   void dispose() {
+    _socketSub?.cancel();
+    if (_conversationId != null) {
+      _socket?.leaveConversation(_conversationId!);
+    }
+    _socket?.dispose();
     disposeChatConversation();
     super.dispose();
   }
@@ -88,6 +98,19 @@ class _SenderChatScreenState extends State<SenderChatScreen>
     try {
       final detail = await _repo().getConversation(id);
       if (!mounted) return;
+
+      final auth = context.read<AuthProvider>();
+      _socket = SocketChatService(
+        getAccessToken: auth.repository.tokenStorage.getAccessToken,
+      );
+      await _socket!.connect();
+      _socket!.joinConversation(id);
+      _socketSub = _socket!.onMessage.listen((message) {
+        if (!mounted) return;
+        setState(() => chatMessages.add(message));
+        scrollChatToBottom();
+      });
+
       setState(() {
         chatMessages = List.of(detail.messages);
         _peerName = widget.contactName ?? detail.name;

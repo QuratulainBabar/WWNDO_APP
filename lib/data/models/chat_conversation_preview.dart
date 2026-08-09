@@ -11,6 +11,8 @@ class ChatConversationPreview {
     required this.shipmentId,
     this.unreadCount = 0,
     this.messages = const [],
+    this.threadType,
+    this.unlocked = true,
   });
 
   final String id;
@@ -21,6 +23,8 @@ class ChatConversationPreview {
   final String shipmentId;
   final int unreadCount;
   final List<ChatMessage> messages;
+  final String? threadType;
+  final bool unlocked;
 
   factory ChatConversationPreview.fromJson(Map<String, dynamic> json) {
     final name = json['name'] as String? ?? 'Contact';
@@ -35,6 +39,8 @@ class ChatConversationPreview {
       time: json['time'] as String? ?? '',
       shipmentId: json['shipmentId'] as String? ?? '',
       unreadCount: (json['unreadCount'] as num?)?.toInt() ?? 0,
+      threadType: json['threadType'] as String?,
+      unlocked: json['unlocked'] as bool? ?? true,
     );
   }
 }

@@ -175,7 +175,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
             InternationalPhoneField(
               controller: _phoneController,
               country: _phoneCountry,
-              onCountryChanged: (c) => setState(() => _phoneCountry = c),
+              onCountryChanged: (c) => setState(() {
+                _phoneCountry = c;
+                _countryIso = c.iso;
+              }),
               labelStyle: fieldLabelStyle,
               inputStyle: inputStyle,
             ),
@@ -217,7 +220,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         const SizedBox(width: 10),
         Expanded(
           child: GestureDetector(
-            onTap: () => context.push('/legal/terms'),
+            onTap: () => context.push('/legal'),
             child: Text('I accept the Terms & Privacy Policy', style: termsStyle),
           ),
         ),

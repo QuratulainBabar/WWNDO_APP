@@ -139,4 +139,27 @@ class WalletRepository {
       'recentTransactions': const [],
     });
   }
+
+  /// GET /api/v1/wallet/connect/status
+  Future<Map<String, dynamic>> fetchConnectStatus() async {
+    if (_isDemoMode) {
+      return {'linked': false, 'ready': false};
+    }
+    return _apiClient.get('/wallet/connect/status', authenticated: true);
+  }
+
+  /// POST /api/v1/wallet/connect/onboard
+  Future<Map<String, dynamic>> startConnectOnboarding() async {
+    if (_isDemoMode) {
+      throw const ApiException(
+        message: 'Stripe Connect is unavailable in demo mode.',
+        code: 'DEMO_MODE',
+      );
+    }
+    return _apiClient.post(
+      '/wallet/connect/onboard',
+      body: const {'returnPath': '/wallet'},
+      authenticated: true,
+    );
+  }
 }

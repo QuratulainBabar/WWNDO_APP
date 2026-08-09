@@ -648,4 +648,42 @@ class AuthRepository {
       body: {'password': password},
     );
   }
+
+  Future<void> registerFcmToken(String token, {String platform = 'unknown'}) async {
+    if (_isDemoMode) return;
+    await _apiClient.post(
+      '/auth/devices/fcm-token',
+      authenticated: true,
+      body: {'token': token, 'platform': platform},
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> getSecurityLogs() async {
+    if (_isDemoMode) {
+      return StaticData.securityLogs
+          .map(
+            (l) => {
+              'action': l.action,
+              'device': l.device,
+              'location': l.location,
+              'timestamp': l.timestamp.toIso8601String(),
+            },
+          )
+          .toList();
+    }
+    final data = await _apiClient.get('/auth/security-logs', authenticated: true);
+    final list = data['logs'];
+    if (list is! List) return const [];
+    return list.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+  }
+
+  Future<String?> uploadAvatar(String filePath) async {
+    if (_isDemoMode) return null;
+    final data = await _apiClient.postMultipart(
+      '/auth/profile/avatar',
+      files: [MultipartFilePart(field: 'avatar', filePath: filePath)],
+      authenticated: true,
+    );
+    return data['avatarUrl'] as String? ?? data['user']?['avatarUrl'] as String?;
+  }
 }

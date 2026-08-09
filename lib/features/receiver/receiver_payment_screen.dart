@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
+import '../../core/config/demo_mode.dart';
 import '../../core/layout/responsive.dart';
 import '../../core/platform/platform_ui.dart';
 import '../../core/theme/app_colors.dart';
@@ -11,20 +13,77 @@ import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/back_header.dart';
 import '../../data/models/shipment.dart';
+import '../../data/services/platform_repository.dart';
 import '../../data/static_data.dart';
+import '../../providers/auth_provider.dart';
 import 'receiver_payment_success_screen.dart';
 
-class ReceiverPaymentScreen extends StatelessWidget {
+class ReceiverPaymentScreen extends StatefulWidget {
   const ReceiverPaymentScreen({super.key, this.shipment});
 
   final Shipment? shipment;
 
+  @override
+  State<ReceiverPaymentScreen> createState() => _ReceiverPaymentScreenState();
+}
+
+class _ReceiverPaymentScreenState extends State<ReceiverPaymentScreen> {
+  bool _paying = false;
+
   Shipment get _shipment {
-    if (shipment != null) return shipment!;
+    if (widget.shipment != null) return widget.shipment!;
     final pending = StaticData.receiverShipments.where(
       (s) => StaticData.effectiveStatus(s) == ShipmentStatus.bidAccepted,
     );
     return pending.isNotEmpty ? pending.first : StaticData.receiverActiveShipment;
+  }
+
+  PlatformRepository _platformRepo() {
+    final auth = context.read<AuthProvider>();
+    return PlatformRepository(apiClient: auth.repository.apiClient);
+  }
+
+  Future<void> _pay(double receiverShare) async {
+    if (_paying) return;
+    final demoMode = context.read<DemoModeProvider>().enabled;
+    setState(() => _paying = true);
+    try {
+      if (!demoMode) {
+        final feeCents = (receiverShare * 100).round();
+        await _platformRepo().submitReceiverPayment(
+          deliveryId: _shipment.id,
+          feeCents: feeCents,
+        );
+      } else {
+        final paid = StaticData.approveReceiverFeeShare(
+          shipment: _shipment,
+          feeAmount: receiverShare,
+        );
+        if (!paid) {
+          if (mounted) {
+            AppToast.error(
+              context,
+              'Payment failed. Check wallet or card and try again.',
+            );
+          }
+          return;
+        }
+      }
+      if (!mounted) return;
+      context.push(
+        '/receiver-payment-confirmed',
+        extra: ReceiverPaymentResult(
+          shipmentId: _shipment.id,
+          feeAmount: receiverShare,
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        AppToast.error(context, 'Payment failed: $e');
+      }
+    } finally {
+      if (mounted) setState(() => _paying = false);
+    }
   }
 
   @override
@@ -101,27 +160,8 @@ class ReceiverPaymentScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             AppButton(
-              label: 'Pay Now',
-              onPressed: () {
-                final paid = StaticData.approveReceiverFeeShare(
-                  shipment: s,
-                  feeAmount: receiverShare,
-                );
-                if (!paid) {
-                  AppToast.error(
-                    context,
-                    'Payment failed. Check wallet or card and try again.',
-                  );
-                  return;
-                }
-                context.push(
-                  '/receiver-payment-confirmed',
-                  extra: ReceiverPaymentResult(
-                    shipmentId: s.id,
-                    feeAmount: receiverShare,
-                  ),
-                );
-              },
+              label: _paying ? 'Processing…' : 'Pay Now',
+              onPressed: _paying ? null : () => _pay(receiverShare),
             ),
           ],
         ),

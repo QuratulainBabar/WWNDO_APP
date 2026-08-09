@@ -37,6 +37,10 @@ class DeliveryTracking {
     switch (status?.trim().toLowerCase()) {
       case 'posted':
         return receiverAccepted ? 2 : 1;
+      case 'waiting_receiver':
+      case 'bid_accepted':
+        return 2;
+      case 'ready_for_handoff':
       case 'matched':
         return 2;
       case 'collected':
@@ -45,6 +49,8 @@ class DeliveryTracking {
         return 4;
       case 'delivered':
         return 5;
+      case 'disputed':
+        return 3;
       case 'cancelled':
         return 1;
       default:

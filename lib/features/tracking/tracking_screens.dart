@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../core/platform/keyboard_utils.dart';
 import '../../core/config/demo_mode.dart';
+import '../../core/api/api_exception.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_badge.dart';
@@ -27,7 +28,9 @@ import '../../data/models/delivery_tracking.dart';
 import '../../data/models/shipment.dart';
 import '../../data/services/delivery_repository.dart';
 import '../../data/services/fulfillment_repository.dart';
+import '../../data/services/platform_repository.dart';
 import '../../data/static_data.dart';
+import '../../providers/auth_provider.dart';
 import '../../data/wallet_service.dart';
 import '../../providers/auth_provider.dart';
 import '../sender/bid_acceptance_payment_screen.dart';
@@ -187,11 +190,31 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
     return options.first;
   }
 
-  void _updateStatus(ShipmentStatus selected) {
-    if (selected == ShipmentStatus.inTransit) {
+  void _updateStatus(ShipmentStatus selected) async {
+    if (selected != ShipmentStatus.inTransit) {
+      setState(() => _selectedStatus = selected);
+      return;
+    }
+
+    final demoMode = context.read<DemoModeProvider>().enabled;
+    if (!demoMode) {
+      try {
+        final auth = context.read<AuthProvider>();
+        final repo = PlatformRepository(apiClient: auth.repository.apiClient);
+        await repo.markInTransit(widget.shipmentId);
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Unable to mark in transit: $e')),
+        );
+        return;
+      }
+    } else {
       StaticData.setShipmentStatus(widget.shipmentId, selected);
     }
+
     setState(() => _selectedStatus = selected);
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Parcel status updated to In Transit.'),
@@ -1440,10 +1463,43 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
       try {
         final auth = context.read<AuthProvider>();
         final repo = FulfillmentRepository(apiClient: auth.repository.apiClient);
-        await repo.confirmNfc(
+        final result = await repo.confirmNfc(
           deliveryId: shipmentId,
           checkpoint: _isCheckpoint2 ? 2 : 1,
         );
+        final pendingPeer = result['pendingPeer'] == true;
+        if (pendingPeer && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Your tap was recorded. Ask the other party to confirm on their device.',
+              ),
+            ),
+          );
+          _confirmed = false;
+          return;
+        }
+      } on ApiException catch (e) {
+        if (e.code == 'NFC_PENDING_PEER') {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Waiting for the other party to confirm NFC on their device.',
+                ),
+              ),
+            );
+          }
+          _confirmed = false;
+          return;
+        }
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('NFC checkpoint failed: ${e.message}')),
+          );
+        }
+        _confirmed = false;
+        return;
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

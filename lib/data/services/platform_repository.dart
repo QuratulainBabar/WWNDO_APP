@@ -58,6 +58,11 @@ class PlatformRepository {
     return (res['data'] as Map?)?.cast<String, dynamic>() ?? {};
   }
 
+  Future<Map<String, dynamic>> markInTransit(String publicId) async {
+    final res = await _api.post('/tracking/deliveries/$publicId/in-transit');
+    return (res['data'] as Map?)?.cast<String, dynamic>() ?? {};
+  }
+
   Future<Map<String, dynamic>> acceptSenderRequest(String requestId) async {
     final res = await _api.post('/trips/sender-requests/$requestId/accept');
     return (res['data'] as Map?)?.cast<String, dynamic>() ?? {};

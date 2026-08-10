@@ -136,6 +136,18 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
 
   void _selectTraveler(Bid bid) async {
     final demoMode = context.read<DemoModeProvider>();
+    final requested =
+        StaticData.selectedMatchingTravelersFor(widget.shipmentId).length;
+    if (!demoMode.enabled && requested >= 2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You can request at most 2 travelers for this parcel.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     if (!demoMode.enabled) {
       try {
         await _repository().requestTraveler(

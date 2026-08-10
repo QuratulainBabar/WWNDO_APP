@@ -143,32 +143,22 @@ class _CounterOfferDetailScreenState extends State<CounterOfferDetailScreen> {
     }
 
     final demo = context.read<DemoModeProvider>().enabled;
-    setState(() => _acting = true);
-
-    try {
-      if (demo) {
-        StaticData.acceptFinalBudgetProposal(shipmentId);
-      } else {
-        final updated = await _repo().acceptSenderCounterOffer(offer.id);
-        if (!mounted) return;
-        setState(() => _offer = updated);
-      }
-
-      if (!mounted) return;
-      final bid = _bidFromOffer(_offer ?? offer);
-      context.push(
-        '/bid-acceptance-payment',
-        extra: BidAcceptanceContext(bid: bid, shipmentId: shipmentId),
-      );
-    } on ApiException catch (e) {
-      if (!mounted) return;
-      AppToast.error(context, e.message);
-    } catch (_) {
-      if (!mounted) return;
-      AppToast.error(context, 'Unable to accept this counter offer.');
-    } finally {
-      if (mounted) setState(() => _acting = false);
+    if (demo) {
+      StaticData.acceptFinalBudgetProposal(shipmentId);
     }
+
+    if (!mounted) return;
+    final bid = _bidFromOffer(offer);
+    context.push(
+      '/bid-acceptance-payment',
+      extra: BidAcceptanceContext(
+        bid: bid,
+        shipmentId: shipmentId,
+        offerId: offer.id,
+        parcelCategory: 'documents',
+        paysReceiverFee: false,
+      ),
+    );
   }
 
   Future<void> _reject() async {

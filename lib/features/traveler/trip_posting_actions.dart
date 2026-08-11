@@ -7,30 +7,15 @@ import '../../core/config/demo_mode.dart';
 import '../../core/widgets/app_toast.dart';
 import '../../data/models/traveler_trip.dart';
 import '../../data/services/trip_repository.dart';
-import '../../data/static_data.dart';
-import '../../data/trip_creation_wallet_validation.dart';
+import '../../data/kyc_validation.dart';
+import '../../data/wallet_gate.dart';
 import '../../providers/auth_provider.dart';
 
 /// Shared gate + post helper for traveler trip creation screens.
 abstract final class TripPostingActions {
-  /// Blocks trip creation when the displayed mock wallet balance is below
-  /// [TripCreationWalletValidation.minimumBalanceUsd].
-  ///
-  /// Shows the required toast and returns `false` when blocked.
-  static bool ensureWalletAllowsTripCreation(BuildContext context) {
-    final error = TripCreationWalletValidation.validate();
-    if (error == null) return true;
-
-    _showInsufficientBalanceFeedback(context, error);
-    return false;
-  }
-
-  static void _showInsufficientBalanceFeedback(
-    BuildContext context,
-    String message,
-  ) {
-    AppToast.error(context, message);
-  }
+  /// Blocks trip creation when wallet balance is below \$3 (refreshed from API in live mode).
+  static Future<bool> ensureWalletAllowsTripCreation(BuildContext context) =>
+      WalletGate.ensureTripCreation(context);
 
   /// Posts a trip via POST /api/v1/trips (demo mode keeps local StaticData).
   static Future<bool> tryPostTrip(
@@ -39,11 +24,11 @@ abstract final class TripPostingActions {
     required CreateTripRequest request,
   }) async {
     // Wallet gate first so the $3 message is never masked by other dialogs.
-    if (!ensureWalletAllowsTripCreation(context)) return false;
+    if (!await ensureWalletAllowsTripCreation(context)) return false;
 
     final auth = context.read<AuthProvider>();
     final authUser = auth.user;
-    final kycError = StaticData.validateKycApproved(authUser);
+    final kycError = KycValidation.validateApproved(authUser);
     if (kycError != null) {
       AppToast.error(context, kycError);
       return false;
@@ -51,11 +36,10 @@ abstract final class TripPostingActions {
 
     final demoMode = context.read<DemoModeProvider>();
     if (demoMode.enabled) {
-      StaticData.addTravelerPostedTrip(trip);
       if (context.mounted) {
-        context.go('/post-trip/success', extra: trip.route);
+        AppToast.error(context, 'Turn off Demo mode to post trips to the server.');
       }
-      return true;
+      return false;
     }
 
     try {
@@ -63,17 +47,6 @@ abstract final class TripPostingActions {
         apiClient: auth.repository.apiClient,
         demoMode: demoMode,
       ).createTrip(request);
-
-      StaticData.addTravelerPostedTrip(
-        TravelerTrip(
-          id: created.id,
-          origin: created.origin,
-          destination: created.destination,
-          travelDate: created.travelDate,
-          luggageCapacityKg: created.luggageCapacityKg,
-          status: created.status,
-        ),
-      );
 
       if (!context.mounted) return true;
       context.go('/post-trip/success', extra: created.route);

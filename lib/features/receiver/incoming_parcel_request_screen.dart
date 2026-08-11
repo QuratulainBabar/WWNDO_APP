@@ -19,7 +19,8 @@ import '../../data/models/incoming_parcel_request.dart';
 import '../../data/models/receiver_delivery_status.dart';
 import '../../data/models/wallet_role.dart';
 import '../../data/services/delivery_repository.dart';
-import '../../data/static_data.dart';
+import '../../data/platform_fees.dart';
+import '../../data/wallet_gate.dart';
 import '../../data/wallet_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/wallet_provider.dart';
@@ -97,47 +98,19 @@ class _IncomingParcelRequestScreenState
     final delivery = _delivery;
     if (delivery == null || _acting) return;
 
-    final walletBalance = WalletService.availableUsd(WalletRole.receiver);
-    final minBalance = StaticData.receiverAcceptMinBalanceUsd;
-    if (walletBalance < minBalance) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'You need at least \$${minBalance.toStringAsFixed(0)} in your wallet to accept this request.',
-          ),
-        ),
-      );
-      return;
-    }
+    if (!await WalletGate.ensureReceiverAccept(context)) return;
 
     setState(() => _acting = true);
     try {
-      final feeUsd = delivery.platformFeeShare ??
-          StaticData.receiverIncomingPlatformFeeUsd;
-      final feeCents = (feeUsd * 100).round();
-      if (!WalletService.ensureAvailableWithCardFallback(
-        role: WalletRole.receiver,
-        amountCents: feeCents,
-      )) {
-        throw const ApiException(
-          message: 'Insufficient wallet balance.',
-          code: 'INSUFFICIENT_FUNDS',
-        );
-      }
-
       final updated = await _repo().acceptAsReceiver(delivery.displayId);
-      WalletService.chargePlatformFee(
-        role: WalletRole.receiver,
-        shipmentId: updated.displayId,
-        amountCents: feeCents,
-        description: '${updated.displayId} · Platform fee',
-      );
 
       if (!mounted) return;
       setState(() {
         _delivery = updated;
         _acting = false;
       });
+      await context.read<WalletProvider>().refresh(WalletRole.receiver, silent: true);
+      if (!mounted) return;
       await _showAcceptedDialog(updated.displayId);
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -284,10 +257,10 @@ class _IncomingParcelRequestScreenState
                     final status = ReceiverDeliveryStatus.fromDelivery(_delivery!);
                     final walletBalance =
                         WalletService.availableUsd(WalletRole.receiver);
-                    final minBalance = StaticData.receiverAcceptMinBalanceUsd;
+                    final minBalance = PlatformFees.minWalletReceiverUsd;
                     final canAccept = walletBalance >= minBalance && !_acting;
                     final platformFee = _delivery!.platformFeeShare ??
-                        StaticData.receiverIncomingPlatformFeeUsd;
+                        PlatformFees.receiverPlatformFeeForDelivery(_delivery!);
                     final isPending = status.isPendingRequest &&
                         current.status == IncomingParcelRequestStatus.pending;
 

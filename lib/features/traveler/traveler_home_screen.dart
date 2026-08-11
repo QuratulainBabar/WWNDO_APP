@@ -119,8 +119,8 @@ class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
     }
   }
 
-  void _onCreateTrip() {
-    if (!TripPostingActions.ensureWalletAllowsTripCreation(context)) return;
+  Future<void> _onCreateTrip() async {
+    if (!await TripPostingActions.ensureWalletAllowsTripCreation(context)) return;
     if (!AuthVerificationGuard.ensureVerifiedForTransaction(context)) return;
     if (!KycVerificationGuard.ensureKycApproved(context)) return;
     context.push('/trip-type');

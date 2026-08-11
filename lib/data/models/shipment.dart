@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+
+import '../../core/theme/app_colors.dart';
+import 'created_delivery.dart';
+import '../delivery_status_mapper.dart';
 import '../../core/theme/app_colors.dart';
 
 enum ShipmentStatus {
@@ -187,4 +191,32 @@ class Shipment {
       };
 
   static const steps = trackingSteps;
+
+  /// Maps a live API delivery into the legacy [Shipment] view model for tracking UI.
+  factory Shipment.fromDelivery(
+    CreatedDelivery delivery, {
+    required String status,
+    ShipmentRole role = ShipmentRole.sender,
+    String? travelerName,
+  }) {
+    final parts = delivery.route.split('→');
+    final from = parts.isNotEmpty ? parts.first.trim() : '';
+    final to = parts.length > 1 ? parts.last.trim() : '';
+    return Shipment(
+      id: delivery.displayId,
+      fromCity: delivery.fromCity ?? from,
+      toCity: delivery.toCity ?? to,
+      fromCode: delivery.fromCode ?? '',
+      toCode: delivery.toCode ?? '',
+      travelDate: delivery.travelDateParsed ?? DateTime.now(),
+      status: DeliveryStatusMapper.toShipmentStatus(status),
+      role: role,
+      parcelCategory: delivery.parcelCategory,
+      parcelWeightKg: delivery.weightKg,
+      parcelSize: delivery.parcelSize,
+      description: delivery.description,
+      travelerName: travelerName ?? delivery.senderName,
+      parcelPhotoCount: delivery.photos.length,
+    );
+  }
 }

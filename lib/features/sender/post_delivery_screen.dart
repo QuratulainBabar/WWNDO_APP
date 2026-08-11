@@ -32,7 +32,7 @@ class _PostDeliveryScreenState extends State<PostDeliveryScreen> {
   bool _submitting = false;
 
   Future<void> _submit() async {
-    if (!DeliveryPostingActions.ensureWalletAllowsParcelCreation(context)) {
+    if (!await DeliveryPostingActions.ensureWalletAllowsParcelCreation(context)) {
       return;
     }
 

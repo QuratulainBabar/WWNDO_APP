@@ -14,8 +14,12 @@ import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/back_header.dart';
 import '../../data/models/bid.dart';
+import '../../data/models/created_delivery.dart';
+import '../../data/models/wallet_role.dart';
+import '../../data/platform_fees.dart';
+import '../../data/services/delivery_repository.dart';
 import '../../data/services/trip_repository.dart';
-import '../../data/static_data.dart';
+import '../../data/wallet_gate.dart';
 import '../../providers/auth_provider.dart';
 
 class BidAcceptanceContext {
@@ -46,6 +50,23 @@ class BidAcceptancePaymentScreen extends StatefulWidget {
 
 class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen> {
   bool _paying = false;
+  bool _loading = true;
+  CreatedDelivery? _delivery;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadDelivery());
+  }
+
+  DeliveryRepository _deliveryRepo() {
+    final auth = context.read<AuthProvider>();
+    return DeliveryRepository(
+      apiClient: auth.repository.apiClient,
+      demoMode: context.read<DemoModeProvider>(),
+    );
+  }
 
   TripRepository _tripRepo() {
     final auth = context.read<AuthProvider>();
@@ -56,34 +77,56 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
     );
   }
 
+  Future<void> _loadDelivery() async {
+    if (context.read<DemoModeProvider>().enabled) {
+      setState(() {
+        _loading = false;
+        _error = 'Turn off Demo mode to complete live escrow payment.';
+      });
+      return;
+    }
+    try {
+      final delivery = await _deliveryRepo().getDelivery(
+        widget.acceptance.shipmentId,
+        role: 'sender',
+      );
+      if (!mounted) return;
+      setState(() {
+        _delivery = delivery;
+        _loading = false;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = e.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = 'Unable to load delivery details.';
+      });
+    }
+  }
+
   Future<void> _payNow() async {
     if (_paying) return;
     final acceptance = widget.acceptance;
-    final demo = context.read<DemoModeProvider>().enabled;
 
     setState(() => _paying = true);
     try {
-      if (demo) {
-        final ok = StaticData.acceptBid(
-          shipmentId: acceptance.shipmentId,
-          bid: acceptance.bid,
-        );
-        if (!ok) {
-          if (!mounted) return;
-          AppToast.error(
-            context,
-            'Payment failed. Booking was not created. Check wallet or card and try again.',
-          );
-          return;
-        }
-      } else {
-        final offerId = acceptance.offerId;
-        if (offerId == null || offerId.isEmpty) {
-          AppToast.error(context, 'Counter offer reference is missing.');
-          return;
-        }
-        await _tripRepo().acceptSenderCounterOffer(offerId);
+      final offerId = acceptance.offerId;
+      if (offerId == null || offerId.isEmpty) {
+        AppToast.error(context, 'Counter offer reference is missing.');
+        return;
       }
+      await _tripRepo().acceptSenderCounterOffer(offerId);
+      if (!mounted) return;
+      await WalletGate.refreshRoles(
+        context,
+        [WalletRole.sender, WalletRole.traveler, WalletRole.receiver],
+      );
 
       if (!mounted) return;
       context.push('/bid-payment-success', extra: acceptance);
@@ -103,15 +146,35 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
 
   @override
   Widget build(BuildContext context) {
+    if (_loading) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: const BackHeader(title: 'Payment Summary'),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_error != null) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: const BackHeader(title: 'Payment Summary'),
+        body: Center(
+          child: Padding(
+            padding: context.pagePadding,
+            child: Text(_error!, textAlign: TextAlign.center),
+          ),
+        ),
+      );
+    }
+
     final acceptance = widget.acceptance;
     final bid = acceptance.bid;
-    final shipment = StaticData.shipmentById(acceptance.shipmentId);
-    final category =
-        shipment?.parcelCategory ?? acceptance.parcelCategory;
-    final paysReceiver = shipment != null
-        ? StaticData.paysReceiverFeeFor(acceptance.shipmentId)
+    final delivery = _delivery;
+    final category = delivery?.parcelCategory ?? acceptance.parcelCategory;
+    final paysReceiver = delivery != null
+        ? PlatformFees.senderPaysReceiverFee(delivery)
         : acceptance.paysReceiverFee;
-    final platformFee = StaticData.senderPlatformFeeUsd(
+    final platformFee = PlatformFees.senderPlatformFeeUsd(
       category: category,
       paysReceiverFee: paysReceiver,
     );
@@ -149,18 +212,18 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
                       'Includes receiver fee',
                       'Yes',
                     ),
+                  const Divider(height: 24),
                   _detailRow(
                     context,
-                    'Total amount to pay',
+                    'Total due now',
                     '\$${total.toStringAsFixed(2)}',
-                    bold: true,
                     primary: true,
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 12),
-            const Wrap(
+            Wrap(
               spacing: 6,
               runSpacing: 6,
               children: [
@@ -193,7 +256,6 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
     BuildContext context,
     String label,
     String value, {
-    bool bold = false,
     bool primary = false,
   }) {
     final typo = context.typo;
@@ -201,19 +263,16 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label, style: typo.sm),
-          const SizedBox(width: 16),
-          Flexible(
-            child: Text(
-              value,
-              textAlign: TextAlign.right,
-              style: (bold ? typo.bodyBold : typo.body).copyWith(
-                fontWeight: bold ? FontWeight.w700 : FontWeight.w600,
-                color: primary ? AppColors.primary : AppColors.textPrimary,
-              ),
-            ),
+          Text(
+            value,
+            style: primary
+                ? typo.h3.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primary,
+                  )
+                : typo.bodyBold.copyWith(fontWeight: FontWeight.w700),
           ),
         ],
       ),

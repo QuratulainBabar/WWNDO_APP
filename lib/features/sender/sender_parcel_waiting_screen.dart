@@ -1,50 +1,160 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
+import '../../core/api/api_exception.dart';
+import '../../core/config/demo_mode.dart';
 import '../../core/layout/responsive.dart';
 import '../../core/platform/platform_ui.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/back_header.dart';
+import '../../data/delivery_status_mapper.dart';
 import '../../data/models/shipment.dart';
-import '../../data/static_data.dart';
+import '../../data/services/delivery_live_loader.dart';
+import '../../data/services/delivery_repository.dart';
+import '../../data/services/fulfillment_repository.dart';
+import '../../providers/auth_provider.dart';
 
 /// Intermediate screen while a posted delivery is not yet trackable.
-class SenderParcelWaitingScreen extends StatelessWidget {
+class SenderParcelWaitingScreen extends StatefulWidget {
   const SenderParcelWaitingScreen({super.key, required this.shipmentId});
 
   final String shipmentId;
 
   @override
+  State<SenderParcelWaitingScreen> createState() =>
+      _SenderParcelWaitingScreenState();
+}
+
+class _SenderParcelWaitingScreenState extends State<SenderParcelWaitingScreen> {
+  bool _loading = true;
+  String? _error;
+  DeliveryLiveSnapshot? _snapshot;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  Future<void> _load() async {
+    final demo = context.read<DemoModeProvider>().enabled;
+    if (demo) {
+      setState(() {
+        _loading = false;
+        _error = 'Turn off Demo mode to view live delivery status.';
+      });
+      return;
+    }
+
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final auth = context.read<AuthProvider>();
+      final repo = DeliveryRepository(
+        apiClient: auth.repository.apiClient,
+        demoMode: context.read<DemoModeProvider>(),
+      );
+      final snapshot = await DeliveryLiveLoader.load(
+        deliveryRepo: repo,
+        fulfillmentRepo: FulfillmentRepository(apiClient: auth.repository.apiClient),
+        deliveryId: widget.shipmentId,
+        includeMatchingCount: true,
+      );
+      if (!mounted) return;
+      setState(() {
+        _snapshot = snapshot;
+        _loading = false;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = e.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = 'Unable to load delivery status.';
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final typo = context.typo;
-    final shipment = StaticData.shipmentById(shipmentId);
-    final phase = shipment == null
-        ? SenderPostedPhase.waitingForReceiver
-        : StaticData.senderPostedPhase(shipment) ??
-            SenderPostedPhase.waitingForReceiver;
+
+    if (_loading) {
+      return Scaffold(
+        backgroundColor: AppColors.surface,
+        appBar: BackHeader(
+          title: widget.shipmentId,
+          fallbackRoute: '/my-posted-parcels',
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_error != null || _snapshot == null) {
+      return Scaffold(
+        backgroundColor: AppColors.surface,
+        appBar: BackHeader(
+          title: widget.shipmentId,
+          fallbackRoute: '/my-posted-parcels',
+        ),
+        body: Center(
+          child: Padding(
+            padding: context.pagePadding,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _error ?? 'Delivery not found.',
+                  textAlign: TextAlign.center,
+                  style: typo.sm.copyWith(color: AppColors.textSecondary),
+                ),
+                const SizedBox(height: 16),
+                TextButton(onPressed: _load, child: const Text('Retry')),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final delivery = _snapshot!.delivery;
+    final phase = DeliveryStatusMapper.postedPhaseFor(
+          delivery: delivery,
+          activeTravelerRequestCount: _snapshot!.activeTravelerRequestCount,
+        ) ??
+        SenderPostedPhase.waitingForReceiver;
     final isAwaitingTraveler = phase == SenderPostedPhase.travelerReviewing;
-    final selectedTravelers =
-        StaticData.selectedMatchingTravelersFor(shipmentId);
-    final selected = StaticData.selectedMatchingTravelerFor(shipmentId);
+    final requests = _snapshot!.travelerRequests;
 
     final title = isAwaitingTraveler
         ? 'Awaiting traveler acceptance'
         : 'Waiting for receiver acceptance';
     final body = isAwaitingTraveler
-        ? (selectedTravelers.isEmpty
+        ? (requests.isEmpty
             ? 'We have sent a request to the traveler. Tracking unlocks after they accept.'
-            : selectedTravelers.length == 1
-                ? 'We have sent a request to ${selected!.travelerName}. Tracking unlocks after they accept.'
-                : 'We have sent requests to ${selectedTravelers.length} travelers. Tracking unlocks after one accepts.')
+            : requests.length == 1
+                ? 'We have sent a request to ${requests.first.travelerName}. Tracking unlocks after they accept.'
+                : 'We have sent requests to ${requests.length} travelers. Tracking unlocks after one accepts.')
         : "We've notified your receiver.\nThe matching process will start once they accept.";
+
+    final travelDate = delivery.travelDateParsed;
 
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: BackHeader(
-        title: shipment?.id ?? 'Delivery',
+        title: delivery.displayId,
         fallbackRoute: '/my-posted-parcels',
       ),
       body: SafeArea(
@@ -78,18 +188,16 @@ class SenderParcelWaitingScreen extends StatelessWidget {
                         style: typo.h1.copyWith(fontWeight: FontWeight.w700),
                         textAlign: TextAlign.center,
                       ),
-                      if (shipment != null) ...[
-                        const SizedBox(height: 10),
-                        Text(
-                          '${shipment.route}\n'
-                          'Travel date: ${DateFormat('MMM d, yyyy').format(shipment.travelDate)}',
-                          textAlign: TextAlign.center,
-                          style: typo.sm.copyWith(
-                            height: 1.5,
-                            color: AppColors.textSecondary,
-                          ),
+                      const SizedBox(height: 10),
+                      Text(
+                        '${delivery.route}\n'
+                        'Travel date: ${travelDate != null ? DateFormat('MMM d, yyyy').format(travelDate) : delivery.travelDate}',
+                        textAlign: TextAlign.center,
+                        style: typo.sm.copyWith(
+                          height: 1.5,
+                          color: AppColors.textSecondary,
                         ),
-                      ],
+                      ),
                       const SizedBox(height: 24),
                       Container(
                         width: double.infinity,
@@ -117,7 +225,8 @@ class SenderParcelWaitingScreen extends StatelessWidget {
               if (phase == SenderPostedPhase.matchingTravelers)
                 AppButton(
                   label: 'View Matching Travelers',
-                  onPressed: () => context.push('/bid-requests/$shipmentId'),
+                  onPressed: () =>
+                      context.push('/bid-requests/${delivery.displayId}'),
                 )
               else
                 AppButton(

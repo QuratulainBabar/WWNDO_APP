@@ -104,7 +104,7 @@ class _ParcelCreationWizardScreenState extends State<ParcelCreationWizardScreen>
   }
 
   Future<void> _activate() async {
-    if (!DeliveryPostingActions.ensureWalletAllowsParcelCreation(context)) return;
+    if (!await DeliveryPostingActions.ensureWalletAllowsParcelCreation(context)) return;
 
     final validation = _flow.validateStep(6);
     if (validation != null) {

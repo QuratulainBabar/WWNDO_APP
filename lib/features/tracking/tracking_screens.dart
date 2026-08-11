@@ -29,8 +29,11 @@ import '../../data/models/shipment.dart';
 import '../../data/services/delivery_repository.dart';
 import '../../data/services/fulfillment_repository.dart';
 import '../../data/services/platform_repository.dart';
-import '../../data/static_data.dart';
-import '../../providers/auth_provider.dart';
+import '../../data/delivery_lifecycle.dart';
+import '../../data/delivery_status_mapper.dart';
+import '../../data/models/wallet_role.dart';
+import '../../data/services/delivery_live_loader.dart';
+import '../../data/wallet_gate.dart';
 import '../../data/wallet_service.dart';
 import '../../providers/auth_provider.dart';
 import '../sender/bid_acceptance_payment_screen.dart';
@@ -67,30 +70,15 @@ class ShipmentDetailScreen extends StatefulWidget {
 
 class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
   late ShipmentStatus _selectedStatus;
-  int? _apiMatchingTravelerCount;
-  String? _apiDeliveryStatus;
-  bool _apiCp1Confirmed = false;
-  bool _apiCp2Confirmed = false;
+  DeliveryLiveSnapshot? _snapshot;
+  bool _loading = true;
+  String? _loadError;
 
   @override
   void initState() {
     super.initState();
     _selectedStatus = ShipmentStatus.inTransit;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadApiMatchingCount();
-      _loadFulfillmentFromApi();
-    });
-    StaticData.bidRequestsVersion.addListener(_onBidDataChanged);
-  }
-
-  @override
-  void dispose() {
-    StaticData.bidRequestsVersion.removeListener(_onBidDataChanged);
-    super.dispose();
-  }
-
-  void _onBidDataChanged() {
-    _loadApiMatchingCount();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadSnapshot());
   }
 
   DeliveryRepository _deliveryRepository() {
@@ -107,69 +95,107 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
     return FulfillmentRepository(apiClient: auth.repository.apiClient);
   }
 
-  Future<void> _loadFulfillmentFromApi() async {
-    final demoMode = context.read<DemoModeProvider>();
-    if (demoMode.enabled) return;
-
-    try {
-      final timeline =
-          await _fulfillmentRepository().getTimeline(widget.shipmentId);
-      final checkpoints =
-          await _fulfillmentRepository().listNfcCheckpoints(widget.shipmentId);
-      if (!mounted) return;
-
-      final cp1 = checkpoints.any(
-        (c) =>
-            c['checkpoint'] == 'handoff_sender_traveler' &&
-            c['confirmedAt'] != null,
-      );
-      final cp2 = checkpoints.any(
-        (c) =>
-            c['checkpoint'] == 'delivery_traveler_receiver' &&
-            c['confirmedAt'] != null,
-      );
-
+  Future<void> _loadSnapshot() async {
+    final demoMode = context.read<DemoModeProvider>().enabled;
+    if (demoMode) {
       setState(() {
-        _apiDeliveryStatus = timeline['status'] as String?;
-        _apiCp1Confirmed = cp1;
-        _apiCp2Confirmed = cp2;
+        _loading = false;
+        _loadError = 'Turn off Demo mode to view live shipment tracking.';
       });
-    } catch (_) {
-      // Falls back to StaticData demo state.
-    }
-  }
-
-  Future<void> _loadApiMatchingCount() async {
-    final demoMode = context.read<DemoModeProvider>();
-    if (demoMode.enabled) return;
-
-    final shipment = StaticData.shipmentById(
-      widget.shipmentId,
-      travelerView: widget.isTravelerView,
-    );
-    if (shipment == null) return;
-
-    final phase = StaticData.senderPostedPhase(shipment);
-    if (phase != SenderPostedPhase.matchingTravelers &&
-        phase != SenderPostedPhase.travelerReviewing) {
       return;
     }
 
+    setState(() {
+      _loading = true;
+      _loadError = null;
+    });
+
     try {
-      final travelers = await _deliveryRepository().listMatchingTravelers(
-        widget.shipmentId,
+      final role = widget.isTravelerView ? 'traveler' : 'sender';
+      final snapshot = await DeliveryLiveLoader.load(
+        deliveryRepo: _deliveryRepository(),
+        fulfillmentRepo: _fulfillmentRepository(),
+        deliveryId: widget.shipmentId,
+        role: role,
+        includeMatchingCount: !widget.isTravelerView,
       );
       if (!mounted) return;
-      setState(() => _apiMatchingTravelerCount = travelers.length);
+      setState(() {
+        _snapshot = snapshot;
+        _loading = false;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _loadError = e.message;
+      });
     } catch (_) {
-      // Badge falls back to StaticData demo count.
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _loadError = 'Unable to load shipment details.';
+      });
     }
   }
 
-  String _senderPostedBadgeLabel(SenderPostedPhase phase, String shipmentId) {
+  Shipment? get _shipment {
+    final snap = _snapshot;
+    if (snap == null) return null;
+    return Shipment.fromDelivery(
+      snap.delivery,
+      status: snap.status,
+      role: widget.isTravelerView ? ShipmentRole.traveler : ShipmentRole.sender,
+      travelerName: snap.delivery.senderName,
+    );
+  }
+
+  Future<void> _loadFulfillmentFromApi() async {
+    await _loadSnapshot();
+  }
+
+  bool _isSenderBookingCancellable() {
+    final status = _snapshot?.status;
+    if (status == null) return false;
+    return DeliveryLifecycle.isSenderCancellable(status);
+  }
+
+  Future<void> _cancelSenderBooking(BuildContext context) async {
+    final shipment = _shipment;
+    if (shipment == null) return;
+
+    final hoursUntil =
+        shipment.travelDate.difference(DateTime.now()).inHours;
+    final feesRefundable = hoursUntil >= 24;
+    final confirmed = await showCancelRequestConfirmation(context);
+    if (!confirmed || !context.mounted) return;
+
+    try {
+      await _deliveryRepository().cancelDelivery(shipment.id);
+      await _loadSnapshot();
+      if (!context.mounted) return;
+      await WalletGate.refreshRoles(context, WalletRole.values);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            feesRefundable
+                ? 'Booking cancelled. Escrow and platform fees refunded.'
+                : 'Booking cancelled. Escrow refunded to sender; platform fees kept.',
+          ),
+        ),
+      );
+    } on ApiException catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message), behavior: SnackBarBehavior.floating),
+      );
+    }
+  }
+
+  String _senderPostedBadgeLabel(SenderPostedPhase phase) {
     if (phase == SenderPostedPhase.matchingTravelers) {
-      final count = _apiMatchingTravelerCount ??
-          StaticData.matchingTravelerCountForShipment(shipmentId);
+      final count = _snapshot?.matchingTravelerCount;
       return SenderDeliveryStatus.matchingTravelersLabel(count);
     }
     return phase.badgeLabel;
@@ -196,22 +222,18 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
       return;
     }
 
-    final demoMode = context.read<DemoModeProvider>().enabled;
-    if (!demoMode) {
-      try {
-        final auth = context.read<AuthProvider>();
-        final repo = PlatformRepository(apiClient: auth.repository.apiClient);
-        await repo.markInTransit(widget.shipmentId);
-      } catch (e) {
+    try {
+      final auth = context.read<AuthProvider>();
+      final repo = PlatformRepository(apiClient: auth.repository.apiClient);
+      await repo.markInTransit(widget.shipmentId);
+      await _loadSnapshot();
+    } catch (e) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Unable to mark in transit: $e')),
         );
         return;
       }
-    } else {
-      StaticData.setShipmentStatus(widget.shipmentId, selected);
-    }
 
     setState(() => _selectedStatus = selected);
     if (!mounted) return;
@@ -223,84 +245,97 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
   }
 
   void _enableNfcForReceiver() {
-    StaticData.activateNfcCheckpoint2(widget.shipmentId);
-    setState(() {});
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text(
-          'NFC enabled for the receiver. Complete NFC matching to mark Delivered.',
+          'Ask the receiver to open their tracking screen and complete NFC Checkpoint 2.',
         ),
       ),
     );
   }
 
   void _openBidAcceptancePayment(BuildContext context, String shipmentId) {
-    final selected = StaticData.selectedMatchingTravelerFor(shipmentId);
-    if (selected == null) return;
-    context.push(
-      '/bid-acceptance-payment',
-      extra: BidAcceptanceContext(
-        bid: selected,
-        shipmentId: shipmentId,
-      ),
-    );
+    context.push('/sender-counter-offers?deliveryPublicId=$shipmentId');
   }
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<int>(
-      valueListenable: StaticData.bidRequestsVersion,
-      builder: (context, _, __) {
-        return ValueListenableBuilder<int>(
-          valueListenable: StaticData.nfcCheckpointVersion,
-          builder: (context, _, __) {
-        final typo = context.typo;
-        final shipment = StaticData.shipmentById(
-              widget.shipmentId,
-              travelerView: widget.isTravelerView,
-            ) ??
-            StaticData.activeShipment;
-        final status = StaticData.effectiveStatus(shipment);
-        final stepProgress = StaticData.effectiveStepIndex(shipment);
-        final postedPhase = status == ShipmentStatus.open && !widget.isTravelerView
-            ? StaticData.senderPostedPhase(shipment)
-            : null;
-        final tracking = DeliveryTracking.fromShipmentContext(
-          effectiveStatus: status,
-          postedPhase: postedPhase,
-          effectiveStepIndex: stepProgress,
-        );
-        final isDisputed = StaticData.isShipmentDisputed(shipment.id);
-        final cp1Confirmed = _apiCp1Confirmed ||
-            StaticData.isNfcCheckpoint1Confirmed(shipment.id);
-        final cp2Confirmed = _apiCp2Confirmed ||
-            StaticData.isNfcCheckpoint2Confirmed(shipment.id);
-        // Traveler marks In Transit after NFC CP1 matching sets Collected.
-        final canMarkInTransit = status == ShipmentStatus.collected &&
-            cp1Confirmed &&
-            !StaticData.isNfcCheckpoint2Activated(shipment.id) &&
-            !cp2Confirmed;
-        // Traveler enables NFC for receiver while In Transit (before CP2 matching).
-        final canEnableNfcForReceiver = status == ShipmentStatus.inTransit &&
-            cp1Confirmed &&
-            !StaticData.isNfcCheckpoint2Activated(shipment.id) &&
-            !cp2Confirmed;
-        final showStatusUpdate = widget.isTravelerView &&
-            !isDisputed &&
-            (canMarkInTransit || canEnableNfcForReceiver);
-        final statusOptions = _statusOptionsFor(status);
-        final selectedStatus = _selectedOptionFor(status);
-        final statusUpdateHint = canEnableNfcForReceiver
-            ? 'When you meet the receiver, enable NFC so both of you can match phones. After matching, the parcel becomes Delivered.'
-            : 'NFC handoff is complete. Mark In Transit when you begin travel with this parcel.';
-        final canEnableNfcCheckpoint1 = !widget.isTravelerView &&
-            !isDisputed &&
-            (status == ShipmentStatus.bidAccepted ||
-                status == ShipmentStatus.photosUploaded) &&
-            !StaticData.isNfcCheckpoint1Confirmed(shipment.id) &&
-            !StaticData.nfcCheckpoint1ActivatedShipmentIds.contains(shipment.id);
+    if (_loading) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: BackHeader(
+          title: widget.shipmentId,
+          fallbackRoute:
+              widget.isTravelerView ? '/traveler-deliveries' : '/track',
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
 
-        return Scaffold(
+    if (_loadError != null || _shipment == null || _snapshot == null) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: BackHeader(
+          title: widget.shipmentId,
+          fallbackRoute:
+              widget.isTravelerView ? '/traveler-deliveries' : '/track',
+        ),
+        body: Center(
+          child: Padding(
+            padding: context.pagePadding,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _loadError ?? 'Shipment not found.',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                TextButton(onPressed: _loadSnapshot, child: const Text('Retry')),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final shipment = _shipment!;
+    final snap = _snapshot!;
+    final typo = context.typo;
+    final status = DeliveryStatusMapper.toShipmentStatus(snap.status);
+    final tracking = snap.tracking;
+    final postedPhase = status == ShipmentStatus.open && !widget.isTravelerView
+        ? DeliveryStatusMapper.postedPhaseFor(
+            delivery: snap.delivery,
+            activeTravelerRequestCount: snap.activeTravelerRequestCount,
+          )
+        : null;
+    final isDisputed = snap.disputed;
+    final cp1Confirmed = snap.cp1Confirmed;
+    final cp2Confirmed = snap.cp2Confirmed;
+    // Traveler marks In Transit after NFC CP1 matching sets Collected.
+    final canMarkInTransit = status == ShipmentStatus.collected &&
+        cp1Confirmed &&
+        !cp2Confirmed;
+    // Traveler enables NFC for receiver while In Transit (before CP2 matching).
+    final canEnableNfcForReceiver = status == ShipmentStatus.inTransit &&
+        cp1Confirmed &&
+        !cp2Confirmed;
+    final showStatusUpdate = widget.isTravelerView &&
+        !isDisputed &&
+        (canMarkInTransit || canEnableNfcForReceiver);
+    final statusOptions = _statusOptionsFor(status);
+    final selectedStatus = _selectedOptionFor(status);
+    final statusUpdateHint = canEnableNfcForReceiver
+        ? 'When you meet the receiver, enable NFC so both of you can match phones. After matching, the parcel becomes Delivered.'
+        : 'NFC handoff is complete. Mark In Transit when you begin travel with this parcel.';
+    final canEnableNfcCheckpoint1 = !widget.isTravelerView &&
+        !isDisputed &&
+        (status == ShipmentStatus.bidAccepted ||
+            status == ShipmentStatus.photosUploaded) &&
+        !cp1Confirmed;
+
+    return Scaffold(
           backgroundColor: AppColors.background,
           appBar: BackHeader(
             title: shipment.id,
@@ -313,26 +348,22 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (_apiDeliveryStatus != null) ...[
-                    DeliveryStatusBadge(_apiDeliveryStatus, semiBold: true),
+                  if (snap.status.isNotEmpty) ...[
+                    DeliveryStatusBadge(snap.status, semiBold: true),
                     const SizedBox(height: 12),
                   ],
                   // Sender open parcels: Receiver Pending or tappable Matching Travelers (n).
                   Builder(
                     builder: (context) {
-                      final status = StaticData.effectiveStatus(shipment);
                       final phase = widget.isTravelerView ||
                               status != ShipmentStatus.open
                           ? null
-                          : StaticData.senderPostedPhase(shipment);
+                          : postedPhase;
                       if (phase == null) {
                         return AppBadge.status(status);
                       }
 
-                      final label = _senderPostedBadgeLabel(
-                        phase,
-                        shipment.id,
-                      );
+                      final label = _senderPostedBadgeLabel(phase);
                       final badge = AppBadge(
                         label: label,
                         color: phase.color,
@@ -390,7 +421,7 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
                           spacing: 8,
                           runSpacing: 8,
                           children: [
-                            if (StaticData.escrowCentsForShipment(shipment.id) > 0 ||
+                            if (WalletService.escrowCentsForShipment(shipment.id) > 0 ||
                                 WalletService.isEscrowReleased(shipment.id))
                               AppBadge.success('✓ Escrow active')
                             else if (WalletService.isEscrowRefunded(shipment.id))
@@ -408,7 +439,7 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
                                 small: true,
                               ),
                             AppBadge.success('✓ ID verified'),
-                            if (StaticData.isNfcCheckpoint1Confirmed(shipment.id))
+                            if (cp1Confirmed)
                               AppBadge.success('✓ NFC CP1')
                             else
                               AppBadge(
@@ -417,8 +448,7 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
                                 backgroundColor: AppColors.textDisabled.withValues(alpha: 0.4),
                                 small: true,
                               ),
-                            if (StaticData.isNfcCheckpoint2Confirmed(shipment.id) ||
-                                status == ShipmentStatus.delivered)
+                            if (cp2Confirmed || status == ShipmentStatus.delivered)
                               AppBadge.success('✓ NFC CP2')
                             else
                               AppBadge(
@@ -527,25 +557,17 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
                           AppButton(
                             label: 'Enable NFC',
                             icon: const Icon(Icons.nfc, size: 18, color: Colors.white),
-                            onPressed: () {
-                              StaticData.activateNfcCheckpoint1(shipment.id);
-                              setState(() {});
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'NFC enabled. Complete NFC matching with the traveler to mark Collected.',
-                                  ),
-                                ),
-                              );
-                            },
+                            onPressed: () => context.push(
+                              '/nfc-confirm/${shipment.id}?traveler=${widget.isTravelerView}',
+                            ),
                           ),
                         ],
                       ),
                     ),
                   ],
                   if (!widget.isTravelerView &&
-                      StaticData.senderPostedPhase(shipment) ==
-                          SenderPostedPhase.travelerAccepted) ...[
+                      (postedPhase == SenderPostedPhase.travelerAccepted ||
+                          snap.status == 'bid_accepted')) ...[
                     const SizedBox(height: 16),
                     AppCard(
                       margin: EdgeInsets.zero,
@@ -553,46 +575,20 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Traveler accepted',
+                            'Counter offer ready',
                             style: typo.h3.copyWith(fontWeight: FontWeight.w700),
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            SenderPostedPhase.travelerAccepted.description,
+                            'Review the traveler counter offer and complete payment to confirm booking.',
                             style: typo.sm.copyWith(
                               color: AppColors.textSecondary,
                               height: 1.4,
                             ),
                           ),
-                          Builder(
-                            builder: (context) {
-                              final accepted =
-                                  StaticData.selectedMatchingTravelerFor(
-                                shipment.id,
-                              );
-                              if (accepted == null) {
-                                return const SizedBox.shrink();
-                              }
-                              return Padding(
-                                padding: const EdgeInsets.only(top: 12),
-                                child: GestureDetector(
-                                  onTap: () => _openBidAcceptancePayment(
-                                    context,
-                                    shipment.id,
-                                  ),
-                                  behavior: HitTestBehavior.opaque,
-                                  child: _detailRow(
-                                    context,
-                                    'Accepted traveler',
-                                    accepted.travelerName,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
                           const SizedBox(height: 16),
                           AppButton(
-                            label: 'View Payment Summary',
+                            label: 'Review & pay',
                             onPressed: () => _openBidAcceptancePayment(
                               context,
                               shipment.id,
@@ -600,91 +596,6 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
                           ),
                         ],
                       ),
-                    ),
-                  ],
-                  if (!widget.isTravelerView) ...[
-                    Builder(
-                      builder: (context) {
-                        final proposal =
-                            StaticData.finalBudgetProposalFor(shipment.id);
-                        if (proposal == null) return const SizedBox.shrink();
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 16),
-                          child: AppCard(
-                            margin: EdgeInsets.zero,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Parcel details',
-                                  style: typo.h3.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                _detailRow(
-                                  context,
-                                  'Sender\'s original budget',
-                                  '\$${proposal.originalBudgetUsd.toStringAsFixed(2)}',
-                                ),
-                                _detailRow(
-                                  context,
-                                  'Traveler\'s final proposed budget',
-                                  '\$${proposal.proposedBudgetUsd.toStringAsFixed(2)}',
-                                ),
-                                _detailRow(
-                                  context,
-                                  'Traveler',
-                                  proposal.travelerName,
-                                ),
-                                if (!proposal.accepted) ...[
-                                  const SizedBox(height: 16),
-                                  AppButton(
-                                    label: 'Accept',
-                                    onPressed: () {
-                                      final proposalAccepted =
-                                          StaticData.acceptFinalBudgetProposal(
-                                        shipment.id,
-                                      );
-                                      final bid = (proposalAccepted != null
-                                              ? StaticData.bidById(
-                                                  proposalAccepted.bidId,
-                                                )
-                                              : null) ??
-                                          StaticData.bidById(proposal.bidId) ??
-                                          StaticData
-                                              .selectedMatchingTravelerFor(
-                                            shipment.id,
-                                          );
-                                      if (bid == null) {
-                                        setState(() {});
-                                        return;
-                                      }
-                                      // Use traveler's final proposed amount for escrow.
-                                      final pricedBid = bid.price ==
-                                              proposal.proposedBudgetUsd
-                                          ? bid
-                                          : bid.copyWith(
-                                              price: proposal.proposedBudgetUsd,
-                                            );
-                                      context.push(
-                                        '/bid-acceptance-payment',
-                                        extra: BidAcceptanceContext(
-                                          bid: pricedBid,
-                                          shipmentId: shipment.id,
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ] else ...[
-                                  const SizedBox(height: 12),
-                                  AppBadge.success('Final budget accepted'),
-                                ],
-                              ],
-                            ),
-                          ),
-                        );
-                      },
                     ),
                   ],
                   if (_showNfcCheckpoint1(shipment, status)) ...[
@@ -698,8 +609,7 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
                     ),
                   ],
                   // Traveler CP2 / transit NFC only after CP1 is done.
-                  if (widget.isTravelerView &&
-                      StaticData.isNfcCheckpoint1Confirmed(shipment.id)) ...[
+                  if (widget.isTravelerView && cp1Confirmed) ...[
                     const SizedBox(height: 24),
                     AppCard(
                       margin: EdgeInsets.zero,
@@ -709,42 +619,9 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
                       ),
                     ),
                   ] else if (widget.isTravelerView &&
-                      StaticData.nfcCheckpoint1ActivatedShipmentIds
-                          .contains(shipment.id) &&
-                      !StaticData.isNfcCheckpoint1Confirmed(shipment.id) &&
-                      !StaticData.isNfcCheckpoint1SenderTapped(shipment.id)) ...[
-                    const SizedBox(height: 24),
-                    AppCard(
-                      margin: EdgeInsets.zero,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Waiting for sender NFC',
-                            style: typo.h3.copyWith(fontWeight: FontWeight.w700),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Sender enabled NFC. After they complete their NFC tap, your NFC button unlocks here. Matching both phones marks the parcel Collected.',
-                            style: typo.sm.copyWith(height: 1.5),
-                          ),
-                          const SizedBox(height: 12),
-                          AppBadge(
-                            label: '○ Awaiting sender NFC tap',
-                            color: AppColors.textDisabled,
-                            backgroundColor:
-                                AppColors.textDisabled.withValues(alpha: 0.4),
-                            small: true,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ] else if (widget.isTravelerView &&
+                      !cp1Confirmed &&
                       (status == ShipmentStatus.bidAccepted ||
-                          status == ShipmentStatus.photosUploaded) &&
-                      !StaticData.isNfcCheckpoint1Confirmed(shipment.id) &&
-                      !StaticData.nfcCheckpoint1ActivatedShipmentIds
-                          .contains(shipment.id)) ...[
+                          status == ShipmentStatus.photosUploaded)) ...[
                     const SizedBox(height: 24),
                     AppCard(
                       margin: EdgeInsets.zero,
@@ -780,25 +657,17 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
             ),
           ),
         );
-          },
-        );
-      },
-    );
   }
 
   bool _showNfcCheckpoint1(Shipment shipment, ShipmentStatus status) {
-    // NFC CP1 after sender enables it (Traveler Selected) until matching completes.
-    if (StaticData.isShipmentDisputed(shipment.id)) return false;
-    if (StaticData.isNfcCheckpoint1Confirmed(shipment.id)) return false;
-    final nfcEnabled =
-        StaticData.nfcCheckpoint1ActivatedShipmentIds.contains(shipment.id) ||
-            status == ShipmentStatus.collected;
+    final snap = _snapshot;
+    if (snap == null) return false;
+    if (snap.disputed) return false;
+    if (snap.cp1Confirmed) return false;
+    final nfcEnabled = status == ShipmentStatus.collected ||
+        status == ShipmentStatus.bidAccepted ||
+        status == ShipmentStatus.photosUploaded;
     if (!nfcEnabled) return false;
-    // Traveler button unlocks only after sender completes their NFC tap.
-    if (widget.isTravelerView &&
-        !StaticData.isNfcCheckpoint1SenderTapped(shipment.id)) {
-      return false;
-    }
     return true;
   }
 
@@ -807,6 +676,8 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
     Shipment shipment,
     ShipmentStatus status,
   ) {
+    final snap = _snapshot;
+    final cp2Confirmed = snap?.cp2Confirmed ?? false;
     final typo = context.typo;
     final actions = <Widget>[];
 
@@ -818,7 +689,7 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
     }
 
     void addSenderDisputeButton() {
-      final disputed = StaticData.isShipmentDisputed(shipment.id);
+      final disputed = snap?.disputed ?? false;
       addAction(
         AppButton(
           label: 'Dispute',
@@ -879,49 +750,17 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
 
       // Cancel booking allowed through collected (including when parcel is
       // already collected). ≥24h → fees refunded; <24h → fees kept.
-      if (StaticData.isSenderBookingCancellable(shipment)) {
-        final feesRefundable =
-            StaticData.isPlatformFeeRefundableOnCancel(shipment.travelDate);
+      if (_isSenderBookingCancellable()) {
         addAction(
           AppButton(
             label: 'Cancel booking (refund escrow)',
             variant: AppButtonVariant.danger,
-            onPressed: () async {
-              final confirmed =
-                  await showCancelRequestConfirmation(context);
-              if (!confirmed || !context.mounted) return;
-
-              final cancelled =
-                  StaticData.cancelShipmentBooking(shipment.id);
-              if (!cancelled) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'This booking can no longer be cancelled.',
-                    ),
-                    behavior: SnackBarBehavior.floating,
-                  ),
-                );
-                return;
-              }
-
-              setState(() {});
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    StaticData.senderBookingCancelResultMessage(
-                      platformFeesRefunded: feesRefundable,
-                    ),
-                  ),
-                ),
-              );
-            },
+            onPressed: () => _cancelSenderBooking(context),
           ),
         );
       }
 
-      if (status == ShipmentStatus.delivered ||
-          StaticData.isNfcCheckpoint2Confirmed(shipment.id)) {
+      if (status == ShipmentStatus.delivered || cp2Confirmed) {
         addAction(
           AppButton(
             label: 'Leave a review',
@@ -932,8 +771,7 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
       return actions;
     }
 
-    if (status == ShipmentStatus.delivered ||
-        StaticData.isNfcCheckpoint2Confirmed(shipment.id)) {
+    if (status == ShipmentStatus.delivered || cp2Confirmed) {
       if (widget.isTravelerView) {
         addAction(
           AppButton(
@@ -958,7 +796,7 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
       return actions;
     }
 
-    if (StaticData.isShipmentDisputed(shipment.id)) {
+    if (snap?.disputed ?? false) {
       addAction(
         AppButton(
           label: 'View dispute',
@@ -1020,7 +858,8 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
       );
       // Cancel allowed through collected (incl. already collected). ≥24h →
       // fees refunded; <24h → fees kept. Not available once in-transit.
-      if (StaticData.isTravelerBookingCancellable(shipment)) {
+      // Traveler cancel requires a backend endpoint — hidden in live mode.
+      if (false && widget.isTravelerView) {
         addAction(
           AppButton(
             label: 'Cancel Request',
@@ -1038,47 +877,12 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
     BuildContext context,
     Shipment shipment,
   ) async {
-    if (!StaticData.isTravelerBookingCancellable(shipment)) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('This request can no longer be cancelled.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-
-    // Match fee window to the same shipment cancelTravelerBooking uses.
-    final canonical =
-        StaticData.shipmentById(shipment.id) ?? shipment;
-    final feesRefundable =
-        StaticData.isPlatformFeeRefundableOnCancel(canonical.travelDate);
-    final confirmed = await showCancelRequestConfirmation(context);
-    if (!confirmed || !context.mounted) return;
-
-    final cancelled = StaticData.cancelTravelerBooking(shipment.id);
-    if (!cancelled) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('This request can no longer be cancelled.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          StaticData.travelerBookingCancelResultMessage(
-            platformFeesRefunded: feesRefundable,
-          ),
-        ),
+      const SnackBar(
+        content: Text('Traveler cancellation is not available in the app yet.'),
         behavior: SnackBarBehavior.floating,
       ),
     );
-    context.go('/traveler-deliveries');
   }
 
   Widget _detailRow(BuildContext context, String label, String value) {
@@ -1171,12 +975,6 @@ class _NfcCheckpoint1Section extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
-    final myTapDone = isTravelerView
-        ? StaticData.isNfcCheckpoint1TravelerTapped(shipmentId)
-        : StaticData.isNfcCheckpoint1SenderTapped(shipmentId);
-    final otherTapDone = isTravelerView
-        ? StaticData.isNfcCheckpoint1SenderTapped(shipmentId)
-        : StaticData.isNfcCheckpoint1TravelerTapped(shipmentId);
     final otherLabel = isTravelerView ? 'sender' : 'traveler';
 
     return Column(
@@ -1197,65 +995,27 @@ class _NfcCheckpoint1Section extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           isTravelerView
-              ? 'Sender completed their NFC tap. Tap phones with the sender to confirm NFC matching. When both taps are done, the parcel becomes Collected.'
-              : 'NFC is enabled. Tap phones with the traveler to confirm handoff. After both of you match, the parcel becomes Collected.',
+              ? 'Tap phones with the sender to confirm handoff. When both parties confirm, the parcel becomes Collected.'
+              : 'Tap phones with the traveler to confirm handoff. When both parties confirm, the parcel becomes Collected.',
           style: typo.sm.copyWith(height: 1.5),
         ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            if (myTapDone)
-              AppBadge.success('✓ Your NFC tap')
-            else
-              AppBadge(
-                label: '○ Your NFC tap',
-                color: AppColors.primary,
-                backgroundColor: AppColors.primary.withValues(alpha: 0.12),
-                small: true,
-              ),
-            if (otherTapDone)
-              AppBadge.success('✓ $otherLabel NFC tap')
-            else
-              AppBadge(
-                label: '○ Awaiting $otherLabel',
-                color: AppColors.textDisabled,
-                backgroundColor: AppColors.textDisabled.withValues(alpha: 0.4),
-                small: true,
-              ),
-          ],
+        const SizedBox(height: 16),
+        AppButton(
+          label: 'Start NFC matching',
+          icon: const Icon(Icons.nfc, size: 18, color: Colors.white),
+          onPressed: () => context.push(
+            '/nfc-confirm/$shipmentId?traveler=$isTravelerView',
+          ),
         ),
-        if (!myTapDone) ...[
-          const SizedBox(height: 16),
-          AppButton(
-            label: 'Confirm handoff (NFC CP1)',
-            onPressed: () => context.push(
-              '/nfc-confirm',
-              extra: {
-                'shipmentId': shipmentId,
-                'checkpoint': 1,
-                'isTraveler': isTravelerView,
-              },
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Demo: opens phone tap screen. Both sender and traveler must complete this step.',
-            style: typo.caption.copyWith(color: AppColors.textSecondary),
-          ),
-        ] else if (!otherTapDone) ...[
-          const SizedBox(height: 12),
-          Text(
-            'Your tap is recorded. Waiting for the $otherLabel to complete NFC Checkpoint 1.',
-            style: typo.sm.copyWith(height: 1.5, color: AppColors.primary),
-          ),
-        ],
+        const SizedBox(height: 8),
+        Text(
+          'Waiting for the $otherLabel to confirm on their device after your tap.',
+          style: typo.sm.copyWith(color: AppColors.textSecondary, height: 1.4),
+        ),
       ],
     );
   }
 }
-
 class _TravelerNfcDeliverySection extends StatelessWidget {
   const _TravelerNfcDeliverySection({
     required this.status,
@@ -1268,13 +1028,7 @@ class _TravelerNfcDeliverySection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
-    final isDelivered = status == ShipmentStatus.delivered ||
-        StaticData.isNfcCheckpoint2Confirmed(shipmentId);
-    final cp2Available = StaticData.isNfcCheckpoint2Available(shipmentId) ||
-        StaticData.isNfcCheckpoint2Activated(shipmentId);
-    final cp1Done = StaticData.isNfcCheckpoint1Confirmed(shipmentId);
-    final myTapDone = StaticData.isNfcCheckpoint2TravelerTapped(shipmentId);
-    final otherTapDone = StaticData.isNfcCheckpoint2ReceiverTapped(shipmentId);
+    final isDelivered = status == ShipmentStatus.delivered;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1298,94 +1052,22 @@ class _TravelerNfcDeliverySection extends StatelessWidget {
         const SizedBox(height: 8),
         if (isDelivered) ...[
           Text(
-            'Final delivery confirmed with the receiver via NFC. Escrow released to your wallet. Leave a review is now available.',
+            'Final delivery confirmed with the receiver via NFC. Escrow released to your wallet.',
             style: typo.sm.copyWith(height: 1.5, color: AppColors.success),
           ),
           const SizedBox(height: 12),
           AppBadge.success('✓ NFC CP2 confirmed'),
-        ] else if (cp2Available || myTapDone || otherTapDone) ...[
-          Text(
-            'Meet the receiver and tap phones to confirm final delivery. Both traveler and receiver must complete NFC Checkpoint 2 to release escrow.',
-            style: typo.sm.copyWith(height: 1.5),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              if (myTapDone)
-                AppBadge.success('✓ Your NFC tap')
-              else
-                AppBadge(
-                  label: '○ Your NFC tap',
-                  color: AppColors.primary,
-                  backgroundColor: AppColors.primary.withValues(alpha: 0.12),
-                  small: true,
-                ),
-              if (otherTapDone)
-                AppBadge.success('✓ Receiver NFC tap')
-              else
-                AppBadge(
-                  label: '○ Awaiting receiver',
-                  color: AppColors.textDisabled,
-                  backgroundColor: AppColors.textDisabled.withValues(alpha: 0.4),
-                  small: true,
-                ),
-            ],
-          ),
-          if (!myTapDone) ...[
-            const SizedBox(height: 16),
-            AppButton(
-              label: 'Confirm delivery (NFC CP2)',
-              onPressed: () => context.push(
-                '/nfc-confirm',
-                extra: {
-                  'shipmentId': shipmentId,
-                  'checkpoint': 2,
-                  'isTraveler': true,
-                },
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Demo: opens phone tap screen. Both traveler and receiver must complete this step.',
-              style: typo.caption.copyWith(color: AppColors.textSecondary),
-            ),
-          ] else if (!otherTapDone) ...[
-            const SizedBox(height: 12),
-            Text(
-              'Your tap is recorded. Waiting for the receiver to complete NFC Checkpoint 2.',
-              style: typo.sm.copyWith(height: 1.5, color: AppColors.primary),
-            ),
-          ],
-        ] else if (status == ShipmentStatus.collected && cp1Done) ...[
-          Text(
-            'Parcel is Collected. Mark In Transit above when you begin travel. Then enable NFC for the receiver at delivery.',
-            style: typo.sm.copyWith(height: 1.5),
-          ),
-          const SizedBox(height: 12),
-          AppBadge(
-            label: '○ Mark In Transit to continue',
-            color: AppColors.primary,
-            backgroundColor: AppColors.primary.withValues(alpha: 0.12),
-            small: true,
-          ),
-        ] else if (status == ShipmentStatus.inTransit && cp1Done) ...[
-          Text(
-            'Enable NFC for the receiver above to unlock Checkpoint 2. After both of you match phones, the parcel becomes Delivered.',
-            style: typo.sm.copyWith(height: 1.5),
-          ),
-          const SizedBox(height: 12),
-          AppBadge(
-            label: '○ Enable NFC for receiver',
-            color: AppColors.primary,
-            backgroundColor: AppColors.primary.withValues(alpha: 0.12),
-            small: true,
-          ),
         ] else ...[
           Text(
-            'NFC Checkpoint 2 unlocks after you mark In Transit and enable NFC for the receiver.',
+            'Meet the receiver and tap phones to confirm final delivery. Both parties must complete NFC Checkpoint 2 to release escrow.',
             style: typo.sm.copyWith(height: 1.5),
+          ),
+          const SizedBox(height: 16),
+          AppButton(
+            label: 'Confirm delivery (NFC CP2)',
+            onPressed: () => context.push(
+              '/nfc-confirm/$shipmentId?traveler=true&checkpoint=2',
+            ),
           ),
         ],
       ],
@@ -1433,10 +1115,7 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
     if (_confirmed || _cancelled) return;
     _cancelled = true;
     _autoCompleteTimer?.cancel();
-    final shipmentId = widget.shipmentId ??
-        (_isCheckpoint2
-            ? StaticData.receiverActiveShipment.id
-            : StaticData.activeShipment.id);
+    final shipmentId = widget.shipmentId ?? '';
     final fallback = _isCheckpoint2
         ? (widget.isTraveler
             ? '/shipment/$shipmentId?traveler=true'
@@ -1449,105 +1128,98 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
 
   Future<void> _complete() async {
     if (!mounted || _confirmed || _cancelled) return;
-    _confirmed = true;
-    _autoCompleteTimer?.cancel();
-    final shipmentId = widget.shipmentId ??
-        (_isCheckpoint2
-            ? (widget.isTraveler
-                ? StaticData.travelerActiveDelivery.id
-                : StaticData.receiverActiveShipment.id)
-            : StaticData.activeShipment.id);
-
-    final demoMode = context.read<DemoModeProvider>().enabled;
-    if (!demoMode) {
-      try {
-        final auth = context.read<AuthProvider>();
-        final repo = FulfillmentRepository(apiClient: auth.repository.apiClient);
-        final result = await repo.confirmNfc(
-          deliveryId: shipmentId,
-          checkpoint: _isCheckpoint2 ? 2 : 1,
-        );
-        final pendingPeer = result['pendingPeer'] == true;
-        if (pendingPeer && mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Your tap was recorded. Ask the other party to confirm on their device.',
-              ),
-            ),
-          );
-          _confirmed = false;
-          return;
-        }
-      } on ApiException catch (e) {
-        if (e.code == 'NFC_PENDING_PEER') {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'Waiting for the other party to confirm NFC on their device.',
-                ),
-              ),
-            );
-          }
-          _confirmed = false;
-          return;
-        }
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('NFC checkpoint failed: ${e.message}')),
-          );
-        }
-        _confirmed = false;
-        return;
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('NFC checkpoint failed: $e')),
-          );
-        }
-      }
-    }
-
-    if (_isCheckpoint2) {
-      final bothDone = demoMode
-          ? StaticData.confirmNfcCheckpoint2Party(
-              shipmentId,
-              isTraveler: widget.isTraveler,
-            )
-          : true;
-      if (widget.isTraveler) {
-        context.pushReplacement(
-          '/traveler-nfc-success',
-          extra: {
-            'shipmentId': shipmentId,
-            'waitingForPeer': !bothDone,
-          },
-        );
-      } else {
-        context.pushReplacement(
-          '/receiver-nfc-success',
-          extra: {
-            'shipmentId': shipmentId,
-            'waitingForPeer': !bothDone,
-          },
+    final shipmentId = widget.shipmentId;
+    if (shipmentId == null || shipmentId.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Delivery ID is missing for NFC confirm.')),
         );
       }
       return;
     }
 
-    final bothDone = demoMode
-        ? StaticData.confirmNfcCheckpoint1Party(
-            shipmentId,
-            isTraveler: widget.isTraveler,
-          )
-        : true;
+    _confirmed = true;
+    _autoCompleteTimer?.cancel();
+
+    try {
+      final auth = context.read<AuthProvider>();
+      final repo = FulfillmentRepository(apiClient: auth.repository.apiClient);
+      final result = await repo.confirmNfc(
+        deliveryId: shipmentId,
+        checkpoint: _isCheckpoint2 ? 2 : 1,
+      );
+      final pendingPeer = result['pendingPeer'] == true;
+      if (pendingPeer && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Your tap was recorded. Ask the other party to confirm on their device.',
+            ),
+          ),
+        );
+        _confirmed = false;
+        return;
+      }
+      if (_isCheckpoint2 && mounted) {
+        await WalletGate.refreshRoles(
+          context,
+          [WalletRole.sender, WalletRole.traveler, WalletRole.receiver],
+        );
+      }
+    } on ApiException catch (e) {
+      if (e.code == 'NFC_PENDING_PEER') {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Waiting for the other party to confirm NFC on their device.',
+              ),
+            ),
+          );
+        }
+        _confirmed = false;
+        return;
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('NFC checkpoint failed: ${e.message}')),
+        );
+      }
+      _confirmed = false;
+      return;
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('NFC checkpoint failed: $e')),
+        );
+      }
+      _confirmed = false;
+      return;
+    }
+
+    if (!mounted) return;
+
+    if (_isCheckpoint2) {
+      if (widget.isTraveler) {
+        context.pushReplacement(
+          '/traveler-nfc-success',
+          extra: {'shipmentId': shipmentId, 'waitingForPeer': false},
+        );
+      } else {
+        context.pushReplacement(
+          '/receiver-nfc-success',
+          extra: {'shipmentId': shipmentId, 'waitingForPeer': false},
+        );
+      }
+      return;
+    }
+
     context.pushReplacement(
       '/nfc-confirm/success',
       extra: {
         'shipmentId': shipmentId,
         'isTraveler': widget.isTraveler,
-        'waitingForPeer': !bothDone,
+        'waitingForPeer': false,
       },
     );
   }
@@ -1900,24 +1572,20 @@ class _DisputeFormScreenState extends State<DisputeFormScreen> {
         : 'Parcel arrived damaged — screen cracked on electronics item. Photos submitted.';
 
     final demoMode = context.read<DemoModeProvider>().enabled;
-    if (!demoMode) {
-      try {
-        final auth = context.read<AuthProvider>();
-        final repo = FulfillmentRepository(apiClient: auth.repository.apiClient);
-        await repo.openDispute(
-          deliveryId: widget.shipmentId,
-          reason: reason,
+    try {
+      final auth = context.read<AuthProvider>();
+      final repo = FulfillmentRepository(apiClient: auth.repository.apiClient);
+      await repo.openDispute(
+        deliveryId: widget.shipmentId,
+        reason: reason,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not open dispute: $e')),
         );
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Could not open dispute: $e')),
-          );
-        }
-        return;
       }
-    } else {
-      StaticData.fileDispute(widget.shipmentId, reason: reason);
+      return;
     }
 
     if (!mounted) return;
@@ -2452,12 +2120,9 @@ class _DeliveryReviewScreenState extends State<DeliveryReviewScreen> {
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
-    final shipmentId = 'WW-48291';
-    final bid = StaticData.acceptedBidForShipment(shipmentId);
-    final payoutLabel = bid != null
-        ? WalletService.formatCents((bid.price * 100).round())
-        : '\$18.00';
-    final travelerName = bid?.travelerName ?? 'Aissatou';
+    final shipmentId = GoRouterState.of(context).uri.queryParameters['shipmentId'] ?? '';
+    final payoutLabel = '\$—';
+    final travelerName = 'Traveler';
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: const BackHeader(title: 'Leave a review'),
@@ -2526,7 +2191,7 @@ class _DeliveryReviewScreenState extends State<DeliveryReviewScreen> {
                   context.pushReplacement(
                     '/delivery-review/success',
                     extra: ReviewSubmittedRouteData(
-                      shipmentId: 'WW-48291',
+                      shipmentId: shipmentId.isNotEmpty ? shipmentId : 'delivery',
                       rating: _rating,
                     ),
                   );

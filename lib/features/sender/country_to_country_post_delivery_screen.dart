@@ -35,7 +35,7 @@ class _CountryToCountryPostDeliveryScreenState
   bool _submitting = false;
 
   Future<void> _submit() async {
-    if (!DeliveryPostingActions.ensureWalletAllowsParcelCreation(context)) {
+    if (!await DeliveryPostingActions.ensureWalletAllowsParcelCreation(context)) {
       return;
     }
 

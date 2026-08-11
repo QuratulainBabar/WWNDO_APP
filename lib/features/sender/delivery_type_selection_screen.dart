@@ -25,8 +25,8 @@ class _DeliveryTypeSelectionScreenState
     extends State<DeliveryTypeSelectionScreen> {
   _DeliveryType? _selectedType;
 
-  void _continue() {
-    if (!DeliveryPostingActions.ensureWalletAllowsParcelCreation(context)) return;
+  Future<void> _continue() async {
+    if (!await DeliveryPostingActions.ensureWalletAllowsParcelCreation(context)) return;
     if (!KycVerificationGuard.ensureKycApproved(context)) return;
     switch (_selectedType) {
       case _DeliveryType.cityToCity:

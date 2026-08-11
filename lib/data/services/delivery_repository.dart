@@ -7,6 +7,7 @@ import '../../core/geo/meetup_destination_validation.dart';
 import '../../core/geo/meetup_origin_validation.dart';
 import '../models/created_delivery.dart';
 import '../models/matching_traveler.dart';
+import '../models/traveler_request_summary.dart';
 
 /// Backend delivery API access for the Sender Create Delivery flow.
 class DeliveryRepository {
@@ -225,6 +226,27 @@ class DeliveryRepository {
         .whereType<Map>()
         .map(
           (item) => MatchingTraveler.fromJson(Map<String, dynamic>.from(item)),
+        )
+        .toList();
+  }
+
+  /// GET /api/v1/deliveries/:id/traveler-requests
+  Future<List<TravelerRequestSummary>> listTravelerRequests(
+    String deliveryId,
+  ) async {
+    if (_isDemoMode) return const [];
+
+    final data = await _apiClient.get(
+      '/deliveries/$deliveryId/traveler-requests',
+      authenticated: true,
+    );
+    final list = data['requests'];
+    if (list is! List) return const <TravelerRequestSummary>[];
+    return list
+        .whereType<Map>()
+        .map(
+          (item) =>
+              TravelerRequestSummary.fromJson(Map<String, dynamic>.from(item)),
         )
         .toList();
   }

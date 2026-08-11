@@ -18,6 +18,7 @@ import '../../core/widgets/back_header.dart';
 import '../../data/models/bid.dart';
 import '../../data/models/sender_counter_offer.dart';
 import '../../data/models/traveler_bid.dart';
+import '../../data/services/delivery_repository.dart';
 import '../../data/services/trip_repository.dart';
 import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
@@ -147,6 +148,28 @@ class _CounterOfferDetailScreenState extends State<CounterOfferDetailScreen> {
       StaticData.acceptFinalBudgetProposal(shipmentId);
     }
 
+    var parcelCategory = 'documents';
+    var paysReceiverFee = false;
+    if (demo) {
+      final shipment = StaticData.shipmentById(shipmentId);
+      if (shipment != null) {
+        parcelCategory = shipment.parcelCategory;
+        paysReceiverFee = StaticData.paysReceiverFeeFor(shipmentId);
+      }
+    } else {
+      try {
+        final auth = context.read<AuthProvider>();
+        final delivery = await DeliveryRepository(
+          apiClient: auth.repository.apiClient,
+          demoMode: context.read<DemoModeProvider>(),
+        ).getDelivery(shipmentId, role: 'sender');
+        parcelCategory = delivery.parcelCategory;
+        paysReceiverFee = (delivery.platformFeeShare ?? 0) <= 0;
+      } catch (_) {
+        // Payment screen falls back to defaults.
+      }
+    }
+
     if (!mounted) return;
     final bid = _bidFromOffer(offer);
     context.push(
@@ -155,8 +178,8 @@ class _CounterOfferDetailScreenState extends State<CounterOfferDetailScreen> {
         bid: bid,
         shipmentId: shipmentId,
         offerId: offer.id,
-        parcelCategory: 'documents',
-        paysReceiverFee: false,
+        parcelCategory: parcelCategory,
+        paysReceiverFee: paysReceiverFee,
       ),
     );
   }

@@ -384,7 +384,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             GestureDetector(
               onTap: () async {
                 // Wallet balance gate first — must not be masked by auth/KYC dialogs.
-                if (!DeliveryPostingActions.ensureWalletAllowsParcelCreation(context)) return;
+                if (!await DeliveryPostingActions.ensureWalletAllowsParcelCreation(context)) return;
                 if (!AuthVerificationGuard.ensureVerifiedForTransaction(context)) return;
                 if (!KycVerificationGuard.ensureKycApproved(context)) return;
                 await context.push('/delivery-type');
@@ -508,7 +508,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         child: InkWell(
           onTap: () async {
             if (requireWalletBalance &&
-                !DeliveryPostingActions.ensureWalletAllowsParcelCreation(context)) {
+                !await DeliveryPostingActions.ensureWalletAllowsParcelCreation(context)) {
               return;
             }
             if (requireVerification && !AuthVerificationGuard.ensureVerifiedForTransaction(context)) {

@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../core/api/api_exception.dart';
 import '../core/config/demo_mode.dart';
+import '../core/payments/stripe_payments.dart';
 import '../data/models/ledger_entry.dart';
 import '../data/models/wallet_role.dart';
 import '../data/models/wallet_summary.dart';
@@ -144,7 +145,27 @@ class WalletProvider extends ChangeNotifier {
         await refresh(role, silent: true);
         return;
       }
-      await _walletRepository.topUp(role: role, amountCents: amountCents);
+
+      await StripePayments.ensureConfigured(_walletRepository);
+
+      try {
+        await _walletRepository.topUp(role: role, amountCents: amountCents);
+      } on ApiException catch (e) {
+        if (!e.requiresPayment || e.clientSecret == null) rethrow;
+        await StripePayments.presentPaymentSheet(clientSecret: e.clientSecret!);
+        final intentId = e.paymentIntentId;
+        if (intentId == null || intentId.isEmpty) {
+          throw const ApiException(
+            message: 'Payment completed but intent id is missing.',
+            code: 'PAYMENT_INCOMPLETE',
+          );
+        }
+        await _walletRepository.confirmTopUp(
+          paymentIntentId: intentId,
+          role: role,
+        );
+      }
+
       await refresh(role, silent: true, includeFullHistory: true);
     } on ApiException catch (e) {
       _error = e.message;

@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/config/demo_mode.dart';
 import '../../core/layout/responsive.dart';
+import '../../core/payments/stripe_payments.dart';
 import '../../core/platform/platform_ui.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
@@ -19,6 +20,7 @@ import '../../data/models/wallet_role.dart';
 import '../../data/platform_fees.dart';
 import '../../data/services/delivery_repository.dart';
 import '../../data/services/trip_repository.dart';
+import '../../data/services/wallet_repository.dart';
 import '../../data/wallet_gate.dart';
 import '../../providers/auth_provider.dart';
 
@@ -121,7 +123,41 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
         AppToast.error(context, 'Counter offer reference is missing.');
         return;
       }
-      await _tripRepo().acceptSenderCounterOffer(offerId);
+
+      final auth = context.read<AuthProvider>();
+      final walletRepo = WalletRepository(
+        apiClient: auth.repository.apiClient,
+        demoMode: context.read<DemoModeProvider>(),
+      );
+      await StripePayments.ensureConfigured(walletRepo);
+
+      String? paymentIntentId;
+      for (var attempt = 0; attempt < 3; attempt++) {
+        try {
+          await _tripRepo().acceptSenderCounterOffer(
+            offerId,
+            paymentIntentId: paymentIntentId,
+          );
+          paymentIntentId = null;
+          break;
+        } on ApiException catch (e) {
+          if (!e.requiresPayment || e.clientSecret == null) rethrow;
+          await StripePayments.presentPaymentSheet(clientSecret: e.clientSecret!);
+          paymentIntentId = e.paymentIntentId;
+          if (paymentIntentId == null || paymentIntentId.isEmpty) {
+            throw const ApiException(
+              message: 'Card payment succeeded but payment id is missing.',
+              code: 'PAYMENT_INCOMPLETE',
+            );
+          }
+          // Confirm credit before retrying accept.
+          await walletRepo.confirmTopUp(
+            paymentIntentId: paymentIntentId,
+            role: WalletRole.sender,
+          );
+        }
+      }
+
       if (!mounted) return;
       await WalletGate.refreshRoles(
         context,

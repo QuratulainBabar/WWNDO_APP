@@ -1,3 +1,4 @@
+import '../photo_urls.dart';
 import 'traveler_bid.dart';
 
 /// Sender-facing counter offer received from a traveler.
@@ -19,6 +20,7 @@ class SenderCounterOffer {
     this.travelerBio,
     this.sentAt,
     this.parcelPhotoCount = 1,
+    this.parcelPhotoUrls = const [],
     this.deliveryPublicId,
   });
 
@@ -38,6 +40,7 @@ class SenderCounterOffer {
   final TravelerBidStatus status;
   final DateTime? sentAt;
   final int parcelPhotoCount;
+  final List<String> parcelPhotoUrls;
   final String? deliveryPublicId;
 
   String get route {
@@ -79,6 +82,7 @@ class SenderCounterOffer {
     final tripId = tripPublicId.isNotEmpty
         ? tripPublicId
         : (json['tripId'] as String?)?.trim() ?? '';
+    final photoUrls = parsePhotoUrls(json['photos']);
 
     return SenderCounterOffer(
       id: json['id'] as String? ?? '',
@@ -98,7 +102,10 @@ class SenderCounterOffer {
       maxBudget: (json['maxBudget'] as num?)?.toDouble() ?? 0,
       status: TravelerBidStatus.fromApi(json['status'] as String?),
       sentAt: sentRaw is String ? DateTime.tryParse(sentRaw) : null,
-      parcelPhotoCount: (json['photoCount'] as num?)?.toInt() ?? 1,
+      parcelPhotoCount: photoUrls.isNotEmpty
+          ? photoUrls.length
+          : (json['photoCount'] as num?)?.toInt() ?? 1,
+      parcelPhotoUrls: photoUrls,
       deliveryPublicId: json['deliveryPublicId'] as String?,
     );
   }

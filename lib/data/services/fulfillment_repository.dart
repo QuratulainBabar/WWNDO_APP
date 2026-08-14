@@ -14,10 +14,16 @@ class FulfillmentRepository {
   Future<Map<String, dynamic>> confirmNfc({
     required String deliveryId,
     required int checkpoint,
+    String? deviceId,
+    double? gpsLat,
+    double? gpsLng,
   }) =>
       _platform.confirmNfcCheckpoint(
         deliveryId: deliveryId,
         checkpoint: checkpoint,
+        deviceId: deviceId,
+        gpsLat: gpsLat,
+        gpsLng: gpsLng,
       );
 
   Future<Map<String, dynamic>> openDispute({

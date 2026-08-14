@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import '../../core/config/api_config.dart';
+
 /// Delivery type selected on the Choose Delivery Type screen.
 enum DeliveryType {
   cityToCity('city_to_city'),
@@ -292,9 +294,12 @@ class DeliveryPhoto {
   final int? sortOrder;
 
   factory DeliveryPhoto.fromJson(Map<String, dynamic> json) {
+    final rawUrl = (json['url'] as String?)?.trim().isNotEmpty == true
+        ? (json['url'] as String).trim()
+        : (json['file_path'] as String?)?.trim() ?? '';
     return DeliveryPhoto(
       id: json['id'] as String? ?? '',
-      url: json['url'] as String? ?? '',
+      url: ApiConfig.resolveUploadUrl(rawUrl),
       originalName: json['originalName'] as String?,
       mimeType: json['mimeType'] as String?,
       sizeBytes: (json['sizeBytes'] as num?)?.toInt(),

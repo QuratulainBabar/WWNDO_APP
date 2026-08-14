@@ -44,6 +44,8 @@ dependencies:
   flutter_idensic_mobile_sdk_plugin: ^1.44.1
   socket_io_client: ^3.1.2
   url_launcher: ^6.3.1
+  flutter_stripe: ^11.5.0
+  nfc_manager: ^4.0.2
 
 dev_dependencies:
   flutter_test:

@@ -86,6 +86,58 @@ class WalletRepository {
     return result;
   }
 
+  /// GET /api/v1/wallet/payments/config
+  Future<Map<String, dynamic>> fetchPaymentsConfig() async {
+    if (_isDemoMode) {
+      return {
+        'stripeEnabled': false,
+        'publishableKey': null,
+        'currency': 'USD',
+      };
+    }
+    return _apiClient.get('/wallet/payments/config', authenticated: true);
+  }
+
+  /// POST /api/v1/wallet/top-up
+  /// Returns either a credited [WalletSummary] or a payment-required payload.
+  Future<Map<String, dynamic>> topUpRaw({
+    required WalletRole role,
+    required int amountCents,
+  }) async {
+    if (_isDemoMode) {
+      throw const ApiException(
+        message: 'Top-up is unavailable in demo mode.',
+        code: 'DEMO_MODE',
+      );
+    }
+
+    return _apiClient.post(
+      '/wallet/top-up',
+      body: {
+        'role': role.queryParam,
+        'amountCents': amountCents,
+      },
+      authenticated: true,
+    );
+  }
+
+  /// POST /api/v1/wallet/top-up/confirm
+  Future<WalletSummary> confirmTopUp({
+    required String paymentIntentId,
+    required WalletRole role,
+  }) async {
+    final data = await _apiClient.post(
+      '/wallet/top-up/confirm',
+      body: {'paymentIntentId': paymentIntentId},
+      authenticated: true,
+    );
+    return WalletSummary.fromJson({
+      ...data,
+      'role': data['role'] ?? role.queryParam,
+      'recentTransactions': const [],
+    });
+  }
+
   /// POST /api/v1/wallet/top-up
   Future<WalletSummary> topUp({
     required WalletRole role,
@@ -98,14 +150,20 @@ class WalletRepository {
       );
     }
 
-    final data = await _apiClient.post(
-      '/wallet/top-up',
-      body: {
-        'role': role.queryParam,
-        'amountCents': amountCents,
-      },
-      authenticated: true,
-    );
+    final data = await topUpRaw(role: role, amountCents: amountCents);
+    if (data['requiresPayment'] == true) {
+      throw ApiException(
+        message: 'Card payment required to complete top-up.',
+        code: 'PAYMENT_REQUIRED',
+        statusCode: 402,
+        details: {
+          'paymentIntentId': data['paymentIntentId'],
+          'clientSecret': data['clientSecret'],
+          'amountCents': data['amountCents'] ?? amountCents,
+          'role': role.queryParam,
+        },
+      );
+    }
     return WalletSummary.fromJson({
       ...data,
       'role': data['role'] ?? role.queryParam,

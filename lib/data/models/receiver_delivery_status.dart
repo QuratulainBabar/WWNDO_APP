@@ -167,6 +167,7 @@ extension CreatedDeliveryReceiverX on CreatedDelivery {
       description: description,
       travelerName: senderName,
       parcelPhotoCount: photos.length,
+      parcelPhotoUrls: photos.map((p) => p.url).toList(),
     );
   }
 }

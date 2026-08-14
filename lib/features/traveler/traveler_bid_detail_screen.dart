@@ -18,6 +18,7 @@ import '../../data/services/trip_repository.dart';
 import '../../data/services/platform_repository.dart';
 import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
+import '../tracking/widgets/parcel_photo_viewer.dart';
 
 class TravelerBidDetailScreen extends StatefulWidget {
   const TravelerBidDetailScreen({
@@ -261,7 +262,10 @@ class _TravelerBidDetailScreenState extends State<TravelerBidDetailScreen> {
                       ),
                       Text('Parcel photo', style: typo.sm),
                       const SizedBox(height: 8),
-                      _StaticParcelPhoto(count: bid.parcelPhotoCount),
+                      ParcelPhotoViewer(
+                        photoUrls: bid.parcelPhotoUrls,
+                        title: '',
+                      ),
                       const SizedBox(height: 16),
                       Text(
                         'Bid details',
@@ -373,43 +377,6 @@ class _StatusBadge extends StatelessWidget {
       backgroundColor: status.color.withValues(alpha: 0.12),
       small: true,
       semiBold: true,
-    );
-  }
-}
-
-class _StaticParcelPhoto extends StatelessWidget {
-  const _StaticParcelPhoto({required this.count});
-
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    final typo = context.typo;
-
-    return Container(
-      width: 120,
-      height: 120,
-      decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border, width: 1.5),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.photo_outlined, size: 32, color: AppColors.primary),
-          const SizedBox(height: 6),
-          Text(
-            count > 1 ? 'Photo 1 of $count' : 'Parcel photo',
-            style: typo.sm.copyWith(
-              fontSize: 11,
-              color: AppColors.textSecondary,
-              fontWeight: FontWeight.w600,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
     );
   }
 }

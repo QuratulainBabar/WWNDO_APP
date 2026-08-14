@@ -30,7 +30,7 @@ class ShipmentTrackingSection extends StatelessWidget {
           stepLabels: stepLabels,
         ),
         const SizedBox(height: 24),
-        ParcelPhotoViewer(photoCount: shipment.parcelPhotoCount),
+        ParcelPhotoViewer(photoUrls: shipment.parcelPhotoUrls),
       ],
     );
   }

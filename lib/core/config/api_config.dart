@@ -23,6 +23,14 @@ class ApiConfig {
     return raw;
   }
 
+  /// Optional Stripe publishable key from build defines.
+  /// Prefer live value from `GET /wallet/payments/config` when available.
+  static const String stripePublishableKey = String.fromEnvironment(
+    'STRIPE_PUBLISHABLE_KEY',
+    defaultValue:
+        'pk_test_51OA4nvIEpGwAXljxC6aR5qOitILlMryDu09aMbb8i8u9oyY9EXQkCL8kFAJTGzIBR44HB6UKHncDFYZnDhsIoGcR0045ktGHtU',
+  );
+
   static String get apiV1 => '$baseUrl/api/v1';
   static String get authBase => '$apiV1/auth';
   static String get deliveriesBase => '$apiV1/deliveries';

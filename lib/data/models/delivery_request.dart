@@ -15,6 +15,7 @@ class DeliveryRequest {
     this.senderMessage = '',
     this.meetupLocations = const [],
     this.photoCount = 0,
+    this.photoUrls = const [],
     this.receiverName = '',
     this.receiverHandoffLocation = '',
   });
@@ -36,6 +37,7 @@ class DeliveryRequest {
   /// Preferred meetup locations chosen by the sender.
   final List<String> meetupLocations;
   final int photoCount;
+  final List<String> photoUrls;
   final String receiverName;
   final String receiverHandoffLocation;
 

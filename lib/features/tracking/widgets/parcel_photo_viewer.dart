@@ -1,36 +1,43 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/config/api_config.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 
-/// Parcel photo thumbnails with full-screen viewer (static demo placeholders).
+/// Parcel photo thumbnails with full-screen viewer.
 class ParcelPhotoViewer extends StatelessWidget {
   const ParcelPhotoViewer({
     super.key,
-    required this.photoCount,
+    this.photoUrls = const [],
     this.title = 'Parcel photos',
   });
 
-  final int photoCount;
+  final List<String> photoUrls;
   final String title;
 
-  static const _tints = [
-    AppColors.primary,
-    AppColors.success,
-    AppColors.warning,
-    AppColors.transit,
-  ];
+  List<String> get _resolvedUrls {
+    if (photoUrls.isNotEmpty) {
+      return photoUrls
+          .map(ApiConfig.resolveUploadUrl)
+          .where((u) => u.isNotEmpty)
+          .toList();
+    }
+    return const [];
+  }
 
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
+    final urls = _resolvedUrls;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: typo.h3.copyWith(fontWeight: FontWeight.w700)),
-        const SizedBox(height: 12),
-        if (photoCount == 0)
+        if (title.trim().isNotEmpty) ...[
+          Text(title, style: typo.h3.copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 12),
+        ],
+        if (urls.isEmpty)
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
@@ -56,10 +63,10 @@ class ParcelPhotoViewer extends StatelessWidget {
             spacing: 10,
             runSpacing: 10,
             children: [
-              for (var i = 0; i < photoCount; i++)
+              for (var i = 0; i < urls.length; i++)
                 GestureDetector(
-                  onTap: () => _openViewer(context, initialIndex: i),
-                  child: _Thumbnail(index: i + 1, tint: _tints[i % _tints.length]),
+                  onTap: () => _openViewer(context, urls: urls, initialIndex: i),
+                  child: _NetworkThumbnail(url: urls[i], index: i + 1),
                 ),
             ],
           ),
@@ -67,49 +74,74 @@ class ParcelPhotoViewer extends StatelessWidget {
     );
   }
 
-  void _openViewer(BuildContext context, {required int initialIndex}) {
+  void _openViewer(
+    BuildContext context, {
+    required List<String> urls,
+    required int initialIndex,
+  }) {
     showDialog<void>(
       context: context,
       barrierColor: Colors.black87,
       builder: (context) => _ParcelPhotoViewerDialog(
-        photoCount: photoCount,
+        urls: urls,
         initialIndex: initialIndex,
-        tints: _tints,
       ),
     );
   }
 }
 
-class _Thumbnail extends StatelessWidget {
-  const _Thumbnail({required this.index, required this.tint});
+class _NetworkThumbnail extends StatelessWidget {
+  const _NetworkThumbnail({required this.url, required this.index});
 
+  final String url;
   final int index;
-  final Color tint;
 
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
-    return Container(
-      width: 96,
-      height: 96,
-      decoration: BoxDecoration(
-        color: tint.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border, width: 1.5),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.photo_outlined, size: 30, color: tint),
-          const SizedBox(height: 4),
-          Text(
-            'Photo $index',
-            style: typo.caption.copyWith(
-              fontWeight: FontWeight.w600,
-              color: AppColors.textSecondary,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: 96,
+        height: 96,
+        decoration: BoxDecoration(
+          color: AppColors.primary.withValues(alpha: 0.08),
+          border: Border.all(color: AppColors.border, width: 1.5),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.network(
+              url,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.broken_image_outlined, size: 28, color: AppColors.textSecondary),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Photo $index',
+                    style: typo.caption.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+              loadingBuilder: (context, child, progress) {
+                if (progress == null) return child;
+                return const Center(
+                  child: SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                );
+              },
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -117,14 +149,12 @@ class _Thumbnail extends StatelessWidget {
 
 class _ParcelPhotoViewerDialog extends StatefulWidget {
   const _ParcelPhotoViewerDialog({
-    required this.photoCount,
+    required this.urls,
     required this.initialIndex,
-    required this.tints,
   });
 
-  final int photoCount;
+  final List<String> urls;
   final int initialIndex;
-  final List<Color> tints;
 
   @override
   State<_ParcelPhotoViewerDialog> createState() => _ParcelPhotoViewerDialogState();
@@ -165,35 +195,27 @@ class _ParcelPhotoViewerDialogState extends State<_ParcelPhotoViewerDialog> {
             Expanded(
               child: PageView.builder(
                 controller: _controller,
-                itemCount: widget.photoCount,
+                itemCount: widget.urls.length,
                 onPageChanged: (i) => setState(() => _index = i),
                 itemBuilder: (context, i) {
-                  final tint = widget.tints[i % widget.tints.length];
                   return Center(
                     child: Container(
                       margin: const EdgeInsets.symmetric(horizontal: 24),
-                      width: double.infinity,
-                      constraints: const BoxConstraints(maxHeight: 360),
-                      decoration: BoxDecoration(
-                        color: tint.withValues(alpha: 0.15),
+                      constraints: const BoxConstraints(maxHeight: 420),
+                      child: ClipRRect(
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.white24),
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.inventory_2_outlined, size: 72, color: tint),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Parcel photo ${i + 1}',
-                            style: typo.h3.copyWith(color: Colors.white),
+                        child: Image.network(
+                          widget.urls[i],
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) => Container(
+                            color: Colors.white12,
+                            alignment: Alignment.center,
+                            child: Text(
+                              'Could not load photo ${i + 1}',
+                              style: typo.body.copyWith(color: Colors.white70),
+                            ),
                           ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Demo placeholder — uploaded by sender',
-                            style: typo.sm.copyWith(color: Colors.white70),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   );
@@ -203,7 +225,7 @@ class _ParcelPhotoViewerDialogState extends State<_ParcelPhotoViewerDialog> {
             Padding(
               padding: const EdgeInsets.all(16),
               child: Text(
-                'Photo ${_index + 1} of ${widget.photoCount}',
+                'Photo ${_index + 1} of ${widget.urls.length}',
                 style: typo.body.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
               ),
             ),

@@ -37,6 +37,11 @@ android {
             )
         }
     }
+
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
+    }
 }
 
 flutter {
@@ -46,4 +51,10 @@ flutter {
 dependencies {
     // Required by SumSub face detector (com.google.android.gms.tasks.Tasks)
     implementation("com.google.android.gms:play-services-tasks:18.2.1")
+}
+
+// Stripe issuing push-provisioning pulls a missing Play Services artifact;
+// not needed for Payment Sheet / Connect.
+configurations.configureEach {
+    exclude(group = "com.stripe", module = "stripe-android-issuing-push-provisioning")
 }

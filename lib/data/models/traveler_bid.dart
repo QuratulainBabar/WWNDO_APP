@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../photo_urls.dart';
 
 enum TravelerBidStatus {
   pending('Pending', AppColors.warning),
@@ -56,6 +57,7 @@ class TravelerBid {
     required this.status,
     this.sentAt,
     this.parcelPhotoCount = 1,
+    this.parcelPhotoUrls = const [],
     this.deliveryPublicId,
   });
 
@@ -72,6 +74,7 @@ class TravelerBid {
   /// When the traveler sent this counter offer. Falls back to [deliveryDate] if null.
   final DateTime? sentAt;
   final int parcelPhotoCount;
+  final List<String> parcelPhotoUrls;
   final String? deliveryPublicId;
 
   DateTime get offerSentAt => sentAt ?? deliveryDate;
@@ -110,6 +113,7 @@ class TravelerBid {
     final tripId = tripPublicId.isNotEmpty
         ? tripPublicId
         : (json['tripId'] as String?)?.trim() ?? '';
+    final photoUrls = parsePhotoUrls(json['photos']);
 
     return TravelerBid(
       id: json['id'] as String? ?? '',
@@ -125,7 +129,10 @@ class TravelerBid {
       amount: (json['amount'] as num?)?.toDouble() ?? 0,
       status: TravelerBidStatus.fromApi(json['status'] as String?),
       sentAt: sentRaw is String ? DateTime.tryParse(sentRaw) : null,
-      parcelPhotoCount: (json['photoCount'] as num?)?.toInt() ?? 1,
+      parcelPhotoCount: photoUrls.isNotEmpty
+          ? photoUrls.length
+          : (json['photoCount'] as num?)?.toInt() ?? 1,
+      parcelPhotoUrls: photoUrls,
       deliveryPublicId: json['deliveryPublicId'] as String?,
     );
   }

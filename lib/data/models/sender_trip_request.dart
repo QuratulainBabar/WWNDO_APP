@@ -1,3 +1,4 @@
+import '../photo_urls.dart';
 import 'delivery_request.dart';
 
 class SenderTripRequest {
@@ -21,6 +22,7 @@ class SenderTripRequest {
     this.parcelSize = '',
     this.meetupLocations = const [],
     this.photoCount = 0,
+    this.photoUrls = const [],
     this.fromCity = '',
     this.toCity = '',
   });
@@ -44,6 +46,7 @@ class SenderTripRequest {
   final bool unread;
   final List<String> meetupLocations;
   final int photoCount;
+  final List<String> photoUrls;
   final String fromCity;
   final String toCity;
 
@@ -93,7 +96,8 @@ class SenderTripRequest {
       senderRating: senderRating ?? 0,
       description: description,
       meetupLocations: meetupLocations,
-      photoCount: photoCount,
+      photoCount: photoUrls.isNotEmpty ? photoUrls.length : photoCount,
+      photoUrls: photoUrls,
     );
   }
 
@@ -117,6 +121,7 @@ class SenderTripRequest {
         unread: false,
         meetupLocations: meetupLocations,
         photoCount: photoCount,
+        photoUrls: photoUrls,
         fromCity: fromCity,
         toCity: toCity,
       );
@@ -131,6 +136,10 @@ class SenderTripRequest {
     final meetup = meetupRaw is List
         ? meetupRaw.map((e) => e.toString()).where((e) => e.trim().isNotEmpty).toList()
         : const <String>[];
+    final photoUrls = parsePhotoUrls(json['photos']);
+    final photoCount = photoUrls.isNotEmpty
+        ? photoUrls.length
+        : (json['photoCount'] as num?)?.toInt() ?? 0;
     return SenderTripRequest(
       id: json['id'] as String? ?? '',
       deliveryPublicId: json['deliveryPublicId'] as String? ?? '',
@@ -152,7 +161,8 @@ class SenderTripRequest {
       status: json['status'] as String? ?? 'pending',
       unread: json['unread'] as bool? ?? true,
       meetupLocations: meetup,
-      photoCount: (json['photoCount'] as num?)?.toInt() ?? 0,
+      photoCount: photoCount,
+      photoUrls: photoUrls,
       fromCity: json['fromCity'] as String? ?? '',
       toCity: json['toCity'] as String? ?? '',
     );

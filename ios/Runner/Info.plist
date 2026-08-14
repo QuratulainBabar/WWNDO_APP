@@ -74,5 +74,12 @@
 	<string>WWNGO may use your location during identity verification.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>WWNGO uses Face ID for quick and secure sign-in.</string>
+	<key>NFCReaderUsageDescription</key>
+	<string>WWNGO uses NFC to confirm parcel handoff and delivery between sender, traveler, and receiver.</string>
+	<key>com.apple.developer.nfc.readersession.formats</key>
+	<array>
+		<string>NDEF</string>
+		<string>TAG</string>
+	</array>
 </dict>
 </plist>

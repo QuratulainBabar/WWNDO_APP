@@ -24,6 +24,7 @@ import '../../data/models/traveler_bid.dart';
 import '../../data/services/trip_repository.dart';
 import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
+import '../tracking/widgets/parcel_photo_viewer.dart';
 
 class ParcelRequestDetailScreen extends StatefulWidget {
   const ParcelRequestDetailScreen({super.key, required this.requestId});
@@ -328,7 +329,10 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
                         multiline: request.meetupLocations.length > 1,
                       ),
                       const SizedBox(height: 8),
-                      _photoSection(context, request.photoCount),
+                      ParcelPhotoViewer(
+                        photoUrls: request.photoUrls,
+                        title: 'Parcel photos',
+                      ),
                       const SizedBox(height: 12),
                       _detailRow(
                         context,
@@ -403,55 +407,6 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
     );
   }
 
-  Widget _photoSection(BuildContext context, int photoCount) {
-    final typo = context.typo;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Parcel photos',
-          style: typo.sm.copyWith(color: AppColors.textSecondary),
-        ),
-        const SizedBox(height: 8),
-        if (photoCount == 0)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
-            decoration: BoxDecoration(
-              color: AppColors.background,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.border, width: 1.5),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.image_outlined,
-                  size: 20,
-                  color: AppColors.textSecondary,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'No photos provided',
-                  style: typo.sm.copyWith(color: AppColors.textSecondary),
-                ),
-              ],
-            ),
-          )
-        else
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (var i = 0; i < photoCount; i++)
-                _StaticPhotoThumbnail(index: i + 1),
-            ],
-          ),
-      ],
-    );
-  }
-
   Widget _detailRow(
     BuildContext context,
     String label,
@@ -495,49 +450,6 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
           ),
           Expanded(
             child: Text(value, style: resolvedValueStyle),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StaticPhotoThumbnail extends StatelessWidget {
-  const _StaticPhotoThumbnail({required this.index});
-
-  final int index;
-
-  static const _tints = [
-    AppColors.primary,
-    AppColors.success,
-    AppColors.warning,
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    final typo = context.typo;
-    final tint = _tints[(index - 1) % _tints.length];
-
-    return Container(
-      width: 88,
-      height: 88,
-      decoration: BoxDecoration(
-        color: tint.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border, width: 1.5),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.photo_outlined, size: 28, color: tint),
-          const SizedBox(height: 4),
-          Text(
-            'Photo $index',
-            style: typo.sm.copyWith(
-              fontSize: 11,
-              color: AppColors.textSecondary,
-              fontWeight: FontWeight.w600,
-            ),
           ),
         ],
       ),

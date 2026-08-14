@@ -15,6 +15,7 @@ import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_chip.dart';
 import '../../core/layout/responsive.dart';
 import '../../core/navigation/app_navigation.dart';
+import '../../core/nfc/nfc_handoff_service.dart';
 import '../../core/platform/platform_ui.dart';
 import '../../core/widgets/app_labeled_field.dart';
 import '../../core/widgets/back_header.dart';
@@ -1095,26 +1096,27 @@ class NfcConfirmScreen extends StatefulWidget {
 class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
   bool _confirmed = false;
   bool _cancelled = false;
-  Timer? _autoCompleteTimer;
+  bool _listening = false;
+  String _status = 'Preparing NFC…';
 
   bool get _isCheckpoint2 => widget.checkpoint == 2;
 
   @override
   void initState() {
     super.initState();
-    _autoCompleteTimer = Timer(const Duration(seconds: 2), _complete);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _startNfc());
   }
 
   @override
   void dispose() {
-    _autoCompleteTimer?.cancel();
+    NfcHandoffService.stop();
     super.dispose();
   }
 
   void _cancel() {
     if (_confirmed || _cancelled) return;
     _cancelled = true;
-    _autoCompleteTimer?.cancel();
+    NfcHandoffService.stop();
     final shipmentId = widget.shipmentId ?? '';
     final fallback = _isCheckpoint2
         ? (widget.isTraveler
@@ -1126,7 +1128,39 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
     appNavigateBackFromContext(context, fallback: fallback);
   }
 
-  Future<void> _complete() async {
+  Future<void> _startNfc({bool forceSimulate = false}) async {
+    if (_confirmed || _cancelled || _listening) return;
+    setState(() {
+      _listening = true;
+      _status = forceSimulate
+          ? 'Simulating secure NFC tap…'
+          : 'Hold both phones together…';
+    });
+
+    try {
+      final deviceId = forceSimulate
+          ? 'sim-${DateTime.now().millisecondsSinceEpoch}'
+          : await NfcHandoffService.waitForTap(
+              allowSimulate: true,
+              onStatus: (s) {
+                if (mounted) setState(() => _status = s);
+              },
+            );
+      if (_cancelled || !mounted) return;
+      await _complete(deviceId: deviceId);
+    } catch (e) {
+      if (!mounted || _cancelled) return;
+      setState(() {
+        _listening = false;
+        _status = 'NFC failed. Tap below to retry or simulate.';
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('NFC error: $e')),
+      );
+    }
+  }
+
+  Future<void> _complete({String? deviceId}) async {
     if (!mounted || _confirmed || _cancelled) return;
     final shipmentId = widget.shipmentId;
     if (shipmentId == null || shipmentId.isEmpty) {
@@ -1135,11 +1169,12 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
           const SnackBar(content: Text('Delivery ID is missing for NFC confirm.')),
         );
       }
+      setState(() => _listening = false);
       return;
     }
 
     _confirmed = true;
-    _autoCompleteTimer?.cancel();
+    setState(() => _status = 'Confirming checkpoint…');
 
     try {
       final auth = context.read<AuthProvider>();
@@ -1147,6 +1182,7 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
       final result = await repo.confirmNfc(
         deliveryId: shipmentId,
         checkpoint: _isCheckpoint2 ? 2 : 1,
+        deviceId: deviceId,
       );
       final pendingPeer = result['pendingPeer'] == true;
       if (pendingPeer && mounted) {
@@ -1157,7 +1193,11 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
             ),
           ),
         );
-        _confirmed = false;
+        setState(() {
+          _confirmed = false;
+          _listening = false;
+          _status = 'Waiting for the other party to tap…';
+        });
         return;
       }
       if (_isCheckpoint2 && mounted) {
@@ -1177,7 +1217,11 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
             ),
           );
         }
-        _confirmed = false;
+        setState(() {
+          _confirmed = false;
+          _listening = false;
+          _status = 'Waiting for peer NFC confirm…';
+        });
         return;
       }
       if (mounted) {
@@ -1185,7 +1229,10 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
           SnackBar(content: Text('NFC checkpoint failed: ${e.message}')),
         );
       }
-      _confirmed = false;
+      setState(() {
+        _confirmed = false;
+        _listening = false;
+      });
       return;
     } catch (e) {
       if (mounted) {
@@ -1193,7 +1240,10 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
           SnackBar(content: Text('NFC checkpoint failed: $e')),
         );
       }
-      _confirmed = false;
+      setState(() {
+        _confirmed = false;
+        _listening = false;
+      });
       return;
     }
 
@@ -1252,7 +1302,9 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
               children: [
                 const Spacer(flex: 2),
                 GestureDetector(
-                  onTap: _complete,
+                  onTap: _listening || _confirmed
+                      ? null
+                      : () => _startNfc(forceSimulate: true),
                   child: const _NfcPulseGraphic(),
                 ),
                 const SizedBox(height: 36),
@@ -1267,7 +1319,31 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
                   textAlign: TextAlign.center,
                   style: typo.nfcBody,
                 ),
-                const SizedBox(height: 48),
+                const SizedBox(height: 16),
+                Text(
+                  _status,
+                  textAlign: TextAlign.center,
+                  style: typo.sm.copyWith(color: Colors.white70),
+                ),
+                const SizedBox(height: 24),
+                if (!_listening && !_confirmed)
+                  TextButton(
+                    onPressed: () => _startNfc(),
+                    child: Text(
+                      'Retry NFC',
+                      style: typo.button.copyWith(color: Colors.white),
+                    ),
+                  ),
+                TextButton(
+                  onPressed: _listening || _confirmed
+                      ? null
+                      : () => _startNfc(forceSimulate: true),
+                  child: Text(
+                    'Simulate tap (dev)',
+                    style: typo.sm.copyWith(color: Colors.white70),
+                  ),
+                ),
+                const SizedBox(height: 24),
                 Center(
                   child: OutlinedButton(
                     onPressed: _cancel,

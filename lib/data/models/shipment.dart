@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import 'created_delivery.dart';
 import '../delivery_status_mapper.dart';
-import '../../core/theme/app_colors.dart';
 
 enum ShipmentStatus {
   open,
@@ -111,6 +110,7 @@ class Shipment {
     this.travelerName,
     this.flightNumber,
     this.parcelPhotoCount = 2,
+    this.parcelPhotoUrls = const [],
   });
 
   final String id;
@@ -128,6 +128,7 @@ class Shipment {
   final String? travelerName;
   final String? flightNumber;
   final int parcelPhotoCount;
+  final List<String> parcelPhotoUrls;
 
   Shipment copyWith({
     String? id,
@@ -145,6 +146,7 @@ class Shipment {
     String? travelerName,
     String? flightNumber,
     int? parcelPhotoCount,
+    List<String>? parcelPhotoUrls,
   }) {
     return Shipment(
       id: id ?? this.id,
@@ -162,6 +164,7 @@ class Shipment {
       travelerName: travelerName ?? this.travelerName,
       flightNumber: flightNumber ?? this.flightNumber,
       parcelPhotoCount: parcelPhotoCount ?? this.parcelPhotoCount,
+      parcelPhotoUrls: parcelPhotoUrls ?? this.parcelPhotoUrls,
     );
   }
 
@@ -217,6 +220,7 @@ class Shipment {
       description: delivery.description,
       travelerName: travelerName ?? delivery.senderName,
       parcelPhotoCount: delivery.photos.length,
+      parcelPhotoUrls: delivery.photos.map((p) => p.url).toList(),
     );
   }
 }

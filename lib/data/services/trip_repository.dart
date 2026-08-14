@@ -406,15 +406,23 @@ class TripRepository {
   }
 
   /// POST /api/v1/trips/sender-counter-offers/:offerId/accept
-  Future<SenderCounterOffer> acceptSenderCounterOffer(String offerId) async {
+  Future<SenderCounterOffer> acceptSenderCounterOffer(
+    String offerId, {
+    String? paymentIntentId,
+  }) async {
     if (_isDemoMode) {
       throw const ApiException(
         message: 'Accepting counter offers is unavailable in demo mode.',
         code: 'DEMO_MODE',
       );
     }
+    final body = <String, dynamic>{};
+    if (paymentIntentId != null && paymentIntentId.isNotEmpty) {
+      body['paymentIntentId'] = paymentIntentId;
+    }
     final data = await _apiClient.post(
       '/trips/sender-counter-offers/${Uri.encodeComponent(offerId)}/accept',
+      body: body.isEmpty ? null : body,
       authenticated: true,
     );
     return SenderCounterOffer.fromJson(Map<String, dynamic>.from(data));

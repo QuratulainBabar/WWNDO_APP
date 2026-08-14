@@ -238,6 +238,7 @@ class _CounterOfferDetailScreenState extends State<CounterOfferDetailScreen> {
             status: TravelerBidStatus.rejected,
             sentAt: offer.sentAt,
             parcelPhotoCount: offer.parcelPhotoCount,
+            parcelPhotoUrls: offer.parcelPhotoUrls,
             deliveryPublicId: offer.deliveryPublicId,
           );
         });

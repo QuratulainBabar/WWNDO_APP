@@ -88,7 +88,7 @@ class _WalletTopUpScreenState extends State<WalletTopUpScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Add funds securely with Stripe. Top-ups credit your available balance immediately.',
+              'Add funds securely with Stripe. When Stripe is configured, you complete card payment in Payment Sheet; otherwise funds are credited instantly in development mode.',
               style: typo.sm.copyWith(height: 1.5),
             ),
             const SizedBox(height: 20),

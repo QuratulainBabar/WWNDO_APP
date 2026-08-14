@@ -5,6 +5,19 @@ allprojects {
         maven { url = uri("${rootDir}/local-maven") }
         google()
         mavenCentral()
+        // Sumsub only — do not resolve Stripe/Google artifacts from this host.
+        maven {
+            url = uri("https://maven.sumsub.com/repository/maven-releases/")
+            content {
+                includeGroupByRegex("com\\.sumsub.*")
+            }
+        }
+        maven {
+            url = uri("https://maven.sumsub.com/repository/maven-public/")
+            content {
+                includeGroupByRegex("com\\.sumsub.*")
+            }
+        }
     }
 }
 

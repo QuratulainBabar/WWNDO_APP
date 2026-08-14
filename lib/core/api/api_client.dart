@@ -323,6 +323,9 @@ class ApiClient {
         message: error is Map ? (error['message'] as String? ?? 'Request failed') : 'Request failed',
         statusCode: response.statusCode,
         code: error is Map ? error['code'] as String? : null,
+        details: error is Map && error['details'] is Map
+            ? Map<String, dynamic>.from(error['details'] as Map)
+            : null,
       );
     }
 
@@ -333,6 +336,9 @@ class ApiClient {
           : 'Request failed (${response.statusCode})',
       statusCode: response.statusCode,
       code: error is Map ? error['code'] as String? : null,
+      details: error is Map && error['details'] is Map
+          ? Map<String, dynamic>.from(error['details'] as Map)
+          : null,
     );
   }
 

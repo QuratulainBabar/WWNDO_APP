@@ -95,7 +95,21 @@ class WalletRepository {
         'currency': 'USD',
       };
     }
-    return _apiClient.get('/wallet/payments/config', authenticated: true);
+    try {
+      return await _apiClient.get(
+        '/wallet/payments/config',
+        authenticated: true,
+      );
+    } on ApiException catch (e) {
+      if (e.statusCode == 404 || e.code == 'NOT_FOUND') {
+        return {
+          'stripeEnabled': false,
+          'publishableKey': null,
+          'currency': 'USD',
+        };
+      }
+      rethrow;
+    }
   }
 
   /// POST /api/v1/wallet/top-up
@@ -203,7 +217,17 @@ class WalletRepository {
     if (_isDemoMode) {
       return {'linked': false, 'ready': false};
     }
-    return _apiClient.get('/wallet/connect/status', authenticated: true);
+    try {
+      return await _apiClient.get(
+        '/wallet/connect/status',
+        authenticated: true,
+      );
+    } on ApiException catch (e) {
+      if (e.statusCode == 404 || e.code == 'NOT_FOUND') {
+        return {'linked': false, 'ready': false};
+      }
+      rethrow;
+    }
   }
 
   /// POST /api/v1/wallet/connect/onboard

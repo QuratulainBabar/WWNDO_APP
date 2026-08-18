@@ -903,6 +903,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       } else {
         await _loadConnectStatus();
       }
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Stripe Connect: ${e.message}')),
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1085,17 +1090,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   );
                 },
               ),
-              if (WalletRole.fromQuery(roleParam) != WalletRole.sender)
-                _tile(
-                  _connectLoading ? 'Linking Stripe Connect…' : 'Link Stripe Connect',
-                  subtitle: _connectStatusLabel ?? 'Required for bank withdrawals',
-                  onTap: _connectLoading ? () {} : _linkStripeConnect,
-                ),
-              if (WalletRole.fromQuery(roleParam) != WalletRole.sender)
-                _tile(
-                  'Withdraw via Stripe Connect',
-                  onTap: () => context.push(_routeWithRole('/wallet', roleParam)),
-                ),
+              _tile(
+                _connectLoading ? 'Linking Stripe Connect…' : 'Link Stripe Connect',
+                subtitle: _connectStatusLabel ?? 'Required for bank withdrawals',
+                onTap: _connectLoading ? () {} : _linkStripeConnect,
+              ),
+              _tile(
+                'Withdraw via Stripe Connect',
+                onTap: () => context.push(_routeWithRole('/wallet', roleParam)),
+              ),
               _tile(
                 'Transaction history',
                 onTap: () => context.push(
@@ -1386,7 +1389,7 @@ class _WalletScreenState extends State<WalletScreen> {
               final entries = wallet.historyFor(role);
               final parsedAmount = double.tryParse(_amountController.text) ?? 0;
               final displayAmount = parsedAmount > 0 ? parsedAmount : 50.0;
-              final canWithdraw = role != WalletRole.sender;
+              final canWithdraw = true;
               final minWithdraw = wallet.summary?.minimumWithdrawalCents ??
                   WalletService.minimumWithdrawalCents;
 

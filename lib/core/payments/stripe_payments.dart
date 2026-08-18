@@ -58,6 +58,7 @@ class StripePayments {
         paymentIntentClientSecret: clientSecret,
         merchantDisplayName: merchantDisplayName,
         style: ThemeMode.system,
+        billingDetails: const BillingDetails(),
       ),
     );
     await Stripe.instance.presentPaymentSheet();

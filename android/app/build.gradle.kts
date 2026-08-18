@@ -31,6 +31,8 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+            isMinifyEnabled = false
+            isShrinkResources = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
@@ -46,12 +48,29 @@ android {
     packaging {
         jniLibs {
             useLegacyPackaging = true
+            pickFirsts += setOf("**/libc++_shared.so")
         }
     }
 }
 
 flutter {
     source = "../.."
+}
+
+// Sumsub TensorFlow Lite needs libc++ at runtime. Missing this .so makes Vivo
+// kill the app on launch (UnsatisfiedLinkError is not caught by plugin init).
+tasks.register<Copy>("copyLibCppShared") {
+    val ndkRoot = android.ndkDirectory
+    from(
+        ndkRoot.resolve(
+            "toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so",
+        ),
+    )
+    into(layout.projectDirectory.dir("src/main/jniLibs/arm64-v8a"))
+}
+
+tasks.named("preBuild").configure {
+    dependsOn("copyLibCppShared")
 }
 
 dependencies {

@@ -206,14 +206,6 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
-  flutter_idensic_mobile_sdk_plugin:
-    dependency: "direct main"
-    description:
-      name: flutter_idensic_mobile_sdk_plugin
-      sha256: "107c395ca12e3e0f9a8e071c2ba3f0ebadf9f962f66fd72c4641839910850cf1"
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.44.1"
   flutter_launcher_icons:
     dependency: "direct dev"
     description:

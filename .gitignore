@@ -63,8 +63,8 @@ android/gradle/wrapper/gradle-*-bin.zip
 android/gradle/wrapper/*.zip
 android/gradle/wrapper/gradle-*/
 
-# Android Studio build outputs
-/android/app/debug
+# NDK C++ runtime copied at build time for Sumsub/TFLite
+/android/app/src/main/jniLibs/
 /android/app/profile
 /android/app/release
 

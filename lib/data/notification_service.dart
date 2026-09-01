@@ -20,8 +20,8 @@ abstract final class NotificationService {
   static const _seedGeneration = 8;
   static int _appliedSeedGeneration = 0;
 
-  /// Traveler Alerts tab shows a short demo inbox only.
-  static const _travelerInboxLimit = 2;
+  /// Newest notifications kept per role; older items are dropped from the bottom.
+  static const inboxLimit = 20;
 
   static void seedDemoInbox() {
     if (_appliedSeedGeneration == _seedGeneration) return;
@@ -39,10 +39,8 @@ abstract final class NotificationService {
   static List<AppNotification> inboxFor(WalletRole role) {
     seedDemoInbox();
     final list = _inbox[role] ?? const <AppNotification>[];
-    if (role == WalletRole.traveler && list.length > _travelerInboxLimit) {
-      return List<AppNotification>.unmodifiable(
-        list.take(_travelerInboxLimit),
-      );
+    if (list.length > inboxLimit) {
+      return List<AppNotification>.unmodifiable(list.take(inboxLimit));
     }
     return List<AppNotification>.unmodifiable(list);
   }
@@ -54,9 +52,8 @@ abstract final class NotificationService {
     seedDemoInbox();
     final list = _inbox[notification.role]!;
     list.insert(0, notification);
-    if (notification.role == WalletRole.traveler &&
-        list.length > _travelerInboxLimit) {
-      list.removeRange(_travelerInboxLimit, list.length);
+    if (list.length > inboxLimit) {
+      list.removeRange(inboxLimit, list.length);
     }
     version.value++;
   }

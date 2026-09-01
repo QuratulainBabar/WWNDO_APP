@@ -6,11 +6,27 @@ import 'app_button.dart';
 
 /// Shows a confirmation popup before cancelling a parcel request.
 /// Returns `true` when the user confirms cancellation.
-Future<bool> showCancelRequestConfirmation(BuildContext context) async {
+///
+/// When [keepButtonFirst] is true, Keep is shown above Cancel Request
+/// (traveler cancel-trip confirmation).
+Future<bool> showCancelRequestConfirmation(
+  BuildContext context, {
+  bool keepButtonFirst = false,
+}) async {
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (dialogContext) {
       final typo = dialogContext.typo;
+      final cancelButton = AppButton(
+        label: 'Cancel Request',
+        variant: AppButtonVariant.danger,
+        onPressed: () => Navigator.of(dialogContext).pop(true),
+      );
+      final keepButton = AppButton(
+        label: 'Keep',
+        variant: AppButtonVariant.ghost,
+        onPressed: () => Navigator.of(dialogContext).pop(false),
+      );
       return Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: Padding(
@@ -43,17 +59,15 @@ Future<bool> showCancelRequestConfirmation(BuildContext context) async {
                 feeLabel: 'Platform Fee: Non-refundable (all users)',
               ),
               const SizedBox(height: 24),
-              AppButton(
-                label: 'Cancel Request',
-                variant: AppButtonVariant.danger,
-                onPressed: () => Navigator.of(dialogContext).pop(true),
-              ),
-              const SizedBox(height: AppButton.stackGap),
-              AppButton(
-                label: 'Keep',
-                variant: AppButtonVariant.ghost,
-                onPressed: () => Navigator.of(dialogContext).pop(false),
-              ),
+              if (keepButtonFirst) ...[
+                keepButton,
+                const SizedBox(height: AppButton.stackGap),
+                cancelButton,
+              ] else ...[
+                cancelButton,
+                const SizedBox(height: AppButton.stackGap),
+                keepButton,
+              ],
             ],
           ),
         ),

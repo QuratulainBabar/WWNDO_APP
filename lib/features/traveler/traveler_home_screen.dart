@@ -23,7 +23,6 @@ import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_realtime_provider.dart';
 import '../../providers/wallet_provider.dart';
-import 'trip_posting_actions.dart';
 
 class TravelerHomeScreen extends StatefulWidget {
   const TravelerHomeScreen({super.key});
@@ -131,7 +130,6 @@ class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
   }
 
   Future<void> _onCreateTrip() async {
-    if (!await TripPostingActions.ensureWalletAllowsTripCreation(context)) return;
     if (!AuthVerificationGuard.ensureVerifiedForTransaction(context)) return;
     if (!KycVerificationGuard.ensureKycApproved(context)) return;
     context.push('/trip-type');
@@ -340,6 +338,9 @@ class _MyTripsSectionState extends State<_MyTripsSection> {
   bool _loading = true;
   String? _error;
 
+  List<TravelerTrip> _homeTrips(List<TravelerTrip> trips) =>
+      trips.where((t) => t.status != TripStatus.cancelled).toList();
+
   @override
   void initState() {
     super.initState();
@@ -357,7 +358,9 @@ class _MyTripsSectionState extends State<_MyTripsSection> {
     if (!mounted) return;
     final demoMode = context.read<DemoModeProvider>().enabled;
     setState(() {
-      _trips = StaticData.travelerTripsForDisplay(demoMode: demoMode);
+      _trips = _homeTrips(
+        StaticData.travelerTripsForDisplay(demoMode: demoMode),
+      );
       _loading = false;
       _error = null;
     });
@@ -378,7 +381,9 @@ class _MyTripsSectionState extends State<_MyTripsSection> {
 
     if (demoMode.enabled) {
       setState(() {
-        _trips = StaticData.travelerTripsForDisplay(demoMode: true);
+        _trips = _homeTrips(
+          StaticData.travelerTripsForDisplay(demoMode: true),
+        );
         _loading = false;
         _error = null;
       });
@@ -397,14 +402,16 @@ class _MyTripsSectionState extends State<_MyTripsSection> {
       StaticData.replaceTravelerPostedTrips(trips);
       if (!mounted) return;
       setState(() {
-        _trips = List<TravelerTrip>.from(trips);
+        _trips = _homeTrips(trips);
         _loading = false;
         _error = null;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _trips = StaticData.travelerTripsForDisplay(demoMode: false);
+        _trips = _homeTrips(
+          StaticData.travelerTripsForDisplay(demoMode: false),
+        );
         _loading = false;
         if (_trips.isEmpty) {
           _error = 'Unable to load your trips. Tap to retry.';

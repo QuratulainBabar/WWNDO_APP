@@ -150,7 +150,7 @@ class ApiClient {
           headers,
           multipartFields ?? const {},
           multipartFiles,
-        ).timeout(timeout);
+        ).timeout(const Duration(seconds: 60));
       } else {
         response = await _send(method, uri, headers, body).timeout(timeout);
       }

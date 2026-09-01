@@ -1,10 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/api/api_exception.dart';
 import '../../core/platform/platform_ui.dart';
 import '../../data/models/chat_message.dart';
 import '../../data/static_data.dart';
+import '../../providers/chat_realtime_provider.dart';
 import 'widgets/chat_attachment_sheet.dart';
 
 mixin ChatConversationMixin<T extends StatefulWidget> on State<T> {
@@ -15,11 +19,22 @@ mixin ChatConversationMixin<T extends StatefulWidget> on State<T> {
   late List<ChatMessage> chatMessages;
   ChatThread? get chatThread => null;
 
+  StreamSubscription<ChatMessage>? _liveMessageSub;
+  StreamSubscription<ChatMessageReceipt>? _liveReceiptSub;
+
+  /// Live conversation id — when set with [uploadLiveChatImage], attachments
+  /// are uploaded to the server instead of staying local-only.
+  String? get liveChatConversationId => null;
+
+  Future<ChatMessage> Function(String conversationId, String filePath)?
+      get uploadLiveChatImage => null;
+
   void initChatMessages(List<ChatMessage> initial) {
     chatMessages = List.of(initial);
   }
 
   void disposeChatConversation() {
+    detachLiveChatListeners();
     chatController.dispose();
     chatScrollController.dispose();
   }
@@ -42,15 +57,17 @@ mixin ChatConversationMixin<T extends StatefulWidget> on State<T> {
 
   /// Replace the optimistic message [tempId] with the confirmed [server]
   /// message. If the confirmed message is already present (its socket echo beat
-  /// the API response), just drop the temp copy.
+  /// the API response), just drop the temp copy and keep the higher receipt.
   void confirmOptimisticMessage(String tempId, ChatMessage server) {
     if (!mounted) return;
     setState(() {
-      final alreadyHasServer =
-          server.id != null && chatMessages.any((m) => m.id == server.id);
+      final alreadyIdx = server.id == null
+          ? -1
+          : chatMessages.indexWhere((m) => m.id == server.id);
       final idx = chatMessages.indexWhere((m) => m.id == tempId);
-      if (alreadyHasServer) {
-        if (idx != -1) chatMessages.removeAt(idx);
+      if (alreadyIdx != -1) {
+        chatMessages[alreadyIdx] = _mergeReceipt(chatMessages[alreadyIdx], server);
+        if (idx != -1 && idx != alreadyIdx) chatMessages.removeAt(idx);
       } else if (idx != -1) {
         chatMessages[idx] = server;
       } else {
@@ -70,21 +87,105 @@ mixin ChatConversationMixin<T extends StatefulWidget> on State<T> {
   /// caller must NOT append it again.
   bool reconcileOwnEcho(ChatMessage server) {
     final serverId = server.id;
-    if (serverId != null && chatMessages.any((m) => m.id == serverId)) {
-      return true;
+    if (serverId != null) {
+      final existingIdx = chatMessages.indexWhere((m) => m.id == serverId);
+      if (existingIdx != -1) {
+        setState(() {
+          chatMessages[existingIdx] =
+              _mergeReceipt(chatMessages[existingIdx], server);
+        });
+        return true;
+      }
     }
-    final idx = chatMessages.indexWhere(
-      (m) =>
-          m.pending &&
-          m.isMine &&
-          m.text == server.text &&
-          m.isImage == server.isImage,
-    );
+    final idx = chatMessages.indexWhere((m) {
+      if (!m.pending || !m.isMine || m.isImage != server.isImage) return false;
+      if (m.isImage) return true;
+      return m.text == server.text;
+    });
     if (idx != -1) {
-      setState(() => chatMessages[idx] = server);
+      setState(() => chatMessages[idx] = server.copyWith(pending: false));
       return true;
     }
     return false;
+  }
+
+  void applyMessageReceipts(ChatMessageReceipt receipt) {
+    if (!mounted || receipt.messageIds.isEmpty) return;
+    final ids = receipt.messageIds.toSet();
+    var changed = false;
+    final nextMessages = List<ChatMessage>.of(chatMessages);
+    for (var i = 0; i < nextMessages.length; i++) {
+      final m = nextMessages[i];
+      if (m.id == null || !ids.contains(m.id)) continue;
+      final next = maxChatReceiptStatus(m.receiptStatus, receipt.status);
+      if (next == m.receiptStatus && !m.pending) continue;
+      nextMessages[i] = m.copyWith(pending: false, receiptStatus: next);
+      changed = true;
+    }
+    if (!changed) return;
+    setState(() => chatMessages = nextMessages);
+  }
+
+  ChatMessage _mergeReceipt(ChatMessage local, ChatMessage incoming) {
+    return local.copyWith(
+      id: incoming.id ?? local.id,
+      conversationId: incoming.conversationId ?? local.conversationId,
+      senderId: incoming.senderId ?? local.senderId,
+      isMine: incoming.isMine,
+      pending: false,
+      receiptStatus: maxChatReceiptStatus(
+        local.receiptStatus,
+        incoming.receiptStatus,
+      ),
+      imagePath: local.imagePath ?? incoming.imagePath,
+      imageName: incoming.imageName ?? local.imageName,
+    );
+  }
+
+  void attachLiveChatListeners({
+    required ChatRealtimeProvider realtime,
+    required String conversationId,
+    required String? myId,
+  }) {
+    detachLiveChatListeners();
+    realtime.joinConversation(conversationId);
+    _liveMessageSub = realtime.onMessage.listen((message) {
+      if (!mounted) return;
+      if (message.conversationId != null &&
+          message.conversationId!.isNotEmpty &&
+          message.conversationId != conversationId) {
+        return;
+      }
+      final resolved = message.senderId != null
+          ? message.copyWith(isMine: message.senderId == myId)
+          : message;
+      if (resolved.isMine) {
+        if (reconcileOwnEcho(resolved)) {
+          scrollChatToBottom();
+          return;
+        }
+      } else if (resolved.id != null &&
+          chatMessages.any((m) => m.id == resolved.id)) {
+        return;
+      }
+      setState(() => chatMessages.add(resolved));
+      scrollChatToBottom();
+      if (!resolved.isMine) {
+        realtime.ackRead(conversationId);
+      }
+    });
+    _liveReceiptSub = realtime.onReceipt.listen((receipt) {
+      if (!mounted) return;
+      if (receipt.conversationId != conversationId) return;
+      applyMessageReceipts(receipt);
+    });
+  }
+
+  void detachLiveChatListeners() {
+    _liveMessageSub?.cancel();
+    _liveReceiptSub?.cancel();
+    _liveMessageSub = null;
+    _liveReceiptSub = null;
   }
 
   void scrollChatToBottom() {
@@ -102,7 +203,12 @@ mixin ChatConversationMixin<T extends StatefulWidget> on State<T> {
     final text = chatController.text.trim();
     if (text.isEmpty) return;
 
-    final message = ChatMessage(text: text, isMine: true, time: chatNowTime);
+    final message = ChatMessage(
+      text: text,
+      isMine: true,
+      time: chatNowTime,
+      createdAt: DateTime.now(),
+    );
     if (chatThread != null) {
       StaticData.appendChatMessage(chatThread!, message);
       setState(() {
@@ -123,6 +229,7 @@ mixin ChatConversationMixin<T extends StatefulWidget> on State<T> {
       text: '',
       isMine: true,
       time: chatNowTime,
+      createdAt: DateTime.now(),
       isImage: true,
       imageName: name,
       imagePath: path,
@@ -158,11 +265,69 @@ mixin ChatConversationMixin<T extends StatefulWidget> on State<T> {
         maxWidth: 1920,
       );
       if (!mounted || file == null) return;
+
+      final conversationId = liveChatConversationId;
+      final upload = uploadLiveChatImage;
+      if (conversationId != null &&
+          conversationId.isNotEmpty &&
+          upload != null) {
+        await sendLiveChatImage(
+          conversationId: conversationId,
+          path: file.path,
+          name: file.name,
+          upload: upload,
+        );
+        return;
+      }
+
       addChatImageMessage(path: file.path, name: file.name);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Could not attach image: $e')),
+      );
+    }
+  }
+
+  Future<void> sendLiveChatImage({
+    required String conversationId,
+    required String path,
+    required String name,
+    required Future<ChatMessage> Function(String conversationId, String filePath)
+        upload,
+  }) async {
+    final tempId = addOptimisticMessage(
+      ChatMessage(
+        text: '',
+        isMine: true,
+        time: chatNowTime,
+        createdAt: DateTime.now(),
+        id: nextLocalMessageId(),
+        pending: true,
+        isImage: true,
+        imageName: name,
+        imagePath: path,
+      ),
+    );
+    try {
+      final server = await upload(conversationId, path);
+      final merged = server.copyWith(
+        imagePath: path,
+        imageName: server.remoteImageUrl ?? server.imageName ?? name,
+      );
+      confirmOptimisticMessage(tempId, merged);
+      scrollChatToBottom();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      removeOptimisticMessage(tempId);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      removeOptimisticMessage(tempId);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to send image.')),
       );
     }
   }

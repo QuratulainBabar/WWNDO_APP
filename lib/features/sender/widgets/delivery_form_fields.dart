@@ -367,6 +367,7 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
               meetups: _meetupLocations,
               originCity: fromCity,
               originCountryCode: fromCode.isEmpty ? null : fromCode,
+              originPlace: _fromLocation,
             );
       _receiverMeetupError = _receiverMeetupLocations.isEmpty
           ? 'Select a meetup location.'
@@ -374,6 +375,7 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
               meetups: _receiverMeetupLocations,
               destinationCity: toCity,
               destinationCountryCode: toCode.isEmpty ? null : toCode,
+              destinationPlace: _toLocation,
             );
       _budgetError = _maxBudget <= 0 ? 'Enter a valid maximum budget.' : null;
       _weightError =
@@ -423,6 +425,7 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
                   meetups: _meetupLocations,
                   originCity: deliveryAirportCity(_fromAirport!),
                   originCountryCode: deliveryCodeFromPlace(_fromAirport!),
+                  originPlace: _fromAirport,
                 ));
       _receiverMeetupError = _receiverMeetupLocations.isEmpty
           ? 'Select a meetup location.'
@@ -432,6 +435,7 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
                   meetups: _receiverMeetupLocations,
                   destinationCity: deliveryAirportCity(_toAirport!),
                   destinationCountryCode: deliveryCodeFromPlace(_toAirport!),
+                  destinationPlace: _toAirport,
                 ));
       _budgetError = _maxBudget <= 0 ? 'Enter a valid maximum budget.' : null;
       _weightError =
@@ -605,7 +609,12 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
     if (_fromAirport == null || _toAirport == null) return false;
     final fromCode = deliveryCodeFromPlace(_fromAirport!);
     final toCode = deliveryCodeFromPlace(_toAirport!);
-    if (fromCode == 'XX' || toCode == 'XX') return false;
+    if (fromCode.isEmpty ||
+        toCode.isEmpty ||
+        fromCode == 'XX' ||
+        toCode == 'XX') {
+      return false;
+    }
     return fromCode == toCode;
   }
 

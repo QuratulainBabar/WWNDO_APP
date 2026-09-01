@@ -1435,14 +1435,18 @@ class _WalletScreenState extends State<WalletScreen> {
                             WalletService.formatCents(available),
                             style: typo.priceHeroDark,
                           ),
-                          const SizedBox(height: 12),
-                          Text('Escrow balance', style: typo.captionOnDarkSoft),
-                          Text(
-                            WalletService.formatCents(escrow),
-                            style: typo.h2.copyWith(color: Colors.white),
-                          ),
+                          if (escrow > 0)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Text(
+                                'Escrow ${WalletService.formatCents(escrow)}',
+                                style: typo.captionOnDarkSoft.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
                           if (canWithdraw) ...[
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 12),
                             Text(
                               'Minimum withdrawal: ${WalletService.formatCents(minWithdraw)}',
                               style: typo.captionOnDark,

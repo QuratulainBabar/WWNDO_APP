@@ -21,7 +21,6 @@ import 'models/traveler_trip.dart';
 import 'models/wallet_transaction.dart';
 import 'models/wallet_role.dart';
 import 'route_similarity.dart';
-import 'trip_creation_wallet_validation.dart';
 import 'wallet_service.dart';
 import 'models/verified_recipient.dart';
 import 'models/parcel_creation_result.dart';
@@ -2257,10 +2256,6 @@ abstract final class StaticData {
     ];
   }
 
-  /// Minimum wallet balance (USD) a traveler must hold to post a trip.
-  static const tripPostingFeeReserveUsd =
-      TripCreationWalletValidation.minimumBalanceUsd;
-
   /// Section 2.3 — KYC must be approved for marketplace actions.
   static String? validateKycApproved(AuthUser? authUser) {
     if (authUser?.isKycApproved == true) return null;
@@ -2273,13 +2268,10 @@ abstract final class StaticData {
     return 'KYC must be approved before this action.';
   }
 
-  /// Validates KYC + wallet balance before allowing a traveler to post a trip.
+  /// Validates KYC before allowing a traveler to post a trip.
   /// Returns an error message, or null when posting is allowed.
   static String? validateTripPosting(AuthUser? authUser) {
-    final kycError = validateKycApproved(authUser);
-    if (kycError != null) return kycError;
-
-    return TripCreationWalletValidation.validate();
+    return validateKycApproved(authUser);
   }
   static const postDeliveryMaximumBudget = 40.0;
   static const travelerAvailableLuggageCapacityKg = 8.0;

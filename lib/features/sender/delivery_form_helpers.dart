@@ -1,4 +1,6 @@
 import '../../../core/config/api_config.dart';
+import '../../../core/geo/meetup_location_match.dart';
+import '../../../core/geo/world_airports.dart';
 import '../../../core/geo/world_cities.dart';
 import '../../../core/geo/world_countries.dart';
 import '../../../data/models/created_delivery.dart';
@@ -12,23 +14,40 @@ String deliveryCityName(MeetupLocation place) {
 
 String deliveryCodeFromPlace(MeetupLocation place) {
   final code = place.countryCode?.trim().toUpperCase();
-  if (code != null && code.length == 2) return code;
+  if (code != null &&
+      code.length == 2 &&
+      code != 'XX' &&
+      WorldCountries.containsIso(code)) {
+    return code;
+  }
+
+  final airport = WorldAirports.matchFromLabel('${place.name} ${place.address}');
+  if (airport != null) return airport.countryIso;
 
   final haystack = '${place.name} ${place.address}'.toLowerCase();
   WorldCountry? best;
   for (final country in WorldCountries.all) {
-    if (haystack.contains(country.name.toLowerCase())) {
-      if (best == null || country.name.length > best.name.length) {
-        best = country;
-      }
+    if (!_haystackHasCountry(haystack, country.name)) continue;
+    if (best == null || country.name.length > best.name.length) {
+      best = country;
     }
   }
   if (best != null) return best.iso;
 
-  final city = WorldCities.byName(place.name);
+  final city = WorldCities.byName(place.name) ??
+      WorldCities.byName(place.locality ?? '');
   if (city != null) return city.countryIso;
 
-  return 'XX';
+  return '';
+}
+
+bool _haystackHasCountry(String haystack, String countryName) {
+  final name = countryName.trim().toLowerCase();
+  if (name.isEmpty) return false;
+  final pattern = RegExp(
+    '\\b${RegExp.escape(name).replaceAll(' ', r'\s+')}\\b',
+  );
+  return pattern.hasMatch(haystack);
 }
 
 MeetupLocation meetupFromLabel(String label, {String? countryCode}) {
@@ -48,9 +67,7 @@ String deliveryCountryName(MeetupLocation place) {
 }
 
 String deliveryAirportCity(MeetupLocation place) {
-  final label = place.displayLabel.trim();
-  if (label.isNotEmpty) return label;
-  return place.name.trim();
+  return MeetupLocationMatch.resolveCityName(place);
 }
 
 extension CreatedDeliveryFormX on CreatedDelivery {

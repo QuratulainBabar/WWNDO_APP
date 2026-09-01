@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import 'models/ledger_entry.dart';
+import 'models/shipment_escrow.dart';
 import 'models/wallet_role.dart';
 
 /// Role-aware wallet balances, per-shipment escrow, and immutable cents ledger.
@@ -35,7 +36,7 @@ abstract final class WalletService {
     WalletRole.receiver: 0,
   };
 
-  /// Escrow principal held per shipment (sender role).
+  /// Escrow principal held per shipment.
   static final Map<String, int> _escrowCentsByShipmentId = {};
   static final Set<String> _frozenShipmentIds = {};
   static final Set<String> _refundedShipmentIds = {};
@@ -83,13 +84,64 @@ abstract final class WalletService {
     required int availableCents,
     required int escrowCents,
     List<LedgerEntry> history = const [],
+    List<ShipmentEscrow> shipmentEscrows = const [],
   }) {
     _availableCents[role] = resolveAvailableCents(availableCents);
     _escrowCents[role] = escrowCents < 0 ? 0 : escrowCents;
 
     _ledger.removeWhere((e) => e.role == role);
     _ledger.addAll(history.where((e) => e.role == role));
+    for (final escrow in shipmentEscrows) {
+      _applyShipmentEscrow(escrow);
+    }
     walletVersion.value++;
+  }
+
+  /// Merge a single backend shipment-escrow row into the local cache.
+  static void applyRemoteShipmentEscrow(ShipmentEscrow escrow) {
+    _applyShipmentEscrow(escrow);
+    walletVersion.value++;
+  }
+
+  static void _applyShipmentEscrow(ShipmentEscrow escrow) {
+    final id = escrow.shipmentId;
+    if (id.isEmpty) return;
+
+    _frozenShipmentIds.remove(id);
+    _refundedShipmentIds.remove(id);
+    _releasedShipmentIds.remove(id);
+
+    switch (escrow.status) {
+      case 'held':
+        _escrowCentsByShipmentId[id] = escrow.amountCents < 0 ? 0 : escrow.amountCents;
+        break;
+      case 'frozen':
+        _escrowCentsByShipmentId[id] = escrow.amountCents < 0 ? 0 : escrow.amountCents;
+        _frozenShipmentIds.add(id);
+        break;
+      case 'refunded':
+        if (escrow.amountCents > 0) {
+          _escrowCentsByShipmentId[id] = escrow.amountCents;
+        } else {
+          _escrowCentsByShipmentId.remove(id);
+        }
+        _refundedShipmentIds.add(id);
+        break;
+      case 'released':
+        if (escrow.amountCents > 0) {
+          _escrowCentsByShipmentId[id] = escrow.amountCents;
+        } else {
+          _escrowCentsByShipmentId.remove(id);
+        }
+        _releasedShipmentIds.add(id);
+        break;
+      default:
+        if (escrow.amountCents > 0) {
+          _escrowCentsByShipmentId[id] = escrow.amountCents;
+        } else {
+          _escrowCentsByShipmentId.remove(id);
+        }
+    }
   }
 
   static List<LedgerEntry> immutableLedgerFor(WalletRole role) {

@@ -130,18 +130,26 @@ class PlacesSearchService {
 
       final components = resultMap['address_components'];
       String? countryCode;
+      String? locality;
+      String? adminArea2;
       if (components is List) {
         for (final raw in components.whereType<Map>()) {
           final component = Map<String, dynamic>.from(raw);
           final types = component['types'];
           if (types is! List) continue;
           final typeSet = types.map((t) => t.toString()).toSet();
+          final longName = (component['long_name'] as String?)?.trim();
           if (typeSet.contains('country')) {
             countryCode = component['short_name'] as String?;
-            break;
+          } else if (typeSet.contains('locality') ||
+              typeSet.contains('postal_town')) {
+            if (longName != null && longName.isNotEmpty) locality = longName;
+          } else if (typeSet.contains('administrative_area_level_2')) {
+            if (longName != null && longName.isNotEmpty) adminArea2 = longName;
           }
         }
       }
+      locality ??= adminArea2;
 
       final geometry = resultMap['geometry'];
       final location = geometry is Map ? geometry['location'] : null;
@@ -161,6 +169,7 @@ class PlacesSearchService {
         latitude: lat ?? place.latitude,
         longitude: lng ?? place.longitude,
         countryCode: countryCode ?? place.countryCode,
+        locality: locality ?? place.locality,
       );
     } catch (_) {
       return place;

@@ -31,7 +31,7 @@ class InternationalPhoneField extends StatelessWidget {
   final TextStyle? labelStyle;
   final TextStyle? inputStyle;
   /// When null, uses [PhoneCountries.examplePlaceholder] for [country]
-  /// (dial code + local number format).
+  /// (local number format only — the calling code is shown to the left).
   final String? hintText;
   final EdgeInsetsGeometry? padding;
   final TextInputAction textInputAction;

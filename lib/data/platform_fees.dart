@@ -54,6 +54,7 @@ abstract final class PlatformFees {
     return isDocumentCategory(category) ? 2.0 : 4.0;
   }
 
+  /// Generic $2 reserve to post. Must not return senderPlatformFeeUsd ($2/$4/$3/$6).
   static double minWalletForSenderCreate({
     required String category,
     required bool paysReceiverFee,

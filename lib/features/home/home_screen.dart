@@ -14,10 +14,12 @@ import '../../core/widgets/back_link.dart';
 import '../../core/widgets/screen_body.dart';
 import '../../core/widgets/wallet_card.dart';
 import '../../data/models/created_delivery.dart';
+import '../../data/models/shipment.dart';
 import '../../data/models/wallet_role.dart';
 import '../../core/auth/auth_verification_guard.dart';
 import '../../core/auth/kyc_verification_guard.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/chat_realtime_provider.dart';
 import '../../providers/notification_realtime_provider.dart';
 import '../../providers/sender_deliveries_provider.dart';
 import '../../providers/wallet_provider.dart';
@@ -208,6 +210,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           authRepository: auth.repository,
           demoMode: demoMode,
         );
+    context.read<ChatRealtimeProvider>().start(
+          getAccessToken: auth.repository.tokenStorage.getAccessToken,
+          userId: auth.repository.currentUser?.id,
+          demoMode: demoMode.enabled,
+        );
   }
 
   void _attachRealtimeListener() {
@@ -355,14 +362,25 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       travelerRequests: provider.travelerRequestsFor(delivery),
       postedPhase: provider.postedPhaseFor(delivery),
     );
+    final phase = provider.postedPhaseFor(delivery);
     final idLabel =
         delivery.publicId.isNotEmpty ? delivery.publicId : delivery.id;
 
+    Future<void> openMatchingTravelers() async {
+      await context.push('/bid-requests/${delivery.displayId}');
+      if (mounted) _loadActiveDeliveries(silent: true);
+    }
+
+    Future<void> openPostedDeliveries() async {
+      await context.push('/my-posted-parcels');
+      if (mounted) _loadActiveDeliveries(silent: true);
+    }
+
+    final matchingTravelers = phase == SenderPostedPhase.matchingTravelers ||
+        status.label.startsWith('Matching Travelers');
+
     return GestureDetector(
-      onTap: () async {
-        await context.push('/my-posted-parcels');
-        if (mounted) _loadActiveDeliveries(silent: true);
-      },
+      onTap: matchingTravelers ? openMatchingTravelers : openPostedDeliveries,
       child: AppCard(
         margin: EdgeInsets.zero,
         child: Column(
@@ -379,12 +397,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   ),
                 ),
                 const SizedBox(width: 8),
-                AppBadge(
-                  label: status.label,
-                  color: status.color,
-                  backgroundColor: status.backgroundColor,
-                  semiBold: true,
-                  wide: true,
+                GestureDetector(
+                  onTap: matchingTravelers
+                      ? openMatchingTravelers
+                      : openPostedDeliveries,
+                  child: AppBadge(
+                    label: status.label,
+                    color: status.color,
+                    backgroundColor: status.backgroundColor,
+                    semiBold: true,
+                    wide: true,
+                  ),
                 ),
               ],
             ),

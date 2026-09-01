@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -15,7 +16,9 @@ import '../../core/widgets/app_labeled_field.dart';
 import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/back_link.dart';
 import '../../core/widgets/international_phone_field.dart';
+import '../../core/widgets/legal_document_dialog.dart';
 import '../../core/widgets/scrollable_form_screen.dart';
+import '../../data/legal_documents.dart';
 import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
 import '../sender/widgets/route_country_dropdown.dart';
@@ -37,10 +40,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String? _countryIso;
   late PhoneCountry _phoneCountry =
       PhoneCountries.byIso(StaticData.currentUser.countryCode);
-  bool _acceptedTerms = true;
+  bool _acceptedTerms = false;
+  late final TapGestureRecognizer _termsTap;
+  late final TapGestureRecognizer _privacyTap;
+
+  @override
+  void initState() {
+    super.initState();
+    _termsTap = TapGestureRecognizer()
+      ..onTap = () => showLegalDocumentDialog(
+            context: context,
+            title: LegalDocuments.termsTitle,
+            sections: LegalDocuments.termsSections,
+          );
+    _privacyTap = TapGestureRecognizer()
+      ..onTap = () => showLegalDocumentDialog(
+            context: context,
+            title: LegalDocuments.privacyTitle,
+            sections: LegalDocuments.privacySections,
+          );
+  }
 
   @override
   void dispose() {
+    _termsTap.dispose();
+    _privacyTap.dispose();
     _nameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
@@ -50,7 +74,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Future<void> _createAccount() async {
     if (!_acceptedTerms) {
-      AppToast.error(context, 'You must accept the Terms & Privacy Policy');
+      AppToast.error(context, 'You must agree to the Terms and Privacy Policy');
       return;
     }
 
@@ -199,13 +223,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Widget _termsRow(TextStyle termsStyle) {
+    final linkStyle = termsStyle.copyWith(
+      color: AppColors.primary,
+      fontWeight: FontWeight.w700,
+      decoration: TextDecoration.underline,
+      decorationColor: AppColors.primary,
+    );
+
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         GestureDetector(
           onTap: () => setState(() => _acceptedTerms = !_acceptedTerms),
           child: Container(
             width: 24,
             height: 24,
+            margin: const EdgeInsets.only(top: 1),
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: _acceptedTerms ? AppColors.primary : Colors.transparent,
@@ -219,9 +252,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
         const SizedBox(width: 10),
         Expanded(
-          child: GestureDetector(
-            onTap: () => context.push('/legal'),
-            child: Text('I accept the Terms & Privacy Policy', style: termsStyle),
+          child: Text.rich(
+            TextSpan(
+              style: termsStyle,
+              children: [
+                const TextSpan(text: 'I agree to the '),
+                TextSpan(
+                  text: 'Terms',
+                  style: linkStyle,
+                  recognizer: _termsTap,
+                ),
+                const TextSpan(text: ' and '),
+                TextSpan(
+                  text: 'Privacy Policy',
+                  style: linkStyle,
+                  recognizer: _privacyTap,
+                ),
+              ],
+            ),
           ),
         ),
       ],

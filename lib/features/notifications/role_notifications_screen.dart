@@ -13,6 +13,7 @@ import '../../core/layout/responsive.dart';
 import '../../core/platform/platform_ui.dart';
 import '../../data/models/app_notification.dart';
 import '../../data/models/wallet_role.dart';
+import '../../data/notification_service.dart';
 import '../../data/services/notification_repository.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_realtime_provider.dart';
@@ -73,6 +74,7 @@ class _RoleNotificationsScreenState extends State<RoleNotificationsScreen>
           _apiNotifications.removeWhere((item) => item.id == notification.id);
           _apiNotifications.insert(0, notification);
         }
+        _trimInbox();
       });
     };
     realtime.addListener(_realtimeListener!);
@@ -108,6 +110,13 @@ class _RoleNotificationsScreenState extends State<RoleNotificationsScreen>
     _lastMatchedLocation = location;
   }
 
+  void _trimInbox() {
+    final keep = NotificationService.inboxLimit;
+    if (_apiNotifications.length > keep) {
+      _apiNotifications = _apiNotifications.take(keep).toList();
+    }
+  }
+
   NotificationRepository _repo() {
     final auth = context.read<AuthProvider>();
     final demoMode = context.read<DemoModeProvider>();
@@ -130,6 +139,7 @@ class _RoleNotificationsScreenState extends State<RoleNotificationsScreen>
       if (!mounted) return;
       setState(() {
         _apiNotifications = list;
+        _trimInbox();
         _loading = false;
         _error = null;
       });

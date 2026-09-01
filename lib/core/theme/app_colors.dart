@@ -20,4 +20,5 @@ abstract final class AppColors {
   static const darkNavy = Color(0xFF1A1A2E);
   static const darkNavy2 = Color(0xFF16213E);
   static const nfcGradientStart = Color(0xFF0F172A);
+  static const chatReadReceipt = Color(0xFF53BDEB);
 }

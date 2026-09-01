@@ -114,7 +114,10 @@ class _CancelTripScreenState extends State<CancelTripScreen> {
       return;
     }
 
-    final confirmed = await showCancelRequestConfirmation(context);
+    final confirmed = await showCancelRequestConfirmation(
+      context,
+      keepButtonFirst: true,
+    );
     if (!confirmed || !mounted) return;
 
     if (demoMode) {
@@ -210,14 +213,14 @@ class _CancelTripScreenState extends State<CancelTripScreen> {
       body: ScrollableFormScreen(
         actions: [
           AppButton(
-            label: _cancelling ? 'Cancelling…' : 'Cancel trip',
-            variant: AppButtonVariant.danger,
-            onPressed: _cancelling || !canCancel ? null : _confirmCancel,
-          ),
-          AppButton(
             label: 'Keep trip',
             variant: AppButtonVariant.ghost,
             onPressed: _cancelling ? null : () => context.pop(),
+          ),
+          AppButton(
+            label: _cancelling ? 'Cancelling…' : 'Cancel trip',
+            variant: AppButtonVariant.danger,
+            onPressed: _cancelling || !canCancel ? null : _confirmCancel,
           ),
         ],
         child: Column(

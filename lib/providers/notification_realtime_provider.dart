@@ -9,6 +9,7 @@ import '../data/services/auth_repository.dart';
 import '../data/services/chat_repository.dart';
 import '../data/services/notification_realtime_service.dart';
 import '../data/services/notification_repository.dart';
+import '../data/notification_service.dart';
 
 /// Keeps sender / traveler / receiver notification badges and inbox in sync via SSE.
 class NotificationRealtimeProvider extends ChangeNotifier {
@@ -75,6 +76,12 @@ class NotificationRealtimeProvider extends ChangeNotifier {
     _notificationSub = _realtimeService.onNotification.listen((notification) {
       _recentIncoming.removeWhere((item) => item.id == notification.id);
       _recentIncoming.insert(0, notification);
+      if (_recentIncoming.length > NotificationService.inboxLimit) {
+        _recentIncoming.removeRange(
+          NotificationService.inboxLimit,
+          _recentIncoming.length,
+        );
+      }
       if (notification.isDeliveryRelated) {
         _deliveryUpdateTick++;
       }

@@ -314,7 +314,7 @@ class _ChatListTile extends StatelessWidget {
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              conversation.time,
+                              conversation.displayTime,
                               style: typo.caption.copyWith(
                                 fontSize: 12,
                                 color: unread

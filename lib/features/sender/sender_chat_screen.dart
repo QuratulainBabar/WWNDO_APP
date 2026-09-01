@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -12,8 +10,8 @@ import '../../core/theme/app_typography.dart';
 import '../../core/widgets/back_header.dart';
 import '../../data/models/chat_message.dart';
 import '../../data/services/chat_repository.dart';
-import '../../data/services/socket_chat_service.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/chat_realtime_provider.dart';
 import '../../providers/notification_realtime_provider.dart';
 import '../chat/chat_conversation_mixin.dart';
 import '../chat/widgets/chat_composer.dart';
@@ -41,14 +39,21 @@ class _SenderChatScreenState extends State<SenderChatScreen>
   @override
   ChatThread? get chatThread => null;
 
+  @override
+  String? get liveChatConversationId => _conversationId;
+
+  @override
+  Future<ChatMessage> Function(String conversationId, String filePath)?
+      get uploadLiveChatImage =>
+          (id, path) => _repo().sendImage(id, path);
+
   bool _loading = true;
   String? _error;
   String _peerName = 'Contact';
   String _shipmentId = '';
   String? _conversationId;
   bool _unlocked = true;
-  StreamSubscription<ChatMessage>? _socketSub;
-  SocketChatService? _socket;
+  ChatRealtimeProvider? _chatRealtime;
 
   @override
   void initState() {
@@ -63,11 +68,9 @@ class _SenderChatScreenState extends State<SenderChatScreen>
 
   @override
   void dispose() {
-    _socketSub?.cancel();
     if (_conversationId != null) {
-      _socket?.leaveConversation(_conversationId!);
+      _chatRealtime?.leaveConversation(_conversationId!);
     }
-    _socket?.dispose();
     disposeChatConversation();
     super.dispose();
   }
@@ -102,30 +105,18 @@ class _SenderChatScreenState extends State<SenderChatScreen>
 
       final auth = context.read<AuthProvider>();
       final myId = auth.repository.currentUser?.id;
-      _socket = SocketChatService(
+      final chatRt = context.read<ChatRealtimeProvider>();
+      _chatRealtime = chatRt;
+      await chatRt.start(
         getAccessToken: auth.repository.tokenStorage.getAccessToken,
+        userId: myId,
+        demoMode: context.read<DemoModeProvider>().enabled,
       );
-      await _socket!.connect();
-      _socket!.joinConversation(id);
-      _socketSub = _socket!.onMessage.listen((message) {
-        if (!mounted) return;
-        // The realtime payload is viewer-neutral — derive alignment locally.
-        final resolved = message.senderId != null
-            ? message.copyWith(isMine: message.senderId == myId)
-            : message;
-        // Reconcile the echo of a message we optimistically appended locally.
-        if (resolved.isMine) {
-          if (reconcileOwnEcho(resolved)) {
-            scrollChatToBottom();
-            return;
-          }
-        } else if (resolved.id != null &&
-            chatMessages.any((m) => m.id == resolved.id)) {
-          return; // duplicate peer message
-        }
-        setState(() => chatMessages.add(resolved));
-        scrollChatToBottom();
-      });
+      attachLiveChatListeners(
+        realtime: chatRt,
+        conversationId: id,
+        myId: myId,
+      );
 
       setState(() {
         chatMessages = List.of(detail.messages);
@@ -170,6 +161,7 @@ class _SenderChatScreenState extends State<SenderChatScreen>
         text: text,
         isMine: true,
         time: chatNowTime,
+        createdAt: DateTime.now(),
         id: nextLocalMessageId(),
         pending: true,
       ),

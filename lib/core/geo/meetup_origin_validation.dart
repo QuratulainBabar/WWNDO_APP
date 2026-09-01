@@ -12,16 +12,18 @@ abstract final class MeetupOriginValidation {
     required List<MeetupLocation> meetups,
     required String originCity,
     String? originCountryCode,
+    MeetupLocation? originPlace,
   }) {
     if (meetups.isEmpty) return null;
     final city = originCity.trim();
-    if (city.isEmpty) return null;
+    if (city.isEmpty && originPlace == null) return null;
 
     for (final meetup in meetups) {
       if (!belongsToOrigin(
         meetup: meetup,
         originCity: city,
         originCountryCode: originCountryCode,
+        originPlace: originPlace,
       )) {
         return message;
       }
@@ -34,12 +36,22 @@ abstract final class MeetupOriginValidation {
     required MeetupLocation meetup,
     required String originCity,
     String? originCountryCode,
+    MeetupLocation? originPlace,
   }) {
+    if (originPlace != null) {
+      return MeetupLocationMatch.placesInSameArea(
+        meetup: meetup,
+        origin: originPlace,
+        originCityHint: originCity,
+        originCountryCode: originCountryCode,
+      );
+    }
+
     final city = originCity.trim();
     if (city.isEmpty) return false;
 
     return labelBelongsToOrigin(
-      '${meetup.name} ${meetup.address}',
+      '${meetup.name} ${meetup.address} ${meetup.locality ?? ''}',
       originCity,
       originCountryCode: originCountryCode,
       meetupCountryCode: meetup.countryCode,

@@ -10,6 +10,7 @@ import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/back_header.dart';
 import '../../core/widgets/screen_body.dart';
+import '../../data/legal_documents.dart';
 
 class LegalHubScreen extends StatelessWidget {
   const LegalHubScreen({super.key});
@@ -142,7 +143,7 @@ class LegalDocumentScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Last updated August 9, 2026',
+              'Last updated ${LegalDocuments.lastUpdated}',
               style: typo.sm.copyWith(color: AppColors.textSecondary),
             ),
             const SizedBox(height: 16),
@@ -225,60 +226,15 @@ class LegalDocumentScreen extends StatelessWidget {
   }
 }
 
-class LegalSection {
-  const LegalSection({
-    required this.heading,
-    this.body,
-    this.bullets,
-  });
-
-  final String heading;
-  final String? body;
-  final List<String>? bullets;
-}
-
 class PrivacyPolicyScreen extends StatelessWidget {
   const PrivacyPolicyScreen({super.key});
-
-  static const _sections = [
-    LegalSection(
-      heading: 'Introduction',
-      body:
-          'WWNGO operates a peer-to-peer parcel delivery marketplace. This policy explains how we collect, use, and safeguard your information.',
-    ),
-    LegalSection(
-      heading: 'Information we collect',
-      bullets: [
-        'Account information: name, email, phone, and password.',
-        'Identity verification data processed through Sumsub (KYC).',
-        'Delivery data: parcel details, routes, photos, and chat messages.',
-        'Payment records and wallet balances (cards handled by Stripe).',
-        'Device and usage data such as IP address and app version.',
-      ],
-    ),
-    LegalSection(
-      heading: 'How we use your information',
-      bullets: [
-        'Operate and improve the marketplace',
-        'Verify identity and prevent fraud',
-        'Facilitate matching, messaging, and escrow payments',
-        'Send delivery and account notifications',
-        'Comply with legal obligations',
-      ],
-    ),
-    LegalSection(
-      heading: 'Your rights',
-      body:
-          'You may request access, correction, deletion, or export of your personal data by contacting privacy@wwngo.com.',
-    ),
-  ];
 
   @override
   Widget build(BuildContext context) {
     return const LegalDocumentScreen(
-      title: 'Privacy Policy',
+      title: LegalDocuments.privacyTitle,
       websitePath: '/legal/privacy',
-      sections: _sections,
+      sections: LegalDocuments.privacySections,
     );
   }
 }
@@ -286,45 +242,12 @@ class PrivacyPolicyScreen extends StatelessWidget {
 class TermsOfServiceScreen extends StatelessWidget {
   const TermsOfServiceScreen({super.key});
 
-  static const _sections = [
-    LegalSection(
-      heading: 'Acceptance',
-      body:
-          'By using WWNGO you agree to these Terms of Service. If you do not agree, do not use the platform.',
-    ),
-    LegalSection(
-      heading: 'Platform role',
-      body:
-          'WWNGO connects senders with travelers. We are not a courier company — we facilitate matching, payments, and communication.',
-    ),
-    LegalSection(
-      heading: 'Eligibility',
-      body:
-          'You must be 18+ and complete KYC before posting parcels, listing trips, or placing bids.',
-    ),
-    LegalSection(
-      heading: 'User responsibilities',
-      bullets: [
-        'Provide accurate delivery information',
-        'Comply with customs and local laws',
-        'Do not send prohibited or illegal items',
-        'Communicate respectfully with other users',
-        'Honor agreed delivery terms',
-      ],
-    ),
-    LegalSection(
-      heading: 'Payments & disputes',
-      body:
-          'Senders fund escrow on bid acceptance. Platform fees are shown before you confirm. Disputes are reviewed using delivery records, chat, NFC checkpoints, and photos.',
-    ),
-  ];
-
   @override
   Widget build(BuildContext context) {
     return const LegalDocumentScreen(
-      title: 'Terms of Service',
+      title: LegalDocuments.termsTitle,
       websitePath: '/legal/terms',
-      sections: _sections,
+      sections: LegalDocuments.termsSections,
     );
   }
 }

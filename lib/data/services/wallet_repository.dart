@@ -2,6 +2,7 @@ import '../../core/api/api_client.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/config/demo_mode.dart';
 import '../models/ledger_entry.dart';
+import '../models/shipment_escrow.dart';
 import '../models/wallet_role.dart';
 import '../models/wallet_summary.dart';
 
@@ -32,6 +33,19 @@ class WalletRepository {
       authenticated: true,
     );
     return WalletSummary.fromJson(data);
+  }
+
+  /// GET /api/v1/wallet/escrow/:shipmentId
+  Future<ShipmentEscrow> fetchShipmentEscrow(String shipmentId) async {
+    if (_isDemoMode) {
+      return ShipmentEscrow.none(shipmentId);
+    }
+
+    final data = await _apiClient.get(
+      '/wallet/escrow/${Uri.encodeComponent(shipmentId)}',
+      authenticated: true,
+    );
+    return ShipmentEscrow.fromJson(data);
   }
 
   /// GET /api/v1/wallet/transactions?role=

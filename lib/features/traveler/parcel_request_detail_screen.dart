@@ -36,14 +36,18 @@ class ParcelRequestDetailScreen extends StatefulWidget {
       _ParcelRequestDetailScreenState();
 }
 
+enum _ParcelOfferAction { none, accepted, countered }
+
 class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
   late final TextEditingController _messageController;
   bool _loading = true;
+  bool _busy = false;
   String? _error;
   SenderTripRequest? _apiRequest;
   DeliveryRequest? _request;
   int? _matchScore;
   String _tripId = '';
+  _ParcelOfferAction _completedAction = _ParcelOfferAction.none;
 
   @override
   void initState() {
@@ -107,6 +111,7 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
         _request = request;
         _matchScore = api.matchScore;
         _tripId = api.tripPublicId.isNotEmpty ? api.tripPublicId : api.tripId;
+        _completedAction = _actionFromLoadedState(api, request.id);
         _loading = false;
       });
       return;
@@ -121,6 +126,7 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
         _request = matching.request;
         _matchScore = matching.matchScore;
         _tripId = matching.tripId;
+        _completedAction = _actionFromLoadedState(null, matching.request.id);
         _loading = false;
       });
       return;
@@ -133,9 +139,32 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
     });
   }
 
+  _ParcelOfferAction _actionFromLoadedState(
+    SenderTripRequest? api,
+    String requestId,
+  ) {
+    if (_completedAction != _ParcelOfferAction.none) return _completedAction;
+    if ((api?.status ?? '').trim().toLowerCase() == 'accepted') {
+      return _ParcelOfferAction.accepted;
+    }
+    final bid = StaticData.travelerBidForRequest(requestId) ??
+        StaticData.travelerBidForRequest(widget.requestId);
+    if (bid != null) return _ParcelOfferAction.countered;
+    return _ParcelOfferAction.none;
+  }
+
+  TravelerBid? _existingBid() {
+    final request = _request;
+    if (request == null) return null;
+    return StaticData.travelerBidForRequest(request.id) ??
+        StaticData.travelerBidForRequest(widget.requestId);
+  }
+
   Future<void> _submitBid(double amount, {bool acceptedOffer = false}) async {
     final request = _request;
-    if (request == null) return;
+    if (request == null || _busy) return;
+
+    setState(() => _busy = true);
 
     try {
       final offer = acceptedOffer
@@ -146,8 +175,9 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
             );
       if (!mounted) return;
       StaticData.upsertTravelerBid(offer);
+      _markActionComplete(acceptedOffer);
       FocusScope.of(context).unfocus();
-      context.push(
+      await context.push(
         '/bid-submitted',
         extra: {
           'route': request.route,
@@ -155,10 +185,12 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
           'tripId': _tripId,
         },
       );
+      if (mounted) setState(() => _busy = false);
       return;
     } on ApiException catch (e) {
       if (!mounted) return;
       if (e.code != 'DEMO_MODE') {
+        setState(() => _busy = false);
         AppToast.error(context, e.message);
         return;
       }
@@ -175,15 +207,16 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
       allowAboveMaxBudget: false,
       acceptedOffer: acceptedOffer,
     );
+    if (!mounted) return;
     if (error != null) {
+      setState(() => _busy = false);
       AppToast.error(context, error);
       return;
     }
 
+    _markActionComplete(acceptedOffer);
     FocusScope.of(context).unfocus();
-
-    if (!mounted) return;
-    context.push(
+    await context.push(
       '/bid-submitted',
       extra: {
         'route': request.route,
@@ -191,6 +224,16 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
         'tripId': _tripId,
       },
     );
+    if (mounted) setState(() => _busy = false);
+  }
+
+  void _markActionComplete(bool acceptedOffer) {
+    setState(() {
+      _busy = false;
+      _completedAction = acceptedOffer
+          ? _ParcelOfferAction.accepted
+          : _ParcelOfferAction.countered;
+    });
   }
 
   Future<void> _acceptOffer() async {
@@ -200,11 +243,12 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
   }
 
   Future<void> _onSendCounterOfferTap() async {
+    if (_busy || _completedAction == _ParcelOfferAction.accepted) return;
     final sent = await context.push<bool>(
       '/request/${widget.requestId}/counter-offer',
     );
     if (!mounted || sent != true) return;
-    setState(() {});
+    setState(() => _completedAction = _ParcelOfferAction.countered);
   }
 
   @override
@@ -249,10 +293,11 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
 
     final request = _request!;
     final matchScore = _matchScore;
-    final existingBid = StaticData.travelerBidForRequest(request.id);
-    final canAcceptOffer = existingBid == null;
-    final canSendCounterOffer =
-        existingBid == null || existingBid.status != TravelerBidStatus.accepted;
+    final existingBid = _existingBid();
+    final acceptedOffer = _completedAction == _ParcelOfferAction.accepted;
+    final sentCounter = _completedAction == _ParcelOfferAction.countered;
+    final canAcceptOffer = !_busy && _completedAction == _ParcelOfferAction.none;
+    final canSendCounterOffer = !_busy && !acceptedOffer;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -374,14 +419,19 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
                           ),
                         ),
                       ),
-                      if (existingBid != null) ...[
+                      if (acceptedOffer || sentCounter || existingBid != null) ...[
                         const SizedBox(height: 12),
                         Text(
-                          existingBid.isAccepted
-                              ? 'This offer was already accepted. Counter offers are closed.'
-                              : 'Your offer is ${existingBid.status.label}. You can still send an updated counter offer.',
+                          acceptedOffer
+                              ? 'You accepted this offer. Send Counter Offer is no longer available.'
+                              : sentCounter
+                                  ? 'Your counter offer was sent. Accept Offer is no longer available.'
+                                  : existingBid!.isAccepted
+                                      ? 'This offer was already accepted. Counter offers are closed.'
+                                      : 'Your offer is ${existingBid.status.label}. You can still send an updated counter offer.',
                           style: typo.sm.copyWith(
-                            color: existingBid.isAccepted
+                            color: acceptedOffer ||
+                                    existingBid?.isAccepted == true
                                 ? AppColors.danger
                                 : AppColors.textSecondary,
                           ),
@@ -389,7 +439,7 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
                       ],
                       const SizedBox(height: 16),
                       AppButton(
-                        label: 'Accept Offer',
+                        label: acceptedOffer ? 'Offer Accepted' : 'Accept Offer',
                         onPressed: canAcceptOffer ? _acceptOffer : null,
                       ),
                       const SizedBox(height: AppButton.stackGap),

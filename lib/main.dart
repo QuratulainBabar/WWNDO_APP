@@ -5,6 +5,7 @@ import 'app.dart';
 import 'core/config/demo_mode.dart';
 import 'core/push/push_notification_service.dart';
 import 'providers/auth_provider.dart';
+import 'providers/chat_realtime_provider.dart';
 import 'providers/kyc_provider.dart';
 import 'providers/notification_realtime_provider.dart';
 import 'providers/sender_deliveries_provider.dart';
@@ -40,17 +41,21 @@ Future<void> main() async {
     demoMode: demoMode,
   );
   final notificationRealtimeProvider = NotificationRealtimeProvider();
+  final chatRealtimeProvider = ChatRealtimeProvider();
   final senderDeliveriesProvider = SenderDeliveriesProvider();
 
   // Refresh the chat tab badge the moment a chat push arrives in the foreground,
   // instead of waiting for the periodic poll.
-  PushNotificationService.onForegroundChatMessage = () {
+  void refreshChatBadge() {
     if (!authProvider.isAuthenticated) return;
     notificationRealtimeProvider.refreshChatUnread(
       authRepository: authProvider.repository,
       demoMode: demoMode,
     );
-  };
+  }
+
+  PushNotificationService.onForegroundChatMessage = refreshChatBadge;
+  chatRealtimeProvider.onIncomingPeerMessage = refreshChatBadge;
 
   runApp(
     MultiProvider(
@@ -61,6 +66,9 @@ Future<void> main() async {
         ChangeNotifierProvider<WalletProvider>.value(value: walletProvider),
         ChangeNotifierProvider<NotificationRealtimeProvider>.value(
           value: notificationRealtimeProvider,
+        ),
+        ChangeNotifierProvider<ChatRealtimeProvider>.value(
+          value: chatRealtimeProvider,
         ),
         ChangeNotifierProvider<SenderDeliveriesProvider>.value(
           value: senderDeliveriesProvider,

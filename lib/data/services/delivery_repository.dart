@@ -415,8 +415,8 @@ class DeliveryRepository {
 
     final originCity = request.deliveryType == DeliveryType.cityToCity
         ? (request.fromCity ?? '')
-        : (request.originAirport ??
-            request.originCity ??
+        : (request.originCity ??
+            request.originAirport ??
             request.originCountry ??
             '');
     final originCountryCode = request.fromCode;
@@ -437,8 +437,8 @@ class DeliveryRepository {
 
     final destinationCity = request.deliveryType == DeliveryType.cityToCity
         ? (request.toCity ?? '')
-        : (request.destinationAirport ??
-            request.destinationCity ??
+        : (request.destinationCity ??
+            request.destinationAirport ??
             request.destinationCountry ??
             '');
     final destinationCountryCode = request.toCode;

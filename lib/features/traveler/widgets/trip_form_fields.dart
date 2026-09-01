@@ -12,7 +12,6 @@ import '../../../core/widgets/app_toast.dart';
 import '../../../data/models/meetup_location.dart';
 import '../../../data/models/traveler_trip.dart';
 import '../../../data/services/trip_repository.dart';
-import '../../../data/trip_creation_wallet_validation.dart';
 import '../../../providers/auth_provider.dart';
 import '../../sender/widgets/travel_date_field.dart';
 import 'available_luggage_capacity_field.dart';
@@ -194,7 +193,6 @@ class TripFormFieldsState extends State<TripFormFields> {
         context.typo.h3.copyWith(fontWeight: FontWeight.w600);
     final authUser = context.watch<AuthProvider>().user;
     final kycOk = authUser?.isKycApproved ?? false;
-    final reserveOk = TripCreationWalletValidation.hasMinimumBalance;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -214,14 +212,6 @@ class TripFormFieldsState extends State<TripFormFields> {
                 color: kycOk ? AppColors.success : AppColors.danger,
                 backgroundColor: (kycOk ? AppColors.success : AppColors.danger)
                     .withValues(alpha: 0.12),
-                semiBold: true,
-              ),
-              AppBadge(
-                label: TripCreationWalletValidation.helperLabel,
-                color: reserveOk ? AppColors.success : AppColors.danger,
-                backgroundColor:
-                    (reserveOk ? AppColors.success : AppColors.danger)
-                        .withValues(alpha: 0.12),
                 semiBold: true,
               ),
             ],

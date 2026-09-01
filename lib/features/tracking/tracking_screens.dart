@@ -40,6 +40,7 @@ import '../../data/wallet_gate.dart';
 import '../../data/wallet_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_realtime_provider.dart';
+import '../../providers/wallet_provider.dart';
 import '../../data/review_context.dart';
 import '../../data/services/review_repository.dart';
 import '../../core/widgets/app_toast.dart';
@@ -47,6 +48,7 @@ import '../shared/meetup_agreement_card.dart';
 import '../sender/bid_acceptance_payment_screen.dart';
 import '../sender/my_posted_parcels_screen.dart';
 import '../sender/sender_delivery_status.dart';
+import 'widgets/shipment_escrow_section.dart';
 import 'widgets/shipment_tracking_section.dart';
 
 /// Track tab — same list/flow as My Posted Deliveries, with Track heading.
@@ -457,49 +459,66 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
                         _detailRow(context, 'Travel date', DateFormat('MMM d, yyyy').format(shipment.travelDate)),
                         _detailRow(context, 'Parcel type', '${shipment.parcelCategory} · ${shipment.parcelWeightKg}kg'),
                         const SizedBox(height: 16),
-                        _ShipmentEscrowSection(shipmentId: shipment.id),
+                        ShipmentEscrowSection(shipmentId: shipment.id),
                         const SizedBox(height: 16),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            if (WalletService.escrowCentsForShipment(shipment.id) > 0 ||
-                                WalletService.isEscrowReleased(shipment.id))
-                              AppBadge.success('✓ Escrow active')
-                            else if (WalletService.isEscrowRefunded(shipment.id))
-                              AppBadge(
-                                label: 'Escrow refunded',
-                                color: AppColors.warning,
-                                backgroundColor: AppColors.warning.withValues(alpha: 0.12),
-                                small: true,
-                              )
-                            else if (WalletService.isEscrowFrozen(shipment.id))
-                              AppBadge(
-                                label: 'Escrow frozen',
-                                color: AppColors.danger,
-                                backgroundColor: AppColors.danger.withValues(alpha: 0.12),
-                                small: true,
-                              ),
-                            AppBadge.success('✓ ID verified'),
-                            if (cp1Confirmed)
-                              AppBadge.success('✓ NFC CP1')
-                            else
-                              AppBadge(
-                                label: '○ NFC CP1',
-                                color: AppColors.textDisabled,
-                                backgroundColor: AppColors.textDisabled.withValues(alpha: 0.4),
-                                small: true,
-                              ),
-                            if (cp2Confirmed || status == ShipmentStatus.delivered)
-                              AppBadge.success('✓ NFC CP2')
-                            else
-                              AppBadge(
-                                label: '○ NFC CP2',
-                                color: AppColors.textDisabled,
-                                backgroundColor: AppColors.textDisabled.withValues(alpha: 0.4),
-                                small: true,
-                              ),
-                          ],
+                        ValueListenableBuilder<int>(
+                          valueListenable: WalletService.walletVersion,
+                          builder: (context, _, __) {
+                            return Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                if (WalletService.escrowCentsForShipment(shipment.id) > 0 ||
+                                    WalletService.isEscrowReleased(shipment.id))
+                                  AppBadge.success('✓ Escrow active')
+                                else if (WalletService.isEscrowRefunded(shipment.id))
+                                  AppBadge(
+                                    label: 'Escrow refunded',
+                                    color: AppColors.warning,
+                                    backgroundColor: AppColors.warning.withValues(alpha: 0.12),
+                                    small: true,
+                                  )
+                                else if (WalletService.isEscrowFrozen(shipment.id))
+                                  AppBadge(
+                                    label: 'Escrow frozen',
+                                    color: AppColors.danger,
+                                    backgroundColor: AppColors.danger.withValues(alpha: 0.12),
+                                    small: true,
+                                  ),
+                                AppBadge.success('✓ ID verified'),
+                                if (cp1Confirmed)
+                                  AppBadge.success(
+                                    widget.isTravelerView
+                                        ? '✓ Sender ↔ Traveler'
+                                        : '✓ NFC CP1',
+                                  )
+                                else
+                                  AppBadge(
+                                    label: widget.isTravelerView
+                                        ? '○ Sender ↔ Traveler'
+                                        : '○ NFC CP1',
+                                    color: AppColors.textDisabled,
+                                    backgroundColor: AppColors.textDisabled.withValues(alpha: 0.4),
+                                    small: true,
+                                  ),
+                                if (cp2Confirmed || status == ShipmentStatus.delivered)
+                                  AppBadge.success(
+                                    widget.isTravelerView
+                                        ? '✓ Traveler ↔ Receiver'
+                                        : '✓ NFC CP2',
+                                  )
+                                else
+                                  AppBadge(
+                                    label: widget.isTravelerView
+                                        ? '○ Traveler ↔ Receiver'
+                                        : '○ NFC CP2',
+                                    color: AppColors.textDisabled,
+                                    backgroundColor: AppColors.textDisabled.withValues(alpha: 0.4),
+                                    small: true,
+                                  ),
+                              ],
+                            );
+                          },
                         ),
                       ],
                     ),
@@ -926,69 +945,6 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
         children: [
           Text(label, style: typo.sm),
           Text(value, style: typo.bodyBold.copyWith(fontWeight: FontWeight.w700)),
-        ],
-      ),
-    );
-  }
-}
-
-class _ShipmentEscrowSection extends StatelessWidget {
-  const _ShipmentEscrowSection({required this.shipmentId});
-
-  final String shipmentId;
-
-  @override
-  Widget build(BuildContext context) {
-    final typo = context.typo;
-    return ValueListenableBuilder<int>(
-      valueListenable: WalletService.walletVersion,
-      builder: (context, _, __) {
-        final escrow = WalletService.escrowCentsForShipment(shipmentId);
-        final frozen = WalletService.isEscrowFrozen(shipmentId);
-        final refunded = WalletService.isEscrowRefunded(shipmentId);
-        final released = WalletService.isEscrowReleased(shipmentId);
-
-        String statusLabel;
-        if (released) {
-          statusLabel = 'Released to traveler (NFC CP2)';
-        } else if (refunded) {
-          statusLabel = 'Refunded to sender';
-        } else if (frozen) {
-          statusLabel = 'Frozen — dispute under review';
-        } else if (escrow > 0) {
-          statusLabel = 'Held until NFC Checkpoint 2';
-        } else {
-          statusLabel = 'No active escrow';
-        }
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Shipment escrow', style: typo.h3.copyWith(fontWeight: FontWeight.w700)),
-            const SizedBox(height: 8),
-            _detailRow(context, 'Amount', WalletService.formatCents(escrow)),
-            _detailRow(context, 'Status', statusLabel),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _detailRow(BuildContext context, String label, String value) {
-    final typo = context.typo;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: typo.sm),
-          Flexible(
-            child: Text(
-              value,
-              textAlign: TextAlign.end,
-              style: typo.bodyBold.copyWith(fontWeight: FontWeight.w700),
-            ),
-          ),
         ],
       ),
     );
@@ -1848,14 +1804,30 @@ class _DisputeFormScreenState extends State<DisputeFormScreen> {
   }
 }
 
-class DisputeScreen extends StatelessWidget {
+class DisputeScreen extends StatefulWidget {
   const DisputeScreen({super.key, required this.shipmentId, this.reason});
 
   final String shipmentId;
   final String? reason;
 
   @override
+  State<DisputeScreen> createState() => _DisputeScreenState();
+}
+
+class _DisputeScreenState extends State<DisputeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<WalletProvider>().refreshShipmentEscrow(widget.shipmentId);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final shipmentId = widget.shipmentId;
+    final reason = widget.reason;
     final typo = context.typo;
     final ctx = disputeContextFromUri(GoRouterState.of(context).uri);
     final disputeReason = reason ??

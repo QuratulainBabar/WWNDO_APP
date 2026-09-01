@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/config/api_config.dart';
 import '../../../core/platform/local_image.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
@@ -15,38 +16,57 @@ class ChatImageAttachment extends StatelessWidget {
     final typo = context.typo;
     final path = message.imagePath;
     final hasLocalImage = path != null && localImageExists(path);
+    final remoteUrl = message.remoteImageUrl;
 
     if (hasLocalImage) {
-      return Stack(
-        alignment: Alignment.bottomCenter,
-        children: [
-          buildLocalImage(
-            path,
-            width: 160,
-            height: 110,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => _placeholder(message, typo),
-          ),
-          Container(
-            width: 160,
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            color: Colors.black.withValues(alpha: 0.45),
-            child: Text(
-              message.imageName ?? 'image.jpg',
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: typo.badgeSm.copyWith(color: Colors.white.withValues(alpha: 0.9)),
-            ),
-          ),
-        ],
+      return buildLocalImage(
+        path,
+        width: 160,
+        height: 110,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) =>
+            _networkOrPlaceholder(typo, remoteUrl),
       );
     }
 
-    return _placeholder(message, typo);
+    return _networkOrPlaceholder(typo, remoteUrl);
   }
 
-  Widget _placeholder(ChatMessage message, AppTypography typo) {
+  Widget _networkOrPlaceholder(AppTypography typo, String? remoteUrl) {
+    if (remoteUrl == null || remoteUrl.isEmpty) {
+      return _placeholder(typo);
+    }
+    return Image.network(
+      ApiConfig.resolveUploadUrl(remoteUrl),
+      width: 160,
+      height: 110,
+      fit: BoxFit.cover,
+      loadingBuilder: (context, child, progress) {
+        if (progress == null) return child;
+        return SizedBox(
+          width: 160,
+          height: 110,
+          child: Center(
+            child: SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: AppColors.primary,
+                value: progress.expectedTotalBytes != null
+                    ? progress.cumulativeBytesLoaded /
+                        progress.expectedTotalBytes!
+                    : null,
+              ),
+            ),
+          ),
+        );
+      },
+      errorBuilder: (context, error, stackTrace) => _placeholder(typo),
+    );
+  }
+
+  Widget _placeholder(AppTypography typo) {
     return Container(
       width: 160,
       height: 110,
@@ -54,9 +74,9 @@ class ChatImageAttachment extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text('📦', style: typo.actionIcon.copyWith(fontSize: 28)),
+          Text('📷', style: typo.actionIcon.copyWith(fontSize: 28)),
           Text(
-            message.imageName ?? 'parcel_photo.jpg',
+            'Photo',
             style: typo.badgeSm.copyWith(color: Colors.white.withValues(alpha: 0.8)),
           ),
         ],

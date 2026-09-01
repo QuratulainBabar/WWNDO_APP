@@ -10,6 +10,7 @@ import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_svg_icon.dart';
 import '../../data/models/wallet_role.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/chat_realtime_provider.dart';
 import '../../providers/notification_realtime_provider.dart';
 
 class ReceiverShell extends StatefulWidget {
@@ -80,6 +81,11 @@ class _ReceiverShellState extends State<ReceiverShell>
       authRepository: auth.repository,
       demoMode: demoMode,
     );
+    context.read<ChatRealtimeProvider>().start(
+          getAccessToken: auth.repository.tokenStorage.getAccessToken,
+          userId: auth.repository.currentUser?.id,
+          demoMode: demoMode.enabled,
+        );
   }
 
   Future<void> _refreshUnread() async {

@@ -4,6 +4,7 @@ import '../core/api/api_exception.dart';
 import '../core/config/demo_mode.dart';
 import '../core/payments/stripe_payments.dart';
 import '../data/models/ledger_entry.dart';
+import '../data/models/shipment_escrow.dart';
 import '../data/models/wallet_role.dart';
 import '../data/models/wallet_summary.dart';
 import '../data/services/auth_repository.dart';
@@ -247,6 +248,53 @@ class WalletProvider extends ChangeNotifier {
     }
   }
 
+  /// Fetch live escrow for one shipment (sender, traveler, or receiver party).
+  Future<ShipmentEscrow> refreshShipmentEscrow(String shipmentId) async {
+    if (shipmentId.trim().isEmpty) {
+      return ShipmentEscrow.none(shipmentId);
+    }
+
+    if (isDemoMode || _authRepository.currentUser == null) {
+      final cached = WalletService.escrowCentsForShipment(shipmentId);
+      final status = WalletService.isEscrowReleased(shipmentId)
+          ? 'released'
+          : WalletService.isEscrowRefunded(shipmentId)
+              ? 'refunded'
+              : WalletService.isEscrowFrozen(shipmentId)
+                  ? 'frozen'
+                  : cached > 0
+                      ? 'held'
+                      : 'none';
+      return ShipmentEscrow(
+        shipmentId: shipmentId,
+        amountCents: cached,
+        status: status,
+      );
+    }
+
+    try {
+      final escrow = await _walletRepository.fetchShipmentEscrow(shipmentId);
+      WalletService.applyRemoteShipmentEscrow(escrow);
+      notifyListeners();
+      return escrow;
+    } catch (e) {
+      debugPrint('Shipment escrow fetch failed: $e');
+      return ShipmentEscrow(
+        shipmentId: shipmentId,
+        amountCents: WalletService.escrowCentsForShipment(shipmentId),
+        status: WalletService.isEscrowReleased(shipmentId)
+            ? 'released'
+            : WalletService.isEscrowRefunded(shipmentId)
+                ? 'refunded'
+                : WalletService.isEscrowFrozen(shipmentId)
+                    ? 'frozen'
+                    : WalletService.escrowCentsForShipment(shipmentId) > 0
+                        ? 'held'
+                        : 'none',
+      );
+    }
+  }
+
   void clear() {
     _summary = null;
     _transactions = const [];
@@ -268,6 +316,7 @@ class WalletProvider extends ChangeNotifier {
             currency: summary.currency,
             minimumWithdrawalCents: summary.minimumWithdrawalCents,
             recentTransactions: summary.recentTransactions,
+            shipmentEscrows: summary.shipmentEscrows,
           );
     _summary = effective;
     _transactions = List<LedgerEntry>.unmodifiable(transactions);
@@ -277,6 +326,7 @@ class WalletProvider extends ChangeNotifier {
       availableCents: summary.availableCents,
       escrowCents: effective.escrowCents,
       history: transactions,
+      shipmentEscrows: effective.shipmentEscrows,
     );
     notifyListeners();
   }

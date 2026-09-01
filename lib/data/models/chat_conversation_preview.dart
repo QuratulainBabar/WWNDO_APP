@@ -1,3 +1,4 @@
+import '../../core/time/local_time.dart';
 import 'chat_message.dart';
 
 /// Inbox row for WhatsApp-style chat list.
@@ -14,6 +15,7 @@ class ChatConversationPreview {
     this.messages = const [],
     this.threadType,
     this.unlocked = true,
+    this.lastMessageAt,
   });
 
   final String id;
@@ -29,6 +31,13 @@ class ChatConversationPreview {
   final List<ChatMessage> messages;
   final String? threadType;
   final bool unlocked;
+  final DateTime? lastMessageAt;
+
+  String get displayTime {
+    final ts = lastMessageAt;
+    if (ts != null) return LocalTime.inbox(ts);
+    return time;
+  }
 
   factory ChatConversationPreview.fromJson(Map<String, dynamic> json) {
     final name = json['name'] as String? ?? 'Contact';
@@ -46,6 +55,9 @@ class ChatConversationPreview {
       unreadCount: (json['unreadCount'] as num?)?.toInt() ?? 0,
       threadType: json['threadType'] as String?,
       unlocked: json['unlocked'] as bool? ?? true,
+      lastMessageAt: LocalTime.parse(
+        json['lastMessageAt'] ?? json['updatedAt'] ?? json['createdAt'],
+      ),
     );
   }
 }

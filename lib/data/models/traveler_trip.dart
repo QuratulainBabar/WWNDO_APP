@@ -27,6 +27,9 @@ extension TripStatusX on TripStatus {
   Color get backgroundColor => color.withValues(alpha: 0.12);
 
   bool get canEditOrCancel => this == TripStatus.openBid;
+
+  bool get isCompleted =>
+      this == TripStatus.delivered || this == TripStatus.cancelled;
 }
 
 TripStatus tripStatusFromApi(String? value) {

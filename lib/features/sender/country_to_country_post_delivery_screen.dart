@@ -11,8 +11,10 @@ import '../../core/widgets/back_header.dart';
 import '../../core/widgets/scrollable_form_screen.dart';
 import '../../data/models/created_delivery.dart';
 import '../../data/models/traveler_trip.dart';
+import '../../data/models/wallet_role.dart';
 import '../../data/services/delivery_repository.dart';
 import '../../data/static_data.dart';
+import '../../data/wallet_gate.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_realtime_provider.dart';
 import '../../providers/sender_deliveries_provider.dart';
@@ -93,6 +95,8 @@ class _CountryToCountryPostDeliveryScreenState
       // even when the shell route does not remount.
       context.read<SenderDeliveriesProvider>().upsert(created);
       context.read<NotificationRealtimeProvider>().notifyDeliveryUpdated();
+      await WalletGate.refreshRoles(context, [WalletRole.sender]);
+      if (!mounted) return;
       context.pushReplacement(
         '/post-delivery/success',
         extra: created,

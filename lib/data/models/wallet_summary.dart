@@ -1,4 +1,5 @@
 import 'ledger_entry.dart';
+import 'shipment_escrow.dart';
 import 'wallet_role.dart';
 
 /// Wallet balances + recent ledger for a single role.
@@ -10,6 +11,7 @@ class WalletSummary {
     this.currency = 'USD',
     this.minimumWithdrawalCents = 1000,
     this.recentTransactions = const [],
+    this.shipmentEscrows = const [],
   });
 
   final WalletRole role;
@@ -18,6 +20,7 @@ class WalletSummary {
   final String currency;
   final int minimumWithdrawalCents;
   final List<LedgerEntry> recentTransactions;
+  final List<ShipmentEscrow> shipmentEscrows;
 
   double get availableUsd => availableCents / 100;
   double get escrowUsd => escrowCents / 100;
@@ -32,6 +35,7 @@ class WalletSummary {
   factory WalletSummary.fromJson(Map<String, dynamic> json) {
     final role = WalletRole.fromQuery(json['role']?.toString());
     final recent = json['recentTransactions'];
+    final escrows = json['shipmentEscrows'];
     return WalletSummary(
       role: role,
       availableCents: (json['availableCents'] as num?)?.toInt() ?? 0,
@@ -43,6 +47,12 @@ class WalletSummary {
           ? recent
               .whereType<Map>()
               .map((e) => LedgerEntry.fromJson(Map<String, dynamic>.from(e)))
+              .toList()
+          : const [],
+      shipmentEscrows: escrows is List
+          ? escrows
+              .whereType<Map>()
+              .map((e) => ShipmentEscrow.fromJson(Map<String, dynamic>.from(e)))
               .toList()
           : const [],
     );

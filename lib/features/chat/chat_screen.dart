@@ -272,7 +272,7 @@ class _ChatScreenState extends State<ChatScreen> with ChatConversationMixin {
 
             const SizedBox(height: 2),
 
-            Text(message.time, style: typo.bubbleTime),
+            Text(message.displayTime, style: typo.bubbleTime),
 
             const SizedBox(height: 10),
 
@@ -328,7 +328,7 @@ class _ChatScreenState extends State<ChatScreen> with ChatConversationMixin {
 
             const SizedBox(height: 2),
 
-            Text(message.time, style: typo.bubbleTime),
+            Text(message.displayTime, style: typo.bubbleTime),
 
             const SizedBox(height: 10),
 
@@ -400,7 +400,7 @@ class _ChatScreenState extends State<ChatScreen> with ChatConversationMixin {
 
             const SizedBox(height: 2),
 
-            Text(message.time, style: typo.bubbleTime),
+            Text(message.displayTime, style: typo.bubbleTime),
 
             const SizedBox(height: 10),
 

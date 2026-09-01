@@ -7,6 +7,7 @@ class MeetupLocation {
     this.latitude,
     this.longitude,
     this.countryCode,
+    this.locality,
   });
 
   final String name;
@@ -16,6 +17,9 @@ class MeetupLocation {
   final double? longitude;
   /// ISO 3166-1 alpha-2 when resolved via Places Details.
   final String? countryCode;
+
+  /// City / locality from Places address components (e.g. "Lahore").
+  final String? locality;
 
   /// Display label sent to the API and shown in lists.
   String get displayLabel =>
@@ -28,6 +32,7 @@ class MeetupLocation {
     double? latitude,
     double? longitude,
     String? countryCode,
+    String? locality,
   }) {
     return MeetupLocation(
       name: name ?? this.name,
@@ -36,6 +41,7 @@ class MeetupLocation {
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
       countryCode: countryCode ?? this.countryCode,
+      locality: locality ?? this.locality,
     );
   }
 
@@ -47,6 +53,7 @@ class MeetupLocation {
       latitude: (json['latitude'] as num?)?.toDouble(),
       longitude: (json['longitude'] as num?)?.toDouble(),
       countryCode: json['countryCode'] as String?,
+      locality: json['locality'] as String?,
     );
   }
 
@@ -57,5 +64,6 @@ class MeetupLocation {
         if (latitude != null) 'latitude': latitude,
         if (longitude != null) 'longitude': longitude,
         if (countryCode != null) 'countryCode': countryCode,
+        if (locality != null) 'locality': locality,
       };
 }

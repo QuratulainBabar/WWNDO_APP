@@ -195,9 +195,33 @@ abstract final class PhoneCountries {
     return _nationalExamples[iso.toUpperCase()] ?? '612 345 678';
   }
 
-  /// Placeholder with dial code + national format, e.g. `+33 6 12 34 56 78`.
+  /// Local-number placeholder for [country], e.g. `802 123 4567` for Nigeria.
+  /// Never includes the calling code — that is shown separately to the left
+  /// of the input. Any accidental `+NN` / `NN` prefix is stripped.
   static String examplePlaceholder(PhoneCountry country) {
-    return '${country.dialCode} ${nationalExample(country.iso)}';
+    return stripLeadingDialCode(
+      nationalExample(country.iso),
+      country.dialCode,
+    );
+  }
+
+  /// Removes a leading calling-code prefix (`+234`, `234`, …) from [value].
+  static String stripLeadingDialCode(String value, String dialCode) {
+    var result = value.trim();
+    if (result.isEmpty) return result;
+
+    final plusCode = dialCode.startsWith('+') ? dialCode : '+$dialCode';
+    final digits = plusCode.substring(1);
+
+    if (result.startsWith(plusCode)) {
+      return result.substring(plusCode.length).trim();
+    }
+    if (result.startsWith(digits) &&
+        (result.length == digits.length ||
+            !RegExp(r'\d').hasMatch(result[digits.length]))) {
+      return result.substring(digits.length).trim();
+    }
+    return result;
   }
 
   static const Map<String, String> _nationalExamples = {

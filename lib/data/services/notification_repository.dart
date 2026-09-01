@@ -2,6 +2,7 @@ import '../../core/api/api_client.dart';
 import '../../core/config/demo_mode.dart';
 import '../models/app_notification.dart';
 import '../models/wallet_role.dart';
+import '../notification_service.dart';
 
 /// Backend notification inbox API.
 class NotificationRepository {
@@ -18,7 +19,7 @@ class NotificationRepository {
 
   Future<List<AppNotification>> list({
     required WalletRole role,
-    int limit = 50,
+    int limit = NotificationService.inboxLimit,
   }) async {
     if (_isDemoMode) return const [];
 

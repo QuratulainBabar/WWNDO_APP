@@ -4,11 +4,12 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/config/demo_mode.dart';
+import '../../core/layout/responsive.dart';
+import '../../core/platform/platform_ui.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/back_link.dart';
-import '../../core/widgets/screen_body.dart';
 import '../../data/models/traveler_trip.dart';
 import '../../data/services/trip_repository.dart';
 import '../../data/static_data.dart';
@@ -22,22 +23,33 @@ class TravelerMyTripsScreen extends StatefulWidget {
   State<TravelerMyTripsScreen> createState() => _TravelerMyTripsScreenState();
 }
 
-class _TravelerMyTripsScreenState extends State<TravelerMyTripsScreen> {
+class _TravelerMyTripsScreenState extends State<TravelerMyTripsScreen>
+    with WidgetsBindingObserver {
   List<TravelerTrip> _trips = const [];
+  bool _showActive = true;
   bool _loading = true;
   String? _error;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     StaticData.travelerPostedTripsVersion.addListener(_onTripsChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     StaticData.travelerPostedTripsVersion.removeListener(_onTripsChanged);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _load(silent: true);
+    }
   }
 
   void _onTripsChanged() {
@@ -100,6 +112,12 @@ class _TravelerMyTripsScreenState extends State<TravelerMyTripsScreen> {
     }
   }
 
+  List<TravelerTrip> get _visible {
+    return _trips.where((t) {
+      return _showActive ? !t.status.isCompleted : t.status.isCompleted;
+    }).toList();
+  }
+
   Future<void> _onMenuSelected(String value, TravelerTrip trip) async {
     final id = trip.displayId;
     if (value == 'edit') {
@@ -147,62 +165,150 @@ class _TravelerMyTripsScreenState extends State<TravelerMyTripsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final horizontal = context.horizontalPadding;
     final typo = context.typo;
+    final trips = _visible;
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: ScreenBody(
-        onRefresh: () => _load(silent: true),
+      body: SafeArea(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            BackLink(onTap: () => context.go('/traveler-home')),
-            const SizedBox(height: 16),
-            Text('My Trips', style: typo.h1),
+            Padding(
+              padding: EdgeInsets.fromLTRB(horizontal, 20, horizontal, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  BackLink(onTap: () => context.go('/traveler-home')),
+                  const SizedBox(height: 16),
+                  Text('My Trips', style: typo.h1),
+                ],
+              ),
+            ),
             const SizedBox(height: 12),
-            if (_loading && _trips.isEmpty)
-              const Padding(
-                padding: EdgeInsets.only(top: 24),
-                child: Center(
-                  child: SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
-                      color: AppColors.primary,
-                    ),
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.symmetric(horizontal: horizontal),
+              decoration: const BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: AppColors.border, width: 1),
+                ),
+              ),
+              child: Row(
+                children: [
+                  _tab(
+                    context,
+                    'Active',
+                    _showActive,
+                    () => setState(() => _showActive = true),
                   ),
-                ),
-              )
-            else if (_trips.isEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 24),
-                child: Column(
-                  children: [
-                    Text(
-                      _error ?? 'No trips yet. Create a trip from Home.',
-                      style: typo.sm.copyWith(color: AppColors.textSecondary),
-                    ),
-                    if (_error != null) ...[
-                      const SizedBox(height: 12),
-                      TextButton(
-                        onPressed: () => _load(),
-                        child: const Text('Retry'),
-                      ),
-                    ],
-                  ],
-                ),
-              )
-            else
-              for (var i = 0; i < _trips.length; i++) ...[
-                if (i > 0) const SizedBox(height: 10),
-                _TripCard(
-                  trip: _trips[i],
-                  onMenuSelected: (value) => _onMenuSelected(value, _trips[i]),
-                  menuItems: _menuItems,
-                ),
-              ],
+                  const SizedBox(width: 28),
+                  _tab(
+                    context,
+                    'Completed',
+                    !_showActive,
+                    () => setState(() => _showActive = false),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(child: _body(context, typo, horizontal, trips)),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _body(
+    BuildContext context,
+    AppTypography typo,
+    double horizontal,
+    List<TravelerTrip> trips,
+  ) {
+    if (_loading && _trips.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_error != null && _trips.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: horizontal),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _error!,
+                textAlign: TextAlign.center,
+                style: typo.sm.copyWith(color: AppColors.textSecondary),
+              ),
+              TextButton(onPressed: _load, child: const Text('Retry')),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (trips.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: horizontal),
+          child: Text(
+            _showActive ? 'No active trips yet.' : 'No completed trips yet.',
+            style: typo.sm.copyWith(color: AppColors.textSecondary),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      color: AppColors.primary,
+      onRefresh: () => _load(silent: true),
+      child: ListView.builder(
+        physics: AlwaysScrollableScrollPhysics(parent: PlatformUi.scrollPhysics),
+        padding: EdgeInsets.fromLTRB(horizontal, 20, horizontal, 24),
+        itemCount: trips.length,
+        itemBuilder: (context, i) {
+          return Padding(
+            padding: EdgeInsets.only(bottom: i == trips.length - 1 ? 0 : 10),
+            child: _TripCard(
+              trip: trips[i],
+              onMenuSelected: (value) => _onMenuSelected(value, trips[i]),
+              menuItems: _menuItems,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _tab(
+    BuildContext context,
+    String label,
+    bool active,
+    VoidCallback onTap,
+  ) {
+    final typo = context.typo;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.only(top: 4, bottom: 12),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: active ? AppColors.primary : Colors.transparent,
+              width: 2,
+            ),
+          ),
+        ),
+        child: Text(
+          label,
+          style: typo.body.copyWith(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: active ? AppColors.primary : AppColors.textSecondary,
+          ),
         ),
       ),
     );

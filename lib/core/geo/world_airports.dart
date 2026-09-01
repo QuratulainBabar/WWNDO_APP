@@ -415,11 +415,36 @@ abstract final class WorldAirports {
       }
     }
     // Match legacy labels like "Charles de Gaulle (CDG)" after name updates.
-    final codeMatch = RegExp(r'\(([A-Z]{3})\)$').firstMatch(trimmed);
+    final codeMatch = RegExp(r'\(([A-Z]{3})\)').firstMatch(trimmed);
     if (codeMatch != null) {
       return byCode(codeMatch.group(1)!);
     }
     return null;
+  }
+
+  /// Resolve a Google Places airport label to a catalog row (city + country).
+  static WorldAirport? matchFromLabel(String label) {
+    final exact = byLabel(label);
+    if (exact != null) return exact;
+
+    final hay = label.trim().toLowerCase();
+    if (hay.isEmpty) return null;
+
+    for (final match in RegExp(r'\b([a-z]{3})\b').allMatches(hay)) {
+      final found = byCode(match.group(1)!);
+      if (found != null) return found;
+    }
+
+    WorldAirport? best;
+    var bestLen = 0;
+    for (final airport in all) {
+      final name = airport.name.toLowerCase();
+      if (name.length >= 5 && hay.contains(name) && name.length > bestLen) {
+        best = airport;
+        bestLen = name.length;
+      }
+    }
+    return best;
   }
 
   static WorldAirport? firstForCountry(String iso) {

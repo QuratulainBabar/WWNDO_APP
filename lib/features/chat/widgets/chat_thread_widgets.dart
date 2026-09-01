@@ -231,27 +231,24 @@ class ChatMessageBubble extends StatelessWidget {
                 isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
             children: [
               bubble,
-              if (isLastInGroup) ...[
+              if (isMine || isLastInGroup) ...[
                 const SizedBox(height: 3),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        message.time,
-                        style: typo.bubbleTime.copyWith(
-                          fontSize: 11,
-                          color: AppColors.textSecondary,
+                      if (isLastInGroup)
+                        Text(
+                          message.displayTime,
+                          style: typo.bubbleTime.copyWith(
+                            fontSize: 11,
+                            color: AppColors.textSecondary,
+                          ),
                         ),
-                      ),
                       if (isMine) ...[
-                        const SizedBox(width: 3),
-                        const Icon(
-                          Icons.done_rounded,
-                          size: 13,
-                          color: AppColors.textSecondary,
-                        ),
+                        if (isLastInGroup) const SizedBox(width: 3),
+                        ChatReceiptTicks(message: message),
                       ],
                     ],
                   ),
@@ -261,6 +258,37 @@ class ChatMessageBubble extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// WhatsApp-style ticks for outgoing messages:
+/// clock → sending, 1 grey → sent, 2 grey → delivered, 2 blue → read.
+class ChatReceiptTicks extends StatelessWidget {
+  const ChatReceiptTicks({super.key, required this.message});
+
+  final ChatMessage message;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!message.isMine) return const SizedBox.shrink();
+
+    if (message.pending) {
+      return const Icon(
+        Icons.schedule_rounded,
+        size: 14,
+        color: AppColors.textSecondary,
+      );
+    }
+
+    final read = message.receiptStatus == ChatReceiptStatus.read;
+    final delivered = read ||
+        message.receiptStatus == ChatReceiptStatus.delivered;
+
+    return Icon(
+      delivered ? Icons.done_all_rounded : Icons.done_rounded,
+      size: 15,
+      color: read ? AppColors.chatReadReceipt : AppColors.textSecondary,
     );
   }
 }

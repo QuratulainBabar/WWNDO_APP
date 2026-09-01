@@ -8,24 +8,16 @@ import '../../core/widgets/app_toast.dart';
 import '../../data/models/traveler_trip.dart';
 import '../../data/services/trip_repository.dart';
 import '../../data/kyc_validation.dart';
-import '../../data/wallet_gate.dart';
 import '../../providers/auth_provider.dart';
 
 /// Shared gate + post helper for traveler trip creation screens.
 abstract final class TripPostingActions {
-  /// Blocks trip creation when wallet balance is below \$3 (refreshed from API in live mode).
-  static Future<bool> ensureWalletAllowsTripCreation(BuildContext context) =>
-      WalletGate.ensureTripCreation(context);
-
   /// Posts a trip via POST /api/v1/trips (demo mode keeps local StaticData).
   static Future<bool> tryPostTrip(
     BuildContext context,
     TravelerTrip trip, {
     required CreateTripRequest request,
   }) async {
-    // Wallet gate first so the $3 message is never masked by other dialogs.
-    if (!await ensureWalletAllowsTripCreation(context)) return false;
-
     final auth = context.read<AuthProvider>();
     final authUser = auth.user;
     final kycError = KycValidation.validateApproved(authUser);

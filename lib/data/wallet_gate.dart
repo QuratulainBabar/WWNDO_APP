@@ -7,7 +7,6 @@ import '../providers/wallet_provider.dart';
 import 'models/wallet_role.dart';
 import 'parcel_creation_wallet_validation.dart';
 import 'platform_fees.dart';
-import 'trip_creation_wallet_validation.dart';
 import 'wallet_service.dart';
 
 /// Refreshes wallet balances from the API (live mode) before enforcing minimums.
@@ -33,13 +32,7 @@ abstract final class WalletGate {
     return false;
   }
 
-  static Future<bool> ensureTripCreation(BuildContext context) => ensureMinimum(
-        context,
-        WalletRole.traveler,
-        TripCreationWalletValidation.minimumBalanceUsd,
-        TripCreationWalletValidation.insufficientBalanceMessage,
-      );
-
+  /// Balance check only — never deducts document/object platform fees.
   static Future<bool> ensureParcelCreation(
     BuildContext context, {
     String category = 'documents',
@@ -48,7 +41,10 @@ abstract final class WalletGate {
       ensureMinimum(
         context,
         WalletRole.sender,
-        ParcelCreationWalletValidation.minimumBalanceUsd,
+        PlatformFees.minWalletForSenderCreate(
+          category: category,
+          paysReceiverFee: paysReceiverFee,
+        ),
         ParcelCreationWalletValidation.insufficientBalanceMessage,
       );
 

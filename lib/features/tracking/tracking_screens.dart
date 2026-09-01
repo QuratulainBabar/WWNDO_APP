@@ -15,21 +15,23 @@ import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_chip.dart';
 import '../../core/layout/responsive.dart';
 import '../../core/navigation/app_navigation.dart';
+import '../../core/payments/platform_fee_payment.dart';
 import '../../core/nfc/nfc_handoff_service.dart';
 import '../../core/platform/platform_ui.dart';
 import '../../core/widgets/app_labeled_field.dart';
 import '../../core/widgets/back_header.dart';
-import '../../core/widgets/delivery_status_badge.dart';
 import '../../core/widgets/back_link.dart';
 import '../../core/widgets/cancel_request_confirmation_dialog.dart';
 import '../../core/widgets/dispute_warning_icon.dart';
 import '../../core/utils/external_links.dart';
 import '../../core/widgets/scrollable_form_screen.dart';
+import '../chat/open_delivery_chat.dart';
 import '../../data/models/delivery_tracking.dart';
 import '../../data/models/shipment.dart';
 import '../../data/services/delivery_repository.dart';
 import '../../data/services/fulfillment_repository.dart';
 import '../../data/services/platform_repository.dart';
+import '../../data/delivery_cancel_policy.dart';
 import '../../data/delivery_lifecycle.dart';
 import '../../data/delivery_status_mapper.dart';
 import '../../data/models/wallet_role.dart';
@@ -37,6 +39,11 @@ import '../../data/services/delivery_live_loader.dart';
 import '../../data/wallet_gate.dart';
 import '../../data/wallet_service.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/notification_realtime_provider.dart';
+import '../../data/review_context.dart';
+import '../../data/services/review_repository.dart';
+import '../../core/widgets/app_toast.dart';
+import '../shared/meetup_agreement_card.dart';
 import '../sender/bid_acceptance_payment_screen.dart';
 import '../sender/my_posted_parcels_screen.dart';
 import '../sender/sender_delivery_status.dart';
@@ -75,11 +82,45 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
   bool _loading = true;
   String? _loadError;
 
+  NotificationRealtimeProvider? _realtimeProvider;
+  VoidCallback? _realtimeListener;
+  int _lastDeliveryUpdateTick = 0;
+
   @override
   void initState() {
     super.initState();
     _selectedStatus = ShipmentStatus.inTransit;
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadSnapshot());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadSnapshot();
+      if (!widget.isTravelerView) _attachRealtimeListener();
+    });
+  }
+
+  void _attachRealtimeListener() {
+    final realtime = context.read<NotificationRealtimeProvider>();
+    if (_realtimeProvider == realtime && _realtimeListener != null) return;
+    if (_realtimeListener != null) {
+      _realtimeProvider?.removeListener(_realtimeListener!);
+    }
+    _realtimeProvider = realtime;
+    _lastDeliveryUpdateTick = realtime.deliveryUpdateTick;
+    _realtimeListener = () {
+      if (!mounted) return;
+      final tick = realtime.deliveryUpdateTick;
+      if (tick != _lastDeliveryUpdateTick) {
+        _lastDeliveryUpdateTick = tick;
+        _loadSnapshot();
+      }
+    };
+    realtime.addListener(_realtimeListener!);
+  }
+
+  @override
+  void dispose() {
+    if (_realtimeListener != null) {
+      _realtimeProvider?.removeListener(_realtimeListener!);
+    }
+    super.dispose();
   }
 
   DeliveryRepository _deliveryRepository() {
@@ -167,22 +208,24 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
 
     final hoursUntil =
         shipment.travelDate.difference(DateTime.now()).inHours;
-    final feesRefundable = hoursUntil >= 24;
     final confirmed = await showCancelRequestConfirmation(context);
     if (!confirmed || !context.mounted) return;
 
     try {
-      await _deliveryRepository().cancelDelivery(shipment.id);
+      final result = await _deliveryRepository().cancelDelivery(shipment.id);
       await _loadSnapshot();
       if (!context.mounted) return;
       await WalletGate.refreshRoles(context, WalletRole.values);
       if (!context.mounted) return;
+      final feesRefundable =
+          result.platformFeesRefunded ??
+          hoursUntil >= DeliveryCancelPolicy.senderCancelMinHoursBeforeTravel;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            feesRefundable
-                ? 'Booking cancelled. Escrow and platform fees refunded.'
-                : 'Booking cancelled. Escrow refunded to sender; platform fees kept.',
+            DeliveryCancelPolicy.senderBookingCancelResultMessage(
+              platformFeesRefunded: feesRefundable,
+            ),
           ),
         ),
       );
@@ -256,7 +299,7 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
   }
 
   void _openBidAcceptancePayment(BuildContext context, String shipmentId) {
-    context.push('/sender-counter-offers?deliveryPublicId=$shipmentId');
+    context.push('/sender-counter-offer?delivery=$shipmentId');
   }
 
   @override
@@ -308,7 +351,7 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
     final postedPhase = status == ShipmentStatus.open && !widget.isTravelerView
         ? DeliveryStatusMapper.postedPhaseFor(
             delivery: snap.delivery,
-            activeTravelerRequestCount: snap.activeTravelerRequestCount,
+            travelerRequests: snap.travelerRequests,
           )
         : null;
     final isDisputed = snap.disputed;
@@ -329,11 +372,11 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
     final selectedStatus = _selectedOptionFor(status);
     final statusUpdateHint = canEnableNfcForReceiver
         ? 'When you meet the receiver, enable NFC so both of you can match phones. After matching, the parcel becomes Delivered.'
-        : 'NFC handoff is complete. Mark In Transit when you begin travel with this parcel.';
-    final canEnableNfcCheckpoint1 = !widget.isTravelerView &&
-        !isDisputed &&
-        (status == ShipmentStatus.bidAccepted ||
-            status == ShipmentStatus.photosUploaded) &&
+        : 'NFC handoff is complete. Tap Start Transit when you begin travel with this parcel.';
+    final showMeetupAgreement = !isDisputed &&
+        (snap.status == 'bid_accepted' ||
+            snap.status == 'matched' ||
+            snap.status == 'ready_for_handoff') &&
         !cp1Confirmed;
 
     return Scaffold(
@@ -349,53 +392,51 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (snap.status.isNotEmpty) ...[
-                    DeliveryStatusBadge(snap.status, semiBold: true),
-                    const SizedBox(height: 12),
+                  // Actionable sender phases only (not a duplicate status badge).
+                  if (!widget.isTravelerView &&
+                      status == ShipmentStatus.open &&
+                      postedPhase != null) ...[
+                    Builder(
+                      builder: (context) {
+                        final phase = postedPhase!;
+                        final label = _senderPostedBadgeLabel(phase);
+                        final badge = AppBadge(
+                          label: label,
+                          color: phase.color,
+                          backgroundColor: phase.backgroundColor,
+                          semiBold: true,
+                          wide: true,
+                        );
+
+                        if (phase == SenderPostedPhase.matchingTravelers ||
+                            phase == SenderPostedPhase.travelerReviewing) {
+                          return GestureDetector(
+                            onTap: () => context.push(
+                              '/bid-requests/${shipment.id}',
+                            ),
+                            child: badge,
+                          );
+                        }
+
+                        if (phase == SenderPostedPhase.travelerAccepted) {
+                          return GestureDetector(
+                            onTap: () => _openBidAcceptancePayment(
+                              context,
+                              shipment.id,
+                            ),
+                            child: badge,
+                          );
+                        }
+
+                        // Waiting-for-receiver etc. — timeline covers status.
+                        return const SizedBox.shrink();
+                      },
+                    ),
+                    if (postedPhase == SenderPostedPhase.matchingTravelers ||
+                        postedPhase == SenderPostedPhase.travelerReviewing ||
+                        postedPhase == SenderPostedPhase.travelerAccepted)
+                      const SizedBox(height: 16),
                   ],
-                  // Sender open parcels: Receiver Pending or tappable Matching Travelers (n).
-                  Builder(
-                    builder: (context) {
-                      final phase = widget.isTravelerView ||
-                              status != ShipmentStatus.open
-                          ? null
-                          : postedPhase;
-                      if (phase == null) {
-                        return AppBadge.status(status);
-                      }
-
-                      final label = _senderPostedBadgeLabel(phase);
-                      final badge = AppBadge(
-                        label: label,
-                        color: phase.color,
-                        backgroundColor: phase.backgroundColor,
-                        semiBold: true,
-                        wide: true,
-                      );
-
-                      if (!widget.isTravelerView &&
-                          (phase == SenderPostedPhase.matchingTravelers ||
-                              phase == SenderPostedPhase.travelerReviewing)) {
-                        return GestureDetector(
-                          onTap: () => context.push(
-                            '/bid-requests/${shipment.id}',
-                          ),
-                          child: badge,
-                        );
-                      }
-
-                      if (!widget.isTravelerView &&
-                          phase == SenderPostedPhase.travelerAccepted) {
-                        return GestureDetector(
-                          onTap: () => _openBidAcceptancePayment(context, shipment.id),
-                          child: badge,
-                        );
-                      }
-
-                      return badge;
-                    },
-                  ),
-                  const SizedBox(height: 16),
                   AppCard(
                     margin: EdgeInsets.zero,
                     child: Column(
@@ -530,45 +571,19 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
                       ),
                     ],
                   ],
-                  if (canEnableNfcCheckpoint1) ...[
+                  if (showMeetupAgreement) ...[
                     const SizedBox(height: 24),
-                    AppCard(
-                      margin: EdgeInsets.zero,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.nfc, size: 20, color: AppColors.primary),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'Enable NFC Handoff',
-                                  style: typo.h3.copyWith(fontWeight: FontWeight.w700),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Meet the traveler and enable NFC. After both of you complete NFC matching, the parcel status becomes Collected.',
-                            style: typo.sm.copyWith(height: 1.5),
-                          ),
-                          const SizedBox(height: 16),
-                          AppButton(
-                            label: 'Enable NFC',
-                            icon: const Icon(Icons.nfc, size: 18, color: Colors.white),
-                            onPressed: () => context.push(
-                              '/nfc-confirm/${shipment.id}?traveler=${widget.isTravelerView}',
-                            ),
-                          ),
-                        ],
-                      ),
+                    MeetupAgreementCard(
+                      deliveryId: shipment.id,
+                      allowPropose: !widget.isTravelerView,
+                      onUpdated: _loadSnapshot,
                     ),
                   ],
+                  // Show pay CTA only while booking is still unpaid (posted).
+                  // After escrow payment, status is bid_accepted — hide this card.
                   if (!widget.isTravelerView &&
-                      (postedPhase == SenderPostedPhase.travelerAccepted ||
-                          snap.status == 'bid_accepted')) ...[
+                      snap.status == 'posted' &&
+                      !isDisputed) ...[
                     const SizedBox(height: 16),
                     AppCard(
                       margin: EdgeInsets.zero,
@@ -599,7 +614,7 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
                       ),
                     ),
                   ],
-                  if (_showNfcCheckpoint1(shipment, status)) ...[
+                  if (_showNfcCheckpoint1()) ...[
                     const SizedBox(height: 24),
                     AppCard(
                       margin: EdgeInsets.zero,
@@ -621,8 +636,9 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
                     ),
                   ] else if (widget.isTravelerView &&
                       !cp1Confirmed &&
-                      (status == ShipmentStatus.bidAccepted ||
-                          status == ShipmentStatus.photosUploaded)) ...[
+                      !showMeetupAgreement &&
+                      (snap.status == 'bid_accepted' ||
+                          snap.status == 'matched')) ...[
                     const SizedBox(height: 24),
                     AppCard(
                       margin: EdgeInsets.zero,
@@ -630,21 +646,13 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Waiting for sender to enable NFC',
+                            'Waiting for meetup agreement',
                             style: typo.h3.copyWith(fontWeight: FontWeight.w700),
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Meet the sender for handoff. Once they enable NFC and you both complete matching, the parcel becomes Collected.',
+                            'Confirm the meetup location with the sender before NFC handoff.',
                             style: typo.sm.copyWith(height: 1.5),
-                          ),
-                          const SizedBox(height: 12),
-                          AppBadge(
-                            label: '○ Awaiting sender Enable NFC',
-                            color: AppColors.textDisabled,
-                            backgroundColor:
-                                AppColors.textDisabled.withValues(alpha: 0.4),
-                            small: true,
                           ),
                         ],
                       ),
@@ -660,16 +668,12 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
         );
   }
 
-  bool _showNfcCheckpoint1(Shipment shipment, ShipmentStatus status) {
+  bool _showNfcCheckpoint1() {
     final snap = _snapshot;
     if (snap == null) return false;
     if (snap.disputed) return false;
     if (snap.cp1Confirmed) return false;
-    final nfcEnabled = status == ShipmentStatus.collected ||
-        status == ShipmentStatus.bidAccepted ||
-        status == ShipmentStatus.photosUploaded;
-    if (!nfcEnabled) return false;
-    return true;
+    return snap.status == 'ready_for_handoff';
   }
 
   List<Widget> _buildActions(
@@ -709,7 +713,12 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
       addAction(
         AppButton(
           label: 'Chat with Traveler',
-          onPressed: () => context.go('/sender-chats'),
+          onPressed: () => openDeliveryChat(
+            context,
+            chatBasePath: '/sender-chats',
+            threadType: 'sender_traveler',
+            deliveryKey: shipment.id,
+          ),
         ),
       );
     }
@@ -765,7 +774,12 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
         addAction(
           AppButton(
             label: 'Leave a review',
-            onPressed: () => context.push('/delivery-review'),
+            onPressed: () => context.push(
+              deliveryReviewRoute(
+                shipmentId: shipment.id,
+                reviewerRole: WalletRole.sender,
+              ),
+            ),
           ),
         );
       }
@@ -791,7 +805,14 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
       addAction(
         AppButton(
           label: 'Leave a review',
-          onPressed: () => context.push('/delivery-review'),
+          onPressed: () => context.push(
+            deliveryReviewRoute(
+              shipmentId: shipment.id,
+              reviewerRole: widget.isTravelerView
+                  ? WalletRole.traveler
+                  : WalletRole.sender,
+            ),
+          ),
         ),
       );
       return actions;
@@ -830,7 +851,12 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
             fontWeight: FontWeight.w700,
             color: AppColors.primary,
           ),
-          onPressed: () => context.go('/sender-chats'),
+          onPressed: () => openDeliveryChat(
+            context,
+            chatBasePath: '/sender-chats',
+            threadType: 'sender_traveler',
+            deliveryKey: shipment.id,
+          ),
         ),
       );
       addAction(
@@ -841,7 +867,12 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
             fontWeight: FontWeight.w700,
             color: AppColors.primary,
           ),
-          onPressed: () => context.go('/receiver-chats'),
+          onPressed: () => openDeliveryChat(
+            context,
+            chatBasePath: '/receiver-chats',
+            threadType: 'traveler_receiver',
+            deliveryKey: shipment.id,
+          ),
         ),
       );
       addAction(
@@ -996,7 +1027,7 @@ class _NfcCheckpoint1Section extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           isTravelerView
-              ? 'Tap phones with the sender to confirm handoff. When both parties confirm, the parcel becomes Collected.'
+              ? 'Tap phones with the sender to confirm handoff. When both parties confirm, the parcel becomes Collected — then mark in transit when you begin travel.'
               : 'Tap phones with the traveler to confirm handoff. When both parties confirm, the parcel becomes Collected.',
           style: typo.sm.copyWith(height: 1.5),
         ),
@@ -1005,7 +1036,12 @@ class _NfcCheckpoint1Section extends StatelessWidget {
           label: 'Start NFC matching',
           icon: const Icon(Icons.nfc, size: 18, color: Colors.white),
           onPressed: () => context.push(
-            '/nfc-confirm/$shipmentId?traveler=$isTravelerView',
+            '/nfc-confirm',
+            extra: {
+              'shipmentId': shipmentId,
+              'isTraveler': isTravelerView,
+              'checkpoint': 1,
+            },
           ),
         ),
         const SizedBox(height: 8),
@@ -1067,7 +1103,12 @@ class _TravelerNfcDeliverySection extends StatelessWidget {
           AppButton(
             label: 'Confirm delivery (NFC CP2)',
             onPressed: () => context.push(
-              '/nfc-confirm/$shipmentId?traveler=true&checkpoint=2',
+              '/nfc-confirm',
+              extra: {
+                'shipmentId': shipmentId,
+                'isTraveler': true,
+                'checkpoint': 2,
+              },
             ),
           ),
         ],
@@ -1129,7 +1170,14 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
   }
 
   Future<void> _startNfc({bool forceSimulate = false}) async {
-    if (_confirmed || _cancelled || _listening) return;
+    if (_confirmed || _cancelled) return;
+    // While a real NFC session is open, only force-simulate may interrupt it.
+    if (_listening && !forceSimulate) return;
+
+    if (_listening && forceSimulate) {
+      await NfcHandoffService.stop();
+    }
+
     setState(() {
       _listening = true;
       _status = forceSimulate
@@ -1179,11 +1227,38 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
     try {
       final auth = context.read<AuthProvider>();
       final repo = FulfillmentRepository(apiClient: auth.repository.apiClient);
-      final result = await repo.confirmNfc(
-        deliveryId: shipmentId,
-        checkpoint: _isCheckpoint2 ? 2 : 1,
-        deviceId: deviceId,
-      );
+
+      Future<Map<String, dynamic>> confirm(String? paymentIntentId) => repo.confirmNfc(
+            deliveryId: shipmentId,
+            checkpoint: _isCheckpoint2 ? 2 : 1,
+            deviceId: deviceId,
+            paymentIntentId: paymentIntentId,
+          );
+
+      final Map<String, dynamic> result;
+      if (!_isCheckpoint2 && widget.isTraveler) {
+        result = await PlatformFeePayment.withStripeRetry(
+          context: context,
+          role: WalletRole.traveler,
+          attempt: confirm,
+        );
+      } else {
+        try {
+          result = await confirm(null);
+        } on ApiException catch (e) {
+          if (e.requiresPayment && e.paymentRole == 'traveler' && !widget.isTraveler) {
+            throw ApiException(
+              message:
+                  'Traveler must add funds to their wallet (or pay with card) '
+                  'before handoff can complete.',
+              code: e.code,
+              statusCode: e.statusCode,
+            );
+          }
+          rethrow;
+        }
+      }
+
       final pendingPeer = result['pendingPeer'] == true;
       if (pendingPeer && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1302,7 +1377,7 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
               children: [
                 const Spacer(flex: 2),
                 GestureDetector(
-                  onTap: _listening || _confirmed
+                  onTap: _confirmed
                       ? null
                       : () => _startNfc(forceSimulate: true),
                   child: const _NfcPulseGraphic(),
@@ -1335,13 +1410,22 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
                     ),
                   ),
                 TextButton(
-                  onPressed: _listening || _confirmed
+                  onPressed: _confirmed
                       ? null
                       : () => _startNfc(forceSimulate: true),
                   child: Text(
                     'Simulate tap (dev)',
-                    style: typo.sm.copyWith(color: Colors.white70),
+                    style: typo.button.copyWith(
+                      color: Colors.white,
+                      fontSize: 16,
+                    ),
                   ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'One phone? Simulate as sender, then login as traveler and simulate again.',
+                  textAlign: TextAlign.center,
+                  style: typo.sm.copyWith(color: Colors.white60),
                 ),
                 const SizedBox(height: 24),
                 Center(
@@ -1576,7 +1660,12 @@ class TravelerNfcDeliverySuccessScreen extends StatelessWidget {
                 AppButton(
                   label: 'Leave a review',
                   variant: AppButtonVariant.outline,
-                  onPressed: () => context.push('/delivery-review'),
+                  onPressed: () => context.push(
+                    deliveryReviewRoute(
+                      shipmentId: shipmentId,
+                      reviewerRole: WalletRole.traveler,
+                    ),
+                  ),
                 ),
               ],
             ],
@@ -2103,10 +2192,12 @@ class ReviewSubmittedRouteData {
   const ReviewSubmittedRouteData({
     required this.shipmentId,
     required this.rating,
+    required this.reviewerRole,
   });
 
   final String shipmentId;
   final int rating;
+  final WalletRole reviewerRole;
 }
 
 class ReviewSubmittedSuccessScreen extends StatelessWidget {
@@ -2114,10 +2205,12 @@ class ReviewSubmittedSuccessScreen extends StatelessWidget {
     super.key,
     required this.shipmentId,
     required this.rating,
+    required this.reviewerRole,
   });
 
   final String shipmentId;
   final int rating;
+  final WalletRole reviewerRole;
 
   @override
   Widget build(BuildContext context) {
@@ -2152,13 +2245,19 @@ class ReviewSubmittedSuccessScreen extends StatelessWidget {
               const SizedBox(height: 32),
               AppButton(
                 label: 'Back to home',
-                onPressed: () => context.go('/home'),
+                onPressed: () => context.go(homeRouteForWalletRole(reviewerRole)),
               ),
               const SizedBox(height: AppButton.stackGap),
               AppButton(
                 label: 'View my shipments',
                 variant: AppButtonVariant.outline,
-                onPressed: () => context.go('/track'),
+                onPressed: () => context.go(
+                  reviewerRole == WalletRole.traveler
+                      ? '/traveler-deliveries'
+                      : reviewerRole == WalletRole.receiver
+                          ? '/receiver-tracking'
+                          : '/track',
+                ),
               ),
             ],
           ),
@@ -2178,13 +2277,18 @@ class DeliveryReviewScreen extends StatefulWidget {
 class _DeliveryReviewScreenState extends State<DeliveryReviewScreen> {
   int _rating = 5;
   late final TextEditingController _reviewController;
+  bool _loading = true;
+  bool _submitting = false;
+  String? _loadError;
+  ReviewContext? _context;
+  String _shipmentId = '';
+  WalletRole _reviewerRole = WalletRole.sender;
 
   @override
   void initState() {
     super.initState();
-    _reviewController = TextEditingController(
-      text: 'Aissatou was super reliable and communicated perfectly! ✨',
-    );
+    _reviewController = TextEditingController();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
   @override
@@ -2193,12 +2297,185 @@ class _DeliveryReviewScreenState extends State<DeliveryReviewScreen> {
     super.dispose();
   }
 
+  DeliveryRepository _deliveryRepository() {
+    final auth = context.read<AuthProvider>();
+    final demoMode = context.read<DemoModeProvider>();
+    return DeliveryRepository(
+      apiClient: auth.repository.apiClient,
+      demoMode: demoMode,
+    );
+  }
+
+  ReviewRepository _reviewRepository() {
+    final auth = context.read<AuthProvider>();
+    final demoMode = context.read<DemoModeProvider>();
+    return ReviewRepository(
+      apiClient: auth.repository.apiClient,
+      demoMode: demoMode,
+    );
+  }
+
+  Future<void> _load() async {
+    final state = GoRouterState.of(context);
+    final shipmentId = state.uri.queryParameters['shipmentId']?.trim() ?? '';
+    final reviewerRole =
+        WalletRole.fromQuery(state.uri.queryParameters['role']);
+
+    if (shipmentId.isEmpty) {
+      setState(() {
+        _loading = false;
+        _loadError = 'Missing shipment ID. Open review from a completed delivery.';
+      });
+      return;
+    }
+
+    setState(() {
+      _loading = true;
+      _loadError = null;
+      _shipmentId = shipmentId;
+      _reviewerRole = reviewerRole;
+    });
+
+    if (context.read<DemoModeProvider>().enabled) {
+      setState(() {
+        _context = ReviewContext(
+          revieweeId: 'demo-traveler',
+          revieweeRole: WalletRole.traveler,
+          revieweeName: 'Traveler',
+          confirmationMessage:
+              'Delivery $shipmentId confirmed. How was your experience?',
+        );
+        _loading = false;
+      });
+      return;
+    }
+
+    try {
+      final delivery = await _deliveryRepository().getDelivery(
+        shipmentId,
+        role: reviewerRole.queryParam,
+      );
+      final reviewContext = resolveReviewContext(
+        delivery: delivery,
+        reviewerRole: reviewerRole,
+      );
+      if (!mounted) return;
+      if (reviewContext == null) {
+        setState(() {
+          _loading = false;
+          _loadError =
+              'Unable to determine who to review for this delivery. Try again from shipment details.';
+        });
+        return;
+      }
+      setState(() {
+        _context = reviewContext;
+        _loading = false;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _loadError = e.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _loadError = 'Unable to load delivery details.';
+      });
+    }
+  }
+
+  Future<void> _submit() async {
+    final reviewContext = _context;
+    if (reviewContext == null || _submitting) return;
+
+    final text = _reviewController.text.trim();
+    if (text.isEmpty) {
+      AppToast.error(context, 'Please write a short review before submitting.');
+      return;
+    }
+
+    setState(() => _submitting = true);
+    try {
+      await _reviewRepository().createReview(
+        revieweeId: reviewContext.revieweeId,
+        revieweeRole: reviewContext.revieweeRole,
+        rating: _rating,
+        text: text,
+        shipmentId: _shipmentId,
+      );
+      if (!mounted) return;
+      await context.read<AuthProvider>().refreshUser();
+      if (!mounted) return;
+      context.pushReplacement(
+        '/delivery-review/success',
+        extra: ReviewSubmittedRouteData(
+          shipmentId: _shipmentId,
+          rating: _rating,
+          reviewerRole: _reviewerRole,
+        ),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _submitting = false);
+      if (e.code == 'REVIEW_EXISTS') {
+        AppToast.info(context, e.message);
+        context.go(homeRouteForWalletRole(_reviewerRole));
+        return;
+      }
+      AppToast.error(context, e.message);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _submitting = false);
+      AppToast.error(context, 'Unable to submit review. Please try again.');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
-    final shipmentId = GoRouterState.of(context).uri.queryParameters['shipmentId'] ?? '';
-    final payoutLabel = '\$—';
-    final travelerName = 'Traveler';
+    final reviewContext = _context;
+
+    if (_loading) {
+      return Scaffold(
+        backgroundColor: AppColors.surface,
+        appBar: const BackHeader(title: 'Leave a review'),
+        body: const Center(
+          child: SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+
+    if (_loadError != null || reviewContext == null) {
+      return Scaffold(
+        backgroundColor: AppColors.surface,
+        appBar: const BackHeader(title: 'Leave a review'),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(28),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  _loadError ?? 'Review unavailable.',
+                  textAlign: TextAlign.center,
+                  style: typo.sm.copyWith(color: AppColors.textSecondary, height: 1.5),
+                ),
+                const SizedBox(height: 16),
+                AppButton(label: 'Retry', onPressed: _load),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: const BackHeader(title: 'Leave a review'),
@@ -2224,18 +2501,22 @@ class _DeliveryReviewScreenState extends State<DeliveryReviewScreen> {
               Text('Delivery confirmed!', style: typo.h1, textAlign: TextAlign.center),
               const SizedBox(height: 8),
               Text(
-                '$payoutLabel has been released to $travelerName\'s wallet for $shipmentId.',
+                reviewContext.confirmationMessage,
                 textAlign: TextAlign.center,
                 style: typo.sm.copyWith(height: 1.5),
               ),
               const SizedBox(height: 8),
-              Text('How was your experience?', style: typo.sm),
+              Text(
+                'How was your experience with ${reviewContext.revieweeName}?',
+                style: typo.sm,
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: 20),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(5, (i) {
                   return GestureDetector(
-                    onTap: () => setState(() => _rating = i + 1),
+                    onTap: _submitting ? null : () => setState(() => _rating = i + 1),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 5),
                       child: Text(
@@ -2254,28 +2535,25 @@ class _DeliveryReviewScreenState extends State<DeliveryReviewScreen> {
                 padding: const EdgeInsets.only(top: AppFieldSpacing.top),
                 child: TextField(
                   controller: _reviewController,
+                  enabled: !_submitting,
                   onTap: ensureSoftKeyboardVisible,
                   onTapOutside: dismissKeyboardOnTapOutside,
                   maxLines: 3,
-                  decoration: const InputDecoration(),
+                  decoration: const InputDecoration(
+                    hintText: 'Share how the delivery went…',
+                  ),
                 ),
               ),
               const SizedBox(height: 24),
               AppButton(
-                label: 'Submit review',
-                onPressed: () {
-                  context.pushReplacement(
-                    '/delivery-review/success',
-                    extra: ReviewSubmittedRouteData(
-                      shipmentId: shipmentId.isNotEmpty ? shipmentId : 'delivery',
-                      rating: _rating,
-                    ),
-                  );
-                },
+                label: _submitting ? 'Submitting…' : 'Submit review',
+                onPressed: _submitting ? null : _submit,
               ),
               const SizedBox(height: 10),
               TextButton(
-                onPressed: () => context.go('/home'),
+                onPressed: _submitting
+                    ? null
+                    : () => context.go(homeRouteForWalletRole(_reviewerRole)),
                 child: Text('Skip for now', style: typo.link),
               ),
             ],

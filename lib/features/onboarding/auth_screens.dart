@@ -331,33 +331,17 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    final auth = context.read<AuthProvider>();
-
-    try {
-      // Always call real backend `/auth/login/password-otp/send` (Gmail SMTP).
-      // Do not navigate or show success unless this call succeeds.
-      await auth.sendPasswordLoginOtp(email: email, password: password);
-      if (!mounted) return;
-
-      AppToast.success(context, 'Verification code sent to your email');
-      context.push(
-        '/login/verify-otp',
-        extra: PasswordLoginOtpFlowData(
-          email: email,
-          password: password,
-          alreadySent: true,
-        ),
-      );
-    } on ApiException catch (e) {
-      if (mounted) AppToast.error(context, e.message);
-    } catch (e) {
-      if (mounted) {
-        AppToast.error(
-          context,
-          'Unable to send login verification email. Please try again.',
-        );
-      }
-    }
+    // Navigate immediately — OTP screen sends email in the background so the
+    // user is not stuck waiting on SMTP latency.
+    if (!mounted) return;
+    context.push(
+      '/login/verify-otp',
+      extra: PasswordLoginOtpFlowData(
+        email: email,
+        password: password,
+        alreadySent: false,
+      ),
+    );
   }
 
   @override

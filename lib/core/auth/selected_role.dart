@@ -20,6 +20,33 @@ abstract final class SelectedRoleStore {
 
   static WalletRole? roleFromUser(AuthUser? user) => tryParse(user?.role);
 
+  static WalletRole effectiveRole(AuthUser? user, WalletRole fallback) =>
+      roleFromUser(user) ?? fallback;
+
+  static String roleLabel(WalletRole role) => switch (role) {
+        WalletRole.traveler => 'Traveler',
+        WalletRole.receiver => 'Receiver',
+        _ => 'Sender',
+      };
+
+  /// "★ 4.5 · Sender" line under the greeting on role home screens.
+  static String homeRatingSubtitle(AuthUser? user, WalletRole fallback) {
+    final role = effectiveRole(user, fallback);
+    final rating = user?.rating ?? 0;
+    final ratingLabel = rating > 0 ? rating.toStringAsFixed(1) : '—';
+    return '★ $ratingLabel · ${roleLabel(role)}';
+  }
+
+  /// "Receiver · Track incoming parcels" style subtitle.
+  static String homeTaglineSubtitle(
+    AuthUser? user,
+    WalletRole fallback, {
+    required String tagline,
+  }) {
+    final role = effectiveRole(user, fallback);
+    return '${roleLabel(role)} · $tagline';
+  }
+
   static String homeRouteFor(WalletRole role) => switch (role) {
         WalletRole.sender => '/home',
         WalletRole.traveler => '/traveler-home',

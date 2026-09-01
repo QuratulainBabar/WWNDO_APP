@@ -23,6 +23,9 @@ import '../../data/services/trip_repository.dart';
 import '../../data/services/wallet_repository.dart';
 import '../../data/wallet_gate.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/wallet_provider.dart';
+
+enum _BidPaymentMethod { wallet, stripe }
 
 class BidAcceptanceContext {
   const BidAcceptanceContext({
@@ -53,13 +56,90 @@ class BidAcceptancePaymentScreen extends StatefulWidget {
 class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen> {
   bool _paying = false;
   bool _loading = true;
+  bool _walletLoading = true;
+  bool _stripeEnabled = false;
   CreatedDelivery? _delivery;
   String? _error;
+  _BidPaymentMethod? _paymentMethod;
+  int _walletAvailableCents = 0;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadDelivery());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadDelivery();
+      _loadWalletAndPayments();
+    });
+  }
+
+  Future<void> _loadWalletAndPayments() async {
+    if (context.read<DemoModeProvider>().enabled) {
+      if (mounted) setState(() => _walletLoading = false);
+      return;
+    }
+    try {
+      final auth = context.read<AuthProvider>();
+      final walletRepo = WalletRepository(
+        apiClient: auth.repository.apiClient,
+        demoMode: context.read<DemoModeProvider>(),
+      );
+      await StripePayments.ensureConfigured(walletRepo);
+      final stripeEnabled = StripePayments.isEnabled;
+      int availableCents = 0;
+      try {
+        final summary = await context.read<WalletProvider>().refresh(
+              WalletRole.sender,
+              silent: true,
+            );
+        availableCents = summary.availableCents;
+      } catch (_) {
+        availableCents = context.read<WalletProvider>().availableCents(
+              WalletRole.sender,
+            );
+      }
+      if (!mounted) return;
+      setState(() {
+        _walletAvailableCents = availableCents;
+        _stripeEnabled = stripeEnabled;
+        _walletLoading = false;
+      });
+      _applyDefaultPaymentMethod();
+    } catch (_) {
+      if (mounted) setState(() => _walletLoading = false);
+    }
+  }
+
+  int _totalDueCents({
+    required String category,
+    required bool paysReceiver,
+    required double bidAmount,
+  }) {
+    final platformFee = PlatformFees.senderPlatformFeeUsd(
+      category: category,
+      paysReceiverFee: paysReceiver,
+    );
+    return ((bidAmount + platformFee) * 100).round();
+  }
+
+  void _applyDefaultPaymentMethod() {
+    if (_paymentMethod != null) return;
+    final acceptance = widget.acceptance;
+    final delivery = _delivery;
+    final category = delivery?.parcelCategory ?? acceptance.parcelCategory;
+    final paysReceiver = delivery != null
+        ? PlatformFees.senderPaysReceiverFee(delivery)
+        : acceptance.paysReceiverFee;
+    final totalCents = _totalDueCents(
+      category: category,
+      paysReceiver: paysReceiver,
+      bidAmount: acceptance.bid.price,
+    );
+    final canPayFromWallet = _walletAvailableCents >= totalCents;
+    setState(() {
+      _paymentMethod = canPayFromWallet || !_stripeEnabled
+          ? _BidPaymentMethod.wallet
+          : _BidPaymentMethod.stripe;
+    });
   }
 
   DeliveryRepository _deliveryRepo() {
@@ -97,6 +177,7 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
         _delivery = delivery;
         _loading = false;
       });
+      _applyDefaultPaymentMethod();
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -112,15 +193,46 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
     }
   }
 
-  Future<void> _payNow() async {
-    if (_paying) return;
+  Future<String?> _resolveOfferId() async {
     final acceptance = widget.acceptance;
+    final existing = (acceptance.offerId ?? '').trim();
+    if (existing.isNotEmpty) return existing;
+
+    // Fallback: bid.id may already be the counter-offer UUID (from offer detail).
+    final bidId = acceptance.bid.id.trim();
+    if (bidId.isNotEmpty &&
+        RegExp(
+          r'^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+          caseSensitive: false,
+        ).hasMatch(bidId)) {
+      return bidId;
+    }
+
+    final shipmentId = acceptance.shipmentId.trim();
+    if (shipmentId.isEmpty) return null;
+
+    try {
+      final offer = await _tripRepo().getSenderCounterOfferByDelivery(shipmentId);
+      return offer.id.trim().isEmpty ? null : offer.id.trim();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _payNow() async {
+    if (_paying || _paymentMethod == null) return;
+    final acceptance = widget.acceptance;
+    final paymentMethod = _paymentMethod!;
 
     setState(() => _paying = true);
     try {
-      final offerId = acceptance.offerId;
+      final offerId = await _resolveOfferId();
       if (offerId == null || offerId.isEmpty) {
-        AppToast.error(context, 'Counter offer reference is missing.');
+        if (!mounted) return;
+        AppToast.error(
+          context,
+          'Counter offer is not ready yet. Wait for the traveler’s offer, then pay from Counter Offer Details.',
+        );
         return;
       }
 
@@ -129,7 +241,19 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
         apiClient: auth.repository.apiClient,
         demoMode: context.read<DemoModeProvider>(),
       );
-      await StripePayments.ensureConfigured(walletRepo);
+      if (paymentMethod == _BidPaymentMethod.stripe) {
+        await StripePayments.ensureConfigured(walletRepo);
+        if (!StripePayments.isEnabled) {
+          AppToast.error(
+            context,
+            'Card payments are not available. Pay from wallet or top up first.',
+          );
+          return;
+        }
+      }
+
+      final methodParam =
+          paymentMethod == _BidPaymentMethod.wallet ? 'wallet' : 'stripe';
 
       String? paymentIntentId;
       for (var attempt = 0; attempt < 3; attempt++) {
@@ -137,10 +261,22 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
           await _tripRepo().acceptSenderCounterOffer(
             offerId,
             paymentIntentId: paymentIntentId,
+            paymentMethod: methodParam,
           );
           paymentIntentId = null;
           break;
         } on ApiException catch (e) {
+          if (paymentMethod == _BidPaymentMethod.wallet) {
+            if (e.code == 'INSUFFICIENT_WALLET' || e.requiresPayment) {
+              throw ApiException(
+                message:
+                    'Insufficient wallet balance. Choose Pay with card or top up your wallet.',
+                code: e.code,
+                statusCode: e.statusCode,
+              );
+            }
+            rethrow;
+          }
           if (!e.requiresPayment || e.clientSecret == null) rethrow;
           await StripePayments.presentPaymentSheet(clientSecret: e.clientSecret!);
           paymentIntentId = e.paymentIntentId;
@@ -150,7 +286,6 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
               code: 'PAYMENT_INCOMPLETE',
             );
           }
-          // Confirm credit before retrying accept.
           await walletRepo.confirmTopUp(
             paymentIntentId: paymentIntentId,
             role: WalletRole.sender,
@@ -165,15 +300,27 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
       );
 
       if (!mounted) return;
-      context.push('/bid-payment-success', extra: acceptance);
+      context.push(
+        '/bid-payment-success',
+        extra: BidAcceptanceContext(
+          bid: acceptance.bid,
+          shipmentId: acceptance.shipmentId,
+          offerId: offerId,
+          parcelCategory: acceptance.parcelCategory,
+          paysReceiverFee: acceptance.paysReceiverFee,
+        ),
+      );
     } on ApiException catch (e) {
       if (!mounted) return;
       AppToast.error(context, e.message);
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
+      final detail = e.toString().trim();
       AppToast.error(
         context,
-        'Payment failed. Booking was not created. Check wallet or card and try again.',
+        detail.isEmpty
+            ? 'Payment failed. Booking was not created. Check wallet or card and try again.'
+            : 'Payment failed. Booking was not created. $detail',
       );
     } finally {
       if (mounted) setState(() => _paying = false);
@@ -215,6 +362,10 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
       paysReceiverFee: paysReceiver,
     );
     final total = bid.price + platformFee;
+    final totalCents = (total * 100).round();
+    final walletUsd = _walletAvailableCents / 100;
+    final walletCoversTotal = _walletAvailableCents >= totalCents;
+    final selectedMethod = _paymentMethod;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -259,6 +410,52 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
               ),
             ),
             const SizedBox(height: 12),
+            Text(
+              'Payment method',
+              style: context.typo.h3.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            if (_walletLoading)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else ...[
+              _PaymentMethodTile(
+                title: 'Pay from wallet',
+                subtitle: walletCoversTotal
+                    ? 'Available balance: \$${walletUsd.toStringAsFixed(2)}'
+                    : 'Available \$${walletUsd.toStringAsFixed(2)} — need \$${total.toStringAsFixed(2)}',
+                selected: selectedMethod == _BidPaymentMethod.wallet,
+                enabled: !_paying,
+                onTap: () => setState(
+                  () => _paymentMethod = _BidPaymentMethod.wallet,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _PaymentMethodTile(
+                title: 'Pay with card (Stripe)',
+                subtitle: walletCoversTotal
+                    ? 'Charge your card instead of wallet'
+                    : 'Pay \$${(total - walletUsd).clamp(0, total).toStringAsFixed(2)} shortfall by card',
+                selected: selectedMethod == _BidPaymentMethod.stripe,
+                enabled: !_paying && _stripeEnabled,
+                onTap: _stripeEnabled
+                    ? () => setState(
+                          () => _paymentMethod = _BidPaymentMethod.stripe,
+                        )
+                    : null,
+              ),
+              if (!_stripeEnabled)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    'Card payments are not configured. Use wallet balance.',
+                    style: context.typo.sm.copyWith(color: AppColors.textSecondary),
+                  ),
+                ),
+            ],
+            const SizedBox(height: 12),
             Wrap(
               spacing: 6,
               runSpacing: 6,
@@ -269,9 +466,10 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
             ),
             const SizedBox(height: 8),
             Text(
-              'If your wallet balance is insufficient, the shortfall is charged to your card. '
-              'Sender, traveler, and receiver platform fees are collected instantly. '
-              'The booking is not created if any payment fails.',
+              selectedMethod == _BidPaymentMethod.wallet
+                  ? 'The total is deducted from your sender wallet. Booking is not created if balance is insufficient.'
+                  : 'If wallet balance is short, Stripe collects the difference on your card, then escrow is funded from wallet. '
+                      'Sender, traveler, and receiver platform fees are collected instantly.',
               style: context.typo.sm.copyWith(
                 color: AppColors.textSecondary,
                 height: 1.4,
@@ -280,7 +478,7 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
             const SizedBox(height: 24),
             AppButton(
               label: _paying ? 'Processing…' : 'Pay Now',
-              onPressed: _paying ? null : _payNow,
+              onPressed: _paying || selectedMethod == null ? null : _payNow,
             ),
           ],
         ),
@@ -311,6 +509,82 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
                 : typo.bodyBold.copyWith(fontWeight: FontWeight.w700),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PaymentMethodTile extends StatelessWidget {
+  const _PaymentMethodTile({
+    required this.title,
+    required this.subtitle,
+    required this.selected,
+    required this.enabled,
+    this.onTap,
+  });
+
+  final String title;
+  final String subtitle;
+  final bool selected;
+  final bool enabled;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final typo = context.typo;
+    final borderColor = selected ? AppColors.primary : AppColors.border;
+    final background = selected
+        ? AppColors.primary.withValues(alpha: 0.06)
+        : AppColors.surface;
+
+    return Material(
+      color: background,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: borderColor, width: selected ? 1.5 : 1),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                selected
+                    ? Icons.radio_button_checked
+                    : Icons.radio_button_off,
+                color: enabled
+                    ? (selected ? AppColors.primary : AppColors.textSecondary)
+                    : AppColors.border,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: typo.bodyBold.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: enabled
+                            ? AppColors.textPrimary
+                            : AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: typo.sm.copyWith(color: AppColors.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

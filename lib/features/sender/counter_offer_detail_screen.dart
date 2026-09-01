@@ -18,6 +18,7 @@ import '../../core/widgets/back_header.dart';
 import '../../data/models/bid.dart';
 import '../../data/models/sender_counter_offer.dart';
 import '../../data/models/traveler_bid.dart';
+import '../../data/platform_fees.dart';
 import '../../data/services/delivery_repository.dart';
 import '../../data/services/trip_repository.dart';
 import '../../data/static_data.dart';
@@ -135,7 +136,8 @@ class _CounterOfferDetailScreenState extends State<CounterOfferDetailScreen> {
 
   Future<void> _accept() async {
     final offer = _offer;
-    if (offer == null || _acting || !offer.isOpen) return;
+    if (offer == null || _acting) return;
+    if (!offer.isOpen && !offer.awaitsPayment) return;
 
     final shipmentId = (offer.deliveryPublicId ?? '').trim();
     if (shipmentId.isEmpty) {
@@ -164,7 +166,7 @@ class _CounterOfferDetailScreenState extends State<CounterOfferDetailScreen> {
           demoMode: context.read<DemoModeProvider>(),
         ).getDelivery(shipmentId, role: 'sender');
         parcelCategory = delivery.parcelCategory;
-        paysReceiverFee = (delivery.platformFeeShare ?? 0) <= 0;
+        paysReceiverFee = PlatformFees.senderPaysReceiverFee(delivery);
       } catch (_) {
         // Payment screen falls back to defaults.
       }
@@ -326,7 +328,10 @@ class _CounterOfferDetailScreenState extends State<CounterOfferDetailScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _StatusBadge(status: offer.status),
+                      _StatusBadge(
+                        status: offer.status,
+                        paymentPending: offer.awaitsPayment,
+                      ),
                       const SizedBox(height: 16),
                       AppCard(
                         margin: EdgeInsets.zero,
@@ -437,6 +442,36 @@ class _CounterOfferDetailScreenState extends State<CounterOfferDetailScreen> {
                   ],
                 ),
               )
+            else if (offer.awaitsPayment)
+              Padding(
+                padding: context.pagePadding.copyWith(top: 8, bottom: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    AppBadge(
+                      label: 'Payment pending',
+                      color: AppColors.warning,
+                      backgroundColor: AppColors.warning.withValues(alpha: 0.12),
+                      small: true,
+                      semiBold: true,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Your counter offer is reserved but payment was not completed. '
+                      'Finish payment to confirm the booking.',
+                      style: typo.sm.copyWith(
+                        color: AppColors.textSecondary,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    AppButton(
+                      label: _acting ? 'Please wait…' : 'Complete Payment',
+                      onPressed: _acting ? null : _accept,
+                    ),
+                  ],
+                ),
+              )
             else if (offer.isAccepted)
               Padding(
                 padding: context.pagePadding.copyWith(top: 8, bottom: 16),
@@ -489,12 +524,25 @@ class _CounterOfferDetailScreenState extends State<CounterOfferDetailScreen> {
 }
 
 class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({required this.status});
+  const _StatusBadge({
+    required this.status,
+    this.paymentPending = false,
+  });
 
   final TravelerBidStatus status;
+  final bool paymentPending;
 
   @override
   Widget build(BuildContext context) {
+    if (paymentPending) {
+      return AppBadge(
+        label: 'Payment pending',
+        color: AppColors.warning,
+        backgroundColor: AppColors.warning.withValues(alpha: 0.12),
+        small: true,
+        semiBold: true,
+      );
+    }
     if (status == TravelerBidStatus.accepted) {
       return AppBadge.success('Offer accepted');
     }

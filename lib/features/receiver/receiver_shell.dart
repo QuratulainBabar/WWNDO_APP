@@ -85,9 +85,14 @@ class _ReceiverShellState extends State<ReceiverShell>
   Future<void> _refreshUnread() async {
     final demoMode = context.read<DemoModeProvider>();
     final auth = context.read<AuthProvider>();
-    await (_realtimeProvider ?? context.read<NotificationRealtimeProvider>())
-        .refreshUnread(
+    final realtime =
+        _realtimeProvider ?? context.read<NotificationRealtimeProvider>();
+    await realtime.refreshUnread(
       role: WalletRole.receiver,
+      authRepository: auth.repository,
+      demoMode: demoMode,
+    );
+    await realtime.refreshChatUnread(
       authRepository: auth.repository,
       demoMode: demoMode,
     );
@@ -95,6 +100,9 @@ class _ReceiverShellState extends State<ReceiverShell>
 
   int get _unreadAlerts =>
       context.watch<NotificationRealtimeProvider>().unreadCount;
+
+  int get _unreadChats =>
+      context.watch<NotificationRealtimeProvider>().chatUnreadCount;
 
   void _onTabTap(int index) {
     widget.navigationShell.goBranch(index, initialLocation: true);
@@ -137,16 +145,17 @@ class _ReceiverShellState extends State<ReceiverShell>
                 _Tab(
                   navigationShell: widget.navigationShell,
                   index: 2,
-                  icon: _TabIcon.svg(AppIcons.chat),
-                  label: 'Chat',
+                  icon: const _TabIcon.material(Icons.notifications_outlined),
+                  label: 'Alert',
+                  badge: _unreadAlerts,
                   onTap: () => _onTabTap(2),
                 ),
                 _Tab(
                   navigationShell: widget.navigationShell,
                   index: 3,
-                  icon: const _TabIcon.material(Icons.notifications_outlined),
-                  label: 'Alerts',
-                  badge: _unreadAlerts,
+                  icon: _TabIcon.svg(AppIcons.chat),
+                  label: 'Chat',
+                  badge: _unreadChats,
                   onTap: () => _onTabTap(3),
                 ),
                 _Tab(

@@ -12,7 +12,9 @@ import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/back_header.dart';
 import '../../data/delivery_status_mapper.dart';
+import '../../data/models/created_delivery.dart';
 import '../../data/models/shipment.dart';
+import '../../data/models/traveler_request_summary.dart';
 import '../../data/services/delivery_live_loader.dart';
 import '../../data/services/delivery_repository.dart';
 import '../../data/services/fulfillment_repository.dart';
@@ -29,31 +31,77 @@ class SenderParcelWaitingScreen extends StatefulWidget {
       _SenderParcelWaitingScreenState();
 }
 
-class _SenderParcelWaitingScreenState extends State<SenderParcelWaitingScreen> {
+class _SenderParcelWaitingScreenState extends State<SenderParcelWaitingScreen>
+    with WidgetsBindingObserver {
   bool _loading = true;
+  bool _redirecting = false;
   String? _error;
   DeliveryLiveSnapshot? _snapshot;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
-  Future<void> _load() async {
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _load(silent: true);
+    }
+  }
+
+  void _redirectIfNeeded(
+    CreatedDelivery delivery, {
+    List<TravelerRequestSummary> travelerRequests = const [],
+  }) {
+    final phase = DeliveryStatusMapper.postedPhaseFor(
+      delivery: delivery,
+      travelerRequests: travelerRequests,
+    );
+    if (phase == SenderPostedPhase.waitingForReceiver) return;
+    if (!mounted) return;
+
+    final status = delivery.status?.trim().toLowerCase();
+    final route = status != null && status.isNotEmpty && status != 'posted'
+        ? '/shipment/${delivery.displayId}'
+        : DeliveryStatusMapper.senderDetailRouteFor(
+            delivery,
+            travelerRequests: travelerRequests,
+          );
+
+    setState(() => _redirecting = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.go(route);
+    });
+  }
+
+  Future<void> _load({bool silent = false}) async {
     final demo = context.read<DemoModeProvider>().enabled;
     if (demo) {
-      setState(() {
-        _loading = false;
-        _error = 'Turn off Demo mode to view live delivery status.';
-      });
+      if (!silent) {
+        setState(() {
+          _loading = false;
+          _error = 'Turn off Demo mode to view live delivery status.';
+        });
+      }
       return;
     }
 
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
 
     try {
       final auth = context.read<AuthProvider>();
@@ -68,6 +116,18 @@ class _SenderParcelWaitingScreenState extends State<SenderParcelWaitingScreen> {
         includeMatchingCount: true,
       );
       if (!mounted) return;
+      final delivery = snapshot.delivery;
+      final phase = DeliveryStatusMapper.postedPhaseFor(
+        delivery: delivery,
+        travelerRequests: snapshot.travelerRequests,
+      );
+      if (phase != SenderPostedPhase.waitingForReceiver) {
+        _redirectIfNeeded(
+          delivery,
+          travelerRequests: snapshot.travelerRequests,
+        );
+        return;
+      }
       setState(() {
         _snapshot = snapshot;
         _loading = false;
@@ -91,7 +151,7 @@ class _SenderParcelWaitingScreenState extends State<SenderParcelWaitingScreen> {
   Widget build(BuildContext context) {
     final typo = context.typo;
 
-    if (_loading) {
+    if (_loading || _redirecting) {
       return Scaffold(
         backgroundColor: AppColors.surface,
         appBar: BackHeader(
@@ -131,10 +191,12 @@ class _SenderParcelWaitingScreenState extends State<SenderParcelWaitingScreen> {
 
     final delivery = _snapshot!.delivery;
     final phase = DeliveryStatusMapper.postedPhaseFor(
-          delivery: delivery,
-          activeTravelerRequestCount: _snapshot!.activeTravelerRequestCount,
-        ) ??
-        SenderPostedPhase.waitingForReceiver;
+      delivery: delivery,
+      travelerRequests: _snapshot!.travelerRequests,
+    );
+    if (phase != SenderPostedPhase.waitingForReceiver) {
+      return const SizedBox.shrink();
+    }
     final isAwaitingTraveler = phase == SenderPostedPhase.travelerReviewing;
     final requests = _snapshot!.travelerRequests;
 

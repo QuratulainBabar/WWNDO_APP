@@ -17,6 +17,10 @@ class TravelerRequestSummary {
   final int matchScore;
   final DateTime? createdAt;
 
+  bool get isAccepted => status == 'accepted';
+
+  bool get isPending => status == 'pending';
+
   factory TravelerRequestSummary.fromJson(Map<String, dynamic> json) {
     final createdRaw = json['createdAt'];
     return TravelerRequestSummary(

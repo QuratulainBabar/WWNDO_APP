@@ -13,10 +13,11 @@ class RouteCityDropdown extends StatelessWidget {
     required this.label,
     required this.value,
     required this.onChanged,
-    this.hintText = 'Search location',
+    this.hintText = 'Search Location',
     this.mapTitle,
     this.searchHint,
     this.citySearch = true,
+    this.airportSearch = false,
   });
 
   final String label;
@@ -26,6 +27,7 @@ class RouteCityDropdown extends StatelessWidget {
   final String? mapTitle;
   final String? searchHint;
   final bool citySearch;
+  final bool airportSearch;
 
   Future<void> _openMapPicker(BuildContext context) async {
     final initial = value == null ? const <MeetupLocation>[] : [value!];
@@ -35,8 +37,9 @@ class RouteCityDropdown extends StatelessWidget {
         'locations': initial,
         'maxLocations': 1,
         'title': mapTitle ?? label,
-        'searchHint': searchHint ?? 'Search $label',
+        'searchHint': searchHint ?? hintText,
         'citySearch': citySearch,
+        'airportSearch': airportSearch,
       },
     );
     if (result != null && result.isNotEmpty) {

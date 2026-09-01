@@ -13,6 +13,7 @@ class ApiException implements Exception {
 
   String? get clientSecret => details?['clientSecret'] as String?;
   String? get paymentIntentId => details?['paymentIntentId'] as String?;
+  String? get paymentRole => details?['role'] as String?;
 
   bool get requiresPayment =>
       code == 'PAYMENT_REQUIRED' || statusCode == 402;

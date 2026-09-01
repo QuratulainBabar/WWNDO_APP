@@ -16,6 +16,8 @@ class AirportRouteSearchFields extends StatefulWidget {
     this.toAirport,
     this.fromErrorText,
     this.toErrorText,
+    this.fromFieldKey,
+    this.toFieldKey,
     required this.onFromChanged,
     required this.onToChanged,
   });
@@ -24,6 +26,8 @@ class AirportRouteSearchFields extends StatefulWidget {
   final MeetupLocation? toAirport;
   final String? fromErrorText;
   final String? toErrorText;
+  final Key? fromFieldKey;
+  final Key? toFieldKey;
   final ValueChanged<MeetupLocation?> onFromChanged;
   final ValueChanged<MeetupLocation?> onToChanged;
 
@@ -331,13 +335,16 @@ class _AirportRouteSearchFieldsState extends State<AirportRouteSearchFields> {
               Expanded(
                 child: Column(
                   children: [
-                    _AirportSearchField(
-                      controller: _fromController,
-                      focusNode: _fromFocus,
-                      hasValue: widget.fromAirport != null,
-                      errorText: widget.fromErrorText,
-                      onChanged: (v) => _onQueryChanged(v, isFrom: true),
-                      onClear: () => _clearField(isFrom: true),
+                    KeyedSubtree(
+                      key: widget.fromFieldKey,
+                      child: _AirportSearchField(
+                        controller: _fromController,
+                        focusNode: _fromFocus,
+                        hasValue: widget.fromAirport != null,
+                        errorText: widget.fromErrorText,
+                        onChanged: (v) => _onQueryChanged(v, isFrom: true),
+                        onClear: () => _clearField(isFrom: true),
+                      ),
                     ),
                     if (showSuggestions && _active == _ActiveField.from)
                       _SuggestionPanel(
@@ -361,13 +368,16 @@ class _AirportRouteSearchFieldsState extends State<AirportRouteSearchFields> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    _AirportSearchField(
-                      controller: _toController,
-                      focusNode: _toFocus,
-                      hasValue: widget.toAirport != null,
-                      errorText: widget.toErrorText,
-                      onChanged: (v) => _onQueryChanged(v, isFrom: false),
-                      onClear: () => _clearField(isFrom: false),
+                    KeyedSubtree(
+                      key: widget.toFieldKey,
+                      child: _AirportSearchField(
+                        controller: _toController,
+                        focusNode: _toFocus,
+                        hasValue: widget.toAirport != null,
+                        errorText: widget.toErrorText,
+                        onChanged: (v) => _onQueryChanged(v, isFrom: false),
+                        onClear: () => _clearField(isFrom: false),
+                      ),
                     ),
                     if (showSuggestions && _active == _ActiveField.to)
                       _SuggestionPanel(
@@ -435,7 +445,7 @@ class _AirportSearchField extends StatelessWidget {
           onChanged: onChanged,
           textInputAction: TextInputAction.search,
           decoration: InputDecoration(
-            hintText: 'Search airport',
+            hintText: 'Search Airport',
             hintStyle: typo.input.copyWith(color: AppColors.textDisabled),
             prefixIcon: const Icon(
               Icons.location_on,

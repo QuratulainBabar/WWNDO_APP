@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -17,7 +19,11 @@ import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/app_value_field.dart';
 import '../../core/widgets/back_header.dart';
 import '../../data/models/bid.dart';
+import '../../data/models/created_delivery.dart';
 import '../../data/models/parcel_creation_result.dart';
+import '../../data/models/shipment.dart';
+import '../../data/delivery_status_mapper.dart';
+import '../../data/services/delivery_repository.dart';
 import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_realtime_provider.dart';
@@ -535,21 +541,117 @@ class PaymentConfirmedScreen extends StatelessWidget {
   }
 }
 
-class PostDeliveryPostedSuccessScreen extends StatelessWidget {
+class PostDeliveryPostedSuccessScreen extends StatefulWidget {
   const PostDeliveryPostedSuccessScreen({
     super.key,
+    this.delivery,
     this.result,
     this.route,
   });
 
+  final CreatedDelivery? delivery;
   final ParcelCreationResult? result;
   final String? route;
 
   @override
+  State<PostDeliveryPostedSuccessScreen> createState() =>
+      _PostDeliveryPostedSuccessScreenState();
+}
+
+class _PostDeliveryPostedSuccessScreenState
+    extends State<PostDeliveryPostedSuccessScreen> with WidgetsBindingObserver {
+  CreatedDelivery? _liveDelivery;
+  bool _polling = false;
+  Timer? _pollTimer;
+
+  String? get _deliveryId =>
+      widget.delivery?.displayId ??
+      _liveDelivery?.displayId ??
+      widget.result?.requestId;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _liveDelivery = widget.delivery;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refreshStatus();
+      _pollTimer = Timer.periodic(const Duration(seconds: 8), (_) {
+        if (_isWaitingForReceiver) _refreshStatus();
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _refreshStatus();
+    }
+  }
+
+  Future<void> _refreshStatus() async {
+    final id = _deliveryId;
+    if (id == null || _polling) return;
+    if (context.read<DemoModeProvider>().enabled) return;
+
+    _polling = true;
+    try {
+      final auth = context.read<AuthProvider>();
+      final repo = DeliveryRepository(
+        apiClient: auth.repository.apiClient,
+        demoMode: context.read<DemoModeProvider>(),
+      );
+      final delivery = await repo.getDelivery(id, role: 'sender');
+      if (!mounted) return;
+      setState(() => _liveDelivery = delivery);
+    } catch (_) {
+      // Keep showing last known / static state.
+    } finally {
+      _polling = false;
+    }
+  }
+
+  SenderPostedPhase? get _phase {
+    final delivery = _liveDelivery ?? widget.delivery;
+    if (delivery == null) return null;
+    return DeliveryStatusMapper.postedPhaseFor(
+      delivery: delivery,
+      activeTravelerRequestCount: 0,
+    );
+  }
+
+  bool get _receiverAccepted {
+    final delivery = _liveDelivery ?? widget.delivery;
+    if (delivery != null) return delivery.isReceiverAccepted;
+    final phase = _phase;
+    return phase != null && phase != SenderPostedPhase.waitingForReceiver;
+  }
+
+  bool get _isWaitingForReceiver {
+    final delivery = _liveDelivery ?? widget.delivery;
+    if (delivery == null) return true;
+    if (delivery.status != 'posted') return false;
+    return !_receiverAccepted;
+  }
+
+  @override
   Widget build(BuildContext context) {
     final typo = context.typo;
-    final displayRoute =
-        result?.route ?? route ?? StaticData.activeShipment.route;
+    final delivery = _liveDelivery ?? widget.delivery;
+    final displayRoute = delivery?.route.isNotEmpty == true
+        ? delivery!.route
+        : widget.result?.route ??
+            widget.route ??
+            StaticData.activeShipment.route;
+    final deliveryId = _deliveryId;
+    final waiting = _isWaitingForReceiver;
 
     return Scaffold(
       backgroundColor: AppColors.surface,
@@ -607,7 +709,9 @@ class PostDeliveryPostedSuccessScreen extends StatelessWidget {
               ),
               const SizedBox(height: 28),
               Image.asset(
-                'assets/images/hourglass_waiting.png',
+                waiting
+                    ? 'assets/images/hourglass_waiting.png'
+                    : 'assets/images/hourglass_waiting.png',
                 height: 168,
                 fit: BoxFit.contain,
               ),
@@ -625,7 +729,9 @@ class PostDeliveryPostedSuccessScreen extends StatelessWidget {
                 child: Column(
                   children: [
                     Text(
-                      'Waiting for receiver acceptance',
+                      waiting
+                          ? 'Waiting for receiver acceptance'
+                          : 'Receiver accepted',
                       style: typo.bodyBold.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
@@ -633,8 +739,11 @@ class PostDeliveryPostedSuccessScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      "We've sent an email notification to your receiver.\n"
-                      'The matching process will start once they accept.',
+                      waiting
+                          ? "We've sent an email notification to your receiver.\n"
+                              'The matching process will start once they accept.'
+                          : 'Your receiver accepted the request.\n'
+                              'You can now choose a matching traveler.',
                       style: typo.sm.copyWith(
                         height: 1.5,
                         color: AppColors.textSecondary,
@@ -645,6 +754,23 @@ class PostDeliveryPostedSuccessScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 24),
+              if (!waiting && deliveryId != null) ...[
+                AppButton(
+                  label: delivery?.status == 'posted'
+                      ? 'View Matching Travelers'
+                      : 'View Delivery Details',
+                  onPressed: () {
+                    if (delivery != null) {
+                      context.go(
+                        DeliveryStatusMapper.senderDetailRouteFor(delivery),
+                      );
+                      return;
+                    }
+                    context.go('/shipment/$deliveryId');
+                  },
+                ),
+                const SizedBox(height: AppButton.stackGap),
+              ],
               AppButton(
                 label: 'View My Deliveries',
                 onPressed: () {

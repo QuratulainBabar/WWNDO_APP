@@ -11,6 +11,7 @@ android {
     buildToolsVersion = "36.1.0"
 
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -74,12 +75,26 @@ tasks.named("preBuild").configure {
 }
 
 dependencies {
+    // Required by flutter_local_notifications on API < 26.
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     // Required by SumSub face detector (com.google.android.gms.tasks.Tasks)
     implementation("com.google.android.gms:play-services-tasks:18.2.1")
+    // Required by flutter_stripe Payment Sheet (Theme.MaterialComponents)
+    implementation("com.google.android.material:material:1.12.0")
+}
+
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
 }
 
 // Stripe issuing push-provisioning pulls a missing Play Services artifact;
 // not needed for Payment Sheet / Connect.
 configurations.configureEach {
     exclude(group = "com.stripe", module = "stripe-android-issuing-push-provisioning")
+    resolutionStrategy {
+        // Avoid Android PaymentSheet card-number focus bug with lifecycle 2.9.x.
+        force("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
+        force("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7")
+        force("androidx.lifecycle:lifecycle-common:2.8.7")
+    }
 }

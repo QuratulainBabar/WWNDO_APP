@@ -12,15 +12,13 @@ abstract final class WalletService {
 
   static const minimumWithdrawalCents = 1000;
 
-  /// One-time $10 available credit per role after identity verification.
-  static const kycWelcomeCreditCents = 1000;
+  /// Welcome balance is disabled — new users start at $0, no signup credit.
+  static const kycWelcomeCreditCents = 0;
   static const kycWelcomeDescription =
       'Welcome credit after identity verification';
 
-  /// TEMPORARY (debug only): when the backend reports $0 available, use $10
-  /// so Sender / Traveler / Receiver flows can be tested without real funding.
-  /// Remove once wallet top-up / welcome credit is reliable in production.
-  static const int devZeroBalanceFallbackCents = kycWelcomeCreditCents;
+  /// Balance always starts at $0 — no fabricated fallback in any build.
+  static const int devZeroBalanceFallbackCents = 0;
 
   static int get _initialAvailableCents =>
       kDebugMode ? devZeroBalanceFallbackCents : 0;
@@ -73,30 +71,10 @@ abstract final class WalletService {
     walletVersion.value++;
   }
 
-  /// Idempotent local $10 credit for sender, traveler, and receiver.
-  /// Used in demo mode and to mirror backend welcome credit into cache.
+  /// Welcome balance is disabled — no signup/KYC credit is ever granted.
+  /// Kept as a no-op so existing callers continue to compile and run.
   static bool grantKycWelcomeCredit() {
-    final alreadyGranted = _ledger.any(
-      (e) => e.description == kycWelcomeDescription,
-    );
-    if (alreadyGranted) return false;
-
-    final now = DateTime.now();
-    for (final role in WalletRole.values) {
-      _append(
-        LedgerEntry(
-          id:
-              'led-${role.name}-kyc-welcome-${now.microsecondsSinceEpoch}-${role.index}',
-          role: role,
-          type: LedgerEntryType.topUp,
-          amountCents: kycWelcomeCreditCents,
-          availableDeltaCents: kycWelcomeCreditCents,
-          description: kycWelcomeDescription,
-          createdAt: now,
-        ),
-      );
-    }
-    return true;
+    return false;
   }
 
   /// Replace cached balances / history for [role] with backend values.

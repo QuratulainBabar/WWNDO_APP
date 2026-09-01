@@ -101,7 +101,7 @@ class BidSubmittedScreen extends StatelessWidget {
                           context.go('/traveler-bids');
                           return;
                         }
-                        context.go('/browse-requests');
+                        context.go('/matching-requests');
                       },
                     ),
                   ],

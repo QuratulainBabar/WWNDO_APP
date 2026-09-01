@@ -5,15 +5,22 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_card.dart';
 
 class ParcelAcknowledgementSection extends StatefulWidget {
-  const ParcelAcknowledgementSection({super.key, this.onChanged});
+  const ParcelAcknowledgementSection({
+    super.key,
+    this.onChanged,
+    this.errorText,
+  });
 
   final ValueChanged<bool>? onChanged;
+  final String? errorText;
 
   @override
-  State<ParcelAcknowledgementSection> createState() => _ParcelAcknowledgementSectionState();
+  State<ParcelAcknowledgementSection> createState() =>
+      _ParcelAcknowledgementSectionState();
 }
 
-class _ParcelAcknowledgementSectionState extends State<ParcelAcknowledgementSection> {
+class _ParcelAcknowledgementSectionState
+    extends State<ParcelAcknowledgementSection> {
   bool _acknowledged = false;
 
   static const _terms = [
@@ -36,69 +43,100 @@ class _ParcelAcknowledgementSectionState extends State<ParcelAcknowledgementSect
     return AppCard(
       margin: EdgeInsets.zero,
       padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Parcel Acknowledgement',
-            style: typo.bodyBold.copyWith(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Before posting your parcel, please read and acknowledge the following:',
-            style: typo.sm.copyWith(color: AppColors.textPrimary),
-          ),
-          const SizedBox(height: 12),
-          for (final term in _terms) ...[
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
+      child: DecoratedBox(
+        decoration: widget.errorText != null
+            ? BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: AppColors.danger.withValues(alpha: 0.45),
+                  width: 1.5,
+                ),
+              )
+            : const BoxDecoration(),
+        child: Padding(
+          padding: widget.errorText != null
+              ? const EdgeInsets.all(12)
+              : EdgeInsets.zero,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Parcel Acknowledgement',
+                style: typo.bodyBold.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Before posting your parcel, please read and acknowledge the following:',
+                style: typo.sm.copyWith(color: AppColors.textPrimary),
+              ),
+              const SizedBox(height: 12),
+              for (final term in _terms) ...[
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '• ',
+                        style: typo.sm.copyWith(color: AppColors.textPrimary),
+                      ),
+                      Expanded(
+                        child: Text(
+                          term,
+                          style: typo.sm.copyWith(color: AppColors.textPrimary),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 4),
+              Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('• ', style: typo.sm.copyWith(color: AppColors.textPrimary)),
+                  GestureDetector(
+                    onTap: _toggleAcknowledged,
+                    child: Container(
+                      width: 24,
+                      height: 24,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color:
+                            _acknowledged ? AppColors.primary : Colors.transparent,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: AppColors.primary, width: 1.5),
+                      ),
+                      child: _acknowledged
+                          ? const Icon(
+                              Icons.check_rounded,
+                              size: 16,
+                              color: Colors.white,
+                            )
+                          : null,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
                   Expanded(
-                    child: Text(
-                      term,
-                      style: typo.sm.copyWith(color: AppColors.textPrimary),
+                    child: GestureDetector(
+                      onTap: _toggleAcknowledged,
+                      child: Text(
+                        'I have read and agree to the above terms and acknowledge that the traveler may inspect my parcel before accepting it.',
+                        style: typo.sm.copyWith(color: AppColors.textPrimary),
+                      ),
                     ),
                   ),
                 ],
               ),
-            ),
-          ],
-          const SizedBox(height: 4),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              GestureDetector(
-                onTap: _toggleAcknowledged,
-                child: Container(
-                  width: 24,
-                  height: 24,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: _acknowledged ? AppColors.primary : Colors.transparent,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: AppColors.primary, width: 1.5),
-                  ),
-                  child: _acknowledged
-                      ? const Icon(Icons.check_rounded, size: 16, color: Colors.white)
-                      : null,
+              if (widget.errorText != null) ...[
+                const SizedBox(height: 10),
+                Text(
+                  widget.errorText!,
+                  style: typo.sm.copyWith(color: AppColors.danger),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: GestureDetector(
-                  onTap: _toggleAcknowledged,
-                  child: Text(
-                    'I have read and agree to the above terms and acknowledge that the traveler may inspect my parcel before accepting it.',
-                    style: typo.sm.copyWith(color: AppColors.textPrimary),
-                  ),
-                ),
-              ),
+              ],
             ],
           ),
-        ],
+        ),
       ),
     );
   }

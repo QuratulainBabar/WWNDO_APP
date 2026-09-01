@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../data/models/meetup_location.dart';
+import 'field_info_tag.dart';
 
 /// Pin-box entry point for meetup locations on the post delivery form.
 class MeetupLocationsCard extends StatelessWidget {
@@ -27,6 +28,26 @@ class MeetupLocationsCard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Row(
+          children: [
+            Flexible(
+              child: Text(
+                'Meetup Locations (Max $maxLocations)',
+                style: typo.inputLabel.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ),
+            const FieldInfoTag(
+              title: 'Sender ↔ Traveler meetup',
+              message:
+                  'These are preferred public spots in your From city where you will hand the parcel to the traveler (NFC Checkpoint 1).\n\n'
+                  'You can add up to 3 options. Later you and the traveler will confirm one meetup location.',
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
         Material(
           color: Colors.transparent,
           child: InkWell(
@@ -63,17 +84,9 @@ class MeetupLocationsCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Meetup Locations (Max $maxLocations)',
-                          style: typo.inputLabel.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
                           hasLocations
                               ? '${locations.length} location${locations.length == 1 ? '' : 's'} added'
-                              : 'Add up to $maxLocations public meetup locations',
+                              : 'Where you meet the traveler to hand over the parcel',
                           style: typo.sm.copyWith(color: AppColors.textSecondary),
                         ),
                         if (hasLocations) ...[

@@ -19,7 +19,7 @@ class InternationalPhoneField extends StatelessWidget {
     this.label = 'Phone',
     this.labelStyle,
     this.inputStyle,
-    this.hintText = '6 12 34 56 78',
+    this.hintText,
     this.padding,
     this.textInputAction = TextInputAction.next,
   });
@@ -30,6 +30,8 @@ class InternationalPhoneField extends StatelessWidget {
   final String label;
   final TextStyle? labelStyle;
   final TextStyle? inputStyle;
+  /// When null, uses [PhoneCountries.examplePlaceholder] for [country]
+  /// (dial code + local number format).
   final String? hintText;
   final EdgeInsetsGeometry? padding;
   final TextInputAction textInputAction;
@@ -62,7 +64,7 @@ class InternationalPhoneField extends StatelessWidget {
         controller: controller,
         country: country,
         fieldInputStyle: fieldInputStyle,
-        hintText: hintText,
+        hintText: hintText ?? PhoneCountries.examplePlaceholder(country),
         textInputAction: textInputAction,
         onOpenPicker: () => _openPicker(context),
       ),

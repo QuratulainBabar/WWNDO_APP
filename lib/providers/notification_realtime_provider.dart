@@ -6,6 +6,7 @@ import '../core/config/demo_mode.dart';
 import '../data/models/app_notification.dart';
 import '../data/models/wallet_role.dart';
 import '../data/services/auth_repository.dart';
+import '../data/services/chat_repository.dart';
 import '../data/services/notification_realtime_service.dart';
 import '../data/services/notification_repository.dart';
 
@@ -20,12 +21,15 @@ class NotificationRealtimeProvider extends ChangeNotifier {
 
   WalletRole? _activeRole;
   int _unreadCount = 0;
+  int _chatUnreadCount = 0;
   int _senderRequestUnreadCount = 0;
   int _deliveryUpdateTick = 0;
   StreamSubscription<AppNotification>? _notificationSub;
   StreamSubscription<int>? _unreadSub;
 
   int get unreadCount => _unreadCount;
+  /// Total unread chat messages across all conversations (Chat tab badge).
+  int get chatUnreadCount => _chatUnreadCount;
   /// Traveler home "Sender Requests" quick-action badge (unread pending requests).
   int get senderRequestUnreadCount => _senderRequestUnreadCount;
   int get deliveryUpdateTick => _deliveryUpdateTick;
@@ -113,6 +117,39 @@ class NotificationRealtimeProvider extends ChangeNotifier {
     }
   }
 
+  /// Refresh the total unread chat count by summing per-conversation unread
+  /// from the chat list endpoint. Non-critical — failures keep the last count.
+  Future<void> refreshChatUnread({
+    required AuthRepository authRepository,
+    DemoModeProvider? demoMode,
+  }) async {
+    if (demoMode?.enabled ?? false) {
+      if (_chatUnreadCount != 0) {
+        _chatUnreadCount = 0;
+        notifyListeners();
+      }
+      return;
+    }
+
+    final chatRepository = ChatRepository(
+      apiClient: authRepository.apiClient,
+      demoMode: demoMode,
+    );
+    try {
+      final conversations = await chatRepository.listConversations();
+      final total = conversations.fold<int>(
+        0,
+        (sum, c) => sum + (c.unreadCount < 0 ? 0 : c.unreadCount),
+      );
+      if (_chatUnreadCount != total) {
+        _chatUnreadCount = total;
+        notifyListeners();
+      }
+    } catch (_) {
+      // Badge refresh is non-critical.
+    }
+  }
+
   void setUnreadCount(int count) {
     if (_unreadCount != count) {
       _unreadCount = count;
@@ -144,6 +181,7 @@ class NotificationRealtimeProvider extends ChangeNotifier {
     _activeRole = null;
     _deliveryUpdateTick = 0;
     _senderRequestUnreadCount = 0;
+    _chatUnreadCount = 0;
     _recentIncoming.clear();
     notifyListeners();
   }

@@ -5,9 +5,9 @@ import '../../../data/models/created_delivery.dart';
 import '../../../data/models/meetup_location.dart';
 
 String deliveryCityName(MeetupLocation place) {
-  final name = place.name.trim();
-  if (name.isNotEmpty) return name;
-  return place.displayLabel;
+  final label = place.displayLabel.trim();
+  if (label.isNotEmpty) return label;
+  return place.name.trim();
 }
 
 String deliveryCodeFromPlace(MeetupLocation place) {
@@ -48,11 +48,9 @@ String deliveryCountryName(MeetupLocation place) {
 }
 
 String deliveryAirportCity(MeetupLocation place) {
-  final name = place.name.trim();
-  if (name.isNotEmpty) return name;
-  final parts = place.address.split(',');
-  if (parts.length >= 2) return parts[parts.length - 2].trim();
-  return place.displayLabel;
+  final label = place.displayLabel.trim();
+  if (label.isNotEmpty) return label;
+  return place.name.trim();
 }
 
 extension CreatedDeliveryFormX on CreatedDelivery {

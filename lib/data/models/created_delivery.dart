@@ -334,10 +334,15 @@ class CreatedDelivery {
     this.destinationAirport,
     this.platformFee,
     this.platformFeeShare,
+    this.paysReceiverFee = false,
     this.receiverEmail,
     this.receiverPhone,
     this.receiverMeetupLocation,
     this.senderName,
+    this.senderId,
+    this.travelerId,
+    this.travelerName,
+    this.bidAmount,
     this.receiverId,
     this.receiverAcceptedAt,
   });
@@ -366,10 +371,15 @@ class CreatedDelivery {
   final String? destinationAirport;
   final double? platformFee;
   final double? platformFeeShare;
+  final bool paysReceiverFee;
   final String? receiverEmail;
   final String? receiverPhone;
   final String? receiverMeetupLocation;
   final String? senderName;
+  final String? senderId;
+  final String? travelerId;
+  final String? travelerName;
+  final double? bidAmount;
   final String? receiverId;
   final String? receiverAcceptedAt;
 
@@ -418,10 +428,16 @@ class CreatedDelivery {
       destinationAirport: json['destinationAirport'] as String?,
       platformFee: (json['platformFee'] as num?)?.toDouble(),
       platformFeeShare: (json['platformFeeShare'] as num?)?.toDouble(),
+      paysReceiverFee: json['paysReceiverFee'] == true ||
+          ((json['platformFeeShare'] as num?)?.toDouble() ?? 1) <= 0,
       receiverEmail: json['receiverEmail'] as String?,
       receiverPhone: json['receiverPhone'] as String?,
       receiverMeetupLocation: json['receiverMeetupLocation'] as String?,
       senderName: json['senderName'] as String?,
+      senderId: json['senderId'] as String?,
+      travelerId: json['travelerId'] as String?,
+      travelerName: json['travelerName'] as String?,
+      bidAmount: (json['bidAmount'] as num?)?.toDouble(),
       receiverId: json['receiverId'] as String?,
       receiverAcceptedAt: json['receiverAcceptedAt']?.toString(),
     );

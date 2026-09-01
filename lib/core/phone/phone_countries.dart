@@ -189,6 +189,105 @@ abstract final class PhoneCountries {
     return [...preferred, ...rest];
   }
 
+  /// National-number example used as the phone-field placeholder for [iso].
+  /// Spacing follows common local grouping (not a validation mask).
+  static String nationalExample(String iso) {
+    return _nationalExamples[iso.toUpperCase()] ?? '612 345 678';
+  }
+
+  /// Placeholder with dial code + national format, e.g. `+33 6 12 34 56 78`.
+  static String examplePlaceholder(PhoneCountry country) {
+    return '${country.dialCode} ${nationalExample(country.iso)}';
+  }
+
+  static const Map<String, String> _nationalExamples = {
+    'AE': '50 123 4567',
+    'AF': '70 123 4567',
+    'AL': '67 212 3456',
+    'AR': '11 2345 6789',
+    'AT': '664 123456',
+    'AU': '412 345 678',
+    'BD': '1712 345678',
+    'BE': '470 12 34 56',
+    'BJ': '90 12 34 56',
+    'BR': '11 91234 5678',
+    'BF': '70 12 34 56',
+    'CA': '416 555 0123',
+    'CD': '81 234 5678',
+    'CH': '78 123 45 67',
+    'CI': '01 23 45 67 89',
+    'CL': '9 1234 5678',
+    'CM': '6 71 23 45 67',
+    'CN': '131 2345 6789',
+    'CO': '300 123 4567',
+    'CZ': '601 123 456',
+    'DE': '151 23456789',
+    'DK': '20 12 34 56',
+    'DZ': '551 23 45 67',
+    'EG': '100 123 4567',
+    'ES': '612 34 56 78',
+    'ET': '91 123 4567',
+    'FI': '41 2345678',
+    'FR': '6 12 34 56 78',
+    'GB': '7400 123456',
+    'GH': '24 123 4567',
+    'GN': '601 12 34 56',
+    'GR': '691 234 5678',
+    'HK': '5123 4567',
+    'HR': '91 234 5678',
+    'HU': '20 123 4567',
+    'ID': '812 3456 7890',
+    'IE': '85 012 3456',
+    'IL': '50 123 4567',
+    'IN': '98765 43210',
+    'IT': '312 345 6789',
+    'JO': '7 9012 3456',
+    'JP': '90 1234 5678',
+    'KE': '712 345678',
+    'KR': '10 1234 5678',
+    'KW': '5000 1234',
+    'LB': '71 123 456',
+    'LK': '71 234 5678',
+    'LR': '77 012 3456',
+    'LY': '91 234 5678',
+    'MA': '612 345 678',
+    'ML': '65 01 23 45',
+    'MR': '22 12 34 56',
+    'MX': '55 1234 5678',
+    'MY': '12 345 6789',
+    'MZ': '82 123 4567',
+    'NE': '90 12 34 56',
+    'NG': '802 123 4567',
+    'NL': '6 12345678',
+    'NO': '406 12 345',
+    'NZ': '21 123 4567',
+    'OM': '9212 3456',
+    'PH': '917 123 4567',
+    'PK': '300 1234567',
+    'PL': '512 345 678',
+    'PT': '912 345 678',
+    'QA': '3312 3456',
+    'RO': '712 345 678',
+    'RS': '60 1234567',
+    'RU': '912 345 67 89',
+    'SA': '50 123 4567',
+    'SE': '70 123 45 67',
+    'SG': '8123 4567',
+    'SN': '77 123 45 67',
+    'TH': '81 234 5678',
+    'TG': '90 12 34 56',
+    'TN': '20 123 456',
+    'TR': '501 234 56 78',
+    'TZ': '712 345 678',
+    'UA': '50 123 4567',
+    'UG': '712 345678',
+    'US': '202 555 0123',
+    'VN': '91 234 56 78',
+    'ZA': '71 123 4567',
+    'ZM': '95 1234567',
+    'ZW': '71 234 5678',
+  };
+
   /// Digits-only national number (strips spaces and leading zeros).
   static String nationalDigits(String national) {
     return national.replaceAll(RegExp(r'\D'), '').replaceFirst(RegExp(r'^0+'), '');

@@ -94,6 +94,11 @@ class _EditPostedDeliveryScreenState extends State<EditPostedDeliveryScreen> {
       context.pop(true);
     } on ApiException catch (e) {
       if (!mounted) return;
+      setState(() => _saving = false);
+      if (_formKey.currentState?.applyServerValidationMessage(e.message) ??
+          false) {
+        return;
+      }
       AppToast.error(context, e.message);
     } catch (_) {
       if (!mounted) return;

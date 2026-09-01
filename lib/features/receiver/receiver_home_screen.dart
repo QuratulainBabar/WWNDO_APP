@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/auth/selected_role.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/config/demo_mode.dart';
 import '../../core/theme/app_colors.dart';
@@ -21,6 +22,7 @@ import '../../data/models/wallet_role.dart';
 import '../../data/services/delivery_repository.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_realtime_provider.dart';
+import '../../providers/wallet_provider.dart';
 
 class ReceiverHomeScreen extends StatefulWidget {
   const ReceiverHomeScreen({super.key});
@@ -169,6 +171,14 @@ class _ReceiverHomeScreenState extends State<ReceiverHomeScreen>
     }
   }
 
+  Future<void> _onPullRefresh() async {
+    await Future.wait([
+      context.read<AuthProvider>().refreshUser(),
+      _load(silent: true),
+      context.read<WalletProvider>().refresh(WalletRole.receiver, silent: true),
+    ]);
+  }
+
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
@@ -183,6 +193,7 @@ class _ReceiverHomeScreenState extends State<ReceiverHomeScreen>
     return Scaffold(
       backgroundColor: AppColors.background,
       body: ScreenBody(
+        onRefresh: _onPullRefresh,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -200,7 +211,14 @@ class _ReceiverHomeScreenState extends State<ReceiverHomeScreen>
                         style: typo.h1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      Text('Receiver · Track incoming parcels', style: typo.sm),
+                      Text(
+                        SelectedRoleStore.homeTaglineSubtitle(
+                          authUser,
+                          WalletRole.receiver,
+                          tagline: 'Track incoming parcels',
+                        ),
+                        style: typo.sm,
+                      ),
                     ],
                   ),
                 ),

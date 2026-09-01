@@ -5,7 +5,7 @@
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
     <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
-    <uses-permission android:name="android.permission.USE_FINGERPRINT"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-feature android:name="android.hardware.nfc" android:required="false"/>
     <application
         android:label="WWNGO"
@@ -43,8 +43,11 @@
             android:name="io.flutter.embedding.android.EnableImpeller"
             android:value="false" />
         <meta-data
-            android:name="io.flutter.embedding.android.DisableMergedPlatformUIThread"
-            android:value="true" />
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="wwngo_alerts" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@mipmap/ic_launcher" />
     </application>
     <queries>
         <intent>

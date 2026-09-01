@@ -75,8 +75,8 @@ class TripFormFieldsState extends State<TripFormFields> {
       AppToast.error(
         context,
         _isCountry
-            ? 'Select both From and To locations.'
-            : 'Select both From and To locations on the map.',
+            ? 'Select both From and To airports.'
+            : 'Select both From and To locations.',
       );
       return false;
     }
@@ -98,17 +98,17 @@ class TripFormFieldsState extends State<TripFormFields> {
       if (_fromLocation!.displayLabel == _toLocation!.displayLabel) {
         AppToast.error(
           context,
-          'Origin and destination locations must be different.',
+          'Origin and destination airports must be different.',
         );
         return false;
       }
     } else {
-      final origin = _fromLocation!.name.trim();
-      final destination = _toLocation!.name.trim();
+      final origin = _fromLocation!.displayLabel.trim();
+      final destination = _toLocation!.displayLabel.trim();
       if (origin.isEmpty || destination.isEmpty) {
         AppToast.error(
           context,
-          'Select both From and To locations on the map.',
+          'Select both From and To locations.',
         );
         return false;
       }
@@ -145,12 +145,14 @@ class TripFormFieldsState extends State<TripFormFields> {
         destinationCountry: destinationCountry,
         originCountryCode: fromCode.isNotEmpty ? fromCode : null,
         destinationCountryCode: toCode.isNotEmpty ? toCode : null,
+        originAirport: _fromLocation!.displayLabel.trim(),
+        destinationAirport: _toLocation!.displayLabel.trim(),
         flightNumber: flight.isEmpty ? null : flight,
       );
     }
 
-    final origin = _fromLocation!.name.trim();
-    final destination = _toLocation!.name.trim();
+    final origin = _fromLocation!.displayLabel.trim();
+    final destination = _toLocation!.displayLabel.trim();
     return CreateTripRequest(
       tripType: TripType.cityToCity,
       travelDate: _travelDate!,
@@ -233,22 +235,23 @@ class TripFormFieldsState extends State<TripFormFields> {
               Text('Route', style: sectionTitleStyle),
               const SizedBox(height: 12),
               RouteCityDropdown(
-                label: _isCountry ? 'From' : 'From city',
+                label: _isCountry ? 'From airport' : 'From city',
                 value: _fromLocation,
-                hintText: 'Search location',
-                mapTitle: _isCountry ? 'From location' : 'From city',
-                searchHint:
-                    _isCountry ? 'Search from location' : 'Search from city',
+                hintText: _isCountry ? 'Search Airport' : 'Search Location',
+                mapTitle: _isCountry ? 'From airport' : 'From city',
+                searchHint: _isCountry ? 'Search Airport' : 'Search Location',
                 citySearch: !_isCountry,
+                airportSearch: _isCountry,
                 onChanged: (place) => setState(() => _fromLocation = place),
               ),
               RouteCityDropdown(
-                label: _isCountry ? 'To' : 'To city',
+                label: _isCountry ? 'To airport' : 'To city',
                 value: _toLocation,
-                hintText: 'Search location',
-                mapTitle: _isCountry ? 'To location' : 'To city',
-                searchHint: _isCountry ? 'Search to location' : 'Search to city',
+                hintText: _isCountry ? 'Search Airport' : 'Search Location',
+                mapTitle: _isCountry ? 'To airport' : 'To city',
+                searchHint: _isCountry ? 'Search Airport' : 'Search Location',
                 citySearch: !_isCountry,
+                airportSearch: _isCountry,
                 onChanged: (place) => setState(() => _toLocation = place),
               ),
               TravelDateField(
@@ -307,17 +310,51 @@ class TripFormFieldsState extends State<TripFormFields> {
 }
 
 extension TravelerTripFormX on TravelerTrip {
-  MeetupLocation get fromMeetupLocation => MeetupLocation(
+  MeetupLocation get fromMeetupLocation {
+    if (isCountryToCountry) {
+      final airport = originAirport?.trim();
+      if (airport != null && airport.isNotEmpty) {
+        return MeetupLocation(
+          name: airport,
+          address: airport,
+          countryCode: originCountryCode,
+        );
+      }
+      return MeetupLocation(
         name: origin,
         address: origin,
-        countryCode: isCountryToCountry ? originCountryCode : fromCode,
+        countryCode: originCountryCode,
       );
+    }
+    return MeetupLocation(
+      name: origin,
+      address: origin,
+      countryCode: fromCode,
+    );
+  }
 
-  MeetupLocation get toMeetupLocation => MeetupLocation(
+  MeetupLocation get toMeetupLocation {
+    if (isCountryToCountry) {
+      final airport = destinationAirport?.trim();
+      if (airport != null && airport.isNotEmpty) {
+        return MeetupLocation(
+          name: airport,
+          address: airport,
+          countryCode: destinationCountryCode,
+        );
+      }
+      return MeetupLocation(
         name: destination,
         address: destination,
-        countryCode: isCountryToCountry ? destinationCountryCode : toCode,
+        countryCode: destinationCountryCode,
       );
+    }
+    return MeetupLocation(
+      name: destination,
+      address: destination,
+      countryCode: toCode,
+    );
+  }
 
   TripType get tripTypeEnum =>
       isCountryToCountry ? TripType.countryToCountry : TripType.cityToCity;

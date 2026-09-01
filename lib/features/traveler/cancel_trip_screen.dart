@@ -15,6 +15,7 @@ import '../../core/widgets/cancel_request_confirmation_dialog.dart';
 import '../../core/widgets/scrollable_form_screen.dart';
 import '../../data/models/traveler_trip.dart';
 import '../../data/services/trip_repository.dart';
+import '../../data/delivery_cancel_policy.dart';
 import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
 
@@ -101,15 +102,21 @@ class _CancelTripScreenState extends State<CancelTripScreen> {
     final trip = _trip;
     if (trip == null) return;
 
-    if (!StaticData.canTravelerCancelTrip(trip)) {
-      AppToast.error(context, StaticData.travelerCancelBlockedMessage);
+    final demoMode = context.read<DemoModeProvider>().enabled;
+
+    if (demoMode) {
+      if (!StaticData.canTravelerCancelTrip(trip)) {
+        AppToast.error(context, StaticData.travelerCancelBlockedMessage);
+        return;
+      }
+    } else if (trip.status != TripStatus.openBid) {
+      AppToast.error(context, DeliveryCancelPolicy.travelerCancelBlockedMessage);
       return;
     }
 
     final confirmed = await showCancelRequestConfirmation(context);
     if (!confirmed || !mounted) return;
 
-    final demoMode = context.read<DemoModeProvider>().enabled;
     if (demoMode) {
       final cancelled = StaticData.tryCancelTravelerTrip(trip.id);
       if (!cancelled) {
@@ -125,7 +132,6 @@ class _CancelTripScreenState extends State<CancelTripScreen> {
     try {
       await _repository().cancelTrip(trip.displayId);
       if (!mounted) return;
-      StaticData.cancelTravelerTrip(trip.id);
       AppToast.success(context, '${trip.displayId} cancelled');
       context.go('/traveler-trips');
     } on ApiException catch (e) {
@@ -184,9 +190,16 @@ class _CancelTripScreenState extends State<CancelTripScreen> {
     }
 
     final trip = _trip!;
-    final canCancel = StaticData.canTravelerCancelTrip(trip);
-    final noRequests = StaticData.matchingRequestCountForTrip(trip.id) == 0 &&
+    final demoMode = context.read<DemoModeProvider>().enabled;
+    final canCancel = demoMode
+        ? StaticData.canTravelerCancelTrip(trip)
+        : trip.status == TripStatus.openBid;
+    final noRequests = demoMode &&
+        StaticData.matchingRequestCountForTrip(trip.id) == 0 &&
         trip.status == TripStatus.openBid;
+    final travelWindowOpen = DeliveryCancelPolicy.canTravelerCancelBeforeTravel(
+      trip.travelDate,
+    );
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -199,7 +212,7 @@ class _CancelTripScreenState extends State<CancelTripScreen> {
           AppButton(
             label: _cancelling ? 'Cancelling…' : 'Cancel trip',
             variant: AppButtonVariant.danger,
-            onPressed: _cancelling ? null : _confirmCancel,
+            onPressed: _cancelling || !canCancel ? null : _confirmCancel,
           ),
           AppButton(
             label: 'Keep trip',
@@ -231,11 +244,16 @@ class _CancelTripScreenState extends State<CancelTripScreen> {
               ),
               child: Text(
                 canCancel
-                    ? noRequests
+                    ? (noRequests
                         ? 'You can cancel this trip because it has no sender requests yet.'
-                        : 'You can cancel this trip because it is still more than '
-                            '${StaticData.travelerCancelMinHoursBeforeTravel} hours before the flight.'
-                    : StaticData.travelerCancelBlockedMessage,
+                        : (travelWindowOpen
+                            ? 'You can cancel this trip because it is still more than '
+                                '${DeliveryCancelPolicy.travelerCancelMinHoursBeforeTravel} hours before the flight.'
+                            : 'Cancellation may be blocked if sender requests exist and travel is within '
+                                '${DeliveryCancelPolicy.travelerCancelMinHoursBeforeTravel} hours.'))
+                    : (demoMode
+                        ? StaticData.travelerCancelBlockedMessage
+                        : DeliveryCancelPolicy.travelerCancelBlockedMessage),
                 style: typo.sm.copyWith(
                   height: 1.45,
                   color: canCancel ? AppColors.success : AppColors.danger,

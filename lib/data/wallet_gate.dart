@@ -40,19 +40,30 @@ abstract final class WalletGate {
         TripCreationWalletValidation.insufficientBalanceMessage,
       );
 
-  static Future<bool> ensureParcelCreation(BuildContext context) => ensureMinimum(
+  static Future<bool> ensureParcelCreation(
+    BuildContext context, {
+    String category = 'documents',
+    bool paysReceiverFee = false,
+  }) =>
+      ensureMinimum(
         context,
         WalletRole.sender,
         ParcelCreationWalletValidation.minimumBalanceUsd,
         ParcelCreationWalletValidation.insufficientBalanceMessage,
       );
 
-  static Future<bool> ensureReceiverAccept(BuildContext context) => ensureMinimum(
+  static Future<bool> ensureReceiverAccept(
+    BuildContext context, {
+    required String category,
+    required bool paysReceiverFee,
+    double platformFeeUsd = 0,
+  }) =>
+      ensureMinimum(
         context,
         WalletRole.receiver,
         PlatformFees.minWalletReceiverUsd,
-        'You need at least \$${PlatformFees.minWalletReceiverUsd.toStringAsFixed(0)} '
-        'in your wallet to accept this request.',
+        'You need at least \$${PlatformFees.minWalletReceiverUsd.toStringAsFixed(2)} '
+            'in your wallet to accept this request.',
       );
 
   static Future<void> refreshRoles(

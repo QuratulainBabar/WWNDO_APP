@@ -17,6 +17,7 @@ class FulfillmentRepository {
     String? deviceId,
     double? gpsLat,
     double? gpsLng,
+    String? paymentIntentId,
   }) =>
       _platform.confirmNfcCheckpoint(
         deliveryId: deliveryId,
@@ -24,6 +25,7 @@ class FulfillmentRepository {
         deviceId: deviceId,
         gpsLat: gpsLat,
         gpsLng: gpsLng,
+        paymentIntentId: paymentIntentId,
       );
 
   Future<Map<String, dynamic>> openDispute({

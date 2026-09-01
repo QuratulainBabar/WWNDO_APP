@@ -37,4 +37,38 @@ class ReviewRepository {
         .map((item) => Review.fromJson(Map<String, dynamic>.from(item)))
         .toList();
   }
+
+  /// POST /api/v1/reviews
+  Future<Review> createReview({
+    required String revieweeId,
+    required WalletRole revieweeRole,
+    required int rating,
+    required String text,
+    String? shipmentId,
+  }) async {
+    if (_isDemoMode) {
+      return Review(
+        reviewerName: 'You',
+        initial: 'Y',
+        rating: rating.clamp(1, 5),
+        text: text.trim(),
+        date: 'Just now',
+        shipmentId: shipmentId,
+      );
+    }
+
+    final data = await _apiClient.post(
+      '/reviews',
+      body: {
+        'revieweeId': revieweeId,
+        'role': revieweeRole.queryParam,
+        'rating': rating.clamp(1, 5),
+        'text': text.trim(),
+        if (shipmentId != null && shipmentId.trim().isNotEmpty)
+          'shipmentId': shipmentId.trim(),
+      },
+      authenticated: true,
+    );
+    return Review.fromJson(data);
+  }
 }

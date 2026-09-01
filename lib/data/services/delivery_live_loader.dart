@@ -43,11 +43,19 @@ abstract final class DeliveryLiveLoader {
     final delivery = await deliveryRepo.getDelivery(deliveryId, role: role);
     final displayId = delivery.displayId;
 
+    final isSender = role == 'sender';
     final results = await Future.wait([
       fulfillmentRepo.getTimeline(displayId),
       fulfillmentRepo.listNfcCheckpoints(displayId),
-      deliveryRepo.listTravelerRequests(displayId),
-      if (includeMatchingCount && delivery.status == 'posted' && delivery.isReceiverAccepted)
+      // Sender-only endpoint — travelers/receivers get 404 if called.
+      if (isSender)
+        deliveryRepo.listTravelerRequests(displayId)
+      else
+        Future.value(<TravelerRequestSummary>[]),
+      if (includeMatchingCount &&
+          isSender &&
+          delivery.status == 'posted' &&
+          delivery.isReceiverAccepted)
         deliveryRepo.listMatchingTravelers(displayId)
       else
         Future.value(<dynamic>[]),
@@ -90,7 +98,7 @@ abstract final class DeliveryLiveLoader {
     );
 
     return DeliveryLiveSnapshot(
-      delivery: delivery,
+      delivery: deliveryForTracking,
       status: status,
       tracking: DeliveryStatusMapper.trackingFor(deliveryForTracking),
       cp1Confirmed: cp1,

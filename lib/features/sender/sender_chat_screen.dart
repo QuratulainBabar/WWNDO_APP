@@ -9,15 +9,15 @@ import '../../core/layout/responsive.dart';
 import '../../core/platform/platform_ui.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
-import '../../core/widgets/app_avatar.dart';
 import '../../core/widgets/back_header.dart';
 import '../../data/models/chat_message.dart';
 import '../../data/services/chat_repository.dart';
 import '../../data/services/socket_chat_service.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/notification_realtime_provider.dart';
 import '../chat/chat_conversation_mixin.dart';
 import '../chat/widgets/chat_composer.dart';
-import '../chat/widgets/chat_image_attachment.dart';
+import '../chat/widgets/chat_thread_widgets.dart';
 
 class SenderChatScreen extends StatefulWidget {
   const SenderChatScreen({
@@ -46,6 +46,7 @@ class _SenderChatScreenState extends State<SenderChatScreen>
   String _peerName = 'Contact';
   String _shipmentId = '';
   String? _conversationId;
+  bool _unlocked = true;
   StreamSubscription<ChatMessage>? _socketSub;
   SocketChatService? _socket;
 
@@ -100,6 +101,7 @@ class _SenderChatScreenState extends State<SenderChatScreen>
       if (!mounted) return;
 
       final auth = context.read<AuthProvider>();
+      final myId = auth.repository.currentUser?.id;
       _socket = SocketChatService(
         getAccessToken: auth.repository.tokenStorage.getAccessToken,
       );
@@ -107,7 +109,21 @@ class _SenderChatScreenState extends State<SenderChatScreen>
       _socket!.joinConversation(id);
       _socketSub = _socket!.onMessage.listen((message) {
         if (!mounted) return;
-        setState(() => chatMessages.add(message));
+        // The realtime payload is viewer-neutral — derive alignment locally.
+        final resolved = message.senderId != null
+            ? message.copyWith(isMine: message.senderId == myId)
+            : message;
+        // Reconcile the echo of a message we optimistically appended locally.
+        if (resolved.isMine) {
+          if (reconcileOwnEcho(resolved)) {
+            scrollChatToBottom();
+            return;
+          }
+        } else if (resolved.id != null &&
+            chatMessages.any((m) => m.id == resolved.id)) {
+          return; // duplicate peer message
+        }
+        setState(() => chatMessages.add(resolved));
         scrollChatToBottom();
       });
 
@@ -115,9 +131,18 @@ class _SenderChatScreenState extends State<SenderChatScreen>
         chatMessages = List.of(detail.messages);
         _peerName = widget.contactName ?? detail.name;
         _shipmentId = detail.shipmentId;
+        _unlocked = detail.unlocked;
         _loading = false;
       });
       scrollChatToBottom();
+      // Opening the thread marked it read server-side — clear the tab badge now
+      // instead of waiting for the next poll.
+      if (mounted) {
+        context.read<NotificationRealtimeProvider>().refreshChatUnread(
+              authRepository: auth.repository,
+              demoMode: context.read<DemoModeProvider>(),
+            );
+      }
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -139,18 +164,31 @@ class _SenderChatScreenState extends State<SenderChatScreen>
     if (text.isEmpty || id == null) return;
 
     chatController.clear();
+    // Show the message immediately, then reconcile with the server response.
+    final tempId = addOptimisticMessage(
+      ChatMessage(
+        text: text,
+        isMine: true,
+        time: chatNowTime,
+        id: nextLocalMessageId(),
+        pending: true,
+      ),
+    );
     try {
       final message = await _repo().sendMessage(id, text);
-      if (!mounted) return;
-      setState(() => chatMessages.add(message));
+      confirmOptimisticMessage(tempId, message);
       scrollChatToBottom();
     } on ApiException catch (e) {
       if (!mounted) return;
+      removeOptimisticMessage(tempId);
+      chatController.text = text;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(e.message)),
       );
     } catch (_) {
       if (!mounted) return;
+      removeOptimisticMessage(tempId);
+      chatController.text = text;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Unable to send message.')),
       );
@@ -180,12 +218,16 @@ class _SenderChatScreenState extends State<SenderChatScreen>
               context.horizontalPadding,
               12,
             ),
-            color: AppColors.primary.withValues(alpha: 0.08),
+            color: _unlocked
+                ? AppColors.primary.withValues(alpha: 0.08)
+                : AppColors.warning.withValues(alpha: 0.12),
             child: Text(
-              'Chat is available because the Sender has accepted this traveler\'s bid.',
+              _unlocked
+                  ? 'Chat is open — coordinate meetup details with your traveler.'
+                  : 'Chat unlocks after you accept a traveler and payment is complete.',
               textAlign: TextAlign.center,
               style: typo.sm.copyWith(
-                color: AppColors.primary,
+                color: _unlocked ? AppColors.primary : AppColors.warning,
                 fontWeight: FontWeight.w600,
                 height: 1.45,
               ),
@@ -242,48 +284,22 @@ class _SenderChatScreenState extends State<SenderChatScreen>
                           ),
                         ),
                       )
-                    : ListView(
-                        controller: chatScrollController,
-                        physics: PlatformUi.scrollPhysics,
-                        padding: EdgeInsets.all(context.horizontalPadding),
-                        children: [
-                          if (chatMessages.isNotEmpty) ...[
-                            Center(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppColors.background,
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Text('Today', style: typo.datePill),
-                              ),
+                    : chatMessages.isEmpty
+                        ? const ChatEmptyState()
+                        : ListView(
+                            controller: chatScrollController,
+                            physics: PlatformUi.scrollPhysics,
+                            padding: EdgeInsets.fromLTRB(
+                              context.horizontalPadding,
+                              4,
+                              context.horizontalPadding,
+                              12,
                             ),
-                            const SizedBox(height: 14),
-                          ],
-                          if (chatMessages.isEmpty)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 48),
-                              child: Center(
-                                child: Text(
-                                  'No messages yet.',
-                                  style: typo.sm.copyWith(
-                                    color: AppColors.textSecondary,
-                                  ),
-                                ),
-                              ),
-                            )
-                          else
-                            ...chatMessages.map(
-                              (m) => _ChatBubble(
-                                message: m,
-                                travelerInitial: initial,
-                              ),
+                            children: buildChatThreadChildren(
+                              chatMessages,
+                              peerInitial: initial,
                             ),
-                        ],
-                      ),
+                          ),
           ),
           ChatComposer(
             controller: chatController,
@@ -292,100 +308,10 @@ class _SenderChatScreenState extends State<SenderChatScreen>
             onAttach: showChatAttachmentOptions,
             borderRadius: 12,
             circularSendButton: false,
-            enabled: !_loading && _error == null && _conversationId != null,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ChatBubble extends StatelessWidget {
-  const _ChatBubble({required this.message, required this.travelerInitial});
-
-  final ChatMessage message;
-  final String travelerInitial;
-
-  @override
-  Widget build(BuildContext context) {
-    final typo = context.typo;
-    final isMine = message.isMine;
-
-    if (message.isImage) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            Flexible(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  ClipRRect(
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(14),
-                      topRight: Radius.circular(14),
-                      bottomLeft: Radius.circular(14),
-                      bottomRight: Radius.circular(4),
-                    ),
-                    child: ChatImageAttachment(message: message),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    message.time,
-                    style: typo.caption.copyWith(color: AppColors.textSecondary),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        mainAxisAlignment:
-            isMine ? MainAxisAlignment.end : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          if (!isMine) ...[
-            AppAvatar(initial: travelerInitial, size: AvatarSize.small),
-            const SizedBox(width: 8),
-          ],
-          Flexible(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: isMine ? AppColors.primary : AppColors.surface,
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(14),
-                  topRight: const Radius.circular(14),
-                  bottomLeft: Radius.circular(isMine ? 14 : 4),
-                  bottomRight: Radius.circular(isMine ? 4 : 14),
-                ),
-                border: isMine ? null : Border.all(color: AppColors.border),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    message.text,
-                    style: typo.body.copyWith(
-                      color: isMine ? Colors.white : AppColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    message.time,
-                    style: typo.caption.copyWith(
-                      color: isMine ? Colors.white70 : AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            enabled: _unlocked &&
+                !_loading &&
+                _error == null &&
+                _conversationId != null,
           ),
         ],
       ),

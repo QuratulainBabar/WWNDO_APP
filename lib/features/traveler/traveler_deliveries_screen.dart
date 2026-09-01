@@ -1,39 +1,127 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
+import '../../core/api/api_exception.dart';
+import '../../core/config/demo_mode.dart';
 import '../../core/layout/responsive.dart';
 import '../../core/platform/platform_ui.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
-import '../../core/widgets/app_badge.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/back_link.dart';
-import '../../data/models/shipment.dart';
+import '../../core/widgets/delivery_status_badge.dart';
+import '../../data/models/created_delivery.dart';
+import '../../data/services/delivery_repository.dart';
+import '../../providers/auth_provider.dart';
 
-/// Traveler deliveries — API-backed when available.
-/// Backend currently has no traveler-scoped deliveries endpoint.
+/// Traveler assigned bookings — GET /deliveries?role=traveler.
 class TravelerDeliveriesScreen extends StatefulWidget {
   const TravelerDeliveriesScreen({super.key});
 
   @override
-  State<TravelerDeliveriesScreen> createState() => _TravelerDeliveriesScreenState();
+  State<TravelerDeliveriesScreen> createState() =>
+      _TravelerDeliveriesScreenState();
 }
 
-class _TravelerDeliveriesScreenState extends State<TravelerDeliveriesScreen> {
+class _TravelerDeliveriesScreenState extends State<TravelerDeliveriesScreen>
+    with WidgetsBindingObserver {
   bool _showActive = true;
-  final List<Shipment> _deliveries = const [];
+  bool _loading = true;
+  String? _error;
+  List<CreatedDelivery> _deliveries = const [];
 
-  List<Shipment> _deliveriesForTab() {
-    // No mock data — list stays empty until GET /api/v1/deliveries?role=traveler exists.
-    return _deliveries;
+  static const _completedStatuses = {
+    'delivered',
+    'cancelled',
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _load(silent: true);
+    }
+  }
+
+  DeliveryRepository _repository() {
+    final auth = context.read<AuthProvider>();
+    final demoMode = context.read<DemoModeProvider>();
+    return DeliveryRepository(
+      apiClient: auth.repository.apiClient,
+      demoMode: demoMode,
+    );
+  }
+
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
+
+    try {
+      final list = await _repository().listDeliveries(role: 'traveler');
+      if (!mounted) return;
+      setState(() {
+        _deliveries = list;
+        _loading = false;
+        _error = null;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = e.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = 'Unable to load deliveries. Please try again.';
+      });
+    }
+  }
+
+  List<CreatedDelivery> get _visible {
+    return _deliveries.where((d) {
+      final status = (d.status ?? '').toLowerCase();
+      final completed = _completedStatuses.contains(status);
+      return _showActive ? !completed : completed;
+    }).toList();
+  }
+
+  Future<void> _openDelivery(CreatedDelivery delivery) async {
+    final id = delivery.publicId.isNotEmpty ? delivery.publicId : delivery.id;
+    await context.push('/shipment/$id?traveler=true');
+    if (mounted) await _load(silent: true);
+  }
+
+  String _formatTravelDate(String raw) {
+    final parsed = DateTime.tryParse(raw);
+    if (parsed == null) return raw.isEmpty ? '—' : raw;
+    return DateFormat('MMM d, yyyy').format(parsed);
   }
 
   @override
   Widget build(BuildContext context) {
     final horizontal = context.horizontalPadding;
     final typo = context.typo;
-    final deliveries = _deliveriesForTab();
+    final deliveries = _visible;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -57,84 +145,136 @@ class _TravelerDeliveriesScreenState extends State<TravelerDeliveriesScreen> {
               width: double.infinity,
               padding: EdgeInsets.symmetric(horizontal: horizontal),
               decoration: const BoxDecoration(
-                border: Border(bottom: BorderSide(color: AppColors.border, width: 1)),
+                border: Border(
+                  bottom: BorderSide(color: AppColors.border, width: 1),
+                ),
               ),
               child: Row(
                 children: [
-                  _tab(context, 'Active', _showActive, () => setState(() => _showActive = true)),
+                  _tab(
+                    context,
+                    'Active',
+                    _showActive,
+                    () => setState(() => _showActive = true),
+                  ),
                   const SizedBox(width: 28),
-                  _tab(context, 'Completed', !_showActive, () => setState(() => _showActive = false)),
+                  _tab(
+                    context,
+                    'Completed',
+                    !_showActive,
+                    () => setState(() => _showActive = false),
+                  ),
                 ],
               ),
             ),
-            Expanded(
-              child: deliveries.isEmpty
-                  ? Center(
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(horizontal: horizontal),
-                        child: Text(
-                          _showActive
-                              ? 'No active deliveries yet.'
-                              : 'No completed deliveries yet.',
-                          style: typo.sm.copyWith(color: AppColors.textSecondary),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    )
-                  : ListView.builder(
-                      physics: PlatformUi.scrollPhysics,
-                      padding: EdgeInsets.fromLTRB(horizontal, 20, horizontal, 24),
-                      itemCount: deliveries.length,
-                      itemBuilder: (context, i) {
-                        final s = deliveries[i];
-                        return GestureDetector(
-                          onTap: () => context.push('/shipment/${s.id}?traveler=true'),
-                          child: AppCard(
-                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-                            margin: const EdgeInsets.only(bottom: 14),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      s.id,
-                                      style: typo.h3.copyWith(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                    AppBadge.status(s.status, semiBold: true, wide: true),
-                                  ],
-                                ),
-                                const SizedBox(height: 10),
-                                Text(s.route, style: typo.sm.copyWith(color: AppColors.textPrimary)),
-                                const SizedBox(height: 12),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(s.role.label, style: typo.sm),
-                                    Text(
-                                      DateFormat('MMM d, yyyy').format(s.travelDate),
-                                      style: typo.sm,
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-            ),
+            Expanded(child: _body(context, typo, horizontal, deliveries)),
           ],
         ),
       ),
     );
   }
 
-  Widget _tab(BuildContext context, String label, bool active, VoidCallback onTap) {
+  Widget _body(
+    BuildContext context,
+    AppTypography typo,
+    double horizontal,
+    List<CreatedDelivery> deliveries,
+  ) {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_error != null && _deliveries.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: horizontal),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _error!,
+                textAlign: TextAlign.center,
+                style: typo.sm.copyWith(color: AppColors.textSecondary),
+              ),
+              TextButton(onPressed: _load, child: const Text('Retry')),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (deliveries.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: horizontal),
+          child: Text(
+            _showActive
+                ? 'No active deliveries yet.'
+                : 'No completed deliveries yet.',
+            style: typo.sm.copyWith(color: AppColors.textSecondary),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      color: AppColors.primary,
+      onRefresh: () => _load(silent: true),
+      child: ListView.builder(
+        physics: AlwaysScrollableScrollPhysics(parent: PlatformUi.scrollPhysics),
+        padding: EdgeInsets.fromLTRB(horizontal, 20, horizontal, 24),
+        itemCount: deliveries.length,
+        itemBuilder: (context, i) {
+          final d = deliveries[i];
+          final id = d.publicId.isNotEmpty ? d.publicId : d.id;
+          return AppCard(
+            onTap: () => _openDelivery(d),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+            margin: const EdgeInsets.only(bottom: 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        id,
+                        style: typo.h3.copyWith(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    DeliveryStatusBadge(d.status, semiBold: true),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  d.route.isNotEmpty ? d.route : '—',
+                  style: typo.sm.copyWith(color: AppColors.textPrimary),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Travel date: ${_formatTravelDate(d.travelDate)}'
+                  '${d.senderName != null && d.senderName!.isNotEmpty ? ' · ${d.senderName}' : ''}',
+                  style: typo.sm.copyWith(color: AppColors.textSecondary),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _tab(
+    BuildContext context,
+    String label,
+    bool active,
+    VoidCallback onTap,
+  ) {
     final typo = context.typo;
     return GestureDetector(
       onTap: onTap,

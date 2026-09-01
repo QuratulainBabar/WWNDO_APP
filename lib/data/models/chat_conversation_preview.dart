@@ -9,6 +9,7 @@ class ChatConversationPreview {
     required this.lastMessage,
     required this.time,
     required this.shipmentId,
+    this.deliveryId = '',
     this.unreadCount = 0,
     this.messages = const [],
     this.threadType,
@@ -21,6 +22,9 @@ class ChatConversationPreview {
   final String lastMessage;
   final String time;
   final String shipmentId;
+
+  /// Internal delivery UUID this conversation belongs to (from the backend).
+  final String deliveryId;
   final int unreadCount;
   final List<ChatMessage> messages;
   final String? threadType;
@@ -38,6 +42,7 @@ class ChatConversationPreview {
       lastMessage: json['lastMessage'] as String? ?? '',
       time: json['time'] as String? ?? '',
       shipmentId: json['shipmentId'] as String? ?? '',
+      deliveryId: json['deliveryId'] as String? ?? '',
       unreadCount: (json['unreadCount'] as num?)?.toInt() ?? 0,
       threadType: json['threadType'] as String?,
       unlocked: json['unlocked'] as bool? ?? true,

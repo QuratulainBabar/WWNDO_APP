@@ -9,6 +9,17 @@ import '../models/created_delivery.dart';
 import '../models/matching_traveler.dart';
 import '../models/traveler_request_summary.dart';
 
+/// Result of POST /api/v1/deliveries/:id/cancel
+class CancelDeliveryResult {
+  const CancelDeliveryResult({
+    required this.delivery,
+    this.platformFeesRefunded,
+  });
+
+  final CreatedDelivery delivery;
+  final bool? platformFeesRefunded;
+}
+
 /// Backend delivery API access for the Sender Create Delivery flow.
 class DeliveryRepository {
   DeliveryRepository({
@@ -130,15 +141,23 @@ class DeliveryRepository {
   }
 
   /// POST /api/v1/deliveries/:id/accept
-  Future<CreatedDelivery> acceptAsReceiver(String id) async {
+  Future<CreatedDelivery> acceptAsReceiver(
+    String id, {
+    String? paymentIntentId,
+  }) async {
     if (_isDemoMode) {
       throw const ApiException(
         message: 'Accept is unavailable in demo mode.',
         code: 'DEMO_MODE',
       );
     }
+    final body = <String, dynamic>{};
+    if (paymentIntentId != null && paymentIntentId.isNotEmpty) {
+      body['paymentIntentId'] = paymentIntentId;
+    }
     final data = await _apiClient.post(
       '/deliveries/$id/accept',
+      body: body.isEmpty ? null : body,
       authenticated: true,
     );
     return CreatedDelivery.fromJson(data);
@@ -209,6 +228,36 @@ class DeliveryRepository {
     );
 
     return counts;
+  }
+
+  /// Live traveler-request summaries for posted deliveries (sender badges / phases).
+  Future<Map<String, List<TravelerRequestSummary>>>
+      fetchTravelerRequestsForDeliveries(
+    List<CreatedDelivery> deliveries,
+  ) async {
+    if (_isDemoMode) return {};
+
+    final requestsByKey = <String, List<TravelerRequestSummary>>{};
+    final eligible = deliveries.where(
+      (d) => d.status == 'posted' && d.isReceiverAccepted,
+    );
+
+    await Future.wait(
+      eligible.map((delivery) async {
+        final apiId = delivery.displayId;
+        try {
+          final requests = await listTravelerRequests(apiId);
+          requestsByKey[apiId] = requests;
+          if (delivery.id.isNotEmpty) {
+            requestsByKey[delivery.id] = requests;
+          }
+        } catch (_) {
+          // Non-critical: keep last-known badge on failure.
+        }
+      }),
+    );
+
+    return requestsByKey;
   }
 
   /// GET /api/v1/deliveries/:id/matching-travelers
@@ -289,7 +338,7 @@ class DeliveryRepository {
   }
 
   /// POST /api/v1/deliveries/:id/cancel
-  Future<CreatedDelivery> cancelDelivery(String id) async {
+  Future<CancelDeliveryResult> cancelDelivery(String id) async {
     if (_isDemoMode) {
       throw const ApiException(
         message: 'Cancel is unavailable in demo mode.',
@@ -301,7 +350,10 @@ class DeliveryRepository {
       '/deliveries/$id/cancel',
       authenticated: true,
     );
-    return CreatedDelivery.fromJson(data);
+    return CancelDeliveryResult(
+      delivery: CreatedDelivery.fromJson(data),
+      platformFeesRefunded: data['platformFeesRefunded'] as bool?,
+    );
   }
 
   void _validateLocal(CreateDeliveryRequest request) {
@@ -363,10 +415,18 @@ class DeliveryRepository {
 
     final originCity = request.deliveryType == DeliveryType.cityToCity
         ? (request.fromCity ?? '')
-        : (request.originCity ?? '');
+        : (request.originAirport ??
+            request.originCity ??
+            request.originCountry ??
+            '');
+    final originCountryCode = request.fromCode;
     if (originCity.trim().isNotEmpty) {
       for (final loc in request.preferredMeetupLocations) {
-        if (!MeetupOriginValidation.labelBelongsToOrigin(loc, originCity)) {
+        if (!MeetupOriginValidation.labelBelongsToOrigin(
+          loc,
+          originCity,
+          originCountryCode: originCountryCode,
+        )) {
           throw const ApiException(
             message: MeetupOriginValidation.message,
             code: 'VALIDATION_ERROR',
@@ -377,11 +437,16 @@ class DeliveryRepository {
 
     final destinationCity = request.deliveryType == DeliveryType.cityToCity
         ? (request.toCity ?? '')
-        : (request.destinationCity ?? request.destinationCountry ?? '');
+        : (request.destinationAirport ??
+            request.destinationCity ??
+            request.destinationCountry ??
+            '');
+    final destinationCountryCode = request.toCode;
     if (destinationCity.trim().isNotEmpty) {
       if (!MeetupDestinationValidation.labelBelongsToDestination(
         request.receiverMeetupLocation!,
         destinationCity,
+        destinationCountryCode: destinationCountryCode,
       )) {
         throw const ApiException(
           message: MeetupDestinationValidation.message,

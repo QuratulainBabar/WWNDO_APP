@@ -133,15 +133,17 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
     });
   }
 
-  Future<void> _submitBid(double amount) async {
+  Future<void> _submitBid(double amount, {bool acceptedOffer = false}) async {
     final request = _request;
     if (request == null) return;
 
     try {
-      final offer = await _repo().sendCounterOffer(
-        requestId: widget.requestId,
-        amount: amount,
-      );
+      final offer = acceptedOffer
+          ? await _repo().acceptSenderRequest(widget.requestId)
+          : await _repo().sendCounterOffer(
+              requestId: widget.requestId,
+              amount: amount,
+            );
       if (!mounted) return;
       StaticData.upsertTravelerBid(offer);
       FocusScope.of(context).unfocus();
@@ -171,6 +173,7 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
       amount: amount,
       authUser: authUser,
       allowAboveMaxBudget: false,
+      acceptedOffer: acceptedOffer,
     );
     if (error != null) {
       AppToast.error(context, error);
@@ -193,7 +196,7 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
   Future<void> _acceptOffer() async {
     final request = _request;
     if (request == null) return;
-    await _submitBid(request.maxBudget);
+    await _submitBid(request.maxBudget, acceptedOffer: true);
   }
 
   Future<void> _onSendCounterOfferTap() async {

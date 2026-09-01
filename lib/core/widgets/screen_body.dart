@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../layout/responsive.dart';
 import '../platform/platform_ui.dart';
+import '../theme/app_colors.dart';
 
 /// Scrollable screen body with responsive padding and platform scroll physics.
 ///
@@ -9,6 +10,8 @@ import '../platform/platform_ui.dart';
 /// that races with text field focus on MIUI / ColorOS devices
 /// (flutter/flutter#185675). Keyboard inset is handled by Scaffold resize;
 /// [pagePaddingWithKeyboard] only adds a small cushion, not a second full inset.
+///
+/// Pass [onRefresh] to enable pull-to-refresh from the top.
 class ScreenBody extends StatelessWidget {
   const ScreenBody({
     super.key,
@@ -16,6 +19,7 @@ class ScreenBody extends StatelessWidget {
     this.padding,
     this.safeArea = true,
     this.keyboardDismiss = true,
+    this.onRefresh,
   });
 
   final Widget child;
@@ -23,18 +27,32 @@ class ScreenBody extends StatelessWidget {
   final bool safeArea;
   final bool keyboardDismiss;
 
+  /// When set, wrapping [RefreshIndicator] lets the user pull down to reload.
+  final Future<void> Function()? onRefresh;
+
   @override
   Widget build(BuildContext context) {
     final effectivePadding = context.pagePaddingWithKeyboard(padding);
+    final canRefresh = onRefresh != null;
 
     Widget body = SingleChildScrollView(
-      physics: PlatformUi.scrollPhysics,
+      physics: canRefresh
+          ? AlwaysScrollableScrollPhysics(parent: PlatformUi.scrollPhysics)
+          : PlatformUi.scrollPhysics,
       padding: effectivePadding,
       keyboardDismissBehavior: keyboardDismiss
           ? ScrollViewKeyboardDismissBehavior.onDrag
           : ScrollViewKeyboardDismissBehavior.manual,
       child: child,
     );
+
+    if (canRefresh) {
+      body = RefreshIndicator(
+        color: AppColors.primary,
+        onRefresh: onRefresh!,
+        child: body,
+      );
+    }
 
     if (safeArea) {
       body = SafeArea(child: body);

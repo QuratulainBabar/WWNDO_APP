@@ -136,6 +136,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: ScreenBody(
+        onRefresh: () => _load(silent: true),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -203,11 +204,38 @@ class _ChatListScreenState extends State<ChatListScreen> {
               )
             else if (conversations.isEmpty)
               Padding(
-                padding: const EdgeInsets.only(top: 48),
+                padding: const EdgeInsets.only(top: 64),
                 child: Center(
-                  child: Text(
-                    'No chats yet.',
-                    style: typo.sm.copyWith(color: AppColors.textSecondary),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 72,
+                        height: 72,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.10),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.forum_outlined,
+                          color: AppColors.primary,
+                          size: 32,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        _query.isEmpty ? 'No chats yet' : 'No matching chats',
+                        style: typo.bodyBold.copyWith(fontSize: 16),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        _query.isEmpty
+                            ? 'Your conversations will appear here.'
+                            : 'Try a different search term.',
+                        textAlign: TextAlign.center,
+                        style:
+                            typo.sm.copyWith(color: AppColors.textSecondary),
+                      ),
+                    ],
                   ),
                 ),
               )
@@ -242,24 +270,30 @@ class _ChatListTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final typo = context.typo;
     final unread = conversation.unreadCount > 0;
+    final locked = !conversation.unlocked;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Material(
-          color: Colors.transparent,
+          color: unread
+              ? AppColors.primary.withValues(alpha: 0.04)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
           child: InkWell(
             onTap: onTap,
+            borderRadius: BorderRadius.circular(14),
             hoverColor: Colors.transparent,
             splashColor: Colors.transparent,
             highlightColor: Colors.transparent,
             splashFactory: NoSplash.splashFactory,
             overlayColor: const WidgetStatePropertyAll(Colors.transparent),
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  AppAvatar(initial: conversation.initial),
+                  _Avatar(initial: conversation.initial, locked: locked),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -271,6 +305,7 @@ class _ChatListTile extends StatelessWidget {
                               child: Text(
                                 conversation.name,
                                 style: typo.bodyBold.copyWith(
+                                  fontSize: 16,
                                   fontWeight: FontWeight.w700,
                                 ),
                                 maxLines: 1,
@@ -281,23 +316,28 @@ class _ChatListTile extends StatelessWidget {
                             Text(
                               conversation.time,
                               style: typo.caption.copyWith(
+                                fontSize: 12,
                                 color: unread
                                     ? AppColors.primary
                                     : AppColors.textSecondary,
                                 fontWeight:
-                                    unread ? FontWeight.w600 : FontWeight.w400,
+                                    unread ? FontWeight.w700 : FontWeight.w400,
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 3),
                         Row(
                           children: [
                             Expanded(
                               child: Text(
-                                conversation.lastMessage,
+                                conversation.lastMessage.isEmpty
+                                    ? 'Tap to start chatting'
+                                    : conversation.lastMessage,
                                 style: typo.sm.copyWith(
-                                  color: AppColors.textSecondary,
+                                  color: unread
+                                      ? AppColors.textPrimary
+                                      : AppColors.textSecondary,
                                   fontWeight:
                                       unread ? FontWeight.w600 : FontWeight.w400,
                                 ),
@@ -308,9 +348,11 @@ class _ChatListTile extends StatelessWidget {
                             if (unread) ...[
                               const SizedBox(width: 8),
                               Container(
+                                constraints:
+                                    const BoxConstraints(minWidth: 20),
+                                height: 20,
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 7,
-                                  vertical: 2,
+                                  horizontal: 6,
                                 ),
                                 decoration: BoxDecoration(
                                   color: AppColors.primary,
@@ -318,16 +360,24 @@ class _ChatListTile extends StatelessWidget {
                                 ),
                                 alignment: Alignment.center,
                                 child: Text(
-                                  '${conversation.unreadCount}',
+                                  conversation.unreadCount > 99
+                                      ? '99+'
+                                      : '${conversation.unreadCount}',
                                   style: typo.caption.copyWith(
+                                    fontSize: 11,
                                     color: Colors.white,
                                     fontWeight: FontWeight.w700,
+                                    height: 1,
                                   ),
                                 ),
                               ),
                             ],
                           ],
                         ),
+                        if (conversation.shipmentId.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          _ShipmentChip(shipmentId: conversation.shipmentId),
+                        ],
                       ],
                     ),
                   ),
@@ -336,12 +386,85 @@ class _ChatListTile extends StatelessWidget {
             ),
           ),
         ),
-        const Divider(
-          height: 1,
-          thickness: 1,
-          color: Color(0xFFD1D5DB),
+        const Padding(
+          padding: EdgeInsets.only(left: 62),
+          child: Divider(height: 1, thickness: 1, color: AppColors.border),
         ),
       ],
+    );
+  }
+}
+
+/// Avatar with an optional lock badge for threads that aren't unlocked yet.
+class _Avatar extends StatelessWidget {
+  const _Avatar({required this.initial, required this.locked});
+
+  final String initial;
+  final bool locked;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!locked) return AppAvatar(initial: initial);
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        AppAvatar(initial: initial),
+        Positioned(
+          right: -2,
+          bottom: -2,
+          child: Container(
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.border),
+            ),
+            child: const Icon(
+              Icons.lock_rounded,
+              size: 11,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Small pill showing the linked shipment id on an inbox row.
+class _ShipmentChip extends StatelessWidget {
+  const _ShipmentChip({required this.shipmentId});
+
+  final String shipmentId;
+
+  @override
+  Widget build(BuildContext context) {
+    final typo = context.typo;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.local_shipping_outlined,
+            size: 13,
+            color: AppColors.primary,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            shipmentId,
+            style: typo.caption.copyWith(
+              fontSize: 11,
+              color: AppColors.primary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

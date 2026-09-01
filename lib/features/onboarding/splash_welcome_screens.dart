@@ -1,15 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-// Demo app mode UI is commented out — live API only on welcome.
-// import '../../core/config/demo_mode.dart';
-// import '../../core/theme/app_colors.dart';
+import '../../core/auth/post_auth_navigation.dart';
+import '../../core/platform/biometric_prefs.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/gradient_background.dart';
-// import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
-// import '../../core/auth/post_auth_navigation.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -22,15 +19,32 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(seconds: 2), () {
-      if (!mounted) return;
-      final auth = context.read<AuthProvider>();
-      if (auth.isAuthenticated) {
-        context.go('/role-selection');
-      } else {
-        context.go('/welcome');
-      }
-    });
+    Future.delayed(const Duration(milliseconds: 1200), _routeAfterSplash);
+  }
+
+  Future<void> _routeAfterSplash() async {
+    if (!mounted) return;
+    final auth = context.read<AuthProvider>();
+
+    if (auth.isAuthenticated) {
+      await PostAuthNavigation.continueAfterAuth(
+        context,
+        offerBiometricSetup: false,
+        requireVerification: false,
+      );
+      return;
+    }
+
+    // User explicitly logged out with biometric unlock enabled.
+    final softLocked = await BiometricPrefs.isSessionSoftLocked();
+    final biometricOn = await BiometricPrefs.isLoginEnabled();
+    if (!mounted) return;
+    if (softLocked && biometricOn) {
+      context.go('/biometric/login');
+      return;
+    }
+
+    context.go('/welcome');
   }
 
   @override

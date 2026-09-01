@@ -14,8 +14,9 @@ import '../../core/widgets/back_header.dart';
 import '../../core/widgets/cancel_request_confirmation_dialog.dart';
 import '../../core/widgets/scrollable_form_screen.dart';
 import '../../data/models/created_delivery.dart';
+import '../../data/delivery_lifecycle.dart';
 import '../../data/services/delivery_repository.dart';
-import '../../data/static_data.dart';
+import '../../data/delivery_cancel_policy.dart';
 import '../../providers/auth_provider.dart';
 
 class CancelPostedDeliveryScreen extends StatefulWidget {
@@ -81,10 +82,17 @@ class _CancelPostedDeliveryScreenState extends State<CancelPostedDeliveryScreen>
     final delivery = _delivery;
     if (delivery == null) return;
 
+    final status = delivery.status;
+    final isBookingCancel =
+        DeliveryLifecycle.isBookingCancellable(status);
+    final requiresTravelWindow =
+        DeliveryLifecycle.requiresTravelWindowForOpenCancel(status);
+
     final travelDate = delivery.travelDateParsed;
-    if (travelDate == null ||
-        !StaticData.canSenderCancelBeforeTravel(travelDate)) {
-      AppToast.error(context, StaticData.senderCancelBlockedMessage);
+    if (requiresTravelWindow &&
+        (travelDate == null ||
+            !DeliveryCancelPolicy.canSenderCancelBeforeTravel(travelDate))) {
+      AppToast.error(context, DeliveryCancelPolicy.senderCancelBlockedMessage);
       return;
     }
 
@@ -94,10 +102,15 @@ class _CancelPostedDeliveryScreenState extends State<CancelPostedDeliveryScreen>
     setState(() => _cancelling = true);
 
     try {
-      await _repository().cancelDelivery(delivery.displayId);
+      final result = await _repository().cancelDelivery(delivery.displayId);
       if (!context.mounted) return;
 
-      AppToast.success(context, '${delivery.displayId} cancelled');
+      final message = isBookingCancel
+          ? DeliveryCancelPolicy.senderBookingCancelResultMessage(
+              platformFeesRefunded: result.platformFeesRefunded ?? false,
+            )
+          : '${delivery.displayId} cancelled';
+      AppToast.success(context, message);
       context.go('/my-posted-parcels');
     } on ApiException catch (e) {
       if (!context.mounted) return;
@@ -156,7 +169,15 @@ class _CancelPostedDeliveryScreenState extends State<CancelPostedDeliveryScreen>
 
     final delivery = _delivery!;
     final travelDate = delivery.travelDateParsed ?? DateTime.now();
-    final canCancel = StaticData.canSenderCancelBeforeTravel(travelDate);
+    final isBookingCancel =
+        DeliveryLifecycle.isBookingCancellable(delivery.status);
+    final requiresTravelWindow =
+        DeliveryLifecycle.requiresTravelWindowForOpenCancel(delivery.status);
+    final canCancel = isBookingCancel ||
+        (requiresTravelWindow &&
+            DeliveryCancelPolicy.canSenderCancelBeforeTravel(travelDate));
+    final feesRefundable =
+        DeliveryCancelPolicy.isPlatformFeeRefundableOnCancel(travelDate);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -169,7 +190,7 @@ class _CancelPostedDeliveryScreenState extends State<CancelPostedDeliveryScreen>
           AppButton(
             label: _cancelling ? 'Cancelling…' : 'Cancel delivery',
             variant: AppButtonVariant.danger,
-            onPressed: _cancelling ? null : _confirmCancel,
+            onPressed: _cancelling || !canCancel ? null : _confirmCancel,
           ),
           AppButton(
             label: 'Keep delivery',
@@ -200,10 +221,16 @@ class _CancelPostedDeliveryScreenState extends State<CancelPostedDeliveryScreen>
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                canCancel
-                    ? 'You can cancel this request because it is still more than '
-                        '${StaticData.senderCancelMinHoursBeforeTravel} hours before the flight.'
-                    : StaticData.senderCancelBlockedMessage,
+                isBookingCancel
+                    ? (feesRefundable
+                        ? 'Escrow will be refunded. Platform fees will also be refunded because travel is still more than '
+                            '${DeliveryCancelPolicy.senderCancelMinHoursBeforeTravel} hours away.'
+                        : 'Escrow will be refunded. Platform fees are non-refundable because travel is within '
+                            '${DeliveryCancelPolicy.senderCancelMinHoursBeforeTravel} hours.')
+                    : canCancel
+                        ? 'You can cancel this request because it is still more than '
+                            '${DeliveryCancelPolicy.senderCancelMinHoursBeforeTravel} hours before the flight.'
+                        : DeliveryCancelPolicy.senderCancelBlockedMessage,
                 style: typo.sm.copyWith(
                   height: 1.45,
                   color: canCancel ? AppColors.success : AppColors.danger,

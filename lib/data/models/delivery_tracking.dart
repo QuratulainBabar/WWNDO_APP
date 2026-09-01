@@ -23,7 +23,9 @@ class DeliveryTracking {
 
   static bool isTravelerSelectedApi(String? status) {
     switch (status?.trim().toLowerCase()) {
+      case 'bid_accepted':
       case 'matched':
+      case 'ready_for_handoff':
       case 'collected':
       case 'in_transit':
       case 'delivered':

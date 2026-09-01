@@ -22,6 +22,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/wallet_provider.dart';
 import '../profile/widgets/profile_header_card.dart';
 import '../profile/widgets/profile_trust_indicators.dart';
+import '../profile/widgets/recent_reviews_section.dart';
 
 class TravelerProfileScreen extends StatefulWidget {
   const TravelerProfileScreen({super.key});
@@ -318,6 +319,8 @@ class _TravelerProfileScreenState extends State<TravelerProfileScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 16),
+            const RecentReviewsSection(role: WalletRole.traveler),
             const SizedBox(height: 16),
             AppButton(
               label: 'Log out',

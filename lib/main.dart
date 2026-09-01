@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'app.dart';
 import 'core/config/demo_mode.dart';
+import 'core/push/push_notification_service.dart';
 import 'providers/auth_provider.dart';
 import 'providers/kyc_provider.dart';
 import 'providers/notification_realtime_provider.dart';
@@ -21,7 +22,14 @@ Future<void> main() async {
   await Future.wait([
     demoMode.init(),
     authProvider.init(),
+    PushNotificationService.initialize(),
   ]);
+
+  if (authProvider.isAuthenticated) {
+    await PushNotificationService.registerIfAuthenticated(
+      authProvider.repository,
+    );
+  }
 
   final kycProvider = KycProvider(
     authRepository: authProvider.repository,
@@ -33,6 +41,16 @@ Future<void> main() async {
   );
   final notificationRealtimeProvider = NotificationRealtimeProvider();
   final senderDeliveriesProvider = SenderDeliveriesProvider();
+
+  // Refresh the chat tab badge the moment a chat push arrives in the foreground,
+  // instead of waiting for the periodic poll.
+  PushNotificationService.onForegroundChatMessage = () {
+    if (!authProvider.isAuthenticated) return;
+    notificationRealtimeProvider.refreshChatUnread(
+      authRepository: authProvider.repository,
+      demoMode: demoMode,
+    );
+  };
 
   runApp(
     MultiProvider(

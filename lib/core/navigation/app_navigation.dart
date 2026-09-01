@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/wallet_provider.dart';
 import '../../router/app_router.dart';
-import '../../data/static_data.dart';
+import '../../data/models/wallet_role.dart';
 
 /// Clears the session and navigates to the account suspended screen.
 Future<void> logoutToSuspendedScreen(BuildContext context) async {
@@ -73,6 +73,19 @@ String disputeFormRoute(String shipmentId, {bool travelerView = false, String? r
   return '/dispute-form/$shipmentId';
 }
 
+String deliveryReviewRoute({
+  required String shipmentId,
+  required WalletRole reviewerRole,
+}) {
+  return '/delivery-review?shipmentId=${Uri.encodeComponent(shipmentId)}&role=${reviewerRole.queryParam}';
+}
+
+String homeRouteForWalletRole(WalletRole role) => switch (role) {
+      WalletRole.traveler => '/traveler-home',
+      WalletRole.receiver => '/receiver-home',
+      _ => '/home',
+    };
+
 String disputeRoute(String shipmentId, {bool travelerView = false, String? role}) {
   if (travelerView) return '/dispute/$shipmentId?traveler=true';
   if (role == 'receiver') return '/dispute/$shipmentId?role=receiver';
@@ -113,11 +126,6 @@ String? backFallbackFor(String path) {
   if (path.startsWith('/dispute/')) return '/track';
   if (path.startsWith('/shipment/')) return '/track';
   if (path.startsWith('/request/')) {
-    final id = path.substring('/request/'.length);
-    final matching = StaticData.matchingRequestById(id);
-    if (matching != null) {
-      return '/matching-requests/${matching.tripId}';
-    }
     return '/matching-requests';
   }
   if (path.startsWith('/matching-requests/')) return '/matching-requests';
@@ -206,18 +214,18 @@ const _routeFallbacks = <String, String>{
   '/post-delivery': '/delivery-type',
   '/post-delivery/country-to-country': '/delivery-type',
   '/post-delivery/success': '/home',
-  '/bids': '/home',
-  '/bid-requests': '/home',
+  '/bids': '/my-posted-parcels',
+  '/bid-requests': '/my-posted-parcels',
   '/my-posted-parcels': '/home',
   '/edit-posted-delivery': '/my-posted-parcels',
-  '/sender-notifications': '/home',
+  '/sender-notifications': '/sender-notifications',
   '/traveler-notifications': '/traveler-home',
-  '/bid-accepted': '/bid-requests',
-  '/bid-acceptance-payment': '/bid-requests',
+  '/bid-accepted': '/my-posted-parcels',
+  '/bid-acceptance-payment': '/my-posted-parcels',
   '/bid-payment-success': '/bid-acceptance-payment',
   '/sender-chat': '/sender-chats',
   '/sender-chats': '/home',
-  '/payment': '/bids',
+  '/payment': '/my-posted-parcels',
   '/payment-confirmed': '/track',
   '/trip-type': '/traveler-home',
   '/post-trip': '/trip-type',
@@ -225,7 +233,7 @@ const _routeFallbacks = <String, String>{
   '/post-trip/success': '/traveler-home',
   '/edit-trip': '/traveler-trips',
   '/cancel-trip': '/traveler-trips',
-  '/browse-requests': '/home',
+  '/browse-requests': '/matching-requests',
   '/matching-requests': '/traveler-home',
   '/traveler-deliveries': '/traveler-home',
   '/traveler-bids': '/traveler-home',

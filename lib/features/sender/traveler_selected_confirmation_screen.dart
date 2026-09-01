@@ -1,16 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
+import '../../core/api/api_exception.dart';
+import '../../core/config/demo_mode.dart';
 import '../../core/layout/responsive.dart';
 import '../../core/platform/platform_ui.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_button.dart';
+import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/back_header.dart';
+import '../../data/services/trip_repository.dart';
+import '../../providers/auth_provider.dart';
 import 'bid_acceptance_payment_screen.dart';
 
-/// Shown after the sender selects a matching traveler (before Pay Now).
-class TravelerSelectedConfirmationScreen extends StatelessWidget {
+/// Shown after the sender selects a matching traveler.
+/// Payment happens only after the traveler sends a counter offer.
+class TravelerSelectedConfirmationScreen extends StatefulWidget {
   const TravelerSelectedConfirmationScreen({
     super.key,
     required this.acceptance,
@@ -19,9 +26,87 @@ class TravelerSelectedConfirmationScreen extends StatelessWidget {
   final BidAcceptanceContext acceptance;
 
   @override
+  State<TravelerSelectedConfirmationScreen> createState() =>
+      _TravelerSelectedConfirmationScreenState();
+}
+
+class _TravelerSelectedConfirmationScreenState
+    extends State<TravelerSelectedConfirmationScreen> {
+  bool _checkingOffer = false;
+
+  TripRepository _repo() {
+    final auth = context.read<AuthProvider>();
+    return TripRepository(
+      apiClient: auth.repository.apiClient,
+      demoMode: context.read<DemoModeProvider>(),
+    );
+  }
+
+  /// Opens payment only when a counter offer already exists for this parcel.
+  Future<void> _continueToOfferOrWait() async {
+    final shipmentId = widget.acceptance.shipmentId.trim();
+    if (shipmentId.isEmpty) {
+      AppToast.error(context, 'Shipment details are missing.');
+      return;
+    }
+
+    if (context.read<DemoModeProvider>().enabled) {
+      context.go('/my-posted-parcels');
+      return;
+    }
+
+    setState(() => _checkingOffer = true);
+    try {
+      final offer = await _repo().getSenderCounterOfferByDelivery(shipmentId);
+      if (!mounted) return;
+
+      if (offer.isOpen || offer.awaitsPayment) {
+        final parcelCategory = widget.acceptance.parcelCategory;
+        final paysReceiverFee = widget.acceptance.paysReceiverFee;
+        context.push(
+          '/bid-acceptance-payment',
+          extra: BidAcceptanceContext(
+            bid: widget.acceptance.bid.copyWith(
+              id: offer.id,
+              price: offer.amount,
+              travelerName: offer.travelerName,
+              initial: offer.travelerInitial,
+            ),
+            shipmentId: shipmentId,
+            offerId: offer.id,
+            parcelCategory: parcelCategory,
+            paysReceiverFee: paysReceiverFee,
+          ),
+        );
+        return;
+      }
+
+      // Offer exists but already settled — show details.
+      context.push('/sender-counter-offer?delivery=$shipmentId');
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      if (e.statusCode == 404 || e.code == 'NOT_FOUND') {
+        AppToast.info(
+          context,
+          'Waiting for ${widget.acceptance.bid.travelerName} to send a counter offer. '
+          'You’ll get a notification when it’s ready to pay.',
+        );
+        context.go('/my-posted-parcels');
+        return;
+      }
+      AppToast.error(context, e.message);
+    } catch (_) {
+      if (!mounted) return;
+      AppToast.error(context, 'Unable to check counter offer status.');
+    } finally {
+      if (mounted) setState(() => _checkingOffer = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final typo = context.typo;
-    final name = acceptance.bid.travelerName;
+    final name = widget.acceptance.bid.travelerName;
 
     return Scaffold(
       backgroundColor: AppColors.surface,
@@ -65,7 +150,8 @@ class TravelerSelectedConfirmationScreen extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                '$name has been selected and notified of your parcel request.\nYou can pay securely to confirm the booking.',
+                '$name has been notified of your parcel request.\n'
+                'Payment unlocks after they send a counter offer.',
                 textAlign: TextAlign.center,
                 style: typo.sm.copyWith(height: 1.5, color: AppColors.textSecondary),
               ),
@@ -86,20 +172,19 @@ class TravelerSelectedConfirmationScreen extends StatelessWidget {
                       style: typo.bodyBold.copyWith(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 14),
-                    _step(context, 1, 'Pay to lock escrow and confirm the traveler'),
-                    _step(context, 2, 'Meet traveler and enable NFC for handoff'),
-                    _step(context, 3, 'After NFC match, parcel becomes Collected'),
-                    _step(context, 4, 'Traveler marks In Transit, then enables NFC for receiver'),
+                    _step(context, 1, 'Traveler reviews and sends a counter offer'),
+                    _step(context, 2, 'You accept the offer and pay to lock escrow'),
+                    _step(context, 3, 'Agree meetup, then complete NFC handoff'),
+                    _step(context, 4, 'Traveler marks In Transit, then delivers via NFC'),
                   ],
                 ),
               ),
               const SizedBox(height: 32),
               AppButton(
-                label: 'Continue to Payment',
-                onPressed: () => context.push(
-                  '/bid-acceptance-payment',
-                  extra: acceptance,
-                ),
+                label: _checkingOffer
+                    ? 'Checking…'
+                    : 'Continue',
+                onPressed: _checkingOffer ? null : _continueToOfferOrWait,
               ),
               const SizedBox(height: AppButton.stackGap),
               AppButton(

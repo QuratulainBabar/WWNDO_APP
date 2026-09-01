@@ -30,7 +30,6 @@ import '../../providers/auth_provider.dart';
 import '../../providers/kyc_provider.dart';
 import '../onboarding/kyc_flow_actions.dart';
 import '../sender/widgets/route_country_dropdown.dart';
-import '../traveler/widgets/available_luggage_capacity_field.dart';
 
 enum EditProfileRole { sender, receiver, traveler }
 
@@ -70,7 +69,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late final TextEditingController _phoneController;
   String? _countryIso;
   late PhoneCountry _phoneCountry;
-  late int _luggageCapacityKg;
   String? _photoPath;
   bool _saving = false;
 
@@ -79,13 +77,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   void initState() {
     super.initState();
-    // Show placeholders only — do not pre-fill name/email/country/phone.
-    _nameController = TextEditingController();
-    _emailController = TextEditingController();
+    final user = context.read<AuthProvider>().user;
+    _nameController = TextEditingController(text: user?.name ?? '');
+    _emailController = TextEditingController(text: user?.email ?? '');
     _phoneController = TextEditingController();
     _countryIso = null;
     _phoneCountry = PhoneCountries.byIso('FR');
-    _luggageCapacityKg = StaticData.travelerAvailableLuggageCapacityKg.round();
     _photoPath = ProfileDemoStore.photoPathFor(_walletRole);
   }
 
@@ -222,16 +219,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   subtitle:
                       'This information is shown on your public profile when you carry parcels.',
                   avatarInitial: avatarInitial,
-                  trailingFields: [
-                    AppLabeledField(
-                      label: 'Available luggage capacity',
-                      labelStyle: typo.inputLabel.copyWith(fontWeight: FontWeight.w700),
-                      child: AvailableLuggageCapacityField(
-                        initialValue: _luggageCapacityKg,
-                        onChanged: (kg) => _luggageCapacityKg = kg,
-                      ),
-                    ),
-                  ],
                 ),
             },
           ),
@@ -244,7 +231,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     AppTypography typo, {
     required String subtitle,
     required String avatarInitial,
-    List<Widget> trailingFields = const [],
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -344,7 +330,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             bottom: AppFieldSpacing.bottom,
           ),
         ),
-        ...trailingFields,
       ],
     );
   }

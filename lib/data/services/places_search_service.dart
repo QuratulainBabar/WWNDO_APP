@@ -102,6 +102,8 @@ class PlacesSearchService {
   }
 
   /// Enrich a prediction with country ISO + coordinates (Places Details).
+  /// Preserves the user's autocomplete selection ([MeetupLocation.name] and
+  /// [MeetupLocation.address]) — only adds metadata from Place Details.
   Future<MeetupLocation> resolveDetails(MeetupLocation place) async {
     final placeId = place.placeId?.trim();
     if (placeId == null || placeId.isEmpty) return place;
@@ -128,7 +130,6 @@ class PlacesSearchService {
 
       final components = resultMap['address_components'];
       String? countryCode;
-      String? localityName;
       if (components is List) {
         for (final raw in components.whereType<Map>()) {
           final component = Map<String, dynamic>.from(raw);
@@ -137,11 +138,7 @@ class PlacesSearchService {
           final typeSet = types.map((t) => t.toString()).toSet();
           if (typeSet.contains('country')) {
             countryCode = component['short_name'] as String?;
-          }
-          if (localityName == null &&
-              (typeSet.contains('locality') ||
-                  typeSet.contains('administrative_area_level_1'))) {
-            localityName = component['long_name'] as String?;
+            break;
           }
         }
       }
@@ -151,15 +148,15 @@ class PlacesSearchService {
       final lat = location is Map ? (location['lat'] as num?)?.toDouble() : null;
       final lng = location is Map ? (location['lng'] as num?)?.toDouble() : null;
 
-      final name = (localityName ?? resultMap['name'] as String? ?? '').trim();
-      final address = (resultMap['formatted_address'] as String? ??
+      final formattedAddress = (resultMap['formatted_address'] as String? ??
               resultMap['name'] as String? ??
               '')
           .trim();
 
       return place.copyWith(
-        name: name.isNotEmpty ? name : place.name,
-        address: address.isNotEmpty ? address : place.address,
+        address: place.address.trim().isNotEmpty
+            ? place.address
+            : (formattedAddress.isNotEmpty ? formattedAddress : place.address),
         placeId: resultMap['place_id'] as String? ?? place.placeId,
         latitude: lat ?? place.latitude,
         longitude: lng ?? place.longitude,

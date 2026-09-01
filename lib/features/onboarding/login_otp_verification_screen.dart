@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/api/api_exception.dart';
+import '../../core/auth/post_auth_navigation.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_button.dart';
@@ -13,7 +14,7 @@ import '../../core/widgets/back_link.dart';
 import '../../core/widgets/otp_code_field.dart';
 import '../../core/widgets/otp_countdown_timer.dart';
 import '../../core/widgets/screen_body.dart';
-import '../../core/auth/post_auth_navigation.dart';
+import '../../data/services/otp_service.dart';
 import '../../providers/auth_provider.dart';
 
 /// Credentials held until OTP is verified on the password login path.
@@ -45,7 +46,8 @@ class PasswordLoginOtpFlowData {
   }
 }
 
-/// OTP step after password entry. Uses the same backend email OTP APIs as signup.
+/// OTP step after password entry. Email is sent in the background; demo OTP
+/// (`123456`) always works if the email is delayed or fails.
 class LoginOtpVerificationScreen extends StatefulWidget {
   const LoginOtpVerificationScreen({super.key, required this.flow});
 
@@ -61,16 +63,20 @@ class _LoginOtpVerificationScreenState extends State<LoginOtpVerificationScreen>
   final _focusNode = FocusNode();
   final _timerKey = GlobalKey<OtpCountdownTimerState>();
   bool _verifying = false;
+  bool _sending = false;
   bool _expired = false;
+  bool _emailFailed = false;
   late bool _sent;
 
   @override
   void initState() {
     super.initState();
     _sent = widget.flow.alreadySent;
-    // Safety net: if Login did not send (e.g. stale hot reload), send here.
+    // Always kick off send from this screen so login can navigate instantly.
     if (!_sent) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _sendCode(isResend: false));
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _sendCode(isResend: false);
+      });
     }
   }
 
@@ -81,7 +87,19 @@ class _LoginOtpVerificationScreenState extends State<LoginOtpVerificationScreen>
     super.dispose();
   }
 
+  bool get _isDemoCode =>
+      _otpController.text.trim() == OtpService.demoOtpCode;
+
+  /// User may enter the emailed code or the demo backup code while send runs.
+  bool get _canSubmit => !_verifying && (_sent || _emailFailed || _isDemoCode);
+
   Future<void> _sendCode({required bool isResend}) async {
+    if (_sending) return;
+    setState(() {
+      _sending = true;
+      _emailFailed = false;
+    });
+
     final auth = context.read<AuthProvider>();
     try {
       if (kDebugMode) {
@@ -90,15 +108,19 @@ class _LoginOtpVerificationScreenState extends State<LoginOtpVerificationScreen>
           '(${widget.flow.maskedContact})',
         );
       }
+      // Don't toggle AuthProvider.loading — user can type / use demo OTP meanwhile.
       await auth.sendPasswordLoginOtp(
         email: widget.flow.email,
         password: widget.flow.password,
+        trackLoading: false,
       );
       if (!mounted) return;
-      _otpController.clear();
+      if (isResend) _otpController.clear();
       setState(() {
         _sent = true;
         _expired = false;
+        _emailFailed = false;
+        _sending = false;
       });
       _timerKey.currentState?.restart();
       AppToast.success(
@@ -111,28 +133,65 @@ class _LoginOtpVerificationScreenState extends State<LoginOtpVerificationScreen>
       if (kDebugMode) {
         debugPrint('LOGIN OTP ← send failed: ${e.code} ${e.message}');
       }
-      if (mounted) AppToast.error(context, e.message);
+      if (!mounted) return;
+
+      final invalidCreds = e.code == 'INVALID_CREDENTIALS' ||
+          e.code == 'ACCOUNT_SUSPENDED' ||
+          e.code == 'ACCOUNT_LOCKED' ||
+          e.code == 'CONTACT_MISSING' ||
+          e.statusCode == 401;
+
+      if (invalidCreds) {
+        setState(() => _sending = false);
+        AppToast.error(context, e.message);
+        context.go('/login');
+        return;
+      }
+
+      // Rate limit / SMTP / network: unlock verify with demo OTP backup.
+      setState(() {
+        _sending = false;
+        _sent = true;
+        _expired = false;
+        _emailFailed = e.code != 'OTP_RATE_LIMITED';
+      });
+      if (e.code == 'OTP_RATE_LIMITED') {
+        AppToast.error(context, e.message);
+      } else {
+        AppToast.info(
+          context,
+          'Email is delayed or failed. You can sign in with backup code ${OtpService.demoOtpCode}.',
+        );
+      }
     } catch (e) {
       if (kDebugMode) debugPrint('LOGIN OTP ← send error: $e');
-      if (mounted) {
-        AppToast.error(context, 'Unable to send verification email. Please try again.');
-      }
+      if (!mounted) return;
+      setState(() {
+        _sending = false;
+        _sent = true;
+        _emailFailed = true;
+      });
+      AppToast.info(
+        context,
+        'Email is delayed or failed. You can sign in with backup code ${OtpService.demoOtpCode}.',
+      );
     }
   }
 
   Future<void> _verify() async {
-    if (!_sent) {
-      AppToast.error(context, 'Wait for the verification code to be sent');
-      return;
-    }
-    if (_expired) {
-      AppToast.error(context, 'Code expired. Tap Resend code to get a new one.');
-      return;
-    }
-
     final code = _otpController.text.trim();
     if (code.length != 6) {
       AppToast.error(context, 'Enter the 6-digit code');
+      return;
+    }
+
+    final usingDemo = code == OtpService.demoOtpCode;
+    if (!_sent && !usingDemo && !_emailFailed) {
+      AppToast.error(context, 'Wait for the verification code to be sent');
+      return;
+    }
+    if (_expired && !usingDemo) {
+      AppToast.error(context, 'Code expired. Tap Resend code to get a new one.');
       return;
     }
 
@@ -154,7 +213,6 @@ class _LoginOtpVerificationScreenState extends State<LoginOtpVerificationScreen>
       if (user.accountStatus == 'suspended') {
         context.go('/account-suspended');
       } else {
-        // Login email OTP already proved identity — skip Verify Account screen.
         await PostAuthNavigation.continueAfterAuth(
           context,
           offerBiometricSetup: true,
@@ -168,7 +226,9 @@ class _LoginOtpVerificationScreenState extends State<LoginOtpVerificationScreen>
       if (mounted) AppToast.error(context, e.message);
     } catch (e) {
       if (kDebugMode) debugPrint('LOGIN OTP ← verify error: $e');
-      if (mounted) AppToast.error(context, 'Could not verify code. Please try again.');
+      if (mounted) {
+        AppToast.error(context, 'Could not verify code. Please try again.');
+      }
     } finally {
       if (mounted) setState(() => _verifying = false);
     }
@@ -176,9 +236,23 @@ class _LoginOtpVerificationScreenState extends State<LoginOtpVerificationScreen>
 
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthProvider>();
     final typo = context.typo;
-    final busy = _verifying || auth.loading;
+    final busy = _verifying;
+
+    String subtitle;
+    if (_emailFailed) {
+      subtitle =
+          'We could not deliver email to ${widget.flow.maskedContact} yet. '
+          'Enter the email code when it arrives, or use backup code ${OtpService.demoOtpCode}.';
+    } else if (_sent) {
+      subtitle =
+          'We sent a 6-digit code to ${widget.flow.maskedContact}. '
+          'If it is delayed, you can use backup code ${OtpService.demoOtpCode}.';
+    } else {
+      subtitle =
+          'Sending a code to ${widget.flow.maskedContact}… '
+          'You can keep waiting, or use backup code ${OtpService.demoOtpCode}.';
+    }
 
     return Scaffold(
       backgroundColor: AppColors.surface,
@@ -191,12 +265,7 @@ class _LoginOtpVerificationScreenState extends State<LoginOtpVerificationScreen>
             const SizedBox(height: 12),
             Text('Verify code', style: typo.h1),
             const SizedBox(height: 8),
-            Text(
-              _sent
-                  ? 'We sent a 6-digit code to ${widget.flow.maskedContact}'
-                  : 'Sending verification code…',
-              style: typo.sm.copyWith(height: 1.5),
-            ),
+            Text(subtitle, style: typo.sm.copyWith(height: 1.5)),
             const SizedBox(height: 16),
             if (_sent)
               OtpCountdownTimer(
@@ -215,20 +284,32 @@ class _LoginOtpVerificationScreenState extends State<LoginOtpVerificationScreen>
                 controller: _otpController,
                 focusNode: _focusNode,
                 onChanged: (_) {
-                  if (_otpController.text.length == 6) _verify();
+                  setState(() {});
+                  if (_otpController.text.length == 6 && _canSubmit) {
+                    _verify();
+                  }
                 },
               ),
             ),
             const SizedBox(height: 24),
             AppButton(
-              label: busy ? 'Verifying…' : 'Submit',
-              onPressed: busy || !_sent ? null : _verify,
+              label: busy
+                  ? 'Verifying…'
+                  : _sending && !_sent
+                      ? 'Sending…'
+                      : 'Submit',
+              onPressed: busy || !_canSubmit ? null : _verify,
             ),
             const SizedBox(height: 12),
             Center(
               child: TextButton(
-                onPressed: busy ? null : () => _sendCode(isResend: true),
-                child: Text('Resend code', style: typo.linkBold),
+                onPressed: busy || _sending
+                    ? null
+                    : () => _sendCode(isResend: true),
+                child: Text(
+                  _sending ? 'Sending…' : 'Resend code',
+                  style: typo.linkBold,
+                ),
               ),
             ),
           ],

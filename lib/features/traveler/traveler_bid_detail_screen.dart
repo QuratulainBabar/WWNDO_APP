@@ -15,9 +15,10 @@ import '../../core/widgets/app_card.dart';
 import '../../core/widgets/back_header.dart';
 import '../../data/models/traveler_bid.dart';
 import '../../data/services/trip_repository.dart';
-import '../../data/services/platform_repository.dart';
 import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
+import '../chat/open_delivery_chat.dart';
+import '../shared/meetup_agreement_card.dart';
 import '../tracking/widgets/parcel_photo_viewer.dart';
 
 class TravelerBidDetailScreen extends StatefulWidget {
@@ -39,9 +40,6 @@ class _TravelerBidDetailScreenState extends State<TravelerBidDetailScreen> {
   bool _loading = true;
   String? _error;
   TravelerBid? _bid;
-  String? _meetupLocation;
-  bool _travelerAcceptedMeetup = false;
-  bool _agreeingMeetup = false;
 
   @override
   void initState() {
@@ -59,60 +57,10 @@ class _TravelerBidDetailScreenState extends State<TravelerBidDetailScreen> {
     );
   }
 
-  PlatformRepository _platformRepo() {
-    final auth = context.read<AuthProvider>();
-    return PlatformRepository(apiClient: auth.repository.apiClient);
-  }
-
   Future<void> _loadMeetup(String deliveryId) async {
-    final demoMode = context.read<DemoModeProvider>();
-    if (demoMode.enabled) {
-      setState(() {
-        _meetupLocation = StaticData.thread1ProposedMeetupLocation;
-        _travelerAcceptedMeetup = StaticData.travelerLocationAgreementAccepted;
-      });
-      return;
-    }
-
-    try {
-      final status = await _platformRepo().getMeetupStatus(deliveryId);
-      if (!mounted) return;
-      setState(() {
-        _meetupLocation = status['location'] as String?;
-        _travelerAcceptedMeetup = status['agreedByTraveler'] == true;
-      });
-    } catch (_) {
-      // Meetup may not exist yet.
-    }
-  }
-
-  Future<void> _agreeMeetup(String deliveryId) async {
-    setState(() => _agreeingMeetup = true);
-    try {
-      final demoMode = context.read<DemoModeProvider>();
-      if (demoMode.enabled) {
-        StaticData.acceptThread1LocationAgreement(bySender: false);
-      } else {
-        await _platformRepo().agreeMeetup(deliveryId);
-      }
-      if (!mounted) return;
-      await _loadMeetup(deliveryId);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Meetup location accepted. Thread 1 can now unlock.',
-          ),
-        ),
-      );
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to accept meetup location.')),
-      );
-    } finally {
-      if (mounted) setState(() => _agreeingMeetup = false);
-    }
+    // MeetupAgreementCard reloads its own state; keep hook for refresh after accept.
+    if (!mounted) return;
+    setState(() {});
   }
 
   Future<void> _load() async {
@@ -203,9 +151,6 @@ class _TravelerBidDetailScreenState extends State<TravelerBidDetailScreen> {
     }
 
     final deliveryDate = DateFormat('MMM d, yyyy').format(bid.deliveryDate);
-    final proposedMeetup = _meetupLocation ?? StaticData.thread1ProposedMeetupLocation;
-    final travelerAccepted =
-        _travelerAcceptedMeetup || StaticData.travelerLocationAgreementAccepted;
     final deliveryId = bid.deliveryPublicId ?? '';
     final amountLabel = bid.isAccepted
         ? 'Accepted bid amount'
@@ -284,44 +229,31 @@ class _TravelerBidDetailScreenState extends State<TravelerBidDetailScreen> {
                     ],
                   ),
                 ),
-                if (bid.isAccepted) ...[
+                if (bid.isAccepted && deliveryId.isNotEmpty) ...[
                   const SizedBox(height: 24),
-                  if (proposedMeetup != null) ...[
-                    AppCard(
-                      margin: EdgeInsets.zero,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Meetup location agreement',
-                            style: typo.h3.copyWith(fontWeight: FontWeight.w700),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Proposed location: $proposedMeetup',
-                            style: typo.sm,
-                          ),
-                          const SizedBox(height: 12),
-                          AppButton(
-                            label: _agreeingMeetup
-                                ? 'Accepting…'
-                                : travelerAccepted
-                                    ? 'Location accepted'
-                                    : 'Accept meetup location',
-                            onPressed: travelerAccepted ||
-                                    deliveryId.isEmpty ||
-                                    _agreeingMeetup
-                                ? null
-                                : () => _agreeMeetup(deliveryId),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
+                  MeetupAgreementCard(
+                    deliveryId: deliveryId,
+                    allowPropose: false,
+                    onUpdated: () => _loadMeetup(deliveryId),
+                  ),
+                  const SizedBox(height: 16),
+                  AppButton(
+                    label: 'Open delivery / NFC',
+                    onPressed: deliveryId.isEmpty
+                        ? null
+                        : () => context.push(
+                              '/shipment/$deliveryId?traveler=true',
+                            ),
+                  ),
+                  const SizedBox(height: 12),
                   AppButton(
                     label: 'Chat with Sender',
-                    onPressed: () => context.go('/traveler-chats'),
+                    onPressed: () => openDeliveryChat(
+                      context,
+                      chatBasePath: '/traveler-chats',
+                      threadType: 'sender_traveler',
+                      deliveryKey: deliveryId,
+                    ),
                   ),
                 ],
               ],

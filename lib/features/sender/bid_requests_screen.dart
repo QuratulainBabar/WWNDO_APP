@@ -22,6 +22,7 @@ import '../../data/models/traveler_request_summary.dart';
 import '../../data/platform_fees.dart';
 import '../../data/services/delivery_repository.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/notification_realtime_provider.dart';
 import 'bid_acceptance_payment_screen.dart';
 import 'bid_sort.dart';
 
@@ -42,10 +43,51 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
   bool _loading = true;
   String? _error;
 
+  NotificationRealtimeProvider? _realtimeProvider;
+  VoidCallback? _realtimeListener;
+  int _lastDeliveryUpdateTick = 0;
+
+  TravelerRequestSummary? _requestFor(Bid bid) {
+    for (final r in _travelerRequests) {
+      if (r.tripId == bid.id || r.tripPublicId == bid.id) return r;
+    }
+    return null;
+  }
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _load();
+      _attachRealtimeListener();
+    });
+  }
+
+  void _attachRealtimeListener() {
+    final realtime = context.read<NotificationRealtimeProvider>();
+    if (_realtimeProvider == realtime && _realtimeListener != null) return;
+    if (_realtimeListener != null) {
+      _realtimeProvider?.removeListener(_realtimeListener!);
+    }
+    _realtimeProvider = realtime;
+    _lastDeliveryUpdateTick = realtime.deliveryUpdateTick;
+    _realtimeListener = () {
+      if (!mounted) return;
+      final tick = realtime.deliveryUpdateTick;
+      if (tick != _lastDeliveryUpdateTick) {
+        _lastDeliveryUpdateTick = tick;
+        _load();
+      }
+    };
+    realtime.addListener(_realtimeListener!);
+  }
+
+  @override
+  void dispose() {
+    if (_realtimeListener != null) {
+      _realtimeProvider?.removeListener(_realtimeListener!);
+    }
+    super.dispose();
   }
 
   DeliveryRepository _repository() {
@@ -102,11 +144,10 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
   }
 
   BidReviewStatus _reviewStatusFor(Bid bid) {
-    final requested = _travelerRequests.any(
-      (r) => r.tripId == bid.id || r.tripPublicId == bid.id,
-    );
-    if (requested) return BidReviewStatus.deliveryRequested;
-    return BidReviewStatus.open;
+    final request = _requestFor(bid);
+    if (request == null) return BidReviewStatus.open;
+    if (request.isAccepted) return BidReviewStatus.approved;
+    return BidReviewStatus.deliveryRequested;
   }
 
   Future<void> _selectTraveler(Bid bid) async {
@@ -254,6 +295,9 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
                 shipmentId: widget.shipmentId,
               ),
             ),
+            onReviewOffer: () => context.push(
+              '/sender-counter-offer?delivery=${widget.shipmentId}',
+            ),
             onSelectTraveler: () => _selectTraveler(bid),
           );
         },
@@ -350,18 +394,22 @@ class _MatchingTravelerCard extends StatelessWidget {
     required this.bid,
     required this.status,
     required this.onViewProfile,
+    required this.onReviewOffer,
     required this.onSelectTraveler,
   });
 
   final Bid bid;
   final BidReviewStatus status;
   final VoidCallback onViewProfile;
+  final VoidCallback onReviewOffer;
   final VoidCallback onSelectTraveler;
 
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
     final requested = status == BidReviewStatus.deliveryRequested;
+    final accepted = status == BidReviewStatus.approved ||
+        status == BidReviewStatus.accepted;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -385,7 +433,13 @@ class _MatchingTravelerCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (requested)
+                if (accepted)
+                  AppBadge(
+                    label: 'Accepted',
+                    color: AppColors.primary,
+                    backgroundColor: AppColors.primary.withValues(alpha: 0.12),
+                  )
+                else if (requested)
                   AppBadge(
                     label: 'Requested',
                     color: AppColors.warning,
@@ -419,8 +473,16 @@ class _MatchingTravelerCard extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: AppButton(
-                    label: requested ? 'Requested' : 'Select traveler',
-                    onPressed: requested ? null : onSelectTraveler,
+                    label: accepted
+                        ? 'Review offer'
+                        : requested
+                            ? 'Requested'
+                            : 'Select traveler',
+                    onPressed: accepted
+                        ? onReviewOffer
+                        : requested
+                            ? null
+                            : onSelectTraveler,
                   ),
                 ),
               ],

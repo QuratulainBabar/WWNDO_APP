@@ -57,21 +57,39 @@ class AuthRepository {
 
     if (_isDemoMode) return;
 
-    // Soft-locked for biometric unlock: keep refresh token, do not auto-login.
-    if ((access == null || access.isEmpty) &&
-        refreshToken != null &&
-        await BiometricPrefs.isLoginEnabled()) {
+    // Explicit logout + biometric: require Face ID / Fingerprint before restore.
+    // Do NOT treat a missing access token alone as soft-lock (common after OS kill).
+    final softLocked = await BiometricPrefs.isSessionSoftLocked();
+    if (softLocked && await BiometricPrefs.isLoginEnabled()) {
       _currentUser = null;
       return;
     }
 
-    if (refreshToken != null) {
-      try {
-        await refreshSession();
-      } on ApiException {
-        await _tokenStorage.clear();
+    if (refreshToken == null || refreshToken.isEmpty) {
+      if (access == null || access.isEmpty) {
         _currentUser = null;
       }
+      return;
+    }
+
+    try {
+      await refreshSession();
+      await BiometricPrefs.setSessionSoftLocked(false);
+    } on ApiException catch (e) {
+      final invalid = e.statusCode == 401 ||
+          e.code == 'INVALID_REFRESH_TOKEN' ||
+          e.code == 'UNAUTHORIZED';
+      if (invalid) {
+        await _tokenStorage.clear();
+        _currentUser = null;
+        await BiometricPrefs.setSessionSoftLocked(false);
+        return;
+      }
+      // Network / server blip: keep cached user so closing the app does not
+      // force a full login. API calls will retry refresh later.
+      _currentUser ??= await _tokenStorage.getUser();
+    } catch (_) {
+      _currentUser ??= await _tokenStorage.getUser();
     }
   }
 
@@ -220,6 +238,7 @@ class AuthRepository {
       user: user,
     );
     _currentUser = user;
+    await BiometricPrefs.setSessionSoftLocked(false);
     // Real API session — never leave demo mode on (blocks Alerts/email/API lists).
     if (_demoMode?.enabled == true) {
       await _demoMode!.setEnabled(false);
@@ -254,11 +273,13 @@ class AuthRepository {
     if (_isDemoMode) {
       if (biometricEnabled) {
         await _tokenStorage.lockForBiometric();
+        await BiometricPrefs.setSessionSoftLocked(true);
         _currentUser = null;
         DeliveryRepository.clearSessionCreated();
         return;
       }
       await DemoAuthService.logout(_tokenStorage);
+      await BiometricPrefs.setSessionSoftLocked(false);
       _currentUser = null;
       DeliveryRepository.clearSessionCreated();
       return;
@@ -267,6 +288,7 @@ class AuthRepository {
     // Soft lock: keep refresh token so biometric unlock can restore the session.
     if (biometricEnabled) {
       await _tokenStorage.lockForBiometric();
+      await BiometricPrefs.setSessionSoftLocked(true);
       _currentUser = null;
       DeliveryRepository.clearSessionCreated();
       return;
@@ -274,6 +296,7 @@ class AuthRepository {
 
     final refreshToken = await _tokenStorage.getRefreshToken();
     await _tokenStorage.clear();
+    await BiometricPrefs.setSessionSoftLocked(false);
     _currentUser = null;
     DeliveryRepository.clearSessionCreated();
 

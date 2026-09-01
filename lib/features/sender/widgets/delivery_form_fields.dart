@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../../core/geo/meetup_destination_validation.dart';
 import '../../../core/geo/meetup_origin_validation.dart';
 import '../../../core/geo/world_countries.dart';
+import '../../../data/platform_fees.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/validation/receiver_contact_validation.dart';
@@ -66,6 +67,20 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
   String? _descriptionError;
   String? _travelDateError;
   String? _weightError;
+  String? _ackError;
+
+  final _routeFromKey = GlobalKey();
+  final _routeToKey = GlobalKey();
+  final _travelDateKey = GlobalKey();
+  final _weightKey = GlobalKey();
+  final _photosKey = GlobalKey();
+  final _budgetKey = GlobalKey();
+  final _meetupKey = GlobalKey();
+  final _descriptionKey = GlobalKey();
+  final _receiverEmailKey = GlobalKey();
+  final _receiverPhoneKey = GlobalKey();
+  final _receiverMeetupKey = GlobalKey();
+  final _ackKey = GlobalKey();
 
   MeetupLocation? _fromLocation;
   MeetupLocation? _toLocation;
@@ -203,7 +218,138 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
   int get _totalPhotoCount =>
       _visibleExistingPhotos.length + _photoPaths.length;
 
-  bool validate() => _isCountry ? _validateCountry() : _validateCity();
+  bool validate() {
+    final ok = _isCountry ? _validateCountry() : _validateCity();
+    if (!ok) scrollToFirstError();
+    return ok;
+  }
+
+  /// Maps a server/local validation message to the matching field and scrolls to it.
+  bool applyServerValidationMessage(String message) {
+    final text = message.trim();
+    if (text.isEmpty) return false;
+
+    var matched = true;
+    setState(() {
+      _clearFieldErrors();
+      final lower = text.toLowerCase();
+
+      if (lower.contains('acknowledg') || lower.contains('parcel terms')) {
+        _ackError = text;
+      } else if (text == MeetupOriginValidation.message ||
+          lower.contains('within the selected from')) {
+        _meetupError = text;
+      } else if (text == MeetupDestinationValidation.message ||
+          lower.contains('destination city')) {
+        _receiverMeetupError = text;
+      } else if (lower.contains('origin airport') ||
+          (lower.contains('from') && lower.contains('airport'))) {
+        _fromAirportError = text;
+      } else if (lower.contains('destination airport') ||
+          (lower.contains('to') && lower.contains('airport'))) {
+        _toAirportError = text;
+      } else if (lower.contains('fromcity') || lower.contains('from city')) {
+        _fromError = text;
+      } else if (lower.contains('tocity') || lower.contains('to city')) {
+        _toError = text;
+      } else if (lower.contains('travel date') || lower.contains('traveldate')) {
+        _travelDateError = text;
+      } else if (lower.contains('weight')) {
+        _weightError = text;
+      } else if (lower.contains('photo')) {
+        _photosError = text;
+      } else if (lower.contains('budget')) {
+        _budgetError = text;
+      } else if (lower.contains('preferred meetup') ||
+          lower.contains('at least one meetup location')) {
+        _meetupError = text;
+      } else if (lower.contains('receiver email') ||
+          lower.contains("receiver's email")) {
+        _receiverEmailError = text;
+      } else if (lower.contains('receiver phone') ||
+          lower.contains("receiver's phone")) {
+        _receiverPhoneError = text;
+      } else if (lower.contains('select a meetup location')) {
+        _receiverMeetupError = text;
+      } else if (lower.contains('description')) {
+        _descriptionError = text;
+      } else {
+        matched = false;
+      }
+    });
+
+    if (!matched) return false;
+    scrollToFirstError();
+    return true;
+  }
+
+  void scrollToFirstError() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      for (final key in _errorFieldKeysInOrder()) {
+        final context = key.currentContext;
+        if (context == null) continue;
+        Scrollable.ensureVisible(
+          context,
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeInOut,
+          alignment: 0.12,
+        );
+        break;
+      }
+    });
+  }
+
+  void _clearFieldErrors() {
+    _photosError = null;
+    _meetupError = null;
+    _receiverMeetupError = null;
+    _budgetError = null;
+    _fromError = null;
+    _toError = null;
+    _receiverEmailError = null;
+    _receiverPhoneError = null;
+    _descriptionError = null;
+    _travelDateError = null;
+    _weightError = null;
+    _fromAirportError = null;
+    _toAirportError = null;
+    _ackError = null;
+  }
+
+  List<GlobalKey> _errorFieldKeysInOrder() {
+    if (_isCountry) {
+      return [
+        if (_fromAirportError != null) _routeFromKey,
+        if (_toAirportError != null) _routeToKey,
+        if (_travelDateError != null) _travelDateKey,
+        if (_weightError != null) _weightKey,
+        if (_photosError != null) _photosKey,
+        if (_budgetError != null) _budgetKey,
+        if (_meetupError != null) _meetupKey,
+        if (_descriptionError != null) _descriptionKey,
+        if (_receiverEmailError != null) _receiverEmailKey,
+        if (_receiverPhoneError != null) _receiverPhoneKey,
+        if (_receiverMeetupError != null) _receiverMeetupKey,
+        if (_ackError != null) _ackKey,
+      ];
+    }
+
+    return [
+      if (_fromError != null) _routeFromKey,
+      if (_toError != null) _routeToKey,
+      if (_travelDateError != null) _travelDateKey,
+      if (_weightError != null) _weightKey,
+      if (_photosError != null) _photosKey,
+      if (_budgetError != null) _budgetKey,
+      if (_meetupError != null) _meetupKey,
+      if (_descriptionError != null) _descriptionKey,
+      if (_receiverEmailError != null) _receiverEmailKey,
+      if (_receiverPhoneError != null) _receiverPhoneKey,
+      if (_receiverMeetupError != null) _receiverMeetupKey,
+      if (_ackError != null) _ackKey,
+    ];
+  }
 
   bool _validateCity() {
     final fromCity = _fromLocation == null ? '' : deliveryCityName(_fromLocation!);
@@ -235,9 +381,9 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
       _travelDateError =
           _travelDate == null ? 'Select a travel date.' : null;
       _fromError =
-          fromCity.isEmpty ? 'Select a from city on Google Maps.' : null;
+          fromCity.isEmpty ? 'Select a from location.' : null;
       _toError = toCity.isEmpty
-          ? 'Select a to city on Google Maps.'
+          ? 'Select a to location.'
           : (toCity.toLowerCase() == fromCity.toLowerCase()
               ? 'From and To cities must be different.'
               : null);
@@ -246,10 +392,12 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
       _descriptionError = _descriptionController.text.trim().isEmpty
           ? 'Enter a parcel description.'
           : null;
+      _ackError = widget.isEditMode || _parcelAcknowledged
+          ? null
+          : 'Please acknowledge the parcel terms before posting.';
     });
 
-    final ackOk = widget.isEditMode || _parcelAcknowledged;
-    return ackOk &&
+    return _ackError == null &&
         _photosError == null &&
         _meetupError == null &&
         _receiverMeetupError == null &&
@@ -304,10 +452,12 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
       _descriptionError = _descriptionController.text.trim().isEmpty
           ? 'Enter a parcel description.'
           : null;
+      _ackError = widget.isEditMode || _parcelAcknowledged
+          ? null
+          : 'Please acknowledge the parcel terms before posting.';
     });
 
-    final ackOk = widget.isEditMode || _parcelAcknowledged;
-    return ackOk &&
+    return _ackError == null &&
         _photosError == null &&
         _meetupError == null &&
         _receiverMeetupError == null &&
@@ -415,11 +565,14 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
       receiverMeetupLocation: _receiverMeetupLocations.isEmpty
           ? null
           : _receiverMeetupLocations.first.displayLabel,
-      platformFee: StaticData.senderPlatformFeeUsd(
+      platformFee: PlatformFees.senderPlatformFeeUsd(
         category: _category,
         paysReceiverFee: _paysReceiverFee,
       ),
-      platformFeeShare: StaticData.travelerPlatformFeeUsd(_category),
+      platformFeeShare: PlatformFees.platformFeeShareFor(
+        category: _category,
+        paysReceiverFee: _paysReceiverFee,
+      ),
       paysReceiverFee: _paysReceiverFee,
     );
   }
@@ -469,6 +622,8 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
             toAirport: _toAirport,
             fromErrorText: _fromAirportError,
             toErrorText: _toAirportError,
+            fromFieldKey: _routeFromKey,
+            toFieldKey: _routeToKey,
             onFromChanged: (airport) => setState(() {
               _fromAirport = airport;
               _fromAirportError = null;
@@ -479,38 +634,57 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
             }),
           ),
         ] else ...[
-          RouteCityDropdown(
-            label: 'From city',
-            value: _fromLocation,
-            hintText: 'Add from city on Google Maps',
-            mapTitle: 'From city',
-            searchHint: 'Search from city',
-            onChanged: (place) => setState(() {
-              _fromLocation = place;
-              _fromError = null;
-            }),
+          KeyedSubtree(
+            key: _routeFromKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                RouteCityDropdown(
+                  label: 'From city',
+                  value: _fromLocation,
+                  hintText: 'Search Location',
+                  mapTitle: 'From city',
+                  searchHint: 'Search Location',
+                  onChanged: (place) => setState(() {
+                    _fromLocation = place;
+                    _fromError = null;
+                  }),
+                ),
+                if (_fromError != null) _errorText(_fromError!),
+              ],
+            ),
           ),
-          if (_fromError != null) _errorText(_fromError!),
-          RouteCityDropdown(
-            label: 'To city',
-            value: _toLocation,
-            hintText: 'Add to city on Google Maps',
-            mapTitle: 'To city',
-            searchHint: 'Search to city',
-            onChanged: (place) => setState(() {
-              _toLocation = place;
-              _toError = null;
-            }),
+          KeyedSubtree(
+            key: _routeToKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                RouteCityDropdown(
+                  label: 'To city',
+                  value: _toLocation,
+                  hintText: 'Search Location',
+                  mapTitle: 'To city',
+                  searchHint: 'Search Location',
+                  onChanged: (place) => setState(() {
+                    _toLocation = place;
+                    _toError = null;
+                  }),
+                ),
+                if (_toError != null) _errorText(_toError!),
+              ],
+            ),
           ),
-          if (_toError != null) _errorText(_toError!),
         ],
-        TravelDateField(
-          value: _travelDate,
-          errorText: _travelDateError,
-          onChanged: (date) => setState(() {
-            _travelDate = date;
-            _travelDateError = null;
-          }),
+        KeyedSubtree(
+          key: _travelDateKey,
+          child: TravelDateField(
+            value: _travelDate,
+            errorText: _travelDateError,
+            onChanged: (date) => setState(() {
+              _travelDate = date;
+              _travelDateError = null;
+            }),
+          ),
         ),
         const SizedBox(height: 12),
         Text('Parcel', style: context.typo.h3.copyWith(fontWeight: FontWeight.w700)),
@@ -520,53 +694,68 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
           selected: _category,
           onSelected: (v) => setState(() => _category = v),
         ),
-        WeightKgField(
-          initialValue: _weightKg > 0 ? _weightKg : null,
-          errorText: _weightError,
-          onChanged: (value) => setState(() {
-            _weightKg = value;
-            _weightError = null;
-          }),
+        KeyedSubtree(
+          key: _weightKey,
+          child: WeightKgField(
+            initialValue: _weightKg > 0 ? _weightKg : null,
+            errorText: _weightError,
+            onChanged: (value) => setState(() {
+              _weightKg = value;
+              _weightError = null;
+            }),
+          ),
         ),
-        ParcelPhotosSection(
-          photoPaths: _photoPaths,
-          existingPhotos: _visibleExistingPhotos,
-          errorText: _photosError,
-          onExistingPhotoRemoved: (id) => setState(() {
-            _removedExistingPhotoIds.add(id);
-            _photosError = null;
-          }),
-          onChanged: (paths) => setState(() {
-            _photoPaths
-              ..clear()
-              ..addAll(paths);
-            _photosError = null;
-          }),
+        KeyedSubtree(
+          key: _photosKey,
+          child: ParcelPhotosSection(
+            photoPaths: _photoPaths,
+            existingPhotos: _visibleExistingPhotos,
+            errorText: _photosError,
+            onExistingPhotoRemoved: (id) => setState(() {
+              _removedExistingPhotoIds.add(id);
+              _photosError = null;
+            }),
+            onChanged: (paths) => setState(() {
+              _photoPaths
+                ..clear()
+                ..addAll(paths);
+              _photosError = null;
+            }),
+          ),
         ),
-        MaximumBudgetField(
-          initialValue: _maxBudget > 0 ? _maxBudget : null,
-          errorText: _budgetError,
-          onChanged: (value) => setState(() {
-            _maxBudget = value;
-            _budgetError = null;
-          }),
+        KeyedSubtree(
+          key: _budgetKey,
+          child: MaximumBudgetField(
+            initialValue: _maxBudget > 0 ? _maxBudget : null,
+            errorText: _budgetError,
+            onChanged: (value) => setState(() {
+              _maxBudget = value;
+              _budgetError = null;
+            }),
+          ),
         ),
-        MeetupLocationsCard(
-          locations: _meetupLocations,
-          errorText: _meetupError,
-          onTap: () async {
-            final result = await context.push<List<MeetupLocation>>(
-              '/add-meetup-locations',
-              extra: _meetupLocations,
-            );
-            if (result != null) {
-              setState(() => _meetupLocations = result);
-            }
-          },
+        KeyedSubtree(
+          key: _meetupKey,
+          child: MeetupLocationsCard(
+            locations: _meetupLocations,
+            errorText: _meetupError,
+            onTap: () async {
+              final result = await context.push<List<MeetupLocation>>(
+                '/add-meetup-locations',
+                extra: _meetupLocations,
+              );
+              if (result != null) {
+                setState(() => _meetupLocations = result);
+              }
+            },
+          ),
         ),
-        DescriptionField(
-          controller: _descriptionController,
-          errorText: _descriptionError,
+        KeyedSubtree(
+          key: _descriptionKey,
+          child: DescriptionField(
+            controller: _descriptionController,
+            errorText: _descriptionError,
+          ),
         ),
         const SizedBox(height: 12),
         ReceiverInfoSection(
@@ -576,6 +765,9 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
           phoneErrorText: _receiverPhoneError,
           meetupErrorText: _receiverMeetupError,
           meetupLocations: _receiverMeetupLocations,
+          emailFieldKey: _receiverEmailKey,
+          phoneFieldKey: _receiverPhoneKey,
+          meetupFieldKey: _receiverMeetupKey,
           onEmailChanged: (email) => setState(() {
             _receiverEmail = email;
             _receiverEmailError = null;
@@ -591,9 +783,15 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
         ),
         if (!widget.isEditMode) ...[
           const SizedBox(height: 12),
-          ParcelAcknowledgementSection(
-            onChanged: (acknowledged) =>
-                setState(() => _parcelAcknowledged = acknowledged),
+          KeyedSubtree(
+            key: _ackKey,
+            child: ParcelAcknowledgementSection(
+              errorText: _ackError,
+              onChanged: (acknowledged) => setState(() {
+                _parcelAcknowledged = acknowledged;
+                _ackError = null;
+              }),
+            ),
           ),
           const SizedBox(height: 12),
           PlatformFeeSection(

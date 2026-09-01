@@ -3,6 +3,9 @@ import 'package:flutter/foundation.dart';
 import '../core/api/api_exception.dart';
 import '../core/config/demo_mode.dart';
 import '../data/models/created_delivery.dart';
+import '../data/models/traveler_request_summary.dart';
+import '../data/delivery_status_mapper.dart';
+import '../data/models/shipment.dart';
 import '../data/services/auth_repository.dart';
 import '../data/services/delivery_repository.dart';
 import '../features/sender/sender_delivery_status.dart';
@@ -16,6 +19,8 @@ class SenderDeliveriesProvider extends ChangeNotifier {
 
   List<CreatedDelivery> _deliveries = const [];
   Map<String, int> _matchingTravelerCounts = const {};
+  Map<String, List<TravelerRequestSummary>> _travelerRequestsByDelivery =
+      const {};
   bool _loading = false;
   String? _error;
   int _loadGeneration = 0;
@@ -24,6 +29,19 @@ class SenderDeliveriesProvider extends ChangeNotifier {
   String? get error => _error;
   List<CreatedDelivery> get deliveries => _deliveries;
   Map<String, int> get matchingTravelerCounts => _matchingTravelerCounts;
+  Map<String, List<TravelerRequestSummary>> get travelerRequestsByDelivery =>
+      _travelerRequestsByDelivery;
+
+  List<TravelerRequestSummary> travelerRequestsFor(CreatedDelivery delivery) =>
+      _travelerRequestsByDelivery[delivery.displayId] ??
+      _travelerRequestsByDelivery[delivery.id] ??
+      const [];
+
+  SenderPostedPhase? postedPhaseFor(CreatedDelivery delivery) =>
+      DeliveryStatusMapper.postedPhaseFor(
+        delivery: delivery,
+        travelerRequests: travelerRequestsFor(delivery),
+      );
 
   List<CreatedDelivery> get activeDeliveries => _deliveries
       .where((d) => SenderDeliveryStatus.fromDelivery(d).isActive)
@@ -54,6 +72,7 @@ class SenderDeliveriesProvider extends ChangeNotifier {
   void clear() {
     _deliveries = const [];
     _matchingTravelerCounts = const {};
+    _travelerRequestsByDelivery = const {};
     _error = null;
     _loading = false;
     notifyListeners();
@@ -105,9 +124,14 @@ class SenderDeliveriesProvider extends ChangeNotifier {
 
       // Counts are secondary — never block showing the list.
       final active = activeDeliveries;
-      final counts = await repo.fetchMatchingTravelerCounts(active);
+      final secondary = await Future.wait([
+        repo.fetchMatchingTravelerCounts(active),
+        repo.fetchTravelerRequestsForDeliveries(active),
+      ]);
       if (generation != _loadGeneration) return;
-      _matchingTravelerCounts = counts;
+      _matchingTravelerCounts = secondary[0] as Map<String, int>;
+      _travelerRequestsByDelivery =
+          secondary[1] as Map<String, List<TravelerRequestSummary>>;
       notifyListeners();
     } on ApiException catch (e) {
       if (generation != _loadGeneration) return;

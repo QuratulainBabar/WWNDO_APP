@@ -86,9 +86,14 @@ class _TravelerShellState extends State<TravelerShell>
   Future<void> _refreshUnread() async {
     final demoMode = context.read<DemoModeProvider>();
     final auth = context.read<AuthProvider>();
-    await (_realtimeProvider ?? context.read<NotificationRealtimeProvider>())
-        .refreshUnread(
+    final realtime =
+        _realtimeProvider ?? context.read<NotificationRealtimeProvider>();
+    await realtime.refreshUnread(
       role: WalletRole.traveler,
+      authRepository: auth.repository,
+      demoMode: demoMode,
+    );
+    await realtime.refreshChatUnread(
       authRepository: auth.repository,
       demoMode: demoMode,
     );
@@ -96,6 +101,9 @@ class _TravelerShellState extends State<TravelerShell>
 
   int get _unreadAlerts =>
       context.watch<NotificationRealtimeProvider>().unreadCount;
+
+  int get _unreadChats =>
+      context.watch<NotificationRealtimeProvider>().chatUnreadCount;
 
   @override
   Widget build(BuildContext context) {
@@ -122,13 +130,13 @@ class _TravelerShellState extends State<TravelerShell>
                   navigationShell: widget.navigationShell,
                   index: 1,
                   icon: _TabIcon.svg(AppIcons.trips),
-                  label: 'Trips',
+                  label: 'Trip',
                 ),
                 _Tab(
                   navigationShell: widget.navigationShell,
                   index: 2,
                   icon: const _TabIcon.material(Icons.notifications_outlined),
-                  label: 'Alerts',
+                  label: 'Alert',
                   badge: _unreadAlerts,
                 ),
                 _Tab(
@@ -136,6 +144,7 @@ class _TravelerShellState extends State<TravelerShell>
                   index: 3,
                   icon: _TabIcon.svg(AppIcons.chat),
                   label: 'Chat',
+                  badge: _unreadChats,
                 ),
                 _Tab(
                   navigationShell: widget.navigationShell,

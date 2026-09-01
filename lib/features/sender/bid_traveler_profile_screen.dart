@@ -15,6 +15,7 @@ import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/back_header.dart';
 import '../../data/models/bid.dart';
+import '../../data/models/traveler_request_summary.dart';
 import '../../data/services/delivery_repository.dart';
 import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
@@ -38,6 +39,61 @@ class BidTravelerProfileScreen extends StatefulWidget {
 
 class _BidTravelerProfileScreenState extends State<BidTravelerProfileScreen> {
   bool _requesting = false;
+  bool _sentThisSession = false;
+  bool _requestsLoaded = false;
+  List<TravelerRequestSummary> _travelerRequests = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _loadTravelerRequests();
+    });
+  }
+
+  /// Whether the sender has already sent a request to this traveler for this
+  /// delivery — authoritative from the backend, so re-opening the profile
+  /// cannot offer "Send Request" a second time.
+  TravelerRequestSummary? get _requestForBid {
+    for (final r in _travelerRequests) {
+      if (r.tripId == widget.bid.id || r.tripPublicId == widget.bid.id) {
+        return r;
+      }
+    }
+    return null;
+  }
+
+  bool get _alreadyRequested {
+    if (_sentThisSession) return true;
+    return _requestForBid != null;
+  }
+
+  bool get _travelerAcceptedOffer => _requestForBid?.isAccepted ?? false;
+
+  Future<void> _loadTravelerRequests() async {
+    final id = widget.shipmentId;
+    final demoMode = context.read<DemoModeProvider>();
+    if (id == null || demoMode.enabled) {
+      setState(() => _requestsLoaded = true);
+      return;
+    }
+    try {
+      final auth = context.read<AuthProvider>();
+      final requests = await DeliveryRepository(
+        apiClient: auth.repository.apiClient,
+        demoMode: demoMode,
+      ).listTravelerRequests(id);
+      if (!mounted) return;
+      setState(() {
+        _travelerRequests = requests;
+        _requestsLoaded = true;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      // Non-fatal: leave the button usable if we couldn't confirm state.
+      setState(() => _requestsLoaded = true);
+    }
+  }
 
   Future<void> _selectTraveler() async {
     final id = widget.shipmentId;
@@ -80,6 +136,7 @@ class _BidTravelerProfileScreenState extends State<BidTravelerProfileScreen> {
 
     StaticData.selectMatchingTraveler(shipmentId: id, bid: widget.bid);
     if (!mounted) return;
+    setState(() => _sentThisSession = true);
     context.push(
       '/traveler-selected-confirmation',
       extra: BidAcceptanceContext(bid: widget.bid, shipmentId: id),
@@ -99,12 +156,21 @@ class _BidTravelerProfileScreenState extends State<BidTravelerProfileScreen> {
             : AppColors.warning;
     final shipment =
         shipmentId == null ? null : StaticData.shipmentById(shipmentId);
-    final reviewStatus = StaticData.bidReviewStatus(bid.id);
+    final demoMode = context.watch<DemoModeProvider>().enabled;
+    final reviewStatus = demoMode
+        ? StaticData.bidReviewStatus(bid.id)
+        : (_travelerAcceptedOffer
+            ? BidReviewStatus.approved
+            : _alreadyRequested
+                ? BidReviewStatus.deliveryRequested
+                : BidReviewStatus.open);
     final isSelected = reviewStatus == BidReviewStatus.deliveryRequested ||
         reviewStatus == BidReviewStatus.accepted ||
         reviewStatus == BidReviewStatus.approved;
     final isLocked = reviewStatus == BidReviewStatus.locked;
-    final canSelect = shipmentId != null && !isSelected && !isLocked;
+    final alreadyRequested = _alreadyRequested;
+    final canSelect =
+        shipmentId != null && !isSelected && !isLocked && !alreadyRequested;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -223,12 +289,22 @@ class _BidTravelerProfileScreenState extends State<BidTravelerProfileScreen> {
                   16,
                 ),
                 child: AppButton(
-                  label: isSelected
-                      ? 'Selected'
-                      : isLocked
-                          ? 'Unavailable'
-                          : 'Send Request',
-                  onPressed: canSelect && !_requesting ? _selectTraveler : null,
+                  label: _travelerAcceptedOffer && !demoMode
+                      ? 'Accepted — Review Offer'
+                      : isSelected
+                          ? 'Selected'
+                          : alreadyRequested
+                              ? 'Request Sent'
+                              : isLocked
+                                  ? 'Unavailable'
+                                  : 'Send Request',
+                  onPressed: _travelerAcceptedOffer && !demoMode
+                      ? () => context.push(
+                            '/sender-counter-offer?delivery=$shipmentId',
+                          )
+                      : canSelect && !_requesting && _requestsLoaded
+                          ? _selectTraveler
+                          : null,
                 ),
               ),
             ),

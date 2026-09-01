@@ -338,6 +338,7 @@ abstract final class StaticData {
     required double amount,
     AuthUser? authUser,
     bool allowAboveMaxBudget = false,
+    bool acceptedOffer = false,
   }) {
     if (amount <= 0) return 'Enter a valid budget amount.';
     if (!allowAboveMaxBudget && amount > request.maxBudget) {
@@ -453,15 +454,30 @@ abstract final class StaticData {
 
     final routeLabel = '${request.fromCity} → ${request.toCity}';
     final isUpdate = existingProposal != null;
+    final isAccept =
+        acceptedOffer || (!isUpdate && (amount - request.maxBudget).abs() < 0.005);
+    final String notifTitle;
+    final String notifBody;
+    if (isAccept && !isUpdate) {
+      notifTitle = 'Offer accepted';
+      notifBody =
+          '$travelerName accepted your offer of \$${amount.toStringAsFixed(2)} for $shipmentId ($routeLabel).';
+    } else if (isUpdate) {
+      notifTitle = 'Counter offer updated';
+      notifBody =
+          '$travelerName updated their counter offer to \$${amount.toStringAsFixed(2)} for $shipmentId ($routeLabel).';
+    } else {
+      notifTitle = 'New counter offer';
+      notifBody =
+          '$travelerName sent a counter offer of \$${amount.toStringAsFixed(2)} for $shipmentId ($routeLabel).';
+    }
     NotificationService.push(
       AppNotification(
         id: 'snd-final-budget-$shipmentId-${DateTime.now().microsecondsSinceEpoch}',
         role: WalletRole.sender,
         type: AppNotificationType.counterOffer,
-        title: isUpdate ? 'Counter offer updated' : 'New counter offer',
-        body: isUpdate
-            ? '$travelerName updated their counter offer to \$${amount.toStringAsFixed(2)} for $shipmentId ($routeLabel).'
-            : '$travelerName sent a counter offer of \$${amount.toStringAsFixed(2)} for $shipmentId ($routeLabel).',
+        title: notifTitle,
+        body: notifBody,
         time: 'Just now',
         route: '/sender-counter-offer/$bidId?delivery=$shipmentId',
       ),
@@ -1525,24 +1541,7 @@ abstract final class StaticData {
       return true;
     }
 
-    if (feeAmount > 0) {
-      final feeCents = (feeAmount * 100).round();
-      if (!WalletService.ensureAvailableWithCardFallback(
-        role: WalletRole.receiver,
-        amountCents: feeCents,
-      )) {
-        return false;
-      }
-      if (!WalletService.chargePlatformFee(
-        role: WalletRole.receiver,
-        shipmentId: shipment.id,
-        amountCents: feeCents,
-        description: '${shipment.id} · Platform fee',
-      )) {
-        return false;
-      }
-    }
-
+    // Platform fees are collected at sender Pay Now — not on this screen.
     receiverApprovedFeeShare = feeAmount;
     receiverPaymentAutoCancelled = false;
     receiverPaidShipmentIds.add(shipment.id);
@@ -1551,10 +1550,10 @@ abstract final class StaticData {
         id: 'rcv-pay-ok-${shipment.id}',
         role: WalletRole.receiver,
         type: AppNotificationType.receiverPayment,
-        title: 'Payment successful',
+        title: 'Payment confirmed',
         body: feeAmount == 0
             ? 'Platform fee waived for ${shipment.id}.'
-            : '\$${feeAmount.toStringAsFixed(2)} platform fee paid for ${shipment.id}.',
+            : 'Platform fee for ${shipment.id} will be collected when the sender pays.',
         time: 'Just now',
         route: '/receiver-tracking',
       ),
@@ -2792,7 +2791,7 @@ abstract final class StaticData {
   /// Minimum wallet balance (USD) required for a receiver to accept a parcel request.
   static const receiverAcceptMinBalanceUsd = 2.0;
 
-  /// Non-refundable platform fee charged when the receiver accepts an incoming request.
+  /// Non-refundable platform fee — collected at sender Pay Now, not on accept.
   static const receiverIncomingPlatformFeeUsd = 2.0;
 
   static final incomingParcelRequestsVersion = ValueNotifier<int>(0);
@@ -2894,21 +2893,6 @@ abstract final class StaticData {
     if (index < 0) return false;
 
     final request = _incomingParcelRequests[index];
-    final feeCents = (receiverIncomingPlatformFeeUsd * 100).round();
-    if (!WalletService.ensureAvailableWithCardFallback(
-      role: WalletRole.receiver,
-      amountCents: feeCents,
-    )) {
-      return false;
-    }
-    if (!WalletService.chargePlatformFee(
-      role: WalletRole.receiver,
-      shipmentId: requestId,
-      amountCents: feeCents,
-      description: '$requestId · Platform fee',
-    )) {
-      return false;
-    }
 
     _incomingParcelRequests[index] =
         request.copyWith(status: IncomingParcelRequestStatus.accepted);
@@ -3296,7 +3280,7 @@ abstract final class StaticData {
         title: 'Parcel delivered',
         body: '$shipmentId was delivered. Leave a review for your traveler.',
         time: 'Just now',
-        route: '/delivery-review',
+        route: '/delivery-review?shipmentId=$shipmentId&role=sender',
       ),
     );
     NotificationService.push(
@@ -3318,7 +3302,7 @@ abstract final class StaticData {
         title: 'Parcel received',
         body: 'Delivery confirmed for $shipmentId via NFC Checkpoint 2. You can leave a review.',
         time: 'Just now',
-        route: '/delivery-review',
+        route: '/delivery-review?shipmentId=$shipmentId&role=receiver',
       ),
     );
   }

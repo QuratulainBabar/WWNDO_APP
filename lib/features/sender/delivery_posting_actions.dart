@@ -4,7 +4,14 @@ import '../../data/wallet_gate.dart';
 
 /// Shared wallet gate for sender delivery creation screens.
 abstract final class DeliveryPostingActions {
-  /// Blocks parcel creation when wallet balance is below \$2 (refreshed from API in live mode).
-  static Future<bool> ensureWalletAllowsParcelCreation(BuildContext context) =>
-      WalletGate.ensureParcelCreation(context);
+  static Future<bool> ensureWalletAllowsParcelCreation(
+    BuildContext context, {
+    String category = 'documents',
+    bool paysReceiverFee = false,
+  }) =>
+      WalletGate.ensureParcelCreation(
+        context,
+        category: category,
+        paysReceiverFee: paysReceiverFee,
+      );
 }

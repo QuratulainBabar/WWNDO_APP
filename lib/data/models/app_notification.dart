@@ -5,6 +5,7 @@ enum AppNotificationType {
   kycUpdate,
   bid,
   bidAccepted,
+  offerAccepted,
   counterOffer,
   matching,
   tripAvailable,
@@ -46,6 +47,7 @@ class AppNotification {
       case AppNotificationType.counterOffer:
       case AppNotificationType.bid:
       case AppNotificationType.bidAccepted:
+      case AppNotificationType.offerAccepted:
       case AppNotificationType.deliveryStatus:
       case AppNotificationType.matching:
       case AppNotificationType.tripAvailable:
@@ -98,6 +100,8 @@ class AppNotification {
         return AppNotificationType.bid;
       case 'bidAccepted':
         return AppNotificationType.bidAccepted;
+      case 'offerAccepted':
+        return AppNotificationType.offerAccepted;
       case 'counterOffer':
         return AppNotificationType.counterOffer;
       case 'matching':

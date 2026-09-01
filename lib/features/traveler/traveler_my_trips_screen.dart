@@ -152,6 +152,7 @@ class _TravelerMyTripsScreenState extends State<TravelerMyTripsScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: ScreenBody(
+        onRefresh: () => _load(silent: true),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

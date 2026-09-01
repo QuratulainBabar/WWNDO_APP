@@ -2,20 +2,15 @@ import 'models/wallet_role.dart';
 import 'wallet_service.dart';
 
 /// Frontend wallet gate for traveler trip creation.
-///
-/// Uses the same mock balance shown in the Traveler Home [WalletCard]
-/// via [WalletService]. Replace [currentBalanceUsd] with a backend-backed
-/// lookup later without changing UI call sites.
 abstract final class TripCreationWalletValidation {
-  static const double minimumBalanceUsd = 3.0;
+  static const double minimumBalanceUsd = 2.0;
 
   static const String insufficientBalanceMessage =
-      'Minimum \$3 wallet balance is required to create a trip.';
+      'Minimum \$2 wallet balance is required to create a trip.';
 
   static const String helperLabel =
-      'Minimum Wallet Balance Required: \$3';
+      'Minimum wallet balance: \$2 (platform fees apply at booking)';
 
-  /// Mock wallet balance currently displayed in the UI.
   static double currentBalanceUsd() =>
       WalletService.availableUsd(WalletRole.traveler);
 

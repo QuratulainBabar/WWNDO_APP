@@ -9,12 +9,14 @@ class ChatThreadDetail {
     required this.name,
     required this.shipmentId,
     required this.messages,
+    this.unlocked = true,
   });
 
   final String id;
   final String name;
   final String shipmentId;
   final List<ChatMessage> messages;
+  final bool unlocked;
 }
 
 /// Backend chat / conversations API.
@@ -81,6 +83,7 @@ class ChatRepository {
       name: convMap['name'] as String? ?? 'Contact',
       shipmentId: convMap['shipmentId'] as String? ?? '',
       messages: messages,
+      unlocked: convMap['unlocked'] as bool? ?? true,
     );
   }
 

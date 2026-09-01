@@ -11,7 +11,6 @@ import '../../core/navigation/app_navigation.dart';
 import '../../core/platform/platform_ui.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
-import '../../core/widgets/app_avatar.dart';
 import '../../core/widgets/app_badge.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_card.dart';
@@ -29,6 +28,7 @@ import '../../data/models/shipment.dart';
 import '../../data/models/chat_message.dart';
 import '../../data/models/wallet_role.dart';
 import '../../data/services/chat_repository.dart';
+import '../../data/services/socket_chat_service.dart';
 import '../../data/services/delivery_repository.dart';
 import '../../data/services/trust_metrics_repository.dart';
 import '../../data/static_data.dart';
@@ -36,13 +36,15 @@ import '../../data/wallet_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_realtime_provider.dart';
 import '../../providers/wallet_provider.dart';
+import '../chat/open_delivery_chat.dart';
 import '../notifications/role_notifications_screen.dart';
 import '../profile/widgets/profile_header_card.dart';
 import '../profile/widgets/profile_trust_indicators.dart';
+import '../profile/widgets/recent_reviews_section.dart';
 import '../tracking/widgets/shipment_tracking_section.dart';
 import '../chat/chat_conversation_mixin.dart';
 import '../chat/widgets/chat_composer.dart';
-import '../chat/widgets/chat_image_attachment.dart';
+import '../chat/widgets/chat_thread_widgets.dart';
 
 class ReceiverProfileScreen extends StatefulWidget {
   const ReceiverProfileScreen({super.key});
@@ -244,6 +246,8 @@ class _ReceiverProfileScreenState extends State<ReceiverProfileScreen> {
                 ],
               ),
             ),
+            const SizedBox(height: 16),
+            const RecentReviewsSection(role: WalletRole.receiver),
             const SizedBox(height: 16),
             AppButton(
               label: 'Log out',
@@ -760,6 +764,8 @@ class _ReceiverChatScreenState extends State<ReceiverChatScreen>
   String _peerName = 'Contact';
   String _shipmentId = '';
   String? _conversationId;
+  StreamSubscription<ChatMessage>? _socketSub;
+  SocketChatService? _socket;
 
   @override
   void initState() {
@@ -774,6 +780,11 @@ class _ReceiverChatScreenState extends State<ReceiverChatScreen>
 
   @override
   void dispose() {
+    _socketSub?.cancel();
+    if (_conversationId != null) {
+      _socket?.leaveConversation(_conversationId!);
+    }
+    _socket?.dispose();
     disposeChatConversation();
     super.dispose();
   }
@@ -805,6 +816,34 @@ class _ReceiverChatScreenState extends State<ReceiverChatScreen>
     try {
       final detail = await _repo().getConversation(id);
       if (!mounted) return;
+
+      final auth = context.read<AuthProvider>();
+      final myId = auth.repository.currentUser?.id;
+      _socket = SocketChatService(
+        getAccessToken: auth.repository.tokenStorage.getAccessToken,
+      );
+      await _socket!.connect();
+      _socket!.joinConversation(id);
+      _socketSub = _socket!.onMessage.listen((message) {
+        if (!mounted) return;
+        // The realtime payload is viewer-neutral — derive alignment locally.
+        final resolved = message.senderId != null
+            ? message.copyWith(isMine: message.senderId == myId)
+            : message;
+        // Reconcile the echo of a message we optimistically appended locally.
+        if (resolved.isMine) {
+          if (reconcileOwnEcho(resolved)) {
+            scrollChatToBottom();
+            return;
+          }
+        } else if (resolved.id != null &&
+            chatMessages.any((m) => m.id == resolved.id)) {
+          return; // duplicate peer message
+        }
+        setState(() => chatMessages.add(resolved));
+        scrollChatToBottom();
+      });
+
       setState(() {
         chatMessages = List.of(detail.messages);
         _peerName = widget.contactName ?? detail.name;
@@ -812,6 +851,14 @@ class _ReceiverChatScreenState extends State<ReceiverChatScreen>
         _loading = false;
       });
       scrollChatToBottom();
+      // Opening the thread marked it read server-side — clear the tab badge now
+      // instead of waiting for the next poll.
+      if (mounted) {
+        context.read<NotificationRealtimeProvider>().refreshChatUnread(
+              authRepository: auth.repository,
+              demoMode: context.read<DemoModeProvider>(),
+            );
+      }
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -833,18 +880,31 @@ class _ReceiverChatScreenState extends State<ReceiverChatScreen>
     if (text.isEmpty || id == null) return;
 
     chatController.clear();
+    // Show the message immediately, then reconcile with the server response.
+    final tempId = addOptimisticMessage(
+      ChatMessage(
+        text: text,
+        isMine: true,
+        time: chatNowTime,
+        id: nextLocalMessageId(),
+        pending: true,
+      ),
+    );
     try {
       final message = await _repo().sendMessage(id, text);
-      if (!mounted) return;
-      setState(() => chatMessages.add(message));
+      confirmOptimisticMessage(tempId, message);
       scrollChatToBottom();
     } on ApiException catch (e) {
       if (!mounted) return;
+      removeOptimisticMessage(tempId);
+      chatController.text = text;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(e.message)),
       );
     } catch (_) {
       if (!mounted) return;
+      removeOptimisticMessage(tempId);
+      chatController.text = text;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Unable to send message.')),
       );
@@ -917,48 +977,22 @@ class _ReceiverChatScreenState extends State<ReceiverChatScreen>
                           ),
                         ),
                       )
-                    : ListView(
-                        controller: chatScrollController,
-                        physics: PlatformUi.scrollPhysics,
-                        padding: EdgeInsets.all(context.horizontalPadding),
-                        children: [
-                          if (chatMessages.isNotEmpty) ...[
-                            Center(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppColors.background,
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Text('Today', style: typo.datePill),
-                              ),
+                    : chatMessages.isEmpty
+                        ? const ChatEmptyState()
+                        : ListView(
+                            controller: chatScrollController,
+                            physics: PlatformUi.scrollPhysics,
+                            padding: EdgeInsets.fromLTRB(
+                              context.horizontalPadding,
+                              4,
+                              context.horizontalPadding,
+                              12,
                             ),
-                            const SizedBox(height: 14),
-                          ],
-                          if (chatMessages.isEmpty)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 48),
-                              child: Center(
-                                child: Text(
-                                  'No messages yet.',
-                                  style: typo.sm.copyWith(
-                                    color: AppColors.textSecondary,
-                                  ),
-                                ),
-                              ),
-                            )
-                          else
-                            ...chatMessages.map(
-                              (m) => _ChatBubble(
-                                message: m,
-                                travelerInitial: initial,
-                              ),
+                            children: buildChatThreadChildren(
+                              chatMessages,
+                              peerInitial: initial,
                             ),
-                        ],
-                      ),
+                          ),
           ),
           ChatComposer(
             controller: chatController,
@@ -968,98 +1002,6 @@ class _ReceiverChatScreenState extends State<ReceiverChatScreen>
             borderRadius: 12,
             circularSendButton: false,
             enabled: !_loading && _error == null && _conversationId != null,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ChatBubble extends StatelessWidget {
-  const _ChatBubble({required this.message, required this.travelerInitial});
-
-  final ChatMessage message;
-  final String travelerInitial;
-
-  @override
-  Widget build(BuildContext context) {
-    final typo = context.typo;
-    final isMine = message.isMine;
-
-    if (message.isImage) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            Flexible(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  ClipRRect(
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(14),
-                      topRight: Radius.circular(14),
-                      bottomLeft: Radius.circular(14),
-                      bottomRight: Radius.circular(4),
-                    ),
-                    child: ChatImageAttachment(message: message),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    message.time,
-                    style: typo.caption.copyWith(color: AppColors.textSecondary),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        mainAxisAlignment: isMine ? MainAxisAlignment.end : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          if (!isMine) ...[
-            AppAvatar(initial: travelerInitial, size: AvatarSize.small),
-            const SizedBox(width: 8),
-          ],
-          Flexible(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: isMine ? AppColors.primary : AppColors.surface,
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(14),
-                  topRight: const Radius.circular(14),
-                  bottomLeft: Radius.circular(isMine ? 14 : 4),
-                  bottomRight: Radius.circular(isMine ? 4 : 14),
-                ),
-                border: isMine ? null : Border.all(color: AppColors.border),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    message.text,
-                    style: typo.body.copyWith(
-                      color: isMine ? Colors.white : AppColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    message.time,
-                    style: typo.caption.copyWith(
-                      color: isMine ? Colors.white70 : AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ),
         ],
       ),
@@ -1221,12 +1163,24 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen> {
     final typo = context.typo;
     final delivery = _delivery!;
     final shipment = delivery.toShipment();
-    final statusInfo = ReceiverDeliveryStatus.fromDelivery(delivery);
     final tracking = DeliveryTracking.fromDelivery(delivery);
+    final status = (delivery.status ?? '').toLowerCase();
     final featuresUnlocked = delivery.isReceiverAccepted ||
-        delivery.status == 'matched' ||
-        delivery.status == 'in_transit' ||
-        delivery.status == 'delivered';
+        status == 'matched' ||
+        status == 'bid_accepted' ||
+        status == 'collected' ||
+        status == 'in_transit' ||
+        status == 'delivered';
+    final canConfirmNfcCp2 =
+        status == 'in_transit' || status == 'collected';
+    // A traveler is only reachable for chat once one has been matched to the
+    // parcel. Right after the receiver accepts, none is assigned yet.
+    final hasTraveler = (delivery.travelerId?.trim().isNotEmpty ?? false) ||
+        status == 'matched' ||
+        status == 'bid_accepted' ||
+        status == 'collected' ||
+        status == 'in_transit' ||
+        status == 'delivered';
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -1238,12 +1192,6 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              AppBadge(
-                label: statusInfo.label,
-                color: statusInfo.color,
-                backgroundColor: statusInfo.backgroundColor,
-              ),
-              const SizedBox(height: 16),
               AppCard(
                 margin: EdgeInsets.zero,
                 child: Column(
@@ -1295,22 +1243,91 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen> {
                   ],
                 ),
               ),
+              if (canConfirmNfcCp2) ...[
+                const SizedBox(height: 24),
+                AppCard(
+                  margin: EdgeInsets.zero,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.nfc, size: 20, color: AppColors.primary),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'NFC Checkpoint 2 — Confirm delivery',
+                              style: typo.h3.copyWith(fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Meet the traveler and tap phones (or use Simulate tap) to confirm you received the parcel. Both of you must complete NFC Checkpoint 2.',
+                        style: typo.sm.copyWith(height: 1.5),
+                      ),
+                      const SizedBox(height: 16),
+                      AppButton(
+                        label: 'Confirm delivery (NFC)',
+                        icon: const Icon(Icons.nfc, size: 18, color: Colors.white),
+                        onPressed: () async {
+                          await context.push(
+                            '/nfc-confirm',
+                            extra: {
+                              'shipmentId': delivery.displayId,
+                              'isTraveler': false,
+                              'checkpoint': 2,
+                            },
+                          );
+                          if (mounted) await _load();
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               if (featuresUnlocked) ...[
                 const SizedBox(height: 24),
-                AppButton(
-                  label: 'Chat with traveler',
-                  variant: AppButtonVariant.ghost,
-                  textStyle: typo.button.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.primary,
+                if (hasTraveler)
+                  AppButton(
+                    label: 'Chat with traveler',
+                    variant: AppButtonVariant.ghost,
+                    textStyle: typo.button.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primary,
+                    ),
+                    onPressed: () => openDeliveryChat(
+                      context,
+                      chatBasePath: '/receiver-chats',
+                      threadType: 'traveler_receiver',
+                      deliveryKey: delivery.displayId,
+                    ),
+                  )
+                else
+                  AppButton(
+                    label: 'Waiting for traveler to chat',
+                    variant: AppButtonVariant.ghost,
+                    icon: const Icon(
+                      Icons.hourglass_empty,
+                      size: 18,
+                      color: AppColors.textDisabled,
+                    ),
+                    textStyle: typo.button.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                    onPressed: null,
                   ),
-                  onPressed: () => context.go('/receiver-chats'),
-                ),
-                if (delivery.status == 'delivered') ...[
+                if (status == 'delivered') ...[
                   const SizedBox(height: AppButton.stackGap),
                   AppButton(
                     label: 'Leave a review',
-                    onPressed: () => context.push('/delivery-review'),
+                    onPressed: () => context.push(
+                      deliveryReviewRoute(
+                        shipmentId: delivery.displayId,
+                        reviewerRole: WalletRole.receiver,
+                      ),
+                    ),
                   ),
                 ],
               ],
@@ -1422,7 +1439,12 @@ class ReceiverNfcDeliverySuccessScreen extends StatelessWidget {
                 AppButton(
                   label: 'Leave a review',
                   variant: AppButtonVariant.outline,
-                  onPressed: () => context.push('/delivery-review'),
+                  onPressed: () => context.push(
+                    deliveryReviewRoute(
+                      shipmentId: shipmentId,
+                      reviewerRole: WalletRole.receiver,
+                    ),
+                  ),
                 ),
               ],
             ],

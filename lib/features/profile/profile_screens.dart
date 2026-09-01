@@ -31,10 +31,8 @@ import '../../data/models/created_delivery.dart';
 import '../../data/models/shipment.dart';
 import '../../data/models/ledger_entry.dart';
 import '../../data/models/profile_trust_metrics.dart';
-import '../../data/models/review.dart';
 import '../../data/models/wallet_role.dart';
 import '../../data/services/delivery_repository.dart';
-import '../../data/services/review_repository.dart';
 import '../../data/services/trust_metrics_repository.dart';
 import '../../core/utils/external_links.dart';
 import '../../data/services/wallet_repository.dart';
@@ -44,6 +42,7 @@ import 'legal_screens.dart';
 import 'settings_flow_screens.dart';
 import 'widgets/profile_header_card.dart';
 import 'widgets/profile_trust_indicators.dart';
+import 'widgets/recent_reviews_section.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -56,8 +55,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   int? _activeCount;
   int? _completedCount;
   String? _lastMatchedLocation;
-  List<Review> _reviews = const [];
-  bool _reviewsLoading = true;
   ProfileTrustMetrics _trustMetrics = ProfileTrustMetrics.empty;
   bool _trustMetricsLoading = true;
   bool _openingRoute = false;
@@ -70,7 +67,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           _loadShipmentCounts(silent: _activeCount != null);
-          _loadReviews(silent: !_reviewsLoading && _reviews.isNotEmpty);
           _loadTrustMetrics(silent: !_trustMetricsLoading);
           context.read<WalletProvider>().refresh(
                 WalletRole.sender,
@@ -91,15 +87,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  ReviewRepository _reviewRepository() {
-    final auth = context.read<AuthProvider>();
-    final demoMode = context.read<DemoModeProvider>();
-    return ReviewRepository(
-      apiClient: auth.repository.apiClient,
-      demoMode: demoMode,
-    );
-  }
-
   TrustMetricsRepository _trustMetricsRepository() {
     final auth = context.read<AuthProvider>();
     final demoMode = context.read<DemoModeProvider>();
@@ -111,7 +98,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _loadShipmentCounts({bool silent = false}) async {
     try {
-      final list = await _deliveryRepository().listDeliveries();
+      final list = await _deliveryRepository().listDeliveries(role: 'sender');
       if (!mounted) return;
       var active = 0;
       var completed = 0;
@@ -137,35 +124,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() {
         _activeCount ??= 0;
         _completedCount ??= 0;
-      });
-    }
-  }
-
-  Future<void> _loadReviews({bool silent = false}) async {
-    if (!silent && mounted) {
-      setState(() => _reviewsLoading = true);
-    }
-    try {
-      final reviews = await _reviewRepository().listMyReviews(
-        WalletRole.sender,
-        limit: 10,
-      );
-      if (!mounted) return;
-      setState(() {
-        _reviews = reviews;
-        _reviewsLoading = false;
-      });
-    } on ApiException {
-      if (!mounted) return;
-      setState(() {
-        if (!silent) _reviews = const [];
-        _reviewsLoading = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        if (!silent) _reviews = const [];
-        _reviewsLoading = false;
       });
     }
   }
@@ -274,7 +232,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       completedLabel,
                       'Completed Shipments',
                       onTap: () => _openRoute(
-                        '/shipment-history',
+                        '/shipment-history?role=sender',
                         onReturn: () => _loadShipmentCounts(silent: true),
                       ),
                     ),
@@ -321,7 +279,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     AppIcons.history,
                     'Shipment History',
                     () => _openRoute(
-                      '/shipment-history',
+                      '/shipment-history?role=sender',
                       onReturn: () => _loadShipmentCounts(silent: true),
                     ),
                   ),
@@ -335,54 +293,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ],
               ),
               const SizedBox(height: 16),
-              Text('Recent reviews', style: typo.h3.copyWith(fontWeight: FontWeight.w700)),
-              const SizedBox(height: 10),
-              if (_reviewsLoading && _reviews.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 12),
-                  child: Center(
-                    child: SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  ),
-                )
-              else if (_reviews.isEmpty)
-                AppCard(
-                  child: Text(
-                    'No reviews yet.',
-                    style: typo.sm.copyWith(color: AppColors.textSecondary),
-                  ),
-                )
-              else
-                ..._reviews.map((r) => AppCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              AppAvatar(initial: r.initial, size: AvatarSize.small),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  r.reviewerName,
-                                  style: typo.sm.copyWith(fontWeight: FontWeight.w700),
-                                ),
-                              ),
-                              Text(
-                                '${'★' * r.rating}${'☆' * (5 - r.rating)}',
-                                style: typo.starRating,
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          Text('"${r.text}"', style: typo.reviewText),
-                          const SizedBox(height: 4),
-                          Text(r.date, style: typo.sm),
-                        ],
-                      ),
-                    )),
+              const RecentReviewsSection(role: WalletRole.sender),
               const SizedBox(height: 8),
               AppButton(
                 label: 'Log out',
@@ -512,7 +423,9 @@ bool _isCompletedDeliveryStatus(String? status) {
 }
 
 class ShipmentHistoryScreen extends StatefulWidget {
-  const ShipmentHistoryScreen({super.key});
+  const ShipmentHistoryScreen({super.key, this.role = 'sender'});
+
+  final String role;
 
   @override
   State<ShipmentHistoryScreen> createState() => _ShipmentHistoryScreenState();
@@ -524,6 +437,12 @@ class _ShipmentHistoryScreenState extends State<ShipmentHistoryScreen> {
   List<CreatedDelivery>? _deliveries;
 
   List<CreatedDelivery> get _items => _deliveries ?? const <CreatedDelivery>[];
+
+  String get _role {
+    final fromWidget = widget.role.trim().toLowerCase();
+    if (fromWidget == 'traveler' || fromWidget == 'receiver') return fromWidget;
+    return 'sender';
+  }
 
   @override
   void initState() {
@@ -549,7 +468,7 @@ class _ShipmentHistoryScreenState extends State<ShipmentHistoryScreen> {
       });
     }
     try {
-      final list = await _repository().listDeliveries();
+      final list = await _repository().listDeliveries(role: _role);
       if (!mounted) return;
       setState(() {
         _deliveries = list
@@ -602,15 +521,32 @@ class _ShipmentHistoryScreenState extends State<ShipmentHistoryScreen> {
     }
   }
 
+  Future<void> _openDelivery(CreatedDelivery d) async {
+    final id = d.publicId.isNotEmpty ? d.publicId : d.id;
+    if (_role == 'traveler') {
+      await context.push('/shipment/$id?traveler=true');
+    } else if (_role == 'receiver') {
+      await context.push('/receiver-tracking?shipmentId=$id');
+    } else {
+      await context.push('/shipment/$id');
+    }
+    if (mounted) await _load(silent: true);
+  }
+
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
+    final fallback = switch (_role) {
+      'traveler' => '/traveler-profile',
+      'receiver' => '/receiver-home',
+      _ => '/profile',
+    };
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: const BackHeader(
+      appBar: BackHeader(
         title: 'Shipment History',
-        fallbackRoute: '/profile',
+        fallbackRoute: fallback,
       ),
       body: SafeArea(
         child: RefreshIndicator(
@@ -661,6 +597,7 @@ class _ShipmentHistoryScreenState extends State<ShipmentHistoryScreen> {
                       horizontal: 18,
                       vertical: 16,
                     ),
+                    onTap: () => _openDelivery(s),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -1300,9 +1237,19 @@ class WalletScreen extends StatefulWidget {
 }
 
 class _WalletScreenState extends State<WalletScreen> {
-  final _amountController = TextEditingController(text: '50.00');
+  final _amountController = TextEditingController();
   String? _error;
   bool _withdrawing = false;
+
+  bool _connectChecking = true;
+  bool _connectLinked = false;
+  bool _connectReady = false;
+  bool _connectMock = false;
+  bool _connectLinking = false;
+
+  /// Whether a payout destination is usable: linked and either onboarded
+  /// (`ready`) or a dev/mock account. Mirrors the backend withdraw guard.
+  bool get _payoutEnabled => _connectLinked && (_connectReady || _connectMock);
 
   @override
   void initState() {
@@ -1316,6 +1263,7 @@ class _WalletScreenState extends State<WalletScreen> {
           .read<WalletProvider>()
           .refresh(role, includeFullHistory: true)
           .ignore();
+      _loadConnectStatus();
     });
   }
 
@@ -1325,10 +1273,79 @@ class _WalletScreenState extends State<WalletScreen> {
     super.dispose();
   }
 
+  WalletRepository _walletRepository() {
+    final auth = context.read<AuthProvider>();
+    return WalletRepository(apiClient: auth.repository.apiClient);
+  }
+
+  Future<void> _loadConnectStatus() async {
+    if (mounted) setState(() => _connectChecking = true);
+    try {
+      final status = await _walletRepository().fetchConnectStatus();
+      if (!mounted) return;
+      setState(() {
+        _connectLinked = status['linked'] == true;
+        _connectReady = status['ready'] == true;
+        _connectMock = status['mock'] == true;
+        _connectChecking = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      // Fail closed — treat an unknown status as "not ready" so we never let a
+      // withdrawal through without a confirmed payout account.
+      setState(() {
+        _connectLinked = false;
+        _connectReady = false;
+        _connectMock = false;
+        _connectChecking = false;
+      });
+    }
+  }
+
+  Future<void> _setUpPayouts() async {
+    setState(() => _connectLinking = true);
+    try {
+      final result = await _walletRepository().startConnectOnboarding();
+      final url = result['onboardingUrl'] as String?;
+      if (url == null || url.isEmpty) {
+        throw Exception('No onboarding URL returned');
+      }
+      final opened = await ExternalLinks.openUrl(url);
+      if (!mounted) return;
+      if (!opened) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not open Stripe Connect onboarding.'),
+          ),
+        );
+      }
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Stripe Connect: ${e.message}')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not start payout setup.')),
+      );
+    } finally {
+      if (mounted) setState(() => _connectLinking = false);
+      // Re-check status when the user returns from onboarding.
+      await _loadConnectStatus();
+    }
+  }
+
   String _routeWithRole(String baseRoute, WalletRole role) =>
       '$baseRoute?role=${role.queryParam}';
 
   Future<void> _withdraw(WalletRole role, double parsedAmount) async {
+    if (!_payoutEnabled) {
+      setState(() =>
+          _error = 'Link a payout account before withdrawing.');
+      return;
+    }
+
     final cents = (parsedAmount * 100).round();
     final validation = WalletService.validateWithdrawal(role, cents);
     if (validation != null) {
@@ -1388,7 +1405,7 @@ class _WalletScreenState extends State<WalletScreen> {
               final escrow = WalletService.escrowCents(role);
               final entries = wallet.historyFor(role);
               final parsedAmount = double.tryParse(_amountController.text) ?? 0;
-              final displayAmount = parsedAmount > 0 ? parsedAmount : 50.0;
+              final displayAmount = parsedAmount;
               final canWithdraw = true;
               final minWithdraw = wallet.summary?.minimumWithdrawalCents ??
                   WalletService.minimumWithdrawalCents;
@@ -1525,14 +1542,61 @@ class _WalletScreenState extends State<WalletScreen> {
                         ),
                       ),
                       const SizedBox(height: 20),
-                      AppButton(
-                        label: _withdrawing ? 'Withdrawing…' : 'Withdraw to bank',
-                        textStyle:
-                            typo.button.copyWith(fontWeight: FontWeight.w700),
-                        onPressed: _withdrawing
-                            ? null
-                            : () => _withdraw(role, parsedAmount),
-                      ),
+                      if (!_connectChecking && !_payoutEnabled) ...[
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: AppColors.warning.withValues(alpha: 0.10),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: AppColors.warning.withValues(alpha: 0.3),
+                            ),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(
+                                Icons.account_balance_outlined,
+                                size: 20,
+                                color: AppColors.warning,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  _connectLinked
+                                      ? 'Finish setting up your payout account to withdraw to your bank.'
+                                      : 'Link a payout account to withdraw your balance to your bank.',
+                                  style: typo.sm.copyWith(
+                                    color: AppColors.textPrimary,
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        AppButton(
+                          label: _connectLinking
+                              ? 'Opening…'
+                              : _connectLinked
+                                  ? 'Finish payout setup'
+                                  : 'Set up payout account',
+                          textStyle:
+                              typo.button.copyWith(fontWeight: FontWeight.w700),
+                          onPressed: _connectLinking ? null : _setUpPayouts,
+                        ),
+                      ] else
+                        AppButton(
+                          label:
+                              _withdrawing ? 'Withdrawing…' : 'Withdraw to bank',
+                          textStyle:
+                              typo.button.copyWith(fontWeight: FontWeight.w700),
+                          onPressed: (_withdrawing || _connectChecking)
+                              ? null
+                              : () => _withdraw(role, parsedAmount),
+                        ),
                       const SizedBox(height: 20),
                       Text(
                         'Recent transactions',

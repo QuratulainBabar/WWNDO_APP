@@ -8,9 +8,17 @@ class PlatformRepository {
   final ApiClient _api;
 
   Future<List<Map<String, dynamic>>> listNfcCheckpoints(String deliveryId) async {
-    final res = await _api.get('/nfc/deliveries/$deliveryId/checkpoints');
-    final list = res['data']?['checkpoints'] as List? ?? [];
-    return list.cast<Map<String, dynamic>>();
+    final res = await _api.get(
+      '/nfc/deliveries/$deliveryId/checkpoints',
+      authenticated: true,
+    );
+    final list = res['checkpoints'] as List? ??
+        (res['data'] is Map ? (res['data'] as Map)['checkpoints'] as List? : null) ??
+        const [];
+    return list
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
   }
 
   Future<Map<String, dynamic>> confirmNfcCheckpoint({
@@ -19,22 +27,35 @@ class PlatformRepository {
     String? deviceId,
     double? gpsLat,
     double? gpsLng,
+    String? paymentIntentId,
   }) async {
+    final body = <String, dynamic>{
+      'deviceId': deviceId,
+      'gpsLat': gpsLat,
+      'gpsLng': gpsLng,
+      'confirm': true,
+    };
+    if (paymentIntentId != null && paymentIntentId.isNotEmpty) {
+      body['paymentIntentId'] = paymentIntentId;
+    }
     final res = await _api.post(
       '/nfc/deliveries/$deliveryId/checkpoints/$checkpoint',
-      body: {
-        'deviceId': deviceId,
-        'gpsLat': gpsLat,
-        'gpsLng': gpsLng,
-        'confirm': true,
-      },
+      body: body,
+      authenticated: true,
     );
-    return (res['data']?['checkpoint'] as Map?)?.cast<String, dynamic>() ?? {};
+    final checkpointData = res['checkpoint'];
+    if (checkpointData is Map) {
+      return Map<String, dynamic>.from(checkpointData);
+    }
+    return Map<String, dynamic>.from(res);
   }
 
   Future<Map<String, dynamic>> getMeetupStatus(String deliveryId) async {
-    final res = await _api.get('/meetup/deliveries/$deliveryId/meetup');
-    return (res['data'] as Map?)?.cast<String, dynamic>() ?? {};
+    final res = await _api.get(
+      '/meetup/deliveries/$deliveryId/meetup',
+      authenticated: true,
+    );
+    return Map<String, dynamic>.from(res);
   }
 
   Future<Map<String, dynamic>> proposeMeetup({
@@ -44,33 +65,49 @@ class PlatformRepository {
     final res = await _api.post(
       '/meetup/deliveries/$deliveryId/meetup/propose',
       body: {'location': location},
+      authenticated: true,
     );
-    return (res['data'] as Map?)?.cast<String, dynamic>() ?? {};
+    return Map<String, dynamic>.from(res);
   }
 
   Future<Map<String, dynamic>> agreeMeetup(String deliveryId) async {
-    final res = await _api.post('/meetup/deliveries/$deliveryId/meetup/agree');
-    return (res['data'] as Map?)?.cast<String, dynamic>() ?? {};
+    final res = await _api.post(
+      '/meetup/deliveries/$deliveryId/meetup/agree',
+      authenticated: true,
+    );
+    return Map<String, dynamic>.from(res);
   }
 
   Future<Map<String, dynamic>> getTrackingTimeline(String publicId) async {
-    final res = await _api.get('/tracking/deliveries/$publicId/timeline');
-    return (res['data'] as Map?)?.cast<String, dynamic>() ?? {};
+    final res = await _api.get(
+      '/tracking/deliveries/$publicId/timeline',
+      authenticated: true,
+    );
+    return Map<String, dynamic>.from(res);
   }
 
   Future<Map<String, dynamic>> markInTransit(String publicId) async {
-    final res = await _api.post('/tracking/deliveries/$publicId/in-transit');
-    return (res['data'] as Map?)?.cast<String, dynamic>() ?? {};
+    final res = await _api.post(
+      '/tracking/deliveries/$publicId/in-transit',
+      authenticated: true,
+    );
+    return Map<String, dynamic>.from(res);
   }
 
   Future<Map<String, dynamic>> acceptSenderRequest(String requestId) async {
-    final res = await _api.post('/trips/sender-requests/$requestId/accept');
-    return (res['data'] as Map?)?.cast<String, dynamic>() ?? {};
+    final res = await _api.post(
+      '/trips/sender-requests/$requestId/accept',
+      authenticated: true,
+    );
+    return Map<String, dynamic>.from(res);
   }
 
   Future<Map<String, dynamic>> declineSenderRequest(String requestId) async {
-    final res = await _api.post('/trips/sender-requests/$requestId/decline');
-    return (res['data'] as Map?)?.cast<String, dynamic>() ?? {};
+    final res = await _api.post(
+      '/trips/sender-requests/$requestId/decline',
+      authenticated: true,
+    );
+    return Map<String, dynamic>.from(res);
   }
 
   Future<Map<String, dynamic>> submitReceiverPayment({
@@ -80,8 +117,9 @@ class PlatformRepository {
     final res = await _api.post(
       '/deliveries/$deliveryId/receiver-payment',
       body: {'feeCents': feeCents},
+      authenticated: true,
     );
-    return (res['data'] as Map?)?.cast<String, dynamic>() ?? {};
+    return Map<String, dynamic>.from(res);
   }
 
   Future<Map<String, dynamic>> openDispute({
@@ -91,7 +129,8 @@ class PlatformRepository {
     final res = await _api.post(
       '/deliveries/$deliveryId/dispute',
       body: {'reason': reason},
+      authenticated: true,
     );
-    return (res['data'] as Map?)?.cast<String, dynamic>() ?? {};
+    return Map<String, dynamic>.from(res);
   }
 }

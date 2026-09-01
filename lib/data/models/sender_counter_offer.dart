@@ -22,6 +22,8 @@ class SenderCounterOffer {
     this.parcelPhotoCount = 1,
     this.parcelPhotoUrls = const [],
     this.deliveryPublicId,
+    this.deliveryStatus,
+    this.paymentPending = false,
   });
 
   final String id;
@@ -42,6 +44,8 @@ class SenderCounterOffer {
   final int parcelPhotoCount;
   final List<String> parcelPhotoUrls;
   final String? deliveryPublicId;
+  final String? deliveryStatus;
+  final bool paymentPending;
 
   String get route {
     if (fromCity.isNotEmpty && toCity.isNotEmpty) {
@@ -54,8 +58,9 @@ class SenderCounterOffer {
       status == TravelerBidStatus.pending ||
       status == TravelerBidStatus.updated;
 
-  bool get isAccepted => status == TravelerBidStatus.accepted;
+  bool get isAccepted => status == TravelerBidStatus.accepted && !paymentPending;
   bool get isRejected => status == TravelerBidStatus.rejected;
+  bool get awaitsPayment => paymentPending;
 
   factory SenderCounterOffer.fromJson(Map<String, dynamic> json) {
     final route = (json['route'] as String?)?.trim() ?? '';
@@ -84,6 +89,11 @@ class SenderCounterOffer {
         : (json['tripId'] as String?)?.trim() ?? '';
     final photoUrls = parsePhotoUrls(json['photos']);
 
+    final status = TravelerBidStatus.fromApi(json['status'] as String?);
+    final deliveryStatus = json['deliveryStatus'] as String?;
+    final paymentPending = json['paymentPending'] == true ||
+        (status == TravelerBidStatus.accepted && deliveryStatus == 'posted');
+
     return SenderCounterOffer(
       id: json['id'] as String? ?? '',
       requestId: json['requestId'] as String? ?? '',
@@ -100,13 +110,15 @@ class SenderCounterOffer {
           : DateTime.now(),
       amount: (json['amount'] as num?)?.toDouble() ?? 0,
       maxBudget: (json['maxBudget'] as num?)?.toDouble() ?? 0,
-      status: TravelerBidStatus.fromApi(json['status'] as String?),
+      status: status,
       sentAt: sentRaw is String ? DateTime.tryParse(sentRaw) : null,
       parcelPhotoCount: photoUrls.isNotEmpty
           ? photoUrls.length
           : (json['photoCount'] as num?)?.toInt() ?? 1,
       parcelPhotoUrls: photoUrls,
       deliveryPublicId: json['deliveryPublicId'] as String?,
+      deliveryStatus: deliveryStatus,
+      paymentPending: paymentPending,
     );
   }
 }

@@ -98,7 +98,20 @@ class _IncomingParcelRequestScreenState
     final delivery = _delivery;
     if (delivery == null || _acting) return;
 
-    if (!await WalletGate.ensureReceiverAccept(context)) return;
+    final paysReceiver = PlatformFees.senderPaysReceiverFee(delivery);
+    final platformFee = PlatformFees.receiverPlatformFeeUsd(
+      category: delivery.parcelCategory,
+      paysReceiverFee: paysReceiver,
+    );
+
+    if (!await WalletGate.ensureReceiverAccept(
+      context,
+      category: delivery.parcelCategory,
+      paysReceiverFee: paysReceiver,
+      platformFeeUsd: platformFee,
+    )) {
+      return;
+    }
 
     setState(() => _acting = true);
     try {
@@ -191,7 +204,8 @@ class _IncomingParcelRequestScreenState
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Your parcel request has been accepted. We will match a traveler and notify you once confirmed.',
+                  'Your parcel request has been accepted. We will match a traveler '
+                      'and notify you once the sender completes payment.',
                   textAlign: TextAlign.center,
                   style: typo.sm.copyWith(
                     height: 1.5,
@@ -257,10 +271,15 @@ class _IncomingParcelRequestScreenState
                     final status = ReceiverDeliveryStatus.fromDelivery(_delivery!);
                     final walletBalance =
                         WalletService.availableUsd(WalletRole.receiver);
-                    final minBalance = PlatformFees.minWalletReceiverUsd;
-                    final canAccept = walletBalance >= minBalance && !_acting;
-                    final platformFee = _delivery!.platformFeeShare ??
-                        PlatformFees.receiverPlatformFeeForDelivery(_delivery!);
+                    final paysReceiver =
+                        PlatformFees.senderPaysReceiverFee(_delivery!);
+                    final platformFee = PlatformFees.receiverPlatformFeeUsd(
+                      category: _delivery!.parcelCategory,
+                      paysReceiverFee: paysReceiver,
+                    );
+                    final requiredBalance = PlatformFees.minWalletReceiverUsd;
+                    final canAccept =
+                        walletBalance >= requiredBalance && !_acting;
                     final isPending = status.isPendingRequest &&
                         current.status == IncomingParcelRequestStatus.pending;
 
@@ -340,12 +359,19 @@ class _IncomingParcelRequestScreenState
                                 _detailRow(
                                   context,
                                   'Platform fee',
-                                  '\$${platformFee.toStringAsFixed(2)}',
+                                  platformFee > 0
+                                      ? '\$${platformFee.toStringAsFixed(2)}'
+                                      : '\$0.00 (covered by sender)',
                                   bold: true,
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  'Non-refundable platform fee to process and secure this parcel.',
+                                  platformFee > 0
+                                      ? 'Collected from your wallet when the sender pays '
+                                          'and funds escrow (Pay Now). '
+                                          'No charge when you tap Accept.'
+                                      : 'The sender chose to pay 100% of the platform fee. '
+                                          'No charge when you accept.',
                                   style: typo.sm.copyWith(
                                     color: AppColors.textSecondary,
                                   ),
@@ -377,39 +403,7 @@ class _IncomingParcelRequestScreenState
                           ),
                           const SizedBox(height: 16),
                           if (isPending) ...[
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: AppColors.primary.withValues(alpha: 0.06),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: AppColors.primary.withValues(alpha: 0.25),
-                                ),
-                              ),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Icon(
-                                    Icons.shield_outlined,
-                                    size: 20,
-                                    color: AppColors.primary,
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Text(
-                                      'You must have at least \$${minBalance.toStringAsFixed(0)} in your wallet to accept this request.',
-                                      style: typo.sm.copyWith(
-                                        color: AppColors.primary,
-                                        fontWeight: FontWeight.w600,
-                                        height: 1.4,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            if (walletBalance < minBalance) ...[
+                            if (walletBalance < requiredBalance) ...[
                               const SizedBox(height: 10),
                               Text(
                                 'Insufficient wallet balance. Top up your wallet to accept this request.',

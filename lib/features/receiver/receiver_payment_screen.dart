@@ -14,6 +14,7 @@ import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/back_header.dart';
 import '../../data/models/shipment.dart';
 import '../../data/services/platform_repository.dart';
+import '../../data/platform_fees.dart';
 import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
 import 'receiver_payment_success_screen.dart';
@@ -30,12 +31,17 @@ class ReceiverPaymentScreen extends StatefulWidget {
 class _ReceiverPaymentScreenState extends State<ReceiverPaymentScreen> {
   bool _paying = false;
 
-  Shipment get _shipment {
-    if (widget.shipment != null) return widget.shipment!;
+  Shipment? get _demoShipment {
     final pending = StaticData.receiverShipments.where(
       (s) => StaticData.effectiveStatus(s) == ShipmentStatus.bidAccepted,
     );
     return pending.isNotEmpty ? pending.first : StaticData.receiverActiveShipment;
+  }
+
+  Shipment? _shipmentFor(BuildContext context) {
+    if (widget.shipment != null) return widget.shipment;
+    if (context.read<DemoModeProvider>().enabled) return _demoShipment;
+    return null;
   }
 
   PlatformRepository _platformRepo() {
@@ -43,7 +49,7 @@ class _ReceiverPaymentScreenState extends State<ReceiverPaymentScreen> {
     return PlatformRepository(apiClient: auth.repository.apiClient);
   }
 
-  Future<void> _pay(double receiverShare) async {
+  Future<void> _pay(BuildContext context, Shipment shipment, double receiverShare) async {
     if (_paying) return;
     final demoMode = context.read<DemoModeProvider>().enabled;
     setState(() => _paying = true);
@@ -51,12 +57,12 @@ class _ReceiverPaymentScreenState extends State<ReceiverPaymentScreen> {
       if (!demoMode) {
         final feeCents = (receiverShare * 100).round();
         await _platformRepo().submitReceiverPayment(
-          deliveryId: _shipment.id,
+          deliveryId: shipment.id,
           feeCents: feeCents,
         );
       } else {
         final paid = StaticData.approveReceiverFeeShare(
-          shipment: _shipment,
+          shipment: shipment,
           feeAmount: receiverShare,
         );
         if (!paid) {
@@ -73,7 +79,7 @@ class _ReceiverPaymentScreenState extends State<ReceiverPaymentScreen> {
       context.push(
         '/receiver-payment-confirmed',
         extra: ReceiverPaymentResult(
-          shipmentId: _shipment.id,
+          shipmentId: shipment.id,
           feeAmount: receiverShare,
         ),
       );
@@ -89,10 +95,33 @@ class _ReceiverPaymentScreenState extends State<ReceiverPaymentScreen> {
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
-    final s = _shipment;
-    final totalFee = StaticData.platformFeeInternational;
-    final receiverShare = StaticData.platformFeeShare;
-    final senderShare = totalFee - receiverShare;
+    final s = _shipmentFor(context);
+    if (s == null) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: const BackHeader(title: 'Payment'),
+        body: Center(
+          child: Padding(
+            padding: context.pagePadding,
+            child: Text(
+              'No parcel selected for payment. Open this screen from an incoming parcel request.',
+              textAlign: TextAlign.center,
+              style: typo.sm.copyWith(color: AppColors.textSecondary, height: 1.5),
+            ),
+          ),
+        ),
+      );
+    }
+
+    final receiverShare = PlatformFees.receiverPlatformFeeUsd(
+      category: s.parcelCategory,
+      paysReceiverFee: false,
+    );
+    final senderShare = PlatformFees.senderPlatformFeeUsd(
+      category: s.parcelCategory,
+      paysReceiverFee: false,
+    );
+    final totalFee = receiverShare + senderShare;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -161,7 +190,7 @@ class _ReceiverPaymentScreenState extends State<ReceiverPaymentScreen> {
             const SizedBox(height: 24),
             AppButton(
               label: _paying ? 'Processing…' : 'Pay Now',
-              onPressed: _paying ? null : () => _pay(receiverShare),
+              onPressed: _paying ? null : () => _pay(context, s, receiverShare),
             ),
           ],
         ),

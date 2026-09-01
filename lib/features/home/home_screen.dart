@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import '../../core/auth/selected_role.dart';
 import '../../core/config/demo_mode.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/theme/app_colors.dart';
@@ -19,6 +20,7 @@ import '../../core/auth/kyc_verification_guard.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_realtime_provider.dart';
 import '../../providers/sender_deliveries_provider.dart';
+import '../../providers/wallet_provider.dart';
 import '../sender/delivery_posting_actions.dart';
 import '../sender/sender_delivery_status.dart';
 
@@ -29,6 +31,10 @@ class MainShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final unreadChats =
+        context.watch<NotificationRealtimeProvider>().chatUnreadCount;
+    final unreadAlerts =
+        context.watch<NotificationRealtimeProvider>().unreadCount;
     return Scaffold(
       body: navigationShell,
       bottomNavigationBar: Container(
@@ -44,8 +50,9 @@ class MainShell extends StatelessWidget {
               children: [
                 _Tab(navigationShell: navigationShell, index: 0, iconAsset: AppIcons.home, label: 'Home'),
                 _Tab(navigationShell: navigationShell, index: 1, iconAsset: AppIcons.track, label: 'Track'),
-                _Tab(navigationShell: navigationShell, index: 2, iconAsset: AppIcons.chat, label: 'Chat'),
-                _Tab(navigationShell: navigationShell, index: 3, iconAsset: AppIcons.profile, label: 'Profile'),
+                _Tab(navigationShell: navigationShell, index: 2, iconAsset: AppIcons.notification, label: 'Alert', badge: unreadAlerts),
+                _Tab(navigationShell: navigationShell, index: 3, iconAsset: AppIcons.chat, label: 'Chat', badge: unreadChats),
+                _Tab(navigationShell: navigationShell, index: 4, iconAsset: AppIcons.profile, label: 'Profile'),
               ],
             ),
           ),
@@ -61,32 +68,60 @@ class _Tab extends StatelessWidget {
     required this.index,
     required this.iconAsset,
     required this.label,
+    this.badge = 0,
   });
 
   final StatefulNavigationShell navigationShell;
   final int index;
   final String iconAsset;
   final String label;
+  final int badge;
 
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
     final active = navigationShell.currentIndex == index;
+    final color = active ? AppColors.primary : AppColors.textSecondary;
     return Expanded(
       child: InkWell(
         onTap: () => navigationShell.goBranch(index, initialLocation: true),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            AppSvgIcon(
-              asset: iconAsset,
-              size: 22,
-              color: active ? AppColors.primary : AppColors.textSecondary,
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                AppSvgIcon(asset: iconAsset, size: 22, color: color),
+                if (badge > 0)
+                  Positioned(
+                    right: -8,
+                    top: -4,
+                    child: Container(
+                      constraints: const BoxConstraints(minWidth: 16),
+                      height: 16,
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: AppColors.danger,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        badge > 99 ? '99+' : '$badge',
+                        style: typo.caption.copyWith(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          height: 1,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(height: 3),
             Text(
               label,
-              style: typo.tabLabelActive(active ? AppColors.primary : AppColors.textSecondary),
+              style: typo.tabLabelActive(color),
             ),
           ],
         ),
@@ -202,9 +237,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Future<void> _loadUnreadNotifications() async {
     final auth = context.read<AuthProvider>();
     final demoMode = context.read<DemoModeProvider>();
+    final realtime = context.read<NotificationRealtimeProvider>();
     try {
-      await context.read<NotificationRealtimeProvider>().refreshUnread(
+      await realtime.refreshUnread(
             role: WalletRole.sender,
+            authRepository: auth.repository,
+            demoMode: demoMode,
+          );
+      await realtime.refreshChatUnread(
             authRepository: auth.repository,
             demoMode: demoMode,
           );
@@ -221,6 +261,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           demoMode: demoMode,
           silent: silent,
         );
+  }
+
+  Future<void> _onPullRefresh() async {
+    await Future.wait([
+      context.read<AuthProvider>().refreshUser(),
+      _loadActiveDeliveries(silent: true),
+      _loadUnreadNotifications(),
+      context.read<WalletProvider>().refresh(WalletRole.sender, silent: true),
+    ]);
   }
 
   Widget _activeDeliveriesSection(BuildContext context) {
@@ -283,6 +332,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             context,
             activeItems[i],
             matchingTravelerCounts,
+            provider,
           ),
         ],
       ],
@@ -293,6 +343,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     BuildContext context,
     CreatedDelivery delivery,
     Map<String, int> matchingTravelerCounts,
+    SenderDeliveriesProvider provider,
   ) {
     final typo = context.typo;
     final status = SenderDeliveryStatus.fromDelivery(
@@ -301,6 +352,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         delivery,
         matchingTravelerCounts,
       ),
+      travelerRequests: provider.travelerRequestsFor(delivery),
+      postedPhase: provider.postedPhaseFor(delivery),
     );
     final idLabel =
         delivery.publicId.isNotEmpty ? delivery.publicId : delivery.id;
@@ -355,11 +408,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final firstName = (authUser?.firstName.trim().isNotEmpty ?? false)
         ? authUser!.firstName
         : 'there';
-    final rating = authUser?.rating ?? 0;
 
     return Scaffold(
       backgroundColor: AppColors.background,
       body: ScreenBody(
+        onRefresh: _onPullRefresh,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -373,7 +426,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('Hey, $firstName 👋', style: typo.h1, overflow: TextOverflow.ellipsis),
-                      Text('★ $rating · Sender', style: typo.sm),
+                      Text(
+                        SelectedRoleStore.homeRatingSubtitle(
+                          authUser,
+                          WalletRole.sender,
+                        ),
+                        style: typo.sm,
+                      ),
                     ],
                   ),
                 ),

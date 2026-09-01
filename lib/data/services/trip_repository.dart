@@ -323,6 +323,22 @@ class TripRepository {
     return SenderTripRequest.fromJson(Map<String, dynamic>.from(data));
   }
 
+  /// POST /api/v1/trips/sender-requests/:requestId/accept
+  /// Traveler accepts the sender's max-budget offer.
+  Future<TravelerBid> acceptSenderRequest(String requestId) async {
+    if (_isDemoMode) {
+      throw const ApiException(
+        message: 'Accepting sender requests is unavailable in demo mode.',
+        code: 'DEMO_MODE',
+      );
+    }
+    final data = await _apiClient.post(
+      '/trips/sender-requests/${Uri.encodeComponent(requestId)}/accept',
+      authenticated: true,
+    );
+    return TravelerBid.fromJson(Map<String, dynamic>.from(data));
+  }
+
   /// POST /api/v1/trips/sender-requests/:requestId/counter-offers
   Future<TravelerBid> sendCounterOffer({
     required String requestId,
@@ -409,6 +425,7 @@ class TripRepository {
   Future<SenderCounterOffer> acceptSenderCounterOffer(
     String offerId, {
     String? paymentIntentId,
+    String paymentMethod = 'stripe',
   }) async {
     if (_isDemoMode) {
       throw const ApiException(
@@ -416,7 +433,9 @@ class TripRepository {
         code: 'DEMO_MODE',
       );
     }
-    final body = <String, dynamic>{};
+    final body = <String, dynamic>{
+      'paymentMethod': paymentMethod == 'wallet' ? 'wallet' : 'stripe',
+    };
     if (paymentIntentId != null && paymentIntentId.isNotEmpty) {
       body['paymentIntentId'] = paymentIntentId;
     }

@@ -12,9 +12,12 @@ import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_badge.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/back_header.dart';
+import '../../data/delivery_status_mapper.dart';
 import '../../data/models/created_delivery.dart';
+import '../../data/models/traveler_request_summary.dart';
 import '../../data/services/delivery_repository.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/notification_realtime_provider.dart';
 import 'sender_delivery_status.dart';
 
 class MyPostedParcelsScreen extends StatefulWidget {
@@ -39,6 +42,17 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen>
   // Nullable so hot-reload on web cannot leave a non-null List field as JS undefined.
   List<CreatedDelivery>? _deliveries;
   Map<String, int> _matchingTravelerCounts = {};
+  Map<String, List<TravelerRequestSummary>> _travelerRequestsByDelivery =
+      const {};
+
+  NotificationRealtimeProvider? _realtimeProvider;
+  VoidCallback? _realtimeListener;
+  int _lastDeliveryUpdateTick = 0;
+
+  List<TravelerRequestSummary> _travelerRequestsFor(CreatedDelivery delivery) =>
+      _travelerRequestsByDelivery[delivery.displayId] ??
+      _travelerRequestsByDelivery[delivery.id] ??
+      const [];
 
   List<CreatedDelivery> get _items => _deliveries ?? const <CreatedDelivery>[];
 
@@ -47,11 +61,36 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _deliveries = const [];
-    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _load();
+      _attachRealtimeListener();
+    });
+  }
+
+  void _attachRealtimeListener() {
+    final realtime = context.read<NotificationRealtimeProvider>();
+    if (_realtimeProvider == realtime && _realtimeListener != null) return;
+    if (_realtimeListener != null) {
+      _realtimeProvider?.removeListener(_realtimeListener!);
+    }
+    _realtimeProvider = realtime;
+    _lastDeliveryUpdateTick = realtime.deliveryUpdateTick;
+    _realtimeListener = () {
+      if (!mounted) return;
+      final tick = realtime.deliveryUpdateTick;
+      if (tick != _lastDeliveryUpdateTick) {
+        _lastDeliveryUpdateTick = tick;
+        _load(silent: true);
+      }
+    };
+    realtime.addListener(_realtimeListener!);
   }
 
   @override
   void dispose() {
+    if (_realtimeListener != null) {
+      _realtimeProvider?.removeListener(_realtimeListener!);
+    }
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -81,14 +120,19 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen>
     }
 
     try {
-      final list = await _repository().listDeliveries();
+      final list = await _repository().listDeliveries(role: 'sender');
       if (!mounted) return;
       final deliveries = List<CreatedDelivery>.from(list);
-      final counts = await _repository().fetchMatchingTravelerCounts(deliveries);
+      final secondary = await Future.wait([
+        _repository().fetchMatchingTravelerCounts(deliveries),
+        _repository().fetchTravelerRequestsForDeliveries(deliveries),
+      ]);
       if (!mounted) return;
       setState(() {
         _deliveries = deliveries;
-        _matchingTravelerCounts = counts;
+        _matchingTravelerCounts = secondary[0] as Map<String, int>;
+        _travelerRequestsByDelivery =
+            secondary[1] as Map<String, List<TravelerRequestSummary>>;
         _loading = false;
         _error = null;
       });
@@ -272,10 +316,25 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen>
               parcel,
               _matchingTravelerCounts,
             ),
+            travelerRequests: _travelerRequestsFor(parcel),
           );
           final showMenu = _showActive && statusUi.canEditOrCancel;
+          final shipmentId =
+              parcel.publicId.isNotEmpty ? parcel.publicId : parcel.id;
+
+          Future<void> openDetails() async {
+            final requests = _travelerRequestsFor(parcel);
+            await context.push(
+              DeliveryStatusMapper.senderDetailRouteFor(
+                parcel,
+                travelerRequests: requests,
+              ),
+            );
+            if (mounted) await _load(silent: true);
+          }
 
           return AppCard(
+            onTap: openDetails,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -287,41 +346,18 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            parcel.publicId.isNotEmpty
-                                ? parcel.publicId
-                                : parcel.id,
+                            shipmentId,
                             style: typo.h3.copyWith(
                               fontWeight: FontWeight.w700,
                             ),
                           ),
                           const SizedBox(height: 8),
-                          Builder(
-                            builder: (context) {
-                              final badge = AppBadge(
-                                label: statusUi.label,
-                                color: statusUi.color,
-                                backgroundColor: statusUi.backgroundColor,
-                                semiBold: true,
-                                wide: true,
-                              );
-                              if (!SenderDeliveryStatus.needsMatchingTravelerCount(
-                                parcel,
-                              )) {
-                                return badge;
-                              }
-                              final shipmentId = parcel.publicId.isNotEmpty
-                                  ? parcel.publicId
-                                  : parcel.id;
-                              return GestureDetector(
-                                onTap: () async {
-                                  await context.push(
-                                    '/bid-requests/$shipmentId',
-                                  );
-                                  if (mounted) await _load(silent: true);
-                                },
-                                child: badge,
-                              );
-                            },
+                          AppBadge(
+                            label: statusUi.label,
+                            color: statusUi.color,
+                            backgroundColor: statusUi.backgroundColor,
+                            semiBold: true,
+                            wide: true,
                           ),
                           const SizedBox(height: 8),
                           Text(

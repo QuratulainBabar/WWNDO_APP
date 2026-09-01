@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/auth/selected_role.dart';
 import '../../core/auth/auth_verification_guard.dart';
 import '../../core/auth/kyc_verification_guard.dart';
 import '../../core/config/demo_mode.dart';
@@ -21,6 +22,7 @@ import '../../data/services/trip_repository.dart';
 import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_realtime_provider.dart';
+import '../../providers/wallet_provider.dart';
 import 'trip_posting_actions.dart';
 
 class TravelerHomeScreen extends StatefulWidget {
@@ -119,6 +121,15 @@ class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
     }
   }
 
+  Future<void> _onPullRefresh() async {
+    await Future.wait([
+      context.read<AuthProvider>().refreshUser(),
+      _tripsKey.currentState?.reload(silent: true) ?? Future<void>.value(),
+      _refreshSenderRequestBadge(),
+      context.read<WalletProvider>().refresh(WalletRole.traveler, silent: true),
+    ]);
+  }
+
   Future<void> _onCreateTrip() async {
     if (!await TripPostingActions.ensureWalletAllowsTripCreation(context)) return;
     if (!AuthVerificationGuard.ensureVerifiedForTransaction(context)) return;
@@ -135,12 +146,11 @@ class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
     final firstName = (authUser?.firstName.trim().isNotEmpty ?? false)
         ? authUser!.firstName
         : 'there';
-    final rating = authUser?.rating ?? 0;
-    final ratingLabel = rating > 0 ? rating.toStringAsFixed(1) : '—';
 
     return Scaffold(
       backgroundColor: AppColors.background,
       body: ScreenBody(
+        onRefresh: _onPullRefresh,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -158,7 +168,13 @@ class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
                         style: typo.h1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      Text('★ $ratingLabel · Traveler', style: typo.sm),
+                      Text(
+                        SelectedRoleStore.homeRatingSubtitle(
+                          authUser,
+                          WalletRole.traveler,
+                        ),
+                        style: typo.sm,
+                      ),
                     ],
                   ),
                 ),

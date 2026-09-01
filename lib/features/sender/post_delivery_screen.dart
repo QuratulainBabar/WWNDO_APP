@@ -32,14 +32,18 @@ class _PostDeliveryScreenState extends State<PostDeliveryScreen> {
   bool _submitting = false;
 
   Future<void> _submit() async {
-    if (!await DeliveryPostingActions.ensureWalletAllowsParcelCreation(context)) {
-      return;
-    }
-
     final form = _formKey.currentState;
     if (form == null || !form.validate()) return;
 
     final request = form.buildCreateRequest();
+    if (!await DeliveryPostingActions.ensureWalletAllowsParcelCreation(
+      context,
+      category: request.parcelCategory,
+      paysReceiverFee: request.paysReceiverFee,
+    )) {
+      return;
+    }
+
     final auth = context.read<AuthProvider>();
     final demoMode = context.read<DemoModeProvider>();
     final repository = DeliveryRepository(
@@ -50,23 +54,25 @@ class _PostDeliveryScreenState extends State<PostDeliveryScreen> {
     setState(() => _submitting = true);
     try {
       final created = await repository.createDelivery(request);
-      final fromCity = request.fromCity ?? '';
-      final toCity = request.toCity ?? '';
-      StaticData.registerPostedDelivery(
-        shipmentId: created.publicId,
-        fromCity: fromCity,
-        toCity: toCity,
-        fromCode: request.fromCode?.isNotEmpty == true ? request.fromCode! : 'WW',
-        toCode: request.toCode?.isNotEmpty == true ? request.toCode! : 'WW',
-        travelDate: request.travelDate,
-        parcelCategory: request.parcelCategory,
-        parcelWeightKg: request.weightKg,
-        parcelSize: request.parcelSize,
-        description: request.description,
-        parcelPhotoCount: request.photoPaths.length,
-        paysReceiverFee: request.paysReceiverFee,
-        seedDemoMatches: demoMode.enabled,
-      );
+      if (demoMode.enabled) {
+        final fromCity = request.fromCity ?? '';
+        final toCity = request.toCity ?? '';
+        StaticData.registerPostedDelivery(
+          shipmentId: created.publicId,
+          fromCity: fromCity,
+          toCity: toCity,
+          fromCode: request.fromCode?.isNotEmpty == true ? request.fromCode! : 'WW',
+          toCode: request.toCode?.isNotEmpty == true ? request.toCode! : 'WW',
+          travelDate: request.travelDate,
+          parcelCategory: request.parcelCategory,
+          parcelWeightKg: request.weightKg,
+          parcelSize: request.parcelSize,
+          description: request.description,
+          parcelPhotoCount: request.photoPaths.length,
+          paysReceiverFee: request.paysReceiverFee,
+          seedDemoMatches: true,
+        );
+      }
 
       if (!mounted) return;
       // Optimistic + realtime invalidation so Home Active Deliveries updates
@@ -75,10 +81,14 @@ class _PostDeliveryScreenState extends State<PostDeliveryScreen> {
       context.read<NotificationRealtimeProvider>().notifyDeliveryUpdated();
       context.pushReplacement(
         '/post-delivery/success',
-        extra: created.route.isNotEmpty ? created.route : request.routeLabel,
+        extra: created,
       );
     } on ApiException catch (e) {
       if (!mounted) return;
+      final form = _formKey.currentState;
+      if (form != null && form.applyServerValidationMessage(e.message)) {
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(e.message), behavior: SnackBarBehavior.floating),
       );

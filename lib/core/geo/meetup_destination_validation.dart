@@ -1,4 +1,5 @@
 import '../../data/models/meetup_location.dart';
+import 'meetup_location_match.dart';
 
 /// Ensures receiver meetup spots belong to the selected To / destination location.
 abstract final class MeetupDestinationValidation {
@@ -34,33 +35,29 @@ abstract final class MeetupDestinationValidation {
     required String destinationCity,
     String? destinationCountryCode,
   }) {
-    final city = destinationCity.trim().toLowerCase();
+    final city = destinationCity.trim();
     if (city.isEmpty) return false;
-
-    final destCc = destinationCountryCode?.trim().toUpperCase();
-    final meetupCc = meetup.countryCode?.trim().toUpperCase();
-    if (destCc != null &&
-        destCc.length == 2 &&
-        meetupCc != null &&
-        meetupCc.length == 2 &&
-        destCc != meetupCc) {
-      return false;
-    }
 
     return labelBelongsToDestination(
       '${meetup.name} ${meetup.address}',
       destinationCity,
+      destinationCountryCode: destinationCountryCode,
+      meetupCountryCode: meetup.countryCode,
     );
   }
 
   /// String-label check used by the local repository and mirrored on the API.
   static bool labelBelongsToDestination(
     String meetupLabel,
-    String destinationCity,
-  ) {
-    final city = destinationCity.trim().toLowerCase();
-    final label = meetupLabel.trim().toLowerCase();
-    if (city.isEmpty || label.isEmpty) return false;
-    return label.contains(city);
+    String destinationCity, {
+    String? destinationCountryCode,
+    String? meetupCountryCode,
+  }) {
+    return MeetupLocationMatch.labelsInSameArea(
+      meetupLabel,
+      destinationCity,
+      routeCountryCode: destinationCountryCode,
+      meetupCountryCode: meetupCountryCode,
+    );
   }
 }

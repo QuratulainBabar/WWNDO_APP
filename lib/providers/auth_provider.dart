@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../core/push/push_notification_service.dart';
 import '../core/api/api_exception.dart';
 import '../core/config/demo_mode.dart';
 import '../core/platform/biometric_prefs.dart';
@@ -70,7 +71,14 @@ class AuthProvider extends ChangeNotifier {
   Future<void> sendPasswordLoginOtp({
     required String email,
     required String password,
+    bool trackLoading = true,
   }) {
+    if (!trackLoading) {
+      return _repository.sendPasswordLoginOtp(
+        email: email,
+        password: password,
+      );
+    }
     return _run(() => _repository.sendPasswordLoginOtp(
           email: email,
           password: password,
@@ -237,10 +245,15 @@ class AuthProvider extends ChangeNotifier {
   Future<bool> tryRestoreSession() async {
     try {
       final restored = await _repository.refreshSession();
-      if (restored) notifyListeners();
+      if (restored) {
+        await BiometricPrefs.setSessionSoftLocked(false);
+        notifyListeners();
+        PushNotificationService.registerIfAuthenticated(_repository).ignore();
+      }
       return restored;
     } on ApiException {
       await BiometricPrefs.setLoginEnabled(false);
+      await BiometricPrefs.setSessionSoftLocked(false);
       await _repository.logout(forceFull: true);
       notifyListeners();
       return false;
@@ -256,6 +269,9 @@ class AuthProvider extends ChangeNotifier {
     try {
       final result = await action();
       notifyListeners();
+      if (isAuthenticated) {
+        PushNotificationService.registerIfAuthenticated(_repository).ignore();
+      }
       return result;
     } on ApiException {
       rethrow;

@@ -4,20 +4,38 @@ import 'models/created_delivery.dart';
 abstract final class PlatformFees {
   static const double minWalletSenderUsd = 2.0;
   static const double minWalletReceiverUsd = 2.0;
-  static const double minWalletTravelerUsd = 3.0;
+  static const double minWalletTravelerUsd = 2.0;
   static const int maxTravelerRequestsPerDelivery = 2;
 
   static bool isDocumentCategory(String? category) =>
       (category ?? '').trim().toLowerCase() == 'documents';
 
-  static bool senderPaysReceiverFee(CreatedDelivery delivery) =>
-      (delivery.platformFeeShare ?? 0) > 0;
+  static bool senderPaysReceiverFee(CreatedDelivery delivery) {
+    if (delivery.paysReceiverFee) return true;
+    return (delivery.platformFeeShare ?? 0) <= 0;
+  }
 
   static bool senderPaysReceiverFeeFrom({
     required String category,
     required double? platformFeeShare,
+    bool paysReceiverFee = false,
+  }) {
+    if (paysReceiverFee) return true;
+    if (platformFeeShare != null) return platformFeeShare <= 0;
+    return false;
+  }
+
+  /// Stored receiver share amount (0 when sender covers receiver fee).
+  static double platformFeeShareFor({
+    required String category,
+    required bool paysReceiverFee,
   }) =>
-      (platformFeeShare ?? 0) > 0;
+      paysReceiverFee
+          ? 0
+          : receiverPlatformFeeUsd(
+              category: category,
+              paysReceiverFee: false,
+            );
 
   static double senderPlatformFeeUsd({
     required String category,
@@ -36,6 +54,18 @@ abstract final class PlatformFees {
     return isDocumentCategory(category) ? 2.0 : 4.0;
   }
 
+  static double minWalletForSenderCreate({
+    required String category,
+    required bool paysReceiverFee,
+  }) =>
+      minWalletSenderUsd;
+
+  static double minWalletForReceiverAccept({
+    required String category,
+    required bool paysReceiverFee,
+  }) =>
+      minWalletReceiverUsd;
+
   static double senderPlatformFeeForDelivery(CreatedDelivery delivery) {
     final paysReceiver = senderPaysReceiverFee(delivery);
     return delivery.platformFee ??
@@ -47,10 +77,12 @@ abstract final class PlatformFees {
 
   static double receiverPlatformFeeForDelivery(CreatedDelivery delivery) {
     final paysReceiver = senderPaysReceiverFee(delivery);
-    return delivery.platformFeeShare ??
-        receiverPlatformFeeUsd(
-          category: delivery.parcelCategory,
-          paysReceiverFee: paysReceiver,
-        );
+    if (paysReceiver) return 0;
+    final share = delivery.platformFeeShare;
+    if (share != null && share > 0) return share;
+    return receiverPlatformFeeUsd(
+      category: delivery.parcelCategory,
+      paysReceiverFee: false,
+    );
   }
 }

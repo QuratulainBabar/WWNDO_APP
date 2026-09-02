@@ -804,6 +804,7 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
           ),
           const SizedBox(height: 12),
           PlatformFeeSection(
+            parcelCategory: _category,
             onChanged: (pays) => setState(() => _paysReceiverFee = pays),
           ),
         ],

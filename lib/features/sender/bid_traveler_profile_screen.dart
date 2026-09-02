@@ -14,9 +14,12 @@ import '../../core/widgets/app_badge.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/back_header.dart';
+import '../../core/widgets/app_toast.dart';
 import '../../data/models/bid.dart';
 import '../../data/models/traveler_request_summary.dart';
+import '../../data/platform_fees.dart';
 import '../../data/services/delivery_repository.dart';
+import '../../data/services/trip_repository.dart';
 import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
 import 'bid_acceptance_payment_screen.dart';
@@ -39,6 +42,7 @@ class BidTravelerProfileScreen extends StatefulWidget {
 
 class _BidTravelerProfileScreenState extends State<BidTravelerProfileScreen> {
   bool _requesting = false;
+  bool _paying = false;
   bool _sentThisSession = false;
   bool _requestsLoaded = false;
   List<TravelerRequestSummary> _travelerRequests = const [];
@@ -141,6 +145,99 @@ class _BidTravelerProfileScreenState extends State<BidTravelerProfileScreen> {
       '/traveler-selected-confirmation',
       extra: BidAcceptanceContext(bid: widget.bid, shipmentId: id),
     );
+  }
+
+  Future<void> _payNow() async {
+    final shipmentId = widget.shipmentId;
+    if (shipmentId == null || _paying) return;
+    final demoMode = context.read<DemoModeProvider>();
+    if (demoMode.enabled) {
+      AppToast.error(context, 'Turn off Demo mode to complete live payment.');
+      return;
+    }
+    if (!_travelerAcceptedOffer) {
+      AppToast.info(
+        context,
+        'Pay Now is available after ${widget.bid.travelerName} accepts your request.',
+      );
+      return;
+    }
+
+    setState(() => _paying = true);
+    try {
+      final auth = context.read<AuthProvider>();
+      final tripRepo = TripRepository(
+        apiClient: auth.repository.apiClient,
+        demoMode: demoMode,
+      );
+      final offer = await tripRepo.getSenderCounterOfferByDelivery(shipmentId);
+      if (!mounted) return;
+
+      final request = _requestForBid;
+      final matchesRequest = request == null ||
+          offer.requestId.isEmpty ||
+          offer.requestId == request.id;
+      final matchesTrip = offer.tripId.isEmpty ||
+          widget.bid.id.isEmpty ||
+          offer.tripId == widget.bid.id ||
+          offer.tripId == (request?.tripPublicId ?? '');
+      if (!matchesRequest || !matchesTrip) {
+        AppToast.info(
+          context,
+          'No payable offer from ${widget.bid.travelerName} yet.',
+        );
+        return;
+      }
+
+      if (!offer.isOpen && !offer.awaitsPayment) {
+        context.push('/sender-counter-offer/${offer.id}');
+        return;
+      }
+
+      var parcelCategory = 'documents';
+      var paysReceiverFee = false;
+      try {
+        final delivery = await DeliveryRepository(
+          apiClient: auth.repository.apiClient,
+          demoMode: demoMode,
+        ).getDelivery(shipmentId, role: 'sender');
+        parcelCategory = delivery.parcelCategory;
+        paysReceiverFee = PlatformFees.senderPaysReceiverFee(delivery);
+      } catch (_) {}
+
+      if (!mounted) return;
+      context.push(
+        '/bid-acceptance-payment',
+        extra: BidAcceptanceContext(
+          bid: widget.bid.copyWith(
+            id: offer.id,
+            price: offer.amount,
+            travelerName: offer.travelerName,
+            initial: offer.travelerInitial,
+          ),
+          shipmentId: shipmentId,
+          offerId: offer.id,
+          parcelCategory: parcelCategory,
+          paysReceiverFee: paysReceiverFee,
+        ),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      if (e.statusCode == 404 || e.code == 'NOT_FOUND') {
+        AppToast.info(
+          context,
+          'Waiting for ${widget.bid.travelerName} to accept. '
+          'You’ll be able to pay once their offer is ready.',
+        );
+        return;
+      }
+      AppToast.error(context, e.message);
+    } catch (_) {
+      if (!mounted) return;
+      AppToast.error(context, 'Unable to start payment right now.');
+    } finally {
+      if (mounted) setState(() => _paying = false);
+    }
   }
 
   @override
@@ -288,23 +385,29 @@ class _BidTravelerProfileScreenState extends State<BidTravelerProfileScreen> {
                   context.horizontalPadding,
                   16,
                 ),
-                child: AppButton(
-                  label: _travelerAcceptedOffer && !demoMode
-                      ? 'Accepted — Review Offer'
-                      : isSelected
-                          ? 'Selected'
-                          : alreadyRequested
-                              ? 'Request Sent'
-                              : isLocked
-                                  ? 'Unavailable'
-                                  : 'Send Request',
-                  onPressed: _travelerAcceptedOffer && !demoMode
-                      ? () => context.push(
-                            '/sender-counter-offer?delivery=$shipmentId',
-                          )
-                      : canSelect && !_requesting && _requestsLoaded
+                child: Column(
+                  children: [
+                    AppButton(
+                      label: isSelected || alreadyRequested
+                          ? 'Request Sent'
+                          : isLocked
+                              ? 'Unavailable'
+                              : 'Send Request',
+                      variant: AppButtonVariant.outline,
+                      onPressed: canSelect && !_requesting && _requestsLoaded
                           ? _selectTraveler
                           : null,
+                    ),
+                    const SizedBox(height: AppButton.stackGap),
+                    AppButton(
+                      label: _paying ? 'Opening payment…' : 'Pay Now',
+                      onPressed: _travelerAcceptedOffer &&
+                              !demoMode &&
+                              !_paying
+                          ? _payNow
+                          : null,
+                    ),
+                  ],
                 ),
               ),
             ),

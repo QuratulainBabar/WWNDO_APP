@@ -83,8 +83,19 @@ class ChatRepository {
       name: convMap['name'] as String? ?? 'Contact',
       shipmentId: convMap['shipmentId'] as String? ?? '',
       messages: messages,
-      unlocked: convMap['unlocked'] as bool? ?? true,
+      unlocked: _readUnlocked(convMap['unlocked']),
     );
+  }
+
+  static bool _readUnlocked(dynamic value) {
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    if (value is String) {
+      final v = value.trim().toLowerCase();
+      if (v == 'true' || v == '1') return true;
+      if (v == 'false' || v == '0') return false;
+    }
+    return true;
   }
 
   Future<ChatMessage> sendMessage(String conversationId, String text) async {

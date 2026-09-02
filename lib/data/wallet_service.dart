@@ -4,10 +4,7 @@ import 'models/ledger_entry.dart';
 import 'models/shipment_escrow.dart';
 import 'models/wallet_role.dart';
 
-/// Role-aware wallet balances, per-shipment escrow, and immutable cents ledger.
-///
-/// Display amounts come from the backend via [applyRemoteState]. Local mutation
-/// helpers remain for in-app shipment flows until those are fully API-backed.
+/// Single wallet balance per user. [WalletRole] tags ledger activity only.
 abstract final class WalletService {
   static final walletVersion = ValueNotifier(0);
 
@@ -25,16 +22,8 @@ abstract final class WalletService {
       kDebugMode ? devZeroBalanceFallbackCents : 0;
 
   static final List<LedgerEntry> _ledger = [];
-  static final Map<WalletRole, int> _availableCents = {
-    WalletRole.sender: kDebugMode ? devZeroBalanceFallbackCents : 0,
-    WalletRole.traveler: kDebugMode ? devZeroBalanceFallbackCents : 0,
-    WalletRole.receiver: kDebugMode ? devZeroBalanceFallbackCents : 0,
-  };
-  static final Map<WalletRole, int> _escrowCents = {
-    WalletRole.sender: 0,
-    WalletRole.traveler: 0,
-    WalletRole.receiver: 0,
-  };
+  static int _availableCents = kDebugMode ? devZeroBalanceFallbackCents : 0;
+  static int _escrowCents = 0;
 
   /// Escrow principal held per shipment.
   static final Map<String, int> _escrowCentsByShipmentId = {};
@@ -43,7 +32,6 @@ abstract final class WalletService {
   static final Set<String> _releasedShipmentIds = {};
 
   /// Maps a backend available balance into the in-app cache amount.
-  /// In debug builds, a $0 backend balance becomes [devZeroBalanceFallbackCents].
   static int resolveAvailableCents(int backendAvailableCents) {
     if (backendAvailableCents < 0) return 0;
     if (kDebugMode && backendAvailableCents == 0) {
@@ -53,18 +41,10 @@ abstract final class WalletService {
   }
 
   /// Reset all balances and ledger to empty ($0.00). Used on logout / new user.
-  /// In debug builds, reseeds the $10 testing fallback instead of true zero.
   static void resetToEmpty() {
     _ledger.clear();
-    final available = _initialAvailableCents;
-    _availableCents
-      ..[WalletRole.sender] = available
-      ..[WalletRole.traveler] = available
-      ..[WalletRole.receiver] = available;
-    _escrowCents
-      ..[WalletRole.sender] = 0
-      ..[WalletRole.traveler] = 0
-      ..[WalletRole.receiver] = 0;
+    _availableCents = _initialAvailableCents;
+    _escrowCents = 0;
     _escrowCentsByShipmentId.clear();
     _frozenShipmentIds.clear();
     _refundedShipmentIds.clear();
@@ -73,24 +53,23 @@ abstract final class WalletService {
   }
 
   /// Welcome balance is disabled — no signup/KYC credit is ever granted.
-  /// Kept as a no-op so existing callers continue to compile and run.
   static bool grantKycWelcomeCredit() {
     return false;
   }
 
-  /// Replace cached balances / history for [role] with backend values.
+  /// Replace cached balances / unified history with backend values.
   static void applyRemoteState({
-    required WalletRole role,
     required int availableCents,
     required int escrowCents,
     List<LedgerEntry> history = const [],
     List<ShipmentEscrow> shipmentEscrows = const [],
   }) {
-    _availableCents[role] = resolveAvailableCents(availableCents);
-    _escrowCents[role] = escrowCents < 0 ? 0 : escrowCents;
+    _availableCents = resolveAvailableCents(availableCents);
+    _escrowCents = escrowCents < 0 ? 0 : escrowCents;
 
-    _ledger.removeWhere((e) => e.role == role);
-    _ledger.addAll(history.where((e) => e.role == role));
+    _ledger
+      ..clear()
+      ..addAll(history);
     for (final escrow in shipmentEscrows) {
       _applyShipmentEscrow(escrow);
     }
@@ -144,17 +123,16 @@ abstract final class WalletService {
     }
   }
 
-  static List<LedgerEntry> immutableLedgerFor(WalletRole role) {
+  static List<LedgerEntry> immutableLedger() {
     return List<LedgerEntry>.unmodifiable(
-      _ledger.where((e) => e.role == role).toList()
-        ..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
+      _ledger.toList()..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
     );
   }
 
-  /// Visible Transaction History rows (excludes [LedgerEntry.hiddenFromHistory]).
-  static List<LedgerEntry> historyFor(WalletRole role) {
+  /// Unified transaction history (all roles). [role] is ignored — kept for call-site compat.
+  static List<LedgerEntry> historyFor([WalletRole? role]) {
     return List<LedgerEntry>.unmodifiable(
-      immutableLedgerFor(role).where((e) => !e.hiddenFromHistory),
+      immutableLedger().where((e) => !e.hiddenFromHistory),
     );
   }
 
@@ -165,9 +143,11 @@ abstract final class WalletService {
     );
   }
 
-  static int availableCents(WalletRole role) => _availableCents[role] ?? 0;
+  /// Unified available balance — [role] is ignored (same wallet for all roles).
+  static int availableCents([WalletRole? role]) => _availableCents;
 
-  static int escrowCents(WalletRole role) => _escrowCents[role] ?? 0;
+  /// Unified escrow balance — [role] is ignored.
+  static int escrowCents([WalletRole? role]) => _escrowCents;
 
   static int escrowCentsForShipment(String shipmentId) =>
       _escrowCentsByShipmentId[shipmentId] ?? 0;
@@ -181,9 +161,9 @@ abstract final class WalletService {
   static bool isEscrowReleased(String shipmentId) =>
       _releasedShipmentIds.contains(shipmentId);
 
-  static double availableUsd(WalletRole role) => availableCents(role) / 100;
+  static double availableUsd([WalletRole? role]) => availableCents(role) / 100;
 
-  static double escrowUsd(WalletRole role) => escrowCents(role) / 100;
+  static double escrowUsd([WalletRole? role]) => escrowCents(role) / 100;
 
   static String formatCents(int cents) => '\$${(cents / 100).toStringAsFixed(2)}';
 
@@ -191,7 +171,7 @@ abstract final class WalletService {
     if (amountCents < minimumWithdrawalCents) {
       return 'Minimum withdrawal is ${formatCents(minimumWithdrawalCents)}';
     }
-    if (amountCents > availableCents(role)) {
+    if (amountCents > availableCents()) {
       return 'Amount exceeds available balance';
     }
     return null;
@@ -216,14 +196,12 @@ abstract final class WalletService {
     return true;
   }
 
-  /// Ensures [role] has at least [amountCents] available.
-  /// If the wallet is short, the shortfall is charged via mock Stripe card.
   static bool ensureAvailableWithCardFallback({
     required WalletRole role,
     required int amountCents,
   }) {
     if (amountCents <= 0) return true;
-    final available = availableCents(role);
+    final available = availableCents();
     if (available >= amountCents) return true;
     return topUpViaStripe(role: role, amountCents: amountCents - available);
   }
@@ -249,15 +227,13 @@ abstract final class WalletService {
     return true;
   }
 
-  /// Holds escrow for [shipmentId]. Returns false if balance is insufficient
-  /// or escrow was already held for this shipment.
   static bool holdEscrow({
     required WalletRole role,
     required String shipmentId,
     required int amountCents,
     required String description,
   }) {
-    if (amountCents <= 0 || availableCents(role) < amountCents) return false;
+    if (amountCents <= 0 || availableCents() < amountCents) return false;
     if (_escrowCentsByShipmentId.containsKey(shipmentId)) return false;
 
     _recordShipmentEscrow(shipmentId, amountCents);
@@ -277,14 +253,13 @@ abstract final class WalletService {
     return true;
   }
 
-  /// Charges a platform fee. Returns false if balance is insufficient.
   static bool chargePlatformFee({
     required WalletRole role,
     required String shipmentId,
     required int amountCents,
     required String description,
   }) {
-    if (amountCents <= 0 || availableCents(role) < amountCents) return false;
+    if (amountCents <= 0 || availableCents() < amountCents) return false;
 
     _append(
       LedgerEntry(
@@ -312,7 +287,7 @@ abstract final class WalletService {
     if (_releasedShipmentIds.contains(shipmentId)) return false;
 
     final amountCents = _escrowCentsByShipmentId[shipmentId] ?? 0;
-    if (amountCents <= 0 || escrowCents(senderRole) < amountCents) return false;
+    if (amountCents <= 0 || escrowCents() < amountCents) return false;
 
     _releasedShipmentIds.add(shipmentId);
     _escrowCentsByShipmentId.remove(shipmentId);
@@ -385,7 +360,6 @@ abstract final class WalletService {
     return true;
   }
 
-  /// Credits back net platform fees charged to every role for [shipmentId].
   static void refundAllPlatformFeesForShipment(String shipmentId) {
     for (final role in WalletRole.values) {
       final netCents = netPlatformFeeCentsCharged(
@@ -402,7 +376,6 @@ abstract final class WalletService {
     }
   }
 
-  /// Net platform fees still held for [role] on [shipmentId] (charged − refunded).
   static int netPlatformFeeCentsCharged({
     required WalletRole role,
     required String shipmentId,
@@ -472,10 +445,8 @@ abstract final class WalletService {
 
   static void _append(LedgerEntry entry) {
     _ledger.add(entry);
-    _availableCents[entry.role] =
-        (_availableCents[entry.role] ?? 0) + entry.availableDeltaCents;
-    _escrowCents[entry.role] =
-        (_escrowCents[entry.role] ?? 0) + entry.escrowDeltaCents;
+    _availableCents += entry.availableDeltaCents;
+    _escrowCents += entry.escrowDeltaCents;
     walletVersion.value++;
   }
 }

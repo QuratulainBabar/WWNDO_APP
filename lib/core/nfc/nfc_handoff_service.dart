@@ -9,6 +9,13 @@ import 'package:nfc_manager/nfc_manager_android.dart';
 class NfcHandoffService {
   NfcHandoffService._();
 
+  /// How long to wait for a physical NFC tag before timing out.
+  static const Duration defaultTimeout = Duration(seconds: 25);
+
+  /// Brief pause before a simulated tap (web / unsupported devices).
+  /// Kept short so CP1/CP2 feel instant in Chrome and on devices without NFC.
+  static const Duration defaultSimulateAfter = Duration(milliseconds: 200);
+
   static Future<bool> isAvailable() async {
     if (kIsWeb) return false;
     try {
@@ -23,18 +30,27 @@ class NfcHandoffService {
   /// Waits for an NFC tag discovery, then returns a device hash string.
   /// Falls back to a simulated tap when NFC hardware is unavailable.
   static Future<String> waitForTap({
-    Duration timeout = const Duration(seconds: 45),
-    Duration simulateAfter = const Duration(seconds: 2),
+    Duration timeout = defaultTimeout,
+    Duration? simulateAfter,
     bool allowSimulate = true,
     void Function(String status)? onStatus,
   }) async {
+    final simDelay = simulateAfter ??
+        (kIsWeb ? Duration.zero : defaultSimulateAfter);
+
     final available = await isAvailable();
     if (!available) {
-      onStatus?.call('NFC unavailable — using secure simulated tap');
+      onStatus?.call(
+        kIsWeb
+            ? 'Confirming secure tap…'
+            : 'NFC unavailable — using secure simulated tap',
+      );
       if (!allowSimulate) {
         throw StateError('NFC is not available on this device');
       }
-      await Future<void>.delayed(simulateAfter);
+      if (simDelay > Duration.zero) {
+        await Future<void>.delayed(simDelay);
+      }
       return 'sim-${DateTime.now().millisecondsSinceEpoch}';
     }
 
@@ -50,24 +66,24 @@ class NfcHandoffService {
     });
 
     try {
+      // iso14443 is the fast path for phone NFC; extra RF tech slows polling.
       await NfcManager.instance.startSession(
-        pollingOptions: {
-          NfcPollingOption.iso14443,
-          NfcPollingOption.iso15693,
-          NfcPollingOption.iso18092,
-        },
+        pollingOptions: {NfcPollingOption.iso14443},
         onDiscovered: (NfcTag tag) async {
           if (completer.isCompleted) return;
           final id = _tagId(tag);
-          await NfcManager.instance.stopSession();
+          // Complete first so API confirm starts immediately; stop session after.
           completer.complete(id);
+          unawaited(NfcManager.instance.stopSession().catchError((_) {}));
         },
       );
     } catch (e) {
       timeoutTimer.cancel();
       if (allowSimulate) {
         onStatus?.call('NFC session failed — using simulated tap');
-        await Future<void>.delayed(simulateAfter);
+        if (simDelay > Duration.zero) {
+          await Future<void>.delayed(simDelay);
+        }
         return 'sim-${DateTime.now().millisecondsSinceEpoch}';
       }
       rethrow;
@@ -81,6 +97,7 @@ class NfcHandoffService {
       timeoutTimer.cancel();
       await NfcManager.instance.stopSession().catchError((_) {});
       if (allowSimulate) {
+        // Already waited through [timeout] — return immediately.
         onStatus?.call('Using simulated tap');
         return 'sim-${DateTime.now().millisecondsSinceEpoch}';
       }

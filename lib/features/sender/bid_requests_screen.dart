@@ -21,6 +21,8 @@ import '../../data/models/matching_traveler.dart';
 import '../../data/models/traveler_request_summary.dart';
 import '../../data/platform_fees.dart';
 import '../../data/services/delivery_repository.dart';
+import '../../data/services/trip_repository.dart';
+import '../../core/widgets/app_toast.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_realtime_provider.dart';
 import 'bid_acceptance_payment_screen.dart';
@@ -41,6 +43,7 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
   CreatedDelivery? _delivery;
   List<TravelerRequestSummary> _travelerRequests = const [];
   bool _loading = true;
+  bool _paying = false;
   String? _error;
 
   NotificationRealtimeProvider? _realtimeProvider;
@@ -98,6 +101,14 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
     );
   }
 
+  TripRepository _tripRepository() {
+    final auth = context.read<AuthProvider>();
+    return TripRepository(
+      apiClient: auth.repository.apiClient,
+      demoMode: context.read<DemoModeProvider>(),
+    );
+  }
+
   Future<void> _load() async {
     final demo = context.read<DemoModeProvider>().enabled;
     if (demo) {
@@ -148,6 +159,95 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
     if (request == null) return BidReviewStatus.open;
     if (request.isAccepted) return BidReviewStatus.approved;
     return BidReviewStatus.deliveryRequested;
+  }
+
+  Future<void> _payNow(Bid bid) async {
+    if (_paying) return;
+    final demo = context.read<DemoModeProvider>().enabled;
+    if (demo) {
+      AppToast.error(context, 'Turn off Demo mode to complete live payment.');
+      return;
+    }
+
+    final status = _reviewStatusFor(bid);
+    if (status != BidReviewStatus.approved &&
+        status != BidReviewStatus.accepted) {
+      AppToast.info(
+        context,
+        'Pay Now is available after ${bid.travelerName} accepts your request.',
+      );
+      return;
+    }
+
+    setState(() => _paying = true);
+    try {
+      final offer = await _tripRepository().getSenderCounterOfferByDelivery(
+        widget.shipmentId,
+      );
+      if (!mounted) return;
+
+      final request = _requestFor(bid);
+      final matchesRequest = request == null ||
+          offer.requestId.isEmpty ||
+          offer.requestId == request.id;
+      final matchesTrip = offer.tripId.isEmpty ||
+          bid.id.isEmpty ||
+          offer.tripId == bid.id ||
+          offer.tripId == (request?.tripPublicId ?? '');
+      if (!matchesRequest || !matchesTrip) {
+        AppToast.info(
+          context,
+          'No payable offer from ${bid.travelerName} yet.',
+        );
+        return;
+      }
+
+      if (!offer.isOpen && !offer.awaitsPayment) {
+        AppToast.info(
+          context,
+          offer.isAccepted
+              ? 'This offer is already paid and confirmed.'
+              : 'This offer is no longer available to pay.',
+        );
+        context.push('/sender-counter-offer/${offer.id}');
+        return;
+      }
+
+      final delivery = _delivery;
+      context.push(
+        '/bid-acceptance-payment',
+        extra: BidAcceptanceContext(
+          bid: bid.copyWith(
+            id: offer.id,
+            price: offer.amount,
+            travelerName: offer.travelerName,
+            initial: offer.travelerInitial,
+          ),
+          shipmentId: widget.shipmentId,
+          offerId: offer.id,
+          parcelCategory: delivery?.parcelCategory ?? 'documents',
+          paysReceiverFee: delivery != null
+              ? PlatformFees.senderPaysReceiverFee(delivery)
+              : false,
+        ),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      if (e.statusCode == 404 || e.code == 'NOT_FOUND') {
+        AppToast.info(
+          context,
+          'Waiting for ${bid.travelerName} to accept. '
+          'You’ll be able to pay once their offer is ready.',
+        );
+        return;
+      }
+      AppToast.error(context, e.message);
+    } catch (_) {
+      if (!mounted) return;
+      AppToast.error(context, 'Unable to start payment right now.');
+    } finally {
+      if (mounted) setState(() => _paying = false);
+    }
   }
 
   Future<void> _selectTraveler(Bid bid) async {
@@ -285,9 +385,11 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
           }
 
           final bid = bids[i - 2];
+          final status = _reviewStatusFor(bid);
           return _MatchingTravelerCard(
             bid: bid,
-            status: _reviewStatusFor(bid),
+            status: status,
+            paying: _paying,
             onViewProfile: () => context.push(
               '/bid-traveler-profile',
               extra: BidAcceptanceContext(
@@ -295,10 +397,8 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
                 shipmentId: widget.shipmentId,
               ),
             ),
-            onReviewOffer: () => context.push(
-              '/sender-counter-offer?delivery=${widget.shipmentId}',
-            ),
             onSelectTraveler: () => _selectTraveler(bid),
+            onPayNow: () => _payNow(bid),
           );
         },
       ),
@@ -393,16 +493,18 @@ class _MatchingTravelerCard extends StatelessWidget {
   const _MatchingTravelerCard({
     required this.bid,
     required this.status,
+    required this.paying,
     required this.onViewProfile,
-    required this.onReviewOffer,
     required this.onSelectTraveler,
+    required this.onPayNow,
   });
 
   final Bid bid;
   final BidReviewStatus status;
+  final bool paying;
   final VoidCallback onViewProfile;
-  final VoidCallback onReviewOffer;
   final VoidCallback onSelectTraveler;
+  final VoidCallback onPayNow;
 
   @override
   Widget build(BuildContext context) {
@@ -410,6 +512,8 @@ class _MatchingTravelerCard extends StatelessWidget {
     final requested = status == BidReviewStatus.deliveryRequested;
     final accepted = status == BidReviewStatus.approved ||
         status == BidReviewStatus.accepted;
+    final canSendRequest = !requested && !accepted;
+    final canPayNow = accepted && !paying;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -467,25 +571,26 @@ class _MatchingTravelerCard extends StatelessWidget {
                   child: AppButton(
                     label: 'View profile',
                     variant: AppButtonVariant.outline,
+                    small: true,
                     onPressed: onViewProfile,
                   ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: AppButton(
-                    label: accepted
-                        ? 'Review offer'
-                        : requested
-                            ? 'Requested'
-                            : 'Select traveler',
-                    onPressed: accepted
-                        ? onReviewOffer
-                        : requested
-                            ? null
-                            : onSelectTraveler,
+                    label: accepted || requested ? 'Requested' : 'Send Request',
+                    variant: AppButtonVariant.outline,
+                    small: true,
+                    onPressed: canSendRequest ? onSelectTraveler : null,
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: AppButton.stackGap),
+            AppButton(
+              label: paying ? 'Opening…' : 'Pay Now',
+              small: true,
+              onPressed: canPayNow ? onPayNow : null,
             ),
           ],
         ),

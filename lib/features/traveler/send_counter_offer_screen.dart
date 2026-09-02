@@ -67,6 +67,14 @@ class _SendCounterOfferScreenState extends State<SendCounterOfferScreen> {
     try {
       final api = await _repo().getSenderRequest(widget.requestId);
       if (!mounted) return;
+      if (api.status.trim().toLowerCase() == 'accepted') {
+        setState(() {
+          _loading = false;
+          _error =
+              'You already accepted this offer. Counter offers are no longer available.';
+        });
+        return;
+      }
       final request = api.toDeliveryRequest();
       final tripKey =
           api.tripPublicId.isNotEmpty ? api.tripPublicId : api.tripId;

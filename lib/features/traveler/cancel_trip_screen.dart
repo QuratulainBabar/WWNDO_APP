@@ -193,6 +193,28 @@ class _CancelTripScreenState extends State<CancelTripScreen> {
     }
 
     final trip = _trip!;
+    if (!trip.status.canEditOrCancel) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: BackHeader(
+          title: 'Cancel ${trip.displayId}',
+          fallbackRoute: '/traveler-trips',
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              trip.status.isCompleted
+                  ? 'Completed trips cannot be cancelled.'
+                  : 'This trip cannot be cancelled at its current stage.',
+              textAlign: TextAlign.center,
+              style: typo.sm.copyWith(color: AppColors.textSecondary),
+            ),
+          ),
+        ),
+      );
+    }
+
     final demoMode = context.read<DemoModeProvider>().enabled;
     final canCancel = demoMode
         ? StaticData.canTravelerCancelTrip(trip)

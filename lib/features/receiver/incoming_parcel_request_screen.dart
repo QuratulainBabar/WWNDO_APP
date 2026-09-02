@@ -14,10 +14,11 @@ import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/back_header.dart';
 import '../../core/widgets/cancel_request_confirmation_dialog.dart';
+import '../../core/payments/platform_fee_payment.dart';
 import '../../data/models/created_delivery.dart';
+import '../../data/models/wallet_role.dart';
 import '../../data/models/incoming_parcel_request.dart';
 import '../../data/models/receiver_delivery_status.dart';
-import '../../data/models/wallet_role.dart';
 import '../../data/services/delivery_repository.dart';
 import '../../data/platform_fees.dart';
 import '../../data/wallet_gate.dart';
@@ -115,7 +116,19 @@ class _IncomingParcelRequestScreenState
 
     setState(() => _acting = true);
     try {
-      final updated = await _repo().acceptAsReceiver(delivery.displayId);
+      CreatedDelivery updated;
+      if (platformFee > 0) {
+        updated = await PlatformFeePayment.withStripeRetry(
+          context: context,
+          role: WalletRole.receiver,
+          attempt: (paymentIntentId) => _repo().acceptAsReceiver(
+            delivery.displayId,
+            paymentIntentId: paymentIntentId,
+          ),
+        );
+      } else {
+        updated = await _repo().acceptAsReceiver(delivery.displayId);
+      }
 
       if (!mounted) return;
       setState(() {
@@ -277,7 +290,9 @@ class _IncomingParcelRequestScreenState
                       category: _delivery!.parcelCategory,
                       paysReceiverFee: paysReceiver,
                     );
-                    final requiredBalance = PlatformFees.minWalletReceiverUsd;
+                    final requiredBalance = platformFee > 0
+                        ? platformFee
+                        : PlatformFees.minWalletReceiverUsd;
                     final canAccept =
                         walletBalance >= requiredBalance && !_acting;
                     final isPending = status.isPendingRequest &&
@@ -367,9 +382,8 @@ class _IncomingParcelRequestScreenState
                                 const SizedBox(height: 4),
                                 Text(
                                   platformFee > 0
-                                      ? 'Collected from your wallet when the sender pays '
-                                          'and funds escrow (Pay Now). '
-                                          'No charge when you tap Accept.'
+                                      ? 'Deducted from your wallet when you tap Accept '
+                                          '(\$${platformFee.toStringAsFixed(2)}).'
                                       : 'The sender chose to pay 100% of the platform fee. '
                                           'No charge when you accept.',
                                   style: typo.sm.copyWith(

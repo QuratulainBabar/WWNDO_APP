@@ -690,7 +690,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
           return ValueListenableBuilder<int>(
             valueListenable: WalletService.walletVersion,
             builder: (context, _, __) {
-              final entries = wallet.historyFor(role);
+              final entries = wallet.historyFor();
 
               if (wallet.loading && entries.isEmpty) {
                 return const Center(child: CircularProgressIndicator());
@@ -702,7 +702,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Immutable ledger · cents-precision transaction log for ${role.name}.',
+                      'Immutable ledger · all sender, traveler, and receiver activity.',
                       style: typo.sm,
                     ),
                     const SizedBox(height: 16),
@@ -753,7 +753,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                 ),
                 Text(entry.description, style: typo.sm),
                 Text(
-                  entry.type.name,
+                  '${entry.type.name} · ${entry.role.name}',
                   style: typo.sm.copyWith(color: AppColors.textSecondary),
                 ),
               ],
@@ -1403,7 +1403,7 @@ class _WalletScreenState extends State<WalletScreen> {
             builder: (context, _, __) {
               final available = WalletService.availableCents(role);
               final escrow = WalletService.escrowCents(role);
-              final entries = wallet.historyFor(role);
+              final entries = wallet.historyFor();
               final parsedAmount = double.tryParse(_amountController.text) ?? 0;
               final displayAmount = parsedAmount;
               final canWithdraw = true;

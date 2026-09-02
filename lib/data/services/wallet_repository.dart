@@ -6,7 +6,7 @@ import '../models/shipment_escrow.dart';
 import '../models/wallet_role.dart';
 import '../models/wallet_summary.dart';
 
-/// Backend wallet API access (balances, escrow, transaction summary).
+/// Backend wallet API access (unified balance, escrow, transaction history).
 class WalletRepository {
   WalletRepository({
     required ApiClient apiClient,
@@ -19,20 +19,20 @@ class WalletRepository {
 
   bool get _isDemoMode => _demoMode?.enabled ?? false;
 
-  /// GET /api/v1/wallet?role=
-  Future<WalletSummary> fetchSummary(
-    WalletRole role, {
+  /// GET /api/v1/wallet — single balance for the user.
+  Future<WalletSummary> fetchSummary({
+    WalletRole? contextRole,
     int recentLimit = 6,
   }) async {
     if (_isDemoMode) {
-      return WalletSummary.empty(role);
+      return WalletSummary.empty(contextRole);
     }
 
     final data = await _apiClient.get(
-      '/wallet?role=${role.queryParam}&recentLimit=$recentLimit',
+      '/wallet?recentLimit=$recentLimit',
       authenticated: true,
     );
-    return WalletSummary.fromJson(data);
+    return WalletSummary.fromJson(data, contextRole: contextRole);
   }
 
   /// GET /api/v1/wallet/escrow/:shipmentId
@@ -48,15 +48,12 @@ class WalletRepository {
     return ShipmentEscrow.fromJson(data);
   }
 
-  /// GET /api/v1/wallet/transactions?role=
-  Future<List<LedgerEntry>> fetchTransactions(
-    WalletRole role, {
-    int limit = 50,
-  }) async {
+  /// GET /api/v1/wallet/transactions — unified history (all roles).
+  Future<List<LedgerEntry>> fetchTransactions({int limit = 50}) async {
     if (_isDemoMode) return const [];
 
     final data = await _apiClient.get(
-      '/wallet/transactions?role=${role.queryParam}&limit=$limit',
+      '/wallet/transactions?limit=$limit',
       authenticated: true,
     );
     final list = data['transactions'];
@@ -68,8 +65,7 @@ class WalletRepository {
   }
 
   /// POST /api/v1/wallet/kyc-welcome-credit
-  /// Credits $10 to sender, traveler, and receiver (idempotent).
-  Future<Map<String, WalletSummary>> grantKycWelcomeCredit() async {
+  Future<WalletSummary?> grantKycWelcomeCredit() async {
     if (_isDemoMode) {
       throw const ApiException(
         message: 'KYC welcome credit is handled locally in demo mode.',
@@ -82,22 +78,11 @@ class WalletRepository {
       authenticated: true,
     );
 
-    final walletsRaw = data['wallets'];
-    final result = <String, WalletSummary>{};
-    if (walletsRaw is Map) {
-      for (final entry in walletsRaw.entries) {
-        final role = WalletRole.fromQuery(entry.key.toString());
-        final value = entry.value;
-        if (value is Map) {
-          result[role.queryParam] = WalletSummary.fromJson({
-            ...Map<String, dynamic>.from(value),
-            'role': role.queryParam,
-            'recentTransactions': const [],
-          });
-        }
-      }
+    final walletRaw = data['wallet'];
+    if (walletRaw is Map) {
+      return WalletSummary.fromJson(Map<String, dynamic>.from(walletRaw));
     }
-    return result;
+    return null;
   }
 
   /// GET /api/v1/wallet/payments/config
@@ -127,7 +112,6 @@ class WalletRepository {
   }
 
   /// POST /api/v1/wallet/top-up
-  /// Returns either a credited [WalletSummary] or a payment-required payload.
   Future<Map<String, dynamic>> topUpRaw({
     required WalletRole role,
     required int amountCents,
@@ -152,18 +136,20 @@ class WalletRepository {
   /// POST /api/v1/wallet/top-up/confirm
   Future<WalletSummary> confirmTopUp({
     required String paymentIntentId,
-    required WalletRole role,
+    WalletRole? contextRole,
   }) async {
     final data = await _apiClient.post(
       '/wallet/top-up/confirm',
       body: {'paymentIntentId': paymentIntentId},
       authenticated: true,
     );
-    return WalletSummary.fromJson({
-      ...data,
-      'role': data['role'] ?? role.queryParam,
-      'recentTransactions': const [],
-    });
+    return WalletSummary.fromJson(
+      {
+        ...data,
+        'recentTransactions': const [],
+      },
+      contextRole: contextRole,
+    );
   }
 
   /// POST /api/v1/wallet/top-up
@@ -192,11 +178,13 @@ class WalletRepository {
         },
       );
     }
-    return WalletSummary.fromJson({
-      ...data,
-      'role': data['role'] ?? role.queryParam,
-      'recentTransactions': const [],
-    });
+    return WalletSummary.fromJson(
+      {
+        ...data,
+        'recentTransactions': const [],
+      },
+      contextRole: role,
+    );
   }
 
   /// POST /api/v1/wallet/withdraw
@@ -219,11 +207,13 @@ class WalletRepository {
       },
       authenticated: true,
     );
-    return WalletSummary.fromJson({
-      ...data,
-      'role': data['role'] ?? role.queryParam,
-      'recentTransactions': const [],
-    });
+    return WalletSummary.fromJson(
+      {
+        ...data,
+        'recentTransactions': const [],
+      },
+      contextRole: role,
+    );
   }
 
   /// GET /api/v1/wallet/connect/status

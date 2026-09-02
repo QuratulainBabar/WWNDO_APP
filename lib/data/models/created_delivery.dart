@@ -344,6 +344,7 @@ class CreatedDelivery {
     this.travelerName,
     this.bidAmount,
     this.receiverId,
+    this.receiverName,
     this.receiverAcceptedAt,
   });
 
@@ -381,6 +382,7 @@ class CreatedDelivery {
   final String? travelerName;
   final double? bidAmount;
   final String? receiverId;
+  final String? receiverName;
   final String? receiverAcceptedAt;
 
   bool get isReceiverAccepted =>
@@ -439,6 +441,7 @@ class CreatedDelivery {
       travelerName: json['travelerName'] as String?,
       bidAmount: (json['bidAmount'] as num?)?.toDouble(),
       receiverId: json['receiverId'] as String?,
+      receiverName: json['receiverName'] as String?,
       receiverAcceptedAt: json['receiverAcceptedAt']?.toString(),
     );
   }

@@ -391,13 +391,22 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
                   _detailRow(
                     context,
                     'Your platform fee',
-                    '\$${platformFee.toStringAsFixed(2)}',
+                    PlatformFees.senderPlatformFeeLabel(
+                      category: category,
+                      paysReceiverFee: paysReceiver,
+                    ),
                   ),
                   if (paysReceiver)
                     _detailRow(
                       context,
-                      'Includes receiver fee',
-                      'Yes',
+                      'Receiver fee',
+                      'Included in your platform fee',
+                    )
+                  else
+                    _detailRow(
+                      context,
+                      'Receiver fee',
+                      'Paid by receiver at accept',
                     ),
                   const Divider(height: 24),
                   _detailRow(
@@ -469,7 +478,7 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
               selectedMethod == _BidPaymentMethod.wallet
                   ? 'The total is deducted from your sender wallet. Booking is not created if balance is insufficient.'
                   : 'If wallet balance is short, Stripe collects the difference on your card, then escrow is funded from wallet. '
-                      'Sender, traveler, and receiver platform fees are collected instantly.',
+                      'Your sender platform fee is collected now; the traveler pays at NFC handoff.',
               style: context.typo.sm.copyWith(
                 color: AppColors.textSecondary,
                 height: 1.4,

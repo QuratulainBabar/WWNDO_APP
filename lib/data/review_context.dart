@@ -42,16 +42,16 @@ ReviewContext? resolveReviewContext({
             '$payout has been released to $travelerName\'s wallet for $shipmentId.',
       );
     case WalletRole.traveler:
-      final senderId = delivery.senderId?.trim();
-      if (senderId == null || senderId.isEmpty) return null;
-      final senderName = _displayName(delivery.senderName, fallback: 'the sender');
-      final payout = formatReviewPayout(delivery.bidAmount ?? delivery.maxBudget);
+      final receiverId = delivery.receiverId?.trim();
+      if (receiverId == null || receiverId.isEmpty) return null;
+      final receiverName =
+          _displayName(delivery.receiverName, fallback: 'the receiver');
       return ReviewContext(
-        revieweeId: senderId,
-        revieweeRole: WalletRole.sender,
-        revieweeName: senderName,
+        revieweeId: receiverId,
+        revieweeRole: WalletRole.receiver,
+        revieweeName: receiverName,
         confirmationMessage:
-            'Delivery $shipmentId is complete. Escrow payout of $payout has been released.',
+            'Delivery $shipmentId complete. How was the handoff with $receiverName?',
       );
     case WalletRole.receiver:
       final travelerId = delivery.travelerId?.trim();

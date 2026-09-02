@@ -90,6 +90,16 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
       _error = null;
     });
 
+    // Always sync offers first so Accept / Counter button states survive reloads
+    // even when the sender-request endpoint is temporarily unavailable.
+    try {
+      final offers = await _repo().listCounterOffers();
+      if (!mounted) return;
+      StaticData.syncTravelerBidsFromApi(offers);
+    } catch (_) {
+      // Ignore — parcel details can still render.
+    }
+
     // Prefer live API; fall back to static matching data (browse/demo).
     try {
       final api = await _repo().getSenderRequest(widget.requestId);
@@ -97,21 +107,12 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
       final request = api.toDeliveryRequest();
       _cacheMatching(api, request);
 
-      // Keep Accept / Counter buttons accurate after app restart.
-      try {
-        final offers = await _repo().listCounterOffers();
-        if (!mounted) return;
-        StaticData.syncTravelerBidsFromApi(offers);
-      } catch (_) {
-        // Ignore — parcel details can still render.
-      }
-
       setState(() {
         _apiRequest = api;
         _request = request;
         _matchScore = api.matchScore;
         _tripId = api.tripPublicId.isNotEmpty ? api.tripPublicId : api.tripId;
-        _completedAction = _actionFromLoadedState(api, request.id);
+        _completedAction = _actionFromLoadedState(api, request);
         _loading = false;
       });
       return;
@@ -126,7 +127,8 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
         _request = matching.request;
         _matchScore = matching.matchScore;
         _tripId = matching.tripId;
-        _completedAction = _actionFromLoadedState(null, matching.request.id);
+        _completedAction =
+            _actionFromLoadedState(null, matching.request);
         _loading = false;
       });
       return;
@@ -141,16 +143,28 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
 
   _ParcelOfferAction _actionFromLoadedState(
     SenderTripRequest? api,
-    String requestId,
+    DeliveryRequest request,
   ) {
     if (_completedAction != _ParcelOfferAction.none) return _completedAction;
     if ((api?.status ?? '').trim().toLowerCase() == 'accepted') {
       return _ParcelOfferAction.accepted;
     }
-    final bid = StaticData.travelerBidForRequest(requestId) ??
+    final bid = StaticData.travelerBidForRequest(request.id) ??
         StaticData.travelerBidForRequest(widget.requestId);
-    if (bid != null) return _ParcelOfferAction.countered;
-    return _ParcelOfferAction.none;
+    if (bid == null) return _ParcelOfferAction.none;
+
+    // Accept Offer creates a pending counter-offer row at the sender max budget.
+    // A revised offer is marked "updated" and is always a counter-offer path.
+    if (bid.status == TravelerBidStatus.updated) {
+      return _ParcelOfferAction.countered;
+    }
+    final acceptedAtMaxBudget =
+        (bid.amount - request.maxBudget).abs() < 0.005 &&
+            bid.status == TravelerBidStatus.pending;
+    if (acceptedAtMaxBudget) {
+      return _ParcelOfferAction.accepted;
+    }
+    return _ParcelOfferAction.countered;
   }
 
   TravelerBid? _existingBid() {
@@ -239,6 +253,7 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
   Future<void> _acceptOffer() async {
     final request = _request;
     if (request == null) return;
+    if (_busy || _completedAction != _ParcelOfferAction.none) return;
     await _submitBid(request.maxBudget, acceptedOffer: true);
   }
 
@@ -296,7 +311,9 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
     final existingBid = _existingBid();
     final acceptedOffer = _completedAction == _ParcelOfferAction.accepted;
     final sentCounter = _completedAction == _ParcelOfferAction.countered;
-    final canAcceptOffer = !_busy && _completedAction == _ParcelOfferAction.none;
+    // Mutual exclusivity: Accept disables Counter; Counter disables Accept.
+    final canAcceptOffer =
+        !_busy && _completedAction == _ParcelOfferAction.none;
     final canSendCounterOffer = !_busy && !acceptedOffer;
 
     return Scaffold(
@@ -423,14 +440,15 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
                         const SizedBox(height: 12),
                         Text(
                           acceptedOffer
-                              ? 'You accepted this offer. Send Counter Offer is no longer available.'
+                              ? 'You accepted this offer. Send Counter Offer is disabled.'
                               : sentCounter
-                                  ? 'Your counter offer was sent. Accept Offer is no longer available.'
+                                  ? 'Your counter offer was sent. Accept Offer is disabled.'
                                   : existingBid!.isAccepted
                                       ? 'This offer was already accepted. Counter offers are closed.'
                                       : 'Your offer is ${existingBid.status.label}. You can still send an updated counter offer.',
                           style: typo.sm.copyWith(
                             color: acceptedOffer ||
+                                    sentCounter ||
                                     existingBid?.isAccepted == true
                                 ? AppColors.danger
                                 : AppColors.textSecondary,
@@ -444,7 +462,11 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
                       ),
                       const SizedBox(height: AppButton.stackGap),
                       AppButton(
-                        label: 'Send Counter Offer',
+                        label: acceptedOffer
+                            ? 'Send Counter Offer'
+                            : sentCounter
+                                ? 'Update Counter Offer'
+                                : 'Send Counter Offer',
                         variant: AppButtonVariant.ghost,
                         onPressed:
                             canSendCounterOffer ? _onSendCounterOfferTap : null,

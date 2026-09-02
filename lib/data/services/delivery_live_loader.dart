@@ -94,6 +94,13 @@ abstract final class DeliveryLiveLoader {
       acknowledged: delivery.acknowledged,
       photos: delivery.photos,
       status: status,
+      senderId: delivery.senderId,
+      senderName: delivery.senderName,
+      travelerId: delivery.travelerId,
+      travelerName: delivery.travelerName,
+      receiverId: delivery.receiverId,
+      receiverName: delivery.receiverName,
+      bidAmount: delivery.bidAmount,
       receiverAcceptedAt: delivery.receiverAcceptedAt,
     );
 

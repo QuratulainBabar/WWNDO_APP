@@ -53,25 +53,27 @@ abstract final class WalletGate {
     required String category,
     required bool paysReceiverFee,
     double platformFeeUsd = 0,
-  }) =>
-      ensureMinimum(
-        context,
-        WalletRole.receiver,
-        PlatformFees.minWalletReceiverUsd,
-        'You need at least \$${PlatformFees.minWalletReceiverUsd.toStringAsFixed(2)} '
-            'in your wallet to accept this request.',
-      );
+  }) {
+    final minimum = platformFeeUsd > 0
+        ? platformFeeUsd
+        : PlatformFees.minWalletReceiverUsd;
+    return ensureMinimum(
+      context,
+      WalletRole.receiver,
+      minimum,
+      platformFeeUsd > 0
+          ? 'You need at least \$${minimum.toStringAsFixed(2)} in your wallet to accept (includes platform fee).'
+          : 'You need at least \$${minimum.toStringAsFixed(2)} in your wallet to accept this request.',
+    );
+  }
 
   static Future<void> refreshRoles(
     BuildContext context,
     Iterable<WalletRole> roles,
   ) async {
     if (context.read<DemoModeProvider>().enabled) return;
-    final wallet = context.read<WalletProvider>();
-    for (final role in roles) {
-      try {
-        await wallet.refresh(role, silent: true);
-      } catch (_) {}
-    }
+    try {
+      await context.read<WalletProvider>().refresh(null, silent: true);
+    } catch (_) {}
   }
 }

@@ -13,7 +13,7 @@ extension TripStatusX on TripStatus {
   String get label => switch (this) {
         TripStatus.openBid => 'Sender Requests',
         TripStatus.inTransit => 'In Transit',
-        TripStatus.delivered => 'Delivered',
+        TripStatus.delivered => 'Completed',
         TripStatus.cancelled => 'Cancelled',
       };
 
@@ -37,6 +37,7 @@ TripStatus tripStatusFromApi(String? value) {
     case 'in_transit':
       return TripStatus.inTransit;
     case 'delivered':
+    case 'completed':
       return TripStatus.delivered;
     case 'cancelled':
       return TripStatus.cancelled;

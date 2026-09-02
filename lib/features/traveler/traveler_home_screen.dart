@@ -339,7 +339,7 @@ class _MyTripsSectionState extends State<_MyTripsSection> {
   String? _error;
 
   List<TravelerTrip> _homeTrips(List<TravelerTrip> trips) =>
-      trips.where((t) => t.status != TripStatus.cancelled).toList();
+      trips.where((t) => !t.status.isCompleted).toList();
 
   @override
   void initState() {

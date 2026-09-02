@@ -197,6 +197,26 @@ class _EditTripScreenState extends State<EditTripScreen> {
 
     final trip = _trip!;
 
+    if (!trip.status.canEditOrCancel) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: BackHeader(
+          title: 'Edit ${trip.displayId}',
+          fallbackRoute: '/traveler-trips',
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              'Completed trips cannot be edited.',
+              textAlign: TextAlign.center,
+              style: typo.sm.copyWith(color: AppColors.textSecondary),
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: BackHeader(

@@ -7,7 +7,7 @@ class ApiConfig {
 
   static const String _configuredBase = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://wango.toolkitpro.cloud',
+    defaultValue: 'http://192.168.1.39:3000',
   );
 
   static const String _configuredWebsite = String.fromEnvironment(

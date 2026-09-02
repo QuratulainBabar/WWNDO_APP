@@ -378,6 +378,16 @@ class _TripCard extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
+          if (trip.status.isCompleted) ...[
+            const SizedBox(height: 8),
+            Text(
+              trip.status.label,
+              style: typo.sm.copyWith(
+                color: trip.status.color,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
         ],
       ),
     );

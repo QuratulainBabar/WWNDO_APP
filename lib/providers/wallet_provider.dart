@@ -11,7 +11,7 @@ import '../data/services/auth_repository.dart';
 import '../data/services/wallet_repository.dart';
 import '../data/wallet_service.dart';
 
-/// Loads wallet balance, escrow, and transactions from the backend API.
+/// Loads unified wallet balance, escrow, and transaction history from the API.
 class WalletProvider extends ChangeNotifier {
   WalletProvider({
     required AuthRepository authRepository,
@@ -35,9 +35,6 @@ class WalletProvider extends ChangeNotifier {
   String? _error;
   String? get error => _error;
 
-  WalletRole? _loadedRole;
-  WalletRole? get loadedRole => _loadedRole;
-
   WalletSummary? _summary;
   WalletSummary? get summary => _summary;
 
@@ -46,35 +43,27 @@ class WalletProvider extends ChangeNotifier {
 
   bool get isDemoMode => _demoMode?.enabled ?? false;
 
-  int availableCents(WalletRole role) {
-    // Prefer the local cache so debug $0→$10 fallback stays consistent
-    // with WalletCard / creation validation (both read WalletService).
-    return WalletService.availableCents(role);
-  }
+  /// Unified balance — [role] is ignored (same wallet for all roles).
+  int availableCents([WalletRole? role]) => WalletService.availableCents();
 
-  int escrowCents(WalletRole role) {
-    if (_summary != null && _summary!.role == role) {
-      return _summary!.escrowCents;
-    }
-    return WalletService.escrowCents(role);
-  }
+  int escrowCents([WalletRole? role]) =>
+      _summary?.escrowCents ?? WalletService.escrowCents();
 
-  List<LedgerEntry> historyFor(WalletRole role) {
-    if (_loadedRole == role && _transactions.isNotEmpty) {
+  /// Unified transaction history across sender, traveler, and receiver activity.
+  List<LedgerEntry> historyFor([WalletRole? role]) {
+    if (_transactions.isNotEmpty) {
       return _transactions;
     }
-    if (_summary != null &&
-        _summary!.role == role &&
-        _summary!.recentTransactions.isNotEmpty) {
+    if (_summary != null && _summary!.recentTransactions.isNotEmpty) {
       return _summary!.recentTransactions;
     }
-    return WalletService.historyFor(role);
+    return WalletService.historyFor();
   }
 
-  /// Fetch balances + recent transactions for [role].
-  /// New users / empty wallets resolve to $0.00 with an empty ledger.
+  /// Fetch unified balances + transaction history.
+  /// [contextRole] is optional UI context only (e.g. active app role).
   Future<WalletSummary> refresh(
-    WalletRole role, {
+    WalletRole? contextRole, {
     bool silent = false,
     bool includeFullHistory = false,
   }) async {
@@ -86,7 +75,7 @@ class WalletProvider extends ChangeNotifier {
 
     try {
       if (isDemoMode || _authRepository.currentUser == null) {
-        final empty = WalletSummary.empty(role);
+        final empty = WalletSummary.empty(contextRole);
         _apply(empty, transactions: const []);
         return empty;
       }
@@ -100,17 +89,17 @@ class WalletProvider extends ChangeNotifier {
         );
       }
 
-      final summary = await _walletRepository.fetchSummary(role);
+      final summary =
+          await _walletRepository.fetchSummary(contextRole: contextRole);
       List<LedgerEntry> history = summary.recentTransactions;
       if (includeFullHistory) {
-        history = await _walletRepository.fetchTransactions(role);
+        history = await _walletRepository.fetchTransactions();
       }
 
       _apply(summary, transactions: history);
       return summary;
     } on ApiException catch (e) {
-      // Fall back to zeros so the UI never shows stale demo amounts.
-      final empty = WalletSummary.empty(role);
+      final empty = WalletSummary.empty(contextRole);
       _apply(empty, transactions: const []);
       if (!silent) {
         _error = e.message;
@@ -118,7 +107,7 @@ class WalletProvider extends ChangeNotifier {
       }
       return empty;
     } catch (e) {
-      final empty = WalletSummary.empty(role);
+      final empty = WalletSummary.empty(contextRole);
       _apply(empty, transactions: const []);
       if (!silent) {
         _error = 'Unable to load wallet.';
@@ -163,7 +152,7 @@ class WalletProvider extends ChangeNotifier {
         }
         await _walletRepository.confirmTopUp(
           paymentIntentId: intentId,
-          role: role,
+          contextRole: role,
         );
       }
 
@@ -177,7 +166,6 @@ class WalletProvider extends ChangeNotifier {
     }
   }
 
-  /// After identity verification: ensure each role wallet has the $10 welcome credit.
   Future<void> ensureKycWelcomeCredit() async {
     try {
       if (isDemoMode || _authRepository.currentUser == null) {
@@ -189,26 +177,14 @@ class WalletProvider extends ChangeNotifier {
       final ok = await _authRepository.ensureAuthenticated();
       if (!ok) return;
 
-      final wallets = await _walletRepository.grantKycWelcomeCredit();
-      if (wallets.isEmpty) {
-        WalletService.grantKycWelcomeCredit();
-        for (final role in WalletRole.values) {
-          await refresh(role, silent: true);
-        }
-        return;
-      }
-
-      for (final role in WalletRole.values) {
-        final summary = wallets[role.queryParam];
-        if (summary != null) {
-          _apply(summary, transactions: summary.recentTransactions);
-        } else {
-          await refresh(role, silent: true);
-        }
+      final summary = await _walletRepository.grantKycWelcomeCredit();
+      if (summary != null) {
+        _apply(summary, transactions: summary.recentTransactions);
+      } else {
+        await refresh(null, silent: true);
       }
     } catch (e) {
       debugPrint('KYC welcome credit failed: $e');
-      // Local fallback so Continue-to-app still shows $10 in-session.
       WalletService.grantKycWelcomeCredit();
       notifyListeners();
     }
@@ -248,7 +224,6 @@ class WalletProvider extends ChangeNotifier {
     }
   }
 
-  /// Fetch live escrow for one shipment (sender, traveler, or receiver party).
   Future<ShipmentEscrow> refreshShipmentEscrow(String shipmentId) async {
     if (shipmentId.trim().isEmpty) {
       return ShipmentEscrow.none(shipmentId);
@@ -298,7 +273,6 @@ class WalletProvider extends ChangeNotifier {
   void clear() {
     _summary = null;
     _transactions = const [];
-    _loadedRole = null;
     _error = null;
     WalletService.resetToEmpty();
     notifyListeners();
@@ -310,7 +284,7 @@ class WalletProvider extends ChangeNotifier {
     final effective = availableCents == summary.availableCents
         ? summary
         : WalletSummary(
-            role: summary.role,
+            contextRole: summary.contextRole,
             availableCents: availableCents,
             escrowCents: summary.escrowCents,
             currency: summary.currency,
@@ -320,9 +294,7 @@ class WalletProvider extends ChangeNotifier {
           );
     _summary = effective;
     _transactions = List<LedgerEntry>.unmodifiable(transactions);
-    _loadedRole = effective.role;
     WalletService.applyRemoteState(
-      role: effective.role,
       availableCents: summary.availableCents,
       escrowCents: effective.escrowCents,
       history: transactions,

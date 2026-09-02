@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -38,6 +39,7 @@ import '../../data/models/wallet_role.dart';
 import '../../data/services/delivery_live_loader.dart';
 import '../../data/wallet_gate.dart';
 import '../../data/wallet_service.dart';
+import '../../data/platform_fees.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_realtime_provider.dart';
 import '../../providers/wallet_provider.dart';
@@ -290,16 +292,6 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
     );
   }
 
-  void _enableNfcForReceiver() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Ask the receiver to open their tracking screen and complete NFC Checkpoint 2.',
-        ),
-      ),
-    );
-  }
-
   void _openBidAcceptancePayment(BuildContext context, String shipmentId) {
     context.push('/sender-counter-offer?delivery=$shipmentId');
   }
@@ -363,18 +355,12 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
     final canMarkInTransit = status == ShipmentStatus.collected &&
         cp1Confirmed &&
         !cp2Confirmed;
-    // Traveler enables NFC for receiver while In Transit (before CP2 matching).
-    final canEnableNfcForReceiver = status == ShipmentStatus.inTransit &&
-        cp1Confirmed &&
-        !cp2Confirmed;
-    final showStatusUpdate = widget.isTravelerView &&
-        !isDisputed &&
-        (canMarkInTransit || canEnableNfcForReceiver);
+    final showStatusUpdate =
+        widget.isTravelerView && !isDisputed && canMarkInTransit;
     final statusOptions = _statusOptionsFor(status);
     final selectedStatus = _selectedOptionFor(status);
-    final statusUpdateHint = canEnableNfcForReceiver
-        ? 'When you meet the receiver, enable NFC so both of you can match phones. After matching, the parcel becomes Delivered.'
-        : 'NFC handoff is complete. Tap Start Transit when you begin travel with this parcel.';
+    const statusUpdateHint =
+        'NFC handoff is complete. Tap Start Transit when you begin travel with this parcel.';
     final showMeetupAgreement = !isDisputed &&
         (snap.status == 'bid_accepted' ||
             snap.status == 'matched' ||
@@ -526,9 +512,7 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
                   if (showStatusUpdate) ...[
                     const SizedBox(height: 24),
                     Text(
-                      canEnableNfcForReceiver
-                          ? 'Enable NFC for Receiver'
-                          : 'Update Shipment Status',
+                      'Update Shipment Status',
                       style: typo.h3.copyWith(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 8),
@@ -536,59 +520,50 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
                       statusUpdateHint,
                       style: typo.sm.copyWith(height: 1.5, color: AppColors.textSecondary),
                     ),
-                    if (canMarkInTransit) ...[
-                      const SizedBox(height: 12),
-                      ...statusOptions.map(
-                        (option) => Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
-                          child: AppCard(
-                            highlighted: selectedStatus == option,
-                            padding: EdgeInsets.zero,
-                            margin: EdgeInsets.zero,
-                            child: Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                onTap: () => setState(() => _selectedStatus = option),
-                                borderRadius: BorderRadius.circular(16),
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          option.label,
-                                          style: typo.bodyBold.copyWith(fontWeight: FontWeight.w700),
-                                        ),
+                    const SizedBox(height: 12),
+                    ...statusOptions.map(
+                      (option) => Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: AppCard(
+                          highlighted: selectedStatus == option,
+                          padding: EdgeInsets.zero,
+                          margin: EdgeInsets.zero,
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () => setState(() => _selectedStatus = option),
+                              borderRadius: BorderRadius.circular(16),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        option.label,
+                                        style: typo.bodyBold.copyWith(fontWeight: FontWeight.w700),
                                       ),
-                                      Icon(
-                                        selectedStatus == option
-                                            ? Icons.check_circle_rounded
-                                            : Icons.radio_button_unchecked_rounded,
-                                        color: selectedStatus == option
-                                            ? AppColors.primary
-                                            : AppColors.textSecondary,
-                                      ),
-                                    ],
-                                  ),
+                                    ),
+                                    Icon(
+                                      selectedStatus == option
+                                          ? Icons.check_circle_rounded
+                                          : Icons.radio_button_unchecked_rounded,
+                                      color: selectedStatus == option
+                                          ? AppColors.primary
+                                          : AppColors.textSecondary,
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
                           ),
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      AppButton(
-                        label: 'Start Transit',
-                        onPressed: () => _updateStatus(selectedStatus),
-                      ),
-                    ] else if (canEnableNfcForReceiver) ...[
-                      const SizedBox(height: 12),
-                      AppButton(
-                        label: 'Enable NFC for Receiver',
-                        icon: const Icon(Icons.nfc, size: 18, color: Colors.white),
-                        onPressed: _enableNfcForReceiver,
-                      ),
-                    ],
+                    ),
+                    const SizedBox(height: 12),
+                    AppButton(
+                      label: 'Start Transit',
+                      onPressed: () => _updateStatus(selectedStatus),
+                    ),
                   ],
                   if (showMeetupAgreement) ...[
                     const SizedBox(height: 24),
@@ -639,6 +614,7 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
                       margin: EdgeInsets.zero,
                       child: _NfcCheckpoint1Section(
                         shipmentId: shipment.id,
+                        parcelCategory: shipment.parcelCategory,
                         isTravelerView: widget.isTravelerView,
                       ),
                     ),
@@ -823,7 +799,9 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
       }
       addAction(
         AppButton(
-          label: 'Leave a review',
+          label: widget.isTravelerView
+              ? 'Leave a review for receiver'
+              : 'Leave a review',
           onPressed: () => context.push(
             deliveryReviewRoute(
               shipmentId: shipment.id,
@@ -954,10 +932,12 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
 class _NfcCheckpoint1Section extends StatelessWidget {
   const _NfcCheckpoint1Section({
     required this.shipmentId,
+    required this.parcelCategory,
     required this.isTravelerView,
   });
 
   final String shipmentId;
+  final String parcelCategory;
   final bool isTravelerView;
 
   @override
@@ -983,7 +963,9 @@ class _NfcCheckpoint1Section extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           isTravelerView
-              ? 'Tap phones with the sender to confirm handoff. When both parties confirm, the parcel becomes Collected — then mark in transit when you begin travel.'
+              ? 'Tap phones with the sender to confirm handoff. When both parties confirm, '
+                  '\$${PlatformFees.travelerPlatformFeeUsd(parcelCategory).toStringAsFixed(2)} '
+                  'is deducted from your wallet and the parcel becomes Collected — then mark in transit when you begin travel.'
               : 'Tap phones with the traveler to confirm handoff. When both parties confirm, the parcel becomes Collected.',
           style: typo.sm.copyWith(height: 1.5),
         ),
@@ -1095,6 +1077,7 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
   bool _cancelled = false;
   bool _listening = false;
   String _status = 'Preparing NFC…';
+  Timer? _peerPollTimer;
 
   bool get _isCheckpoint2 => widget.checkpoint == 2;
 
@@ -1106,6 +1089,7 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
 
   @override
   void dispose() {
+    _peerPollTimer?.cancel();
     NfcHandoffService.stop();
     super.dispose();
   }
@@ -1113,6 +1097,7 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
   void _cancel() {
     if (_confirmed || _cancelled) return;
     _cancelled = true;
+    _peerPollTimer?.cancel();
     NfcHandoffService.stop();
     final shipmentId = widget.shipmentId ?? '';
     final fallback = _isCheckpoint2
@@ -1134,15 +1119,18 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
       await NfcHandoffService.stop();
     }
 
+    final useSimulate =
+        forceSimulate || kIsWeb || !(await NfcHandoffService.isAvailable());
+
     setState(() {
       _listening = true;
-      _status = forceSimulate
-          ? 'Simulating secure NFC tap…'
+      _status = useSimulate
+          ? 'Confirming secure tap…'
           : 'Hold both phones together…';
     });
 
     try {
-      final deviceId = forceSimulate
+      final deviceId = useSimulate
           ? 'sim-${DateTime.now().millisecondsSinceEpoch}'
           : await NfcHandoffService.waitForTap(
               allowSimulate: true,
@@ -1162,6 +1150,75 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
         SnackBar(content: Text('NFC error: $e')),
       );
     }
+  }
+
+  void _startPeerPoll(String shipmentId) {
+    _peerPollTimer?.cancel();
+    _peerPollTimer = Timer.periodic(const Duration(milliseconds: 800), (_) {
+      unawaited(_checkPeerConfirmed(shipmentId));
+    });
+    // Immediate first check so we don't wait a full interval.
+    unawaited(_checkPeerConfirmed(shipmentId));
+  }
+
+  Future<void> _checkPeerConfirmed(String shipmentId) async {
+    if (!mounted || _cancelled || _confirmed) return;
+    try {
+      final auth = context.read<AuthProvider>();
+      final repo = FulfillmentRepository(apiClient: auth.repository.apiClient);
+      final checkpoints = await repo.listNfcCheckpoints(shipmentId);
+      final target = _isCheckpoint2
+          ? 'delivery_traveler_receiver'
+          : 'handoff_sender_traveler';
+      Map<String, dynamic>? row;
+      for (final c in checkpoints) {
+        if ((c['checkpoint']?.toString() ?? '') == target) {
+          row = c;
+          break;
+        }
+      }
+      final confirmedAt = row?['confirmedAt'] ?? row?['confirmed_at'];
+      if (confirmedAt == null) return;
+
+      _peerPollTimer?.cancel();
+      if (!mounted || _cancelled) return;
+      _confirmed = true;
+      await _goToSuccess(shipmentId);
+    } catch (_) {
+      // Keep polling; transient network errors are fine.
+    }
+  }
+
+  Future<void> _goToSuccess(String shipmentId) async {
+    if (!mounted) return;
+    if (_isCheckpoint2) {
+      await WalletGate.refreshRoles(
+        context,
+        [WalletRole.sender, WalletRole.traveler, WalletRole.receiver],
+      );
+      if (!mounted) return;
+      if (widget.isTraveler) {
+        context.pushReplacement(
+          '/traveler-nfc-success',
+          extra: {'shipmentId': shipmentId, 'waitingForPeer': false},
+        );
+      } else {
+        context.pushReplacement(
+          '/receiver-nfc-success',
+          extra: {'shipmentId': shipmentId, 'waitingForPeer': false},
+        );
+      }
+      return;
+    }
+
+    context.pushReplacement(
+      '/nfc-confirm/success',
+      extra: {
+        'shipmentId': shipmentId,
+        'isTraveler': widget.isTraveler,
+        'waitingForPeer': false,
+      },
+    );
   }
 
   Future<void> _complete({String? deviceId}) async {
@@ -1217,42 +1274,24 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
 
       final pendingPeer = result['pendingPeer'] == true;
       if (pendingPeer && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Your tap was recorded. Ask the other party to confirm on their device.',
-            ),
-          ),
-        );
         setState(() {
           _confirmed = false;
           _listening = false;
-          _status = 'Waiting for the other party to tap…';
+          _status = 'Your tap is recorded — waiting for the other phone…';
         });
+        _startPeerPoll(shipmentId);
         return;
-      }
-      if (_isCheckpoint2 && mounted) {
-        await WalletGate.refreshRoles(
-          context,
-          [WalletRole.sender, WalletRole.traveler, WalletRole.receiver],
-        );
       }
     } on ApiException catch (e) {
       if (e.code == 'NFC_PENDING_PEER') {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Waiting for the other party to confirm NFC on their device.',
-              ),
-            ),
-          );
+          setState(() {
+            _confirmed = false;
+            _listening = false;
+            _status = 'Your tap is recorded — waiting for the other phone…';
+          });
+          _startPeerPoll(shipmentId);
         }
-        setState(() {
-          _confirmed = false;
-          _listening = false;
-          _status = 'Waiting for peer NFC confirm…';
-        });
         return;
       }
       if (mounted) {
@@ -1279,30 +1318,7 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
     }
 
     if (!mounted) return;
-
-    if (_isCheckpoint2) {
-      if (widget.isTraveler) {
-        context.pushReplacement(
-          '/traveler-nfc-success',
-          extra: {'shipmentId': shipmentId, 'waitingForPeer': false},
-        );
-      } else {
-        context.pushReplacement(
-          '/receiver-nfc-success',
-          extra: {'shipmentId': shipmentId, 'waitingForPeer': false},
-        );
-      }
-      return;
-    }
-
-    context.pushReplacement(
-      '/nfc-confirm/success',
-      extra: {
-        'shipmentId': shipmentId,
-        'isTraveler': widget.isTraveler,
-        'waitingForPeer': false,
-      },
-    );
+    await _goToSuccess(shipmentId);
   }
 
   @override
@@ -1614,7 +1630,7 @@ class TravelerNfcDeliverySuccessScreen extends StatelessWidget {
               if (!waitingForPeer) ...[
                 const SizedBox(height: AppButton.stackGap),
                 AppButton(
-                  label: 'Leave a review',
+                  label: 'Leave a review for receiver',
                   variant: AppButtonVariant.outline,
                   onPressed: () => context.push(
                     deliveryReviewRoute(
@@ -2309,14 +2325,31 @@ class _DeliveryReviewScreenState extends State<DeliveryReviewScreen> {
     });
 
     if (context.read<DemoModeProvider>().enabled) {
+      final demoContext = switch (reviewerRole) {
+        WalletRole.traveler => ReviewContext(
+            revieweeId: 'demo-receiver',
+            revieweeRole: WalletRole.receiver,
+            revieweeName: 'Receiver',
+            confirmationMessage:
+                'Delivery $shipmentId complete. How was the handoff with the receiver?',
+          ),
+        WalletRole.receiver => ReviewContext(
+            revieweeId: 'demo-traveler',
+            revieweeRole: WalletRole.traveler,
+            revieweeName: 'Traveler',
+            confirmationMessage:
+                'Delivery $shipmentId confirmed. How was your experience with the traveler?',
+          ),
+        WalletRole.sender => ReviewContext(
+            revieweeId: 'demo-traveler',
+            revieweeRole: WalletRole.traveler,
+            revieweeName: 'Traveler',
+            confirmationMessage:
+                'Delivery $shipmentId confirmed. How was your experience with the traveler?',
+          ),
+      };
       setState(() {
-        _context = ReviewContext(
-          revieweeId: 'demo-traveler',
-          revieweeRole: WalletRole.traveler,
-          revieweeName: 'Traveler',
-          confirmationMessage:
-              'Delivery $shipmentId confirmed. How was your experience?',
-        );
+        _context = demoContext;
         _loading = false;
       });
       return;

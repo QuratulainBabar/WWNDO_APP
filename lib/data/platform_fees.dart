@@ -51,8 +51,12 @@ abstract final class PlatformFees {
     required bool paysReceiverFee,
   }) {
     if (paysReceiverFee) return 0;
-    return isDocumentCategory(category) ? 2.0 : 4.0;
+    return isDocumentCategory(category) ? 2.0 : 3.0;
   }
+
+  /// Traveler platform fee — deducted from wallet at NFC CP1 handoff.
+  static double travelerPlatformFeeUsd(String category) =>
+      isDocumentCategory(category) ? 2.0 : 4.0;
 
   /// Generic $2 reserve to post. Must not return senderPlatformFeeUsd ($2/$4/$3/$6).
   static double minWalletForSenderCreate({
@@ -64,16 +68,35 @@ abstract final class PlatformFees {
   static double minWalletForReceiverAccept({
     required String category,
     required bool paysReceiverFee,
-  }) =>
-      minWalletReceiverUsd;
+  }) {
+    final fee = receiverPlatformFeeUsd(
+      category: category,
+      paysReceiverFee: paysReceiverFee,
+    );
+    return fee > 0 ? fee : minWalletReceiverUsd;
+  }
 
   static double senderPlatformFeeForDelivery(CreatedDelivery delivery) {
     final paysReceiver = senderPaysReceiverFee(delivery);
-    return delivery.platformFee ??
-        senderPlatformFeeUsd(
-          category: delivery.parcelCategory,
-          paysReceiverFee: paysReceiver,
-        );
+    return senderPlatformFeeUsd(
+      category: delivery.parcelCategory,
+      paysReceiverFee: paysReceiver,
+    );
+  }
+
+  /// Human-readable sender fee tier for UI copy.
+  static String senderPlatformFeeLabel({
+    required String category,
+    required bool paysReceiverFee,
+  }) {
+    final fee = senderPlatformFeeUsd(
+      category: category,
+      paysReceiverFee: paysReceiverFee,
+    );
+    if (paysReceiverFee) {
+      return '\$${fee.toStringAsFixed(2)} (includes receiver fee)';
+    }
+    return '\$${fee.toStringAsFixed(2)}';
   }
 
   static double receiverPlatformFeeForDelivery(CreatedDelivery delivery) {

@@ -330,20 +330,49 @@ class _ChatListTile extends StatelessWidget {
                         Row(
                           children: [
                             Expanded(
-                              child: Text(
-                                conversation.lastMessage.isEmpty
-                                    ? 'Tap to start chatting'
-                                    : conversation.lastMessage,
-                                style: typo.sm.copyWith(
-                                  color: unread
-                                      ? AppColors.textPrimary
-                                      : AppColors.textSecondary,
-                                  fontWeight:
-                                      unread ? FontWeight.w600 : FontWeight.w400,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                              child: conversation.lastMessageIsImage
+                                  ? Row(
+                                      children: [
+                                        Icon(
+                                          Icons.photo_outlined,
+                                          size: 16,
+                                          color: unread
+                                              ? AppColors.textPrimary
+                                              : AppColors.textSecondary,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Expanded(
+                                          child: Text(
+                                            conversation.displayLastMessage,
+                                            style: typo.sm.copyWith(
+                                              color: unread
+                                                  ? AppColors.textPrimary
+                                                  : AppColors.textSecondary,
+                                              fontWeight: unread
+                                                  ? FontWeight.w600
+                                                  : FontWeight.w400,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  : Text(
+                                      conversation.displayLastMessage.isEmpty
+                                          ? 'Tap to start chatting'
+                                          : conversation.displayLastMessage,
+                                      style: typo.sm.copyWith(
+                                        color: unread
+                                            ? AppColors.textPrimary
+                                            : AppColors.textSecondary,
+                                        fontWeight: unread
+                                            ? FontWeight.w600
+                                            : FontWeight.w400,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                             ),
                             if (unread) ...[
                               const SizedBox(width: 8),

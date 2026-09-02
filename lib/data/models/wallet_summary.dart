@@ -2,10 +2,10 @@ import 'ledger_entry.dart';
 import 'shipment_escrow.dart';
 import 'wallet_role.dart';
 
-/// Wallet balances + recent ledger for a single role.
+/// Unified wallet balances + recent ledger for the authenticated user.
 class WalletSummary {
   const WalletSummary({
-    required this.role,
+    this.contextRole,
     required this.availableCents,
     required this.escrowCents,
     this.currency = 'USD',
@@ -14,7 +14,8 @@ class WalletSummary {
     this.shipmentEscrows = const [],
   });
 
-  final WalletRole role;
+  /// Optional UI context (active app role) — not a balance partition.
+  final WalletRole? contextRole;
   final int availableCents;
   final int escrowCents;
   final String currency;
@@ -25,19 +26,25 @@ class WalletSummary {
   double get availableUsd => availableCents / 100;
   double get escrowUsd => escrowCents / 100;
 
-  /// Empty wallet for a new user with no backend activity.
-  factory WalletSummary.empty(WalletRole role) => WalletSummary(
-        role: role,
+  /// Backward compat for callers that still read `.role`.
+  WalletRole get role => contextRole ?? WalletRole.sender;
+
+  factory WalletSummary.empty([WalletRole? contextRole]) => WalletSummary(
+        contextRole: contextRole,
         availableCents: 0,
         escrowCents: 0,
       );
 
-  factory WalletSummary.fromJson(Map<String, dynamic> json) {
-    final role = WalletRole.fromQuery(json['role']?.toString());
+  factory WalletSummary.fromJson(
+    Map<String, dynamic> json, {
+    WalletRole? contextRole,
+  }) {
+    final roleFromJson = json['role']?.toString();
     final recent = json['recentTransactions'];
     final escrows = json['shipmentEscrows'];
     return WalletSummary(
-      role: role,
+      contextRole: contextRole ??
+          (roleFromJson != null ? WalletRole.fromQuery(roleFromJson) : null),
       availableCents: (json['availableCents'] as num?)?.toInt() ?? 0,
       escrowCents: (json['escrowCents'] as num?)?.toInt() ?? 0,
       currency: (json['currency'] as String?) ?? 'USD',

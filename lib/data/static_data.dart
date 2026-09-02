@@ -1170,8 +1170,6 @@ abstract final class StaticData {
         (senderPlatformFeeUsd(category: category, paysReceiverFee: paysReceiver) *
                 100)
             .round();
-    final travelerFeeCents =
-        (travelerPlatformFeeUsd(category) * 100).round();
     final receiverFeeCents =
         (receiverPlatformFeeUsd(category: category, paysReceiverFee: paysReceiver) *
                 100)
@@ -1185,21 +1183,8 @@ abstract final class StaticData {
     )) {
       return false;
     }
-    if (receiverFeeCents > 0 &&
-        !WalletService.ensureAvailableWithCardFallback(
-          role: WalletRole.receiver,
-          amountCents: receiverFeeCents,
-        )) {
-      return false;
-    }
-    if (!WalletService.ensureAvailableWithCardFallback(
-      role: WalletRole.traveler,
-      amountCents: travelerFeeCents,
-    )) {
-      return false;
-    }
 
-    // Charge all parties before locking the booking.
+    // Charge sender fee at Pay Now; receiver fee at accept; traveler fee at NFC CP1.
     final escrowAlreadyHeld =
         WalletService.escrowCentsForShipment(shipmentId) > 0;
     if (!escrowAlreadyHeld &&
@@ -1219,30 +1204,13 @@ abstract final class StaticData {
     )) {
       return false;
     }
-    if (receiverFeeCents > 0 &&
-        !WalletService.chargePlatformFee(
-          role: WalletRole.receiver,
-          shipmentId: shipmentId,
-          amountCents: receiverFeeCents,
-          description: '$shipmentId · Platform fee',
-        )) {
-      return false;
-    }
-    if (!WalletService.chargePlatformFee(
-      role: WalletRole.traveler,
-      shipmentId: shipmentId,
-      amountCents: travelerFeeCents,
-      description: '$shipmentId · Platform fee',
-    )) {
-      return false;
-    }
 
     lockedShipmentIds.add(shipmentId);
     _bidReviewStatusById[bid.id] = BidReviewStatus.accepted;
     acceptedBidsByShipmentId[shipmentId] = bid;
     setShipmentStatus(shipmentId, ShipmentStatus.bidAccepted, skipNotification: true);
 
-    // Receiver share already collected at accept time (or covered by sender).
+    // Receiver share collected at accept (or covered by sender).
     receiverApprovedFeeShare = receiverFeeCents / 100;
     receiverPaymentAutoCancelled = false;
     receiverPaidShipmentIds.add(shipmentId);
@@ -1540,7 +1508,24 @@ abstract final class StaticData {
       return true;
     }
 
-    // Platform fees are collected at sender Pay Now — not on this screen.
+    if (feeAmount > 0) {
+      final feeCents = (feeAmount * 100).round();
+      if (!WalletService.ensureAvailableWithCardFallback(
+        role: WalletRole.receiver,
+        amountCents: feeCents,
+      )) {
+        return false;
+      }
+      if (!WalletService.chargePlatformFee(
+        role: WalletRole.receiver,
+        shipmentId: shipment.id,
+        amountCents: feeCents,
+        description: '${shipment.id} · Platform fee',
+      )) {
+        return false;
+      }
+    }
+
     receiverApprovedFeeShare = feeAmount;
     receiverPaymentAutoCancelled = false;
     receiverPaidShipmentIds.add(shipment.id);
@@ -1549,10 +1534,10 @@ abstract final class StaticData {
         id: 'rcv-pay-ok-${shipment.id}',
         role: WalletRole.receiver,
         type: AppNotificationType.receiverPayment,
-        title: 'Payment confirmed',
+        title: 'Payment successful',
         body: feeAmount == 0
             ? 'Platform fee waived for ${shipment.id}.'
-            : 'Platform fee for ${shipment.id} will be collected when the sender pays.',
+            : '\$${feeAmount.toStringAsFixed(2)} platform fee paid for ${shipment.id}.',
         time: 'Just now',
         route: '/receiver-tracking',
       ),
@@ -2038,7 +2023,7 @@ abstract final class StaticData {
   /// Object platform fees (USD).
   static const platformFeeObjectSenderUsd = 4.0;
   static const platformFeeObjectTravelerUsd = 4.0;
-  static const platformFeeObjectReceiverUsd = 4.0;
+  static const platformFeeObjectReceiverUsd = 3.0;
   static const platformFeeObjectSenderPaysReceiverUsd = 6.0;
 
   /// Whether the sender elected to cover the receiver's platform fee at post time.
@@ -2870,9 +2855,17 @@ abstract final class StaticData {
     if (request.status != IncomingParcelRequestStatus.pending) {
       return 'This request has already been handled.';
     }
-    if (WalletService.availableUsd(WalletRole.receiver) <
-        receiverAcceptMinBalanceUsd) {
-      return 'You need at least \$${receiverAcceptMinBalanceUsd.toStringAsFixed(0)} in your wallet to accept this request.';
+    final paysReceiver = paysReceiverFeeFor(requestId);
+    final platformFee = receiverPlatformFeeUsd(
+      category: request.parcelType,
+      paysReceiverFee: paysReceiver,
+    );
+    final requiredBalance =
+        platformFee > 0 ? platformFee : receiverAcceptMinBalanceUsd;
+    if (WalletService.availableUsd(WalletRole.receiver) < requiredBalance) {
+      return platformFee > 0
+          ? 'You need at least \$${requiredBalance.toStringAsFixed(2)} in your wallet to accept (includes platform fee).'
+          : 'You need at least \$${requiredBalance.toStringAsFixed(0)} in your wallet to accept this request.';
     }
     return null;
   }
@@ -2885,6 +2878,31 @@ abstract final class StaticData {
     if (index < 0) return false;
 
     final request = _incomingParcelRequests[index];
+    final paysReceiver = paysReceiverFeeFor(requestId);
+    final platformFeeCents =
+        (receiverPlatformFeeUsd(
+                  category: request.parcelType,
+                  paysReceiverFee: paysReceiver,
+                ) *
+                100)
+            .round();
+    if (platformFeeCents > 0) {
+      if (!WalletService.ensureAvailableWithCardFallback(
+        role: WalletRole.receiver,
+        amountCents: platformFeeCents,
+      )) {
+        return false;
+      }
+      if (!WalletService.chargePlatformFee(
+        role: WalletRole.receiver,
+        shipmentId: requestId,
+        amountCents: platformFeeCents,
+        description: '$requestId · Platform fee',
+      )) {
+        return false;
+      }
+      receiverPaidShipmentIds.add(requestId);
+    }
 
     _incomingParcelRequests[index] =
         request.copyWith(status: IncomingParcelRequestStatus.accepted);
@@ -3163,8 +3181,32 @@ abstract final class StaticData {
   }
 
   /// NFC Checkpoint 1 complete — both parties matched; status becomes Collected.
+  /// Deducts traveler platform fee ($2 documents / $4 objects) from wallet.
   static void confirmNfcHandoffCheckpoint1(String shipmentId) {
     if (isNfcCheckpoint1Confirmed(shipmentId)) return;
+
+    final shipment = shipmentById(shipmentId);
+    if (shipment != null) {
+      final travelerFeeCents =
+          (travelerPlatformFeeUsd(shipment.parcelCategory) * 100).round();
+      if (travelerFeeCents > 0) {
+        if (!WalletService.ensureAvailableWithCardFallback(
+          role: WalletRole.traveler,
+          amountCents: travelerFeeCents,
+        )) {
+          return;
+        }
+        if (!WalletService.chargePlatformFee(
+          role: WalletRole.traveler,
+          shipmentId: shipmentId,
+          amountCents: travelerFeeCents,
+          description: '$shipmentId · Platform fee',
+        )) {
+          return;
+        }
+      }
+    }
+
     nfcCheckpoint1ActivatedShipmentIds.add(shipmentId);
     nfcCheckpoint1SenderConfirmedIds.add(shipmentId);
     nfcCheckpoint1TravelerConfirmedIds.add(shipmentId);
@@ -3990,7 +4032,7 @@ abstract final class StaticData {
     ),
   ];
 
-  static const receiverPaymentOptions = [0.0, 2.0, 4.0];
+  static const receiverPaymentOptions = [0.0, 2.0, 3.0];
 
   static final chatThreadsVersion = ValueNotifier(0);
   static final List<ChatMessage> liveSenderTravelerChatMessages =

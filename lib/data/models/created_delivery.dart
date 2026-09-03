@@ -352,6 +352,7 @@ class CreatedDelivery {
     this.receiverId,
     this.receiverName,
     this.receiverAcceptedAt,
+    this.disputed = false,
   });
 
   final String id;
@@ -390,6 +391,7 @@ class CreatedDelivery {
   final String? receiverId;
   final String? receiverName;
   final String? receiverAcceptedAt;
+  final bool disputed;
 
   bool get isReceiverAccepted =>
       receiverAcceptedAt != null && receiverAcceptedAt!.trim().isNotEmpty;
@@ -449,6 +451,7 @@ class CreatedDelivery {
       receiverId: json['receiverId'] as String?,
       receiverName: json['receiverName'] as String?,
       receiverAcceptedAt: json['receiverAcceptedAt']?.toString(),
+      disputed: json['disputed'] == true || json['status'] == 'disputed',
     );
   }
 }

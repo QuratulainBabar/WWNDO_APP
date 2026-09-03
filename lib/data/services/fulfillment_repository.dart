@@ -34,6 +34,9 @@ class FulfillmentRepository {
   }) =>
       _platform.openDispute(deliveryId: deliveryId, reason: reason);
 
+  Future<Map<String, dynamic>> getOpenDispute(String deliveryId) =>
+      _platform.getOpenDispute(deliveryId);
+
   Future<List<Map<String, dynamic>>> listNfcCheckpoints(String deliveryId) =>
       _platform.listNfcCheckpoints(deliveryId);
 }

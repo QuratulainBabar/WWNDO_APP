@@ -12,6 +12,7 @@ import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_badge.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_card.dart';
+import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/back_header.dart';
 import '../../core/widgets/cancel_request_confirmation_dialog.dart';
 import '../../core/payments/platform_fee_payment.dart';
@@ -141,15 +142,11 @@ class _IncomingParcelRequestScreenState
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _acting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message)),
-      );
+      AppToast.error(context, e.message);
     } catch (_) {
       if (!mounted) return;
       setState(() => _acting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to accept this request.')),
-      );
+      AppToast.error(context, 'Unable to accept this request.');
     }
   }
 
@@ -171,15 +168,11 @@ class _IncomingParcelRequestScreenState
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _acting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message)),
-      );
+      AppToast.error(context, e.message);
     } catch (_) {
       if (!mounted) return;
       setState(() => _acting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to decline this request.')),
-      );
+      AppToast.error(context, 'Unable to decline this request.');
     }
   }
 
@@ -290,9 +283,7 @@ class _IncomingParcelRequestScreenState
                       category: _delivery!.parcelCategory,
                       paysReceiverFee: paysReceiver,
                     );
-                    final requiredBalance = platformFee > 0
-                        ? platformFee
-                        : PlatformFees.minWalletReceiverUsd;
+                    final requiredBalance = platformFee;
                     final canAccept = !_acting;
                     final isPending = status.isPendingRequest &&
                         current.status == IncomingParcelRequestStatus.pending;
@@ -416,24 +407,15 @@ class _IncomingParcelRequestScreenState
                           ),
                           const SizedBox(height: 16),
                           if (isPending) ...[
-                            if (walletBalance < requiredBalance) ...[
+                            if (requiredBalance > 0 &&
+                                walletBalance < requiredBalance) ...[
                               const SizedBox(height: 10),
                               Text(
-                                'Insufficient wallet balance. Top up your wallet to accept this request.',
+                                'Insufficient wallet balance. You need at least \$${requiredBalance.toStringAsFixed(2)} to accept.',
                                 style: typo.sm.copyWith(
                                   color: AppColors.danger,
                                   fontWeight: FontWeight.w600,
                                 ),
-                              ),
-                              const SizedBox(height: 12),
-                              AppButton(
-                                label: 'Top up wallet',
-                                variant: AppButtonVariant.outline,
-                                onPressed: _acting
-                                    ? null
-                                    : () => context.push(
-                                          '/wallet/top-up?role=receiver',
-                                        ),
                               ),
                             ],
                             const SizedBox(height: 24),

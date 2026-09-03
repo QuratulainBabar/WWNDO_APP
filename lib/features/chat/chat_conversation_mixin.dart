@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/platform/platform_ui.dart';
+import '../../core/widgets/app_toast.dart';
 import '../../data/models/chat_message.dart';
 import '../../data/static_data.dart';
 import '../../providers/chat_realtime_provider.dart';
@@ -283,9 +284,7 @@ mixin ChatConversationMixin<T extends StatefulWidget> on State<T> {
       addChatImageMessage(path: file.path, name: file.name);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not attach image: $e')),
-      );
+      AppToast.error(context, 'Could not attach image: $e');
     }
   }
 
@@ -320,15 +319,11 @@ mixin ChatConversationMixin<T extends StatefulWidget> on State<T> {
     } on ApiException catch (e) {
       if (!mounted) return;
       removeOptimisticMessage(tempId);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message)),
-      );
+      AppToast.error(context, e.message);
     } catch (_) {
       if (!mounted) return;
       removeOptimisticMessage(tempId);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to send image.')),
-      );
+      AppToast.error(context, 'Unable to send image.');
     }
   }
 }

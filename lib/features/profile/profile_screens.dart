@@ -23,6 +23,7 @@ import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_labeled_field.dart';
 import '../../core/widgets/app_svg_icon.dart';
+import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/back_header.dart';
 import '../../core/widgets/back_link.dart';
 import '../../core/widgets/role_switch_card.dart';
@@ -792,9 +793,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final roleParam = GoRouterState.of(context).uri.queryParameters['role'];
       final role = WalletRole.fromQuery(roleParam);
       context.read<WalletProvider>().refresh(role, silent: true).ignore();
-      if (role != WalletRole.sender) {
-        _loadConnectStatus();
-      }
+      _loadConnectStatus();
     });
   }
 
@@ -810,11 +809,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final linked = status['linked'] == true;
       final ready = status['ready'] == true;
       setState(() {
-        _connectStatusLabel = !linked
-            ? 'Not linked'
-            : ready
-                ? 'Ready for payouts'
-                : 'Complete onboarding';
+        if (!linked) {
+          _connectStatusLabel = 'Not linked';
+        } else if (ready) {
+          _connectStatusLabel = 'Connected';
+        } else {
+          _connectStatusLabel = 'Connected — finish setup';
+        }
       });
     } catch (_) {
       if (!mounted) return;
@@ -837,22 +838,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final opened = await ExternalLinks.openUrl(url);
       if (!mounted) return;
       if (!opened) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open Stripe Connect onboarding.')),
-        );
+        AppToast.error(context, 'Could not open Stripe Connect onboarding.');
       } else {
         await _loadConnectStatus();
       }
     } on ApiException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Stripe Connect: ${e.message}')),
-      );
+      AppToast.error(context, 'Stripe Connect: ${e.message}');
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Stripe Connect: ${e.toString()}')),
-      );
+      AppToast.error(context, 'Stripe Connect: ${e.toString()}');
     } finally {
       if (mounted) setState(() => _connectLoading = false);
     }
@@ -905,7 +900,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     final message = result.message ??
         'Could not enable ${PlatformUi.biometricShortLabel}. Please try again.';
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    AppToast.error(context, message);
   }
 
   String _routeWithRole(String baseRoute, String? roleParam) {
@@ -1032,8 +1027,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               _tile(
                 _connectLoading ? 'Linking Stripe Connect…' : 'Link Stripe Connect',
-                subtitle: _connectStatusLabel ?? 'Required for bank withdrawals',
+                subtitle: () {
+                  final label = _connectStatusLabel;
+                  if (label == null) return 'Required for bank withdrawals';
+                  if (label == 'Connected') return 'Account linked for payouts';
+                  if (label.startsWith('Connected')) {
+                    return 'Account linked — finish Stripe onboarding';
+                  }
+                  return label;
+                }(),
                 onTap: _connectLoading ? () {} : _linkStripeConnect,
+                trailing: _connectStatusLabel != null &&
+                        _connectStatusLabel!.startsWith('Connected')
+                    ? AppBadge.success('Connected')
+                    : null,
               ),
               _tile(
                 'Withdraw via Stripe Connect',
@@ -1305,22 +1312,14 @@ class _WalletScreenState extends State<WalletScreen> {
       final opened = await ExternalLinks.openUrl(url);
       if (!mounted) return;
       if (!opened) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Could not open Stripe Connect onboarding.'),
-          ),
-        );
+        AppToast.error(context, 'Could not open Stripe Connect onboarding.');
       }
     } on ApiException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Stripe Connect: ${e.message}')),
-      );
+      AppToast.error(context, 'Stripe Connect: ${e.message}');
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not start payout setup.')),
-      );
+      AppToast.error(context, 'Could not start payout setup.');
     } finally {
       if (mounted) setState(() => _connectLinking = false);
       // Re-check status when the user returns from onboarding.

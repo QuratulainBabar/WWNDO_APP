@@ -20,6 +20,7 @@ import '../../core/payments/platform_fee_payment.dart';
 import '../../core/nfc/nfc_handoff_service.dart';
 import '../../core/platform/platform_ui.dart';
 import '../../core/widgets/app_labeled_field.dart';
+import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/back_header.dart';
 import '../../core/widgets/back_link.dart';
 import '../../core/widgets/cancel_request_confirmation_dialog.dart';
@@ -96,7 +97,7 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
     _selectedStatus = ShipmentStatus.inTransit;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadSnapshot();
-      if (!widget.isTravelerView) _attachRealtimeListener();
+      _attachRealtimeListener();
     });
   }
 
@@ -113,7 +114,7 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
       final tick = realtime.deliveryUpdateTick;
       if (tick != _lastDeliveryUpdateTick) {
         _lastDeliveryUpdateTick = tick;
-        _loadSnapshot();
+        _loadSnapshot(silent: true);
       }
     };
     realtime.addListener(_realtimeListener!);
@@ -141,7 +142,7 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
     return FulfillmentRepository(apiClient: auth.repository.apiClient);
   }
 
-  Future<void> _loadSnapshot() async {
+  Future<void> _loadSnapshot({bool silent = false}) async {
     final demoMode = context.read<DemoModeProvider>().enabled;
     if (demoMode) {
       setState(() {
@@ -151,10 +152,12 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
       return;
     }
 
-    setState(() {
-      _loading = true;
-      _loadError = null;
-    });
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _loadError = null;
+      });
+    }
 
     try {
       final role = widget.isTravelerView ? 'traveler' : 'sender';
@@ -201,6 +204,7 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
   }
 
   bool _isSenderBookingCancellable() {
+    if (_snapshot?.disputed ?? false) return false;
     final status = _snapshot?.status;
     if (status == null) return false;
     return DeliveryLifecycle.isSenderCancellable(status);
@@ -224,20 +228,15 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
       final feesRefundable =
           result.platformFeesRefunded ??
           hoursUntil >= DeliveryCancelPolicy.senderCancelMinHoursBeforeTravel;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            DeliveryCancelPolicy.senderBookingCancelResultMessage(
-              platformFeesRefunded: feesRefundable,
-            ),
-          ),
+      AppToast.success(
+        context,
+        DeliveryCancelPolicy.senderBookingCancelResultMessage(
+          platformFeesRefunded: feesRefundable,
         ),
       );
     } on ApiException catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message), behavior: SnackBarBehavior.floating),
-      );
+      AppToast.error(context, e.message);
     }
   }
 
@@ -277,19 +276,13 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
       await _loadSnapshot();
     } catch (e) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Unable to mark in transit: $e')),
-        );
+        AppToast.error(context, 'Unable to mark in transit: $e');
         return;
       }
 
     setState(() => _selectedStatus = selected);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Parcel status updated to In Transit.'),
-      ),
-    );
+    AppToast.success(context, 'Parcel status updated to In Transit.');
   }
 
   void _openBidAcceptancePayment(BuildContext context, String shipmentId) {
@@ -472,6 +465,13 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
                                     small: true,
                                   ),
                                 AppBadge.success('✓ ID verified'),
+                                if (isDisputed)
+                                  AppBadge(
+                                    label: 'Dispute open',
+                                    color: AppColors.danger,
+                                    backgroundColor: AppColors.danger.withValues(alpha: 0.12),
+                                    small: true,
+                                  ),
                                 if (cp1Confirmed)
                                   AppBadge.success(
                                     widget.isTravelerView
@@ -620,7 +620,7 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
                     ),
                   ],
                   // Traveler CP2 / transit NFC only after CP1 is done.
-                  if (widget.isTravelerView && cp1Confirmed) ...[
+                  if (widget.isTravelerView && cp1Confirmed && !isDisputed) ...[
                     const SizedBox(height: 24),
                     AppCard(
                       margin: EdgeInsets.zero,
@@ -690,9 +690,11 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
 
     void addSenderDisputeButton() {
       final disputed = snap?.disputed ?? false;
+      final canOpen = DeliveryLifecycle.isDisputable(snap?.status);
+      if (!disputed && !canOpen) return;
       addAction(
         AppButton(
-          label: 'Dispute',
+          label: disputed ? 'View dispute' : 'Dispute',
           variant: AppButtonVariant.danger,
           textStyle: typo.buttonDanger.copyWith(fontWeight: FontWeight.w700),
           onPressed: () => appNavigatePush(
@@ -724,7 +726,6 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
       // Matching travelers CTA is in the status row / My Posted Deliveries.
       if (status == ShipmentStatus.open) {
         addSenderChatButton();
-        addSenderDisputeButton();
         addAction(
           AppButton(
             label: 'Cancel',
@@ -737,14 +738,13 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
         return actions;
       }
 
-      final showDisputeAndChat = switch (status) {
-        ShipmentStatus.bidAccepted => true,
-        ShipmentStatus.photosUploaded => true,
-        ShipmentStatus.collected => true,
-        ShipmentStatus.inTransit => true,
-        ShipmentStatus.delivered => true,
-        _ => false,
-      };
+      if (snap?.disputed ?? false) {
+        addSenderChatButton();
+        addSenderDisputeButton();
+        return actions;
+      }
+
+      final showDisputeAndChat = DeliveryLifecycle.isDisputable(snap?.status);
 
       // Bid Accepted / In Transit / Delivered (+ mid stages): Chat with Traveler then Dispute.
       // Dispute opens the existing form, or the existing open-dispute screen if already filed.
@@ -781,8 +781,37 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
       return actions;
     }
 
+    if (snap?.disputed ?? false) {
+      addAction(
+        AppButton(
+          label: 'View dispute',
+          variant: AppButtonVariant.danger,
+          onPressed: () => appNavigatePush(
+            disputeRoute(
+              shipment.id,
+              travelerView: true,
+            ),
+          ),
+        ),
+      );
+      if (status == ShipmentStatus.delivered || cp2Confirmed) {
+        addAction(
+          AppButton(
+            label: 'Leave a review for receiver',
+            onPressed: () => context.push(
+              deliveryReviewRoute(
+                shipmentId: shipment.id,
+                reviewerRole: WalletRole.traveler,
+              ),
+            ),
+          ),
+        );
+      }
+      return actions;
+    }
+
     if (status == ShipmentStatus.delivered || cp2Confirmed) {
-      if (widget.isTravelerView) {
+      if (DeliveryLifecycle.isDisputable(snap?.status)) {
         addAction(
           AppButton(
             label: 'Dispute',
@@ -799,15 +828,11 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
       }
       addAction(
         AppButton(
-          label: widget.isTravelerView
-              ? 'Leave a review for receiver'
-              : 'Leave a review',
+          label: 'Leave a review for receiver',
           onPressed: () => context.push(
             deliveryReviewRoute(
               shipmentId: shipment.id,
-              reviewerRole: widget.isTravelerView
-                  ? WalletRole.traveler
-                  : WalletRole.sender,
+              reviewerRole: WalletRole.traveler,
             ),
           ),
         ),
@@ -815,29 +840,7 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
       return actions;
     }
 
-    if (snap?.disputed ?? false) {
-      addAction(
-        AppButton(
-          label: 'View dispute',
-          variant: AppButtonVariant.danger,
-          onPressed: () => appNavigatePush(
-            disputeRoute(
-              shipment.id,
-              travelerView: widget.isTravelerView,
-            ),
-          ),
-        ),
-      );
-      return actions;
-    }
-
-    final canReportIssue = switch (status) {
-      ShipmentStatus.bidAccepted => true,
-      ShipmentStatus.photosUploaded => true,
-      ShipmentStatus.collected => true,
-      ShipmentStatus.inTransit => true,
-      _ => false,
-    };
+    final canReportIssue = DeliveryLifecycle.isDisputable(snap?.status);
 
     if (widget.isTravelerView && canReportIssue) {
       addAction(
@@ -906,11 +909,9 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
     BuildContext context,
     Shipment shipment,
   ) async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Traveler cancellation is not available in the app yet.'),
-        behavior: SnackBarBehavior.floating,
-      ),
+    AppToast.info(
+      context,
+      'Traveler cancellation is not available in the app yet.',
     );
   }
 
@@ -1132,7 +1133,7 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
       _listening = true;
       _status = useSimulate
           ? 'Confirming secure tap…'
-          : 'Hold both phones together…';
+          : 'Matching with the other phone…';
     });
 
     try {
@@ -1152,9 +1153,7 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
         _listening = false;
         _status = 'NFC failed. Tap below to retry or simulate.';
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('NFC error: $e')),
-      );
+      AppToast.error(context, 'NFC error: $e');
     }
   }
 
@@ -1232,9 +1231,7 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
     final shipmentId = widget.shipmentId;
     if (shipmentId == null || shipmentId.isEmpty) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Delivery ID is missing for NFC confirm.')),
-        );
+        AppToast.error(context, 'Delivery ID is missing for NFC confirm.');
       }
       setState(() => _listening = false);
       return;
@@ -1301,9 +1298,7 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
         return;
       }
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('NFC checkpoint failed: ${e.message}')),
-        );
+        AppToast.error(context, 'NFC checkpoint failed: ${e.message}');
       }
       setState(() {
         _confirmed = false;
@@ -1312,9 +1307,7 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
       return;
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('NFC checkpoint failed: $e')),
-        );
+        AppToast.error(context, 'NFC checkpoint failed: $e');
       }
       setState(() {
         _confirmed = false;
@@ -1336,8 +1329,8 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
             ? "Hold your phone near the receiver's phone to confirm delivery. Both of you must match NFC to mark Delivered and release escrow."
             : "Hold your phone near the traveler's phone to confirm delivery. Both of you must match NFC to mark Delivered.")
         : widget.isTraveler
-            ? "Hold your phone near the sender's phone to confirm handoff. Both of you must match NFC to mark Collected."
-            : "Hold your phone near the traveler's phone to confirm handoff. Both of you must match NFC to mark Collected.";
+            ? "Open this screen on the sender's phone too. When both of you confirm, the parcel becomes Collected."
+            : "Open this screen on the traveler's phone too. When both of you confirm, the parcel becomes Collected.";
 
     return Scaffold(
       body: Container(
@@ -1704,17 +1697,18 @@ class _DisputeFormScreenState extends State<DisputeFormScreen> {
 
   Future<void> _submit() async {
     FocusManager.instance.primaryFocus?.unfocus();
-    final category = _category ?? 'Damaged parcel';
+    final category = _category;
+    if (category == null) {
+      setState(() => _error = 'Select an issue type');
+      return;
+    }
     final description = _descriptionController.text.trim();
-    if (description.isNotEmpty && description.length < 10) {
+    if (description.length < 10) {
       setState(() => _error = 'Description must be at least 10 characters');
       return;
     }
-    final reason = description.isNotEmpty
-        ? '$category — $description'
-        : 'Parcel arrived damaged — screen cracked on electronics item. Photos submitted.';
+    final reason = '$category — $description';
 
-    final demoMode = context.read<DemoModeProvider>().enabled;
     try {
       final auth = context.read<AuthProvider>();
       final repo = FulfillmentRepository(apiClient: auth.repository.apiClient);
@@ -1724,9 +1718,7 @@ class _DisputeFormScreenState extends State<DisputeFormScreen> {
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not open dispute: $e')),
-        );
+        AppToast.error(context, 'Could not open dispute: $e');
       }
       return;
     }
@@ -1837,23 +1829,44 @@ class DisputeScreen extends StatefulWidget {
 }
 
 class _DisputeScreenState extends State<DisputeScreen> {
+  String? _reason;
+
   @override
   void initState() {
     super.initState();
+    _reason = widget.reason;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       context.read<WalletProvider>().refreshShipmentEscrow(widget.shipmentId);
+      _loadReason();
     });
+  }
+
+  Future<void> _loadReason() async {
+    if ((_reason ?? '').trim().isNotEmpty) return;
+    try {
+      final auth = context.read<AuthProvider>();
+      final repo = FulfillmentRepository(apiClient: auth.repository.apiClient);
+      final data = await repo.getOpenDispute(widget.shipmentId);
+      if (!mounted) return;
+      final dispute = data['dispute'];
+      final loaded = dispute is Map ? dispute['reason'] as String? : null;
+      if (loaded != null && loaded.trim().isNotEmpty) {
+        setState(() => _reason = loaded.trim());
+      }
+    } catch (_) {
+      // Keep submitted reason or empty fallback.
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final shipmentId = widget.shipmentId;
-    final reason = widget.reason;
     final typo = context.typo;
     final ctx = disputeContextFromUri(GoRouterState.of(context).uri);
-    final disputeReason = reason ??
-        'Parcel arrived damaged — screen cracked on electronics item. Photos submitted.';
+    final disputeReason = (_reason ?? '').trim().isNotEmpty
+        ? _reason!.trim()
+        : 'Your dispute is on file. The WWNGO team will review it.';
     return Scaffold(
       backgroundColor: AppColors.surface,
       appBar: BackHeader(

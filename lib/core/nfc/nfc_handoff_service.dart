@@ -9,8 +9,9 @@ import 'package:nfc_manager/nfc_manager_android.dart';
 class NfcHandoffService {
   NfcHandoffService._();
 
-  /// How long to wait for a physical NFC tag before timing out.
-  static const Duration defaultTimeout = Duration(seconds: 25);
+  /// How long to wait for a physical NFC tag before confirming via the server.
+  /// Phone-to-phone tap is not a readable tag, so this must stay short.
+  static const Duration defaultTimeout = Duration(milliseconds: 1500);
 
   /// Brief pause before a simulated tap (web / unsupported devices).
   /// Kept short so CP1/CP2 feel instant in Chrome and on devices without NFC.

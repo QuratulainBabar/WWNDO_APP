@@ -1,7 +1,22 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import '../layout/responsive.dart';
 import '../platform/platform_ui.dart';
 import '../theme/app_colors.dart';
+
+/// Enables mouse / trackpad drag so pull-to-refresh works on web & desktop.
+class _RefreshScrollBehavior extends MaterialScrollBehavior {
+  const _RefreshScrollBehavior();
+
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+        PointerDeviceKind.touch,
+        PointerDeviceKind.stylus,
+        PointerDeviceKind.invertedStylus,
+        PointerDeviceKind.trackpad,
+        PointerDeviceKind.mouse,
+      };
+}
 
 /// Scrollable screen body with responsive padding and platform scroll physics.
 ///
@@ -35,10 +50,14 @@ class ScreenBody extends StatelessWidget {
     final effectivePadding = context.pagePaddingWithKeyboard(padding);
     final canRefresh = onRefresh != null;
 
+    // Bouncing + always-scrollable so RefreshIndicator can overscroll on web /
+    // Android / short pages (Clamping alone often blocks the pull gesture).
+    final physics = canRefresh
+        ? const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics())
+        : PlatformUi.scrollPhysics;
+
     Widget body = SingleChildScrollView(
-      physics: canRefresh
-          ? AlwaysScrollableScrollPhysics(parent: PlatformUi.scrollPhysics)
-          : PlatformUi.scrollPhysics,
+      physics: physics,
       padding: effectivePadding,
       keyboardDismissBehavior: keyboardDismiss
           ? ScrollViewKeyboardDismissBehavior.onDrag
@@ -47,10 +66,14 @@ class ScreenBody extends StatelessWidget {
     );
 
     if (canRefresh) {
-      body = RefreshIndicator(
-        color: AppColors.primary,
-        onRefresh: onRefresh!,
-        child: body,
+      body = ScrollConfiguration(
+        behavior: const _RefreshScrollBehavior(),
+        child: RefreshIndicator(
+          color: AppColors.primary,
+          displacement: 48,
+          onRefresh: onRefresh!,
+          child: body,
+        ),
       );
     }
 

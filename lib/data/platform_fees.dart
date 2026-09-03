@@ -76,7 +76,7 @@ abstract final class PlatformFees {
       category: category,
       paysReceiverFee: paysReceiverFee,
     );
-    return fee > 0 ? fee : minWalletReceiverUsd;
+    return fee;
   }
 
   static double senderPlatformFeeForDelivery(CreatedDelivery delivery) {

@@ -57,9 +57,7 @@ class _BrowseBidsScreenState extends State<BrowseBidsScreen> {
   }
 
   void _showSnack(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
-    );
+    AppToast.success(context, message);
   }
 
   @override

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../core/config/demo_mode.dart';
+import '../core/widgets/app_toast.dart';
 import '../providers/wallet_provider.dart';
 import 'models/wallet_role.dart';
 import 'parcel_creation_wallet_validation.dart';
@@ -27,12 +28,7 @@ abstract final class WalletGate {
 
     if (WalletService.availableUsd(role) >= minimumUsd) return true;
     if (!context.mounted) return false;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    AppToast.error(context, message);
     return false;
   }
 
@@ -66,16 +62,13 @@ abstract final class WalletGate {
     required bool paysReceiverFee,
     double platformFeeUsd = 0,
   }) {
-    final minimum = platformFeeUsd > 0
-        ? platformFeeUsd
-        : PlatformFees.minWalletReceiverUsd;
+    final minimum = platformFeeUsd > 0 ? platformFeeUsd : 0.0;
+    if (minimum <= 0) return Future.value(true);
     return ensureMinimum(
       context,
       WalletRole.receiver,
       minimum,
-      platformFeeUsd > 0
-          ? 'You need at least \$${minimum.toStringAsFixed(2)} in your wallet to accept (includes platform fee).'
-          : 'You need at least \$${minimum.toStringAsFixed(2)} in your wallet to accept this request.',
+      'You need at least \$${minimum.toStringAsFixed(2)} in your wallet to accept (includes platform fee).',
     );
   }
 

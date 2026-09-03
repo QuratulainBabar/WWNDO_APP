@@ -5,6 +5,7 @@ import '../../../core/geo/world_airports.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_labeled_field.dart';
+import '../../../core/widgets/app_toast.dart';
 
 /// Searchable airport picker scoped to a selected country.
 class RouteAirportDropdown extends StatelessWidget {
@@ -26,12 +27,7 @@ class RouteAirportDropdown extends StatelessWidget {
   Future<void> _openPicker(BuildContext context) async {
     final iso = countryIso?.trim().toUpperCase();
     if (iso == null || iso.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Select a country first.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      AppToast.error(context, 'Select a country first.');
       return;
     }
 

@@ -21,6 +21,8 @@ import '../../providers/auth_provider.dart';
 import '../../providers/notification_realtime_provider.dart';
 import 'sender_delivery_status.dart';
 
+enum _ShipmentsTab { active, completed, cancelled }
+
 class MyPostedParcelsScreen extends StatefulWidget {
   const MyPostedParcelsScreen({
     super.key,
@@ -37,7 +39,7 @@ class MyPostedParcelsScreen extends StatefulWidget {
 
 class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen>
     with WidgetsBindingObserver {
-  bool _showActive = true;
+  _ShipmentsTab _tabFilter = _ShipmentsTab.active;
   bool _loading = true;
   String? _error;
   // Nullable so hot-reload on web cannot leave a non-null List field as JS undefined.
@@ -56,6 +58,8 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen>
       const [];
 
   List<CreatedDelivery> get _items => _deliveries ?? const <CreatedDelivery>[];
+
+  bool get _isActiveTab => _tabFilter == _ShipmentsTab.active;
 
   @override
   void initState() {
@@ -154,9 +158,13 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen>
 
   List<CreatedDelivery> get _visible {
     return _items.where((d) {
-      final active =
-          SenderDeliveryStatus.fromDelivery(d).isActive;
-      return _showActive ? active : !active;
+      final status = (d.status ?? '').trim().toLowerCase();
+      return switch (_tabFilter) {
+        _ShipmentsTab.active =>
+          status != 'delivered' && status != 'cancelled',
+        _ShipmentsTab.completed => status == 'delivered',
+        _ShipmentsTab.cancelled => status == 'cancelled',
+      };
     }).toList();
   }
 
@@ -291,9 +299,11 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen>
           children: [
             const SizedBox(height: 80),
             Text(
-              _showActive
-                  ? 'No active deliveries yet.'
-                  : 'No completed deliveries yet.',
+              switch (_tabFilter) {
+                _ShipmentsTab.active => 'No active deliveries yet.',
+                _ShipmentsTab.completed => 'No completed deliveries yet.',
+                _ShipmentsTab.cancelled => 'No cancelled deliveries yet.',
+              },
               textAlign: TextAlign.center,
               style: typo.sm.copyWith(color: AppColors.textSecondary),
             ),
@@ -320,7 +330,7 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen>
             ),
             travelerRequests: requests,
           );
-          final showMenu = _showActive && statusUi.canEditOrCancel;
+          final showMenu = _isActiveTab && statusUi.canEditOrCancel;
           final shipmentId =
               parcel.publicId.isNotEmpty ? parcel.publicId : parcel.id;
 
@@ -394,7 +404,7 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen>
                       ),
                   ],
                 ),
-                if (_showActive && statusUi.description != null) ...[
+                if (_isActiveTab && statusUi.description != null) ...[
                   const SizedBox(height: 10),
                   Text(
                     statusUi.description!,
@@ -403,7 +413,7 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen>
                     ),
                   ),
                 ],
-                if (_showActive && requests.isNotEmpty) ...[
+                if (_isActiveTab && requests.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   Text(
                     'Requested: ${requests.map((r) => r.travelerName).join(', ')}'
@@ -437,20 +447,32 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen>
           Container(
             width: double.infinity,
             padding: EdgeInsets.symmetric(horizontal: horizontal),
+            decoration: const BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: AppColors.border, width: 1),
+              ),
+            ),
             child: Row(
               children: [
                 _tab(
                   context,
                   'Active',
-                  _showActive,
-                  () => setState(() => _showActive = true),
+                  _tabFilter == _ShipmentsTab.active,
+                  () => setState(() => _tabFilter = _ShipmentsTab.active),
                 ),
                 const SizedBox(width: 28),
                 _tab(
                   context,
                   'Completed',
-                  !_showActive,
-                  () => setState(() => _showActive = false),
+                  _tabFilter == _ShipmentsTab.completed,
+                  () => setState(() => _tabFilter = _ShipmentsTab.completed),
+                ),
+                const SizedBox(width: 28),
+                _tab(
+                  context,
+                  'Cancelled',
+                  _tabFilter == _ShipmentsTab.cancelled,
+                  () => setState(() => _tabFilter = _ShipmentsTab.cancelled),
                 ),
               ],
             ),

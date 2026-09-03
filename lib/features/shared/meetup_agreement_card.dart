@@ -8,6 +8,7 @@ import '../../core/widgets/app_badge.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_chip.dart';
+import '../../core/widgets/app_toast.dart';
 import '../../data/services/platform_repository.dart';
 import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
@@ -112,9 +113,7 @@ class _MeetupAgreementCardState extends State<MeetupAgreementCard> {
       widget.onUpdated?.call();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not propose meetup: $e')),
-        );
+        AppToast.error(context, 'Could not propose meetup: $e');
       }
     } finally {
       if (mounted) setState(() => _acting = false);
@@ -134,34 +133,26 @@ class _MeetupAgreementCardState extends State<MeetupAgreementCard> {
         await _load();
         widget.onUpdated?.call();
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              fullyAgreed
-                  ? 'Meetup confirmed — ready for NFC handoff.'
-                  : 'Your confirmation was recorded. Waiting for the other party.',
-            ),
-          ),
+        AppToast.success(
+          context,
+          fullyAgreed
+              ? 'Meetup confirmed — ready for NFC handoff.'
+              : 'Your confirmation was recorded. Waiting for the other party.',
         );
         return;
       }
       await _load();
       widget.onUpdated?.call();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            _fullyAgreed
-                ? 'Meetup confirmed — ready for NFC handoff.'
-                : 'Your confirmation was recorded. Waiting for the other party.',
-          ),
-        ),
+      AppToast.success(
+        context,
+        _fullyAgreed
+            ? 'Meetup confirmed — ready for NFC handoff.'
+            : 'Your confirmation was recorded. Waiting for the other party.',
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not confirm meetup: $e')),
-        );
+        AppToast.error(context, 'Could not confirm meetup: $e');
       }
     } finally {
       if (mounted) setState(() => _acting = false);

@@ -6,6 +6,7 @@ import '../../core/api/api_exception.dart';
 import '../../core/config/demo_mode.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/app_button.dart';
+import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/back_header.dart';
 import '../../core/widgets/scrollable_form_screen.dart';
 import '../../data/models/created_delivery.dart';
@@ -93,16 +94,12 @@ class _PostDeliveryScreenState extends State<PostDeliveryScreen> {
       if (form != null && form.applyServerValidationMessage(e.message)) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message), behavior: SnackBarBehavior.floating),
-      );
+      AppToast.error(context, e.message);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString().replaceFirst('Exception: ', '')),
-          behavior: SnackBarBehavior.floating,
-        ),
+      AppToast.error(
+        context,
+        e.toString().replaceFirst('Exception: ', ''),
       );
     } finally {
       if (mounted) setState(() => _submitting = false);

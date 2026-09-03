@@ -8,6 +8,7 @@ import '../../../core/platform/platform_ui.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_labeled_field.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/captured_image_preview.dart';
 import '../../../core/widgets/image_source_sheet.dart';
 
@@ -107,12 +108,7 @@ class _ParcelPhotosSectionState extends State<ParcelPhotosSection> {
   }
 
   void _showSizeError() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Each image must be 10 MB or smaller.'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    AppToast.error(context, 'Each image must be 10 MB or smaller.');
   }
 
   void _removePhoto(int index) {

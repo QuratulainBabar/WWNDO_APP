@@ -9,7 +9,7 @@ class ApiConfig {
   static const String liveBaseUrl = 'https://wango.toolkitpro.cloud';
 
   /// Wi-Fi backend used for local testing.
-  static const String localBaseUrl = 'http://172.16.11.26:3000';
+  static const String localBaseUrl = 'http://192.168.1.9:3000';
 
   static const String _configuredBase = String.fromEnvironment(
     'API_BASE_URL',

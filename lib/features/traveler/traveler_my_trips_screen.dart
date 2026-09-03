@@ -27,17 +27,21 @@ class TravelerMyTripsScreen extends StatefulWidget {
 
 class _TravelerMyTripsScreenState extends State<TravelerMyTripsScreen>
     with WidgetsBindingObserver {
-  List<TravelerTrip> _trips = const [];
+  late List<TravelerTrip> _trips;
   _MyTripsTab _tabFilter = _MyTripsTab.active;
-  bool _loading = true;
+  late bool _loading;
   String? _error;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Paint cached trips immediately so Home → Trip / trip cards feel instant.
+    final cached = StaticData.travelerPostedTrips;
+    _trips = List<TravelerTrip>.from(cached);
+    _loading = cached.isEmpty;
     StaticData.travelerPostedTripsVersion.addListener(_onTripsChanged);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load(silent: cached.isNotEmpty));
   }
 
   @override

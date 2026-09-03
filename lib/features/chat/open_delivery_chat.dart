@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/config/demo_mode.dart';
+import '../../core/widgets/app_toast.dart';
 import '../../data/services/chat_repository.dart';
 import '../../providers/auth_provider.dart';
 
@@ -57,11 +58,6 @@ Future<void> openDeliveryChat(
     // No thread to open yet. Do NOT navigate to [chatBasePath] here — for a
     // cross-role chat (e.g. traveler -> receiver) that inbox lives in another
     // tab shell and would leave the user on the wrong home when they go back.
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('This chat isn’t available yet.'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    AppToast.info(context, 'This chat isn’t available yet.');
   }
 }

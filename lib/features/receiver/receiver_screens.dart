@@ -15,11 +15,13 @@ import '../../core/widgets/app_badge.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_svg_icon.dart';
+import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/back_header.dart';
 import '../../core/widgets/back_link.dart';
 import '../../core/widgets/role_switch_card.dart';
 import '../../core/widgets/screen_body.dart';
 import '../../core/widgets/star_rating_display.dart';
+import '../../data/delivery_lifecycle.dart';
 import '../../data/models/created_delivery.dart';
 import '../../data/models/profile_trust_metrics.dart';
 import '../../data/models/delivery_tracking.dart';
@@ -894,16 +896,12 @@ class _ReceiverChatScreenState extends State<ReceiverChatScreen>
       if (!mounted) return;
       removeOptimisticMessage(tempId);
       chatController.text = text;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message)),
-      );
+      AppToast.error(context, e.message);
     } catch (_) {
       if (!mounted) return;
       removeOptimisticMessage(tempId);
       chatController.text = text;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to send message.')),
-      );
+      AppToast.error(context, 'Unable to send message.');
     }
   }
 
@@ -1168,7 +1166,8 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen> {
         status == 'in_transit' ||
         status == 'delivered';
     final canConfirmNfcCp2 =
-        status == 'in_transit' || status == 'collected';
+        !delivery.disputed &&
+        (status == 'in_transit' || status == 'collected');
     // A traveler is only reachable for chat once one has been matched to the
     // parcel. Right after the receiver accepts, none is assigned yet.
     final hasTraveler = (delivery.travelerId?.trim().isNotEmpty ?? false) ||
@@ -1316,6 +1315,25 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen> {
                     ),
                     onPressed: null,
                   ),
+                if (delivery.disputed || status == 'disputed') ...[
+                  const SizedBox(height: AppButton.stackGap),
+                  AppButton(
+                    label: 'View dispute',
+                    variant: AppButtonVariant.danger,
+                    onPressed: () => appNavigatePush(
+                      disputeRoute(delivery.displayId, role: 'receiver'),
+                    ),
+                  ),
+                ] else if (DeliveryLifecycle.isReceiverDisputable(status)) ...[
+                  const SizedBox(height: AppButton.stackGap),
+                  AppButton(
+                    label: 'Dispute',
+                    variant: AppButtonVariant.danger,
+                    onPressed: () => appNavigatePush(
+                      disputeFormRoute(delivery.displayId, role: 'receiver'),
+                    ),
+                  ),
+                ],
                 if (status == 'delivered') ...[
                   const SizedBox(height: AppButton.stackGap),
                   AppButton(

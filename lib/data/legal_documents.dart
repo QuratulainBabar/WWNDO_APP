@@ -12,7 +12,7 @@ class LegalSection {
 }
 
 abstract final class LegalDocuments {
-  static const lastUpdated = 'September 1, 2026';
+  static const lastUpdated = 'September 4, 2026';
 
   static const termsTitle = 'Terms & Conditions';
   static const privacyTitle = 'Privacy Policy';

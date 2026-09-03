@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
 import '../../core/auth/kyc_verification_guard.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
@@ -9,7 +8,10 @@ import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_svg_icon.dart';
 import '../../core/widgets/back_link.dart';
 import '../../core/widgets/screen_body.dart';
+import '../../data/models/wallet_role.dart';
+import '../../data/platform_fees.dart';
 import '../../data/wallet_gate.dart';
+import '../../data/wallet_service.dart';
 
 enum _TripType { cityToCity, countryToCountry }
 
@@ -24,9 +26,19 @@ class _TripTypeSelectionScreenState extends State<TripTypeSelectionScreen> {
   _TripType? _selectedType;
 
   Future<void> _continue() async {
-    if (!await WalletGate.ensureTravelerTripCreation(context)) return;
-    if (!mounted) return;
+    if (_selectedType == null) return;
     if (!KycVerificationGuard.ensureKycApproved(context)) return;
+
+    // Prefer cached balance so navigation is instant; only hit the network
+    // when the local wallet is short of the $3 trip minimum.
+    final cachedOk =
+        WalletService.availableUsd(WalletRole.traveler) >=
+        PlatformFees.minWalletTravelerUsd;
+    if (!cachedOk) {
+      if (!await WalletGate.ensureTravelerTripCreation(context)) return;
+      if (!mounted) return;
+    }
+
     switch (_selectedType) {
       case _TripType.cityToCity:
         context.push('/post-trip');

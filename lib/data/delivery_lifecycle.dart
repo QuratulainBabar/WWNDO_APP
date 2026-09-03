@@ -15,6 +15,30 @@ abstract final class DeliveryLifecycle {
     'collected',
   };
 
+  /// Booked deliveries where a dispute may be opened (escrow / parcel at risk).
+  static const disputableStatuses = {
+    'bid_accepted',
+    'matched',
+    'ready_for_handoff',
+    'collected',
+    'in_transit',
+    'delivered',
+  };
+
+  /// Receiver may dispute only after the parcel is with the traveler (or delivered).
+  static const receiverDisputableStatuses = {
+    'collected',
+    'in_transit',
+    'delivered',
+  };
+
+  static bool isDisputable(String? status) =>
+      status != null && disputableStatuses.contains(status.trim().toLowerCase());
+
+  static bool isReceiverDisputable(String? status) =>
+      status != null &&
+      receiverDisputableStatuses.contains(status.trim().toLowerCase());
+
   static bool isSenderCancellable(String? status) =>
       status != null &&
       (openCancellableStatuses.contains(status) ||

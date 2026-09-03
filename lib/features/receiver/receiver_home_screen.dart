@@ -172,10 +172,23 @@ class _ReceiverHomeScreenState extends State<ReceiverHomeScreen>
   }
 
   Future<void> _onPullRefresh() async {
+    final auth = context.read<AuthProvider>();
+    final demoMode = context.read<DemoModeProvider>();
+    final realtime = context.read<NotificationRealtimeProvider>();
     await Future.wait([
-      context.read<AuthProvider>().refreshUser(),
+      auth.refreshUser(),
       _load(silent: true),
       context.read<WalletProvider>().refresh(WalletRole.receiver, silent: true),
+      realtime.refreshUnread(
+        role: WalletRole.receiver,
+        authRepository: auth.repository,
+        demoMode: demoMode,
+      ),
+      realtime.refreshChatUnread(
+        authRepository: auth.repository,
+        demoMode: demoMode,
+        threadType: WalletRole.receiver.chatInboxThreadType,
+      ),
     ]);
   }
 

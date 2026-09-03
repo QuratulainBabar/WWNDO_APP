@@ -1,5 +1,4 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -43,30 +42,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
   late PhoneCountry _phoneCountry =
       PhoneCountries.byIso(StaticData.currentUser.countryCode);
   bool _acceptedTerms = false;
-  late final TapGestureRecognizer _termsTap;
-  late final TapGestureRecognizer _privacyTap;
-
-  @override
-  void initState() {
-    super.initState();
-    _termsTap = TapGestureRecognizer()
-      ..onTap = () => showLegalDocumentDialog(
-            context: context,
-            title: LegalDocuments.termsTitle,
-            sections: LegalDocuments.termsSections,
-          );
-    _privacyTap = TapGestureRecognizer()
-      ..onTap = () => showLegalDocumentDialog(
-            context: context,
-            title: LegalDocuments.privacyTitle,
-            sections: LegalDocuments.privacySections,
-          );
-  }
 
   @override
   void dispose() {
-    _termsTap.dispose();
-    _privacyTap.dispose();
     _nameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
@@ -235,11 +213,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
       decorationColor: AppColors.primary,
     );
 
+    Widget link(String label, VoidCallback onTap) {
+      return GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Text(label, style: linkStyle),
+      );
+    }
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         GestureDetector(
           onTap: () => setState(() => _acceptedTerms = !_acceptedTerms),
+          behavior: HitTestBehavior.opaque,
           child: Container(
             width: 24,
             height: 24,
@@ -257,24 +244,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
         const SizedBox(width: 10),
         Expanded(
-          child: Text.rich(
-            TextSpan(
-              style: termsStyle,
-              children: [
-                const TextSpan(text: 'I agree to the '),
-                TextSpan(
-                  text: 'Terms',
-                  style: linkStyle,
-                  recognizer: _termsTap,
+          child: Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              GestureDetector(
+                onTap: () => setState(() => _acceptedTerms = !_acceptedTerms),
+                behavior: HitTestBehavior.opaque,
+                child: Text('I agree to the ', style: termsStyle),
+              ),
+              link(
+                'Terms',
+                () => showLegalDocumentDialog(
+                  context: context,
+                  title: LegalDocuments.termsTitle,
+                  sections: LegalDocuments.termsSections,
                 ),
-                const TextSpan(text: ' and '),
-                TextSpan(
-                  text: 'Privacy Policy',
-                  style: linkStyle,
-                  recognizer: _privacyTap,
+              ),
+              Text(' and ', style: termsStyle),
+              link(
+                'Privacy Policy',
+                () => showLegalDocumentDialog(
+                  context: context,
+                  title: LegalDocuments.privacyTitle,
+                  sections: LegalDocuments.privacySections,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ],

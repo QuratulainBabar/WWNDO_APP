@@ -6,6 +6,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_card.dart';
+import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/back_header.dart';
 import '../../core/widgets/captured_image_preview.dart';
 import '../../core/widgets/scrollable_form_screen.dart';
@@ -170,9 +171,7 @@ class _KycDocumentCaptureScreenState extends State<KycDocumentCaptureScreen> {
       );
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not capture image: $error')),
-      );
+      AppToast.error(context, 'Could not capture image: $error');
     } finally {
       if (mounted) setState(() => _picking = false);
     }

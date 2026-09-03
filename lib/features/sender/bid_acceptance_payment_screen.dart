@@ -269,17 +269,11 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
     });
   }
 
-  Future<void> _selectStripe() async {
+  void _selectStripe() {
     if (_paying || _paid || !_stripeEnabled) return;
     setState(() {
       _paymentMethod = _BidPaymentMethod.stripe;
-      _paying = true;
     });
-    try {
-      await _collectStripeCard();
-    } finally {
-      if (mounted) setState(() => _paying = false);
-    }
   }
 
   Future<void> _collectStripeCard() async {
@@ -607,8 +601,8 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
             Text(
               selectedMethod == _BidPaymentMethod.wallet
                   ? 'The total is deducted from your sender wallet. Booking is not created if balance is insufficient.'
-                  : 'Selecting Pay with card opens Stripe so you can choose a saved card or enter number, expiry, and CVC. '
-                      'Then tap Pay Now. If wallet balance is short, Stripe collects the difference, then escrow is funded from wallet. '
+                  : 'Tap Pay Now to open Stripe, enter or choose your card, and complete payment. '
+                      'If wallet balance is short, Stripe collects the difference, then escrow is funded from wallet. '
                       'Your sender platform fee is collected now; the traveler pays at NFC handoff.',
               style: context.typo.sm.copyWith(
                 color: AppColors.textSecondary,

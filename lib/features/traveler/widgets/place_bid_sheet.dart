@@ -5,6 +5,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_labeled_field.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../../../data/models/delivery_request.dart';
 
 /// Bottom sheet for placing a traveler bid on a parcel request.
@@ -45,12 +46,7 @@ class _PlaceBidSheetState extends State<PlaceBidSheet> {
   void _submit() {
     final price = double.tryParse(_priceController.text.trim());
     if (price == null || price <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Enter a valid bid amount.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      AppToast.error(context, 'Enter a valid bid amount.');
       return;
     }
 

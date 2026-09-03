@@ -333,8 +333,8 @@ class _MyTripsSection extends StatefulWidget {
 }
 
 class _MyTripsSectionState extends State<_MyTripsSection> {
-  List<TravelerTrip> _trips = const [];
-  bool _loading = true;
+  late List<TravelerTrip> _trips;
+  late bool _loading;
   String? _error;
 
   List<TravelerTrip> _homeTrips(List<TravelerTrip> trips) =>
@@ -343,8 +343,13 @@ class _MyTripsSectionState extends State<_MyTripsSection> {
   @override
   void initState() {
     super.initState();
+    final cached = _homeTrips(StaticData.travelerPostedTrips);
+    _trips = cached;
+    _loading = cached.isEmpty;
     StaticData.travelerPostedTripsVersion.addListener(_onTripsChanged);
-    WidgetsBinding.instance.addPostFrameCallback((_) => reload());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => reload(silent: cached.isNotEmpty),
+    );
   }
 
   @override
@@ -540,7 +545,7 @@ class _TripCard extends StatelessWidget {
             children: [
               Expanded(
                 child: GestureDetector(
-                  onTap: () => context.push('/traveler-trips'),
+                  onTap: () => context.go('/traveler-trips'),
                   child: Text(
                     trip.route,
                     style: typo.h3.copyWith(fontWeight: FontWeight.w800),

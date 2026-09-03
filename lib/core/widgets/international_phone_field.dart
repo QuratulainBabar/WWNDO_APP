@@ -193,9 +193,7 @@ class _PhoneInputRowState extends State<_PhoneInputRow> {
               style: widget.fieldInputStyle,
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp(r'[\d\s]')),
-                PhoneDigitLimiter(
-                  PhoneCountries.nationalDigitRange(widget.country.iso).max,
-                ),
+                PhoneNationalAsYouTypeFormatter(widget.country),
               ],
               decoration: InputDecoration(
                 hintText: widget.hintText,

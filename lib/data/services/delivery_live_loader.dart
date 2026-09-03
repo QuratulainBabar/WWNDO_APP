@@ -78,7 +78,7 @@ abstract final class DeliveryLiveLoader {
           c['checkpoint'] == 'delivery_traveler_receiver' &&
           c['confirmedAt'] != null,
     );
-    final disputed = status == 'disputed';
+    final disputed = status == 'disputed' || delivery.disputed;
     final deliveryForTracking = CreatedDelivery(
       id: delivery.id,
       publicId: delivery.publicId,
@@ -102,6 +102,7 @@ abstract final class DeliveryLiveLoader {
       receiverName: delivery.receiverName,
       bidAmount: delivery.bidAmount,
       receiverAcceptedAt: delivery.receiverAcceptedAt,
+      disputed: disputed,
     );
 
     return DeliveryLiveSnapshot(

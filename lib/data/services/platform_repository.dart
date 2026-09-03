@@ -138,4 +138,12 @@ class PlatformRepository {
     );
     return Map<String, dynamic>.from(res);
   }
+
+  Future<Map<String, dynamic>> getOpenDispute(String deliveryId) async {
+    final res = await _api.get(
+      '/deliveries/$deliveryId/dispute',
+      authenticated: true,
+    );
+    return Map<String, dynamic>.from(res);
+  }
 }

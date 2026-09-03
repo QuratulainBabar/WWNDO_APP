@@ -7,6 +7,7 @@ import '../../core/layout/responsive.dart';
 import '../../core/platform/platform_ui.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
+import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/back_header.dart';
 import '../../data/models/chat_message.dart';
 import '../../data/models/wallet_role.dart';
@@ -176,16 +177,12 @@ class _SenderChatScreenState extends State<SenderChatScreen>
       if (!mounted) return;
       removeOptimisticMessage(tempId);
       chatController.text = text;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message)),
-      );
+      AppToast.error(context, e.message);
     } catch (_) {
       if (!mounted) return;
       removeOptimisticMessage(tempId);
       chatController.text = text;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to send message.')),
-      );
+      AppToast.error(context, 'Unable to send message.');
     }
   }
 

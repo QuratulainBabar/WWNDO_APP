@@ -17,8 +17,10 @@ import '../../core/widgets/back_header.dart';
 import '../../core/widgets/back_link.dart';
 import '../../core/widgets/captured_image_preview.dart';
 import '../../core/widgets/international_phone_field.dart';
+import '../../core/widgets/legal_document_dialog.dart';
 import '../../core/widgets/scrollable_form_screen.dart';
 import '../../core/widgets/screen_body.dart';
+import '../../data/legal_documents.dart';
 import '../../data/models/wallet_role.dart';
 import '../../data/profile_demo_store.dart';
 import '../../data/static_data.dart';
@@ -616,25 +618,36 @@ class TermsPrivacyScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('WWNGO Terms of Service', style: typo.h2),
-            const SizedBox(height: 12),
+            Text('Legal documents', style: typo.h2),
+            const SizedBox(height: 8),
             Text(
-              'By using WWNGO you agree to send and carry parcels responsibly, provide accurate identity information, and follow local customs regulations.',
+              'WWNGO is a peer-to-peer marketplace for Senders, Travelers, and Receivers. '
+              'Review the full Terms and Privacy Policy before you use the Platform.',
               style: typo.sm.copyWith(height: 1.6),
             ),
             const SizedBox(height: 20),
-            Text('Privacy Policy', style: typo.h3),
-            const SizedBox(height: 8),
-            Text(
-              'We collect account, identity verification, and shipment data to operate the marketplace securely. Your documents are processed by our verification partner and encrypted in transit.',
-              style: typo.sm.copyWith(height: 1.6),
+            AppButton(
+              label: 'View Terms & Conditions',
+              onPressed: () => showLegalDocumentDialog(
+                context: context,
+                title: LegalDocuments.termsTitle,
+                sections: LegalDocuments.termsSections,
+              ),
+            ),
+            const SizedBox(height: AppButton.stackGap),
+            AppButton(
+              label: 'View Privacy Policy',
+              variant: AppButtonVariant.outline,
+              onPressed: () => showLegalDocumentDialog(
+                context: context,
+                title: LegalDocuments.privacyTitle,
+                sections: LegalDocuments.privacySections,
+              ),
             ),
             const SizedBox(height: 20),
-            Text('Zero tolerance policy', style: typo.h3),
-            const SizedBox(height: 8),
             Text(
-              'Fraud, misrepresentation, or prohibited items result in immediate account suspension and escrow review.',
-              style: typo.sm.copyWith(height: 1.6),
+              'Last updated ${LegalDocuments.lastUpdated}',
+              style: typo.sm.copyWith(color: AppColors.textSecondary),
             ),
           ],
         ),

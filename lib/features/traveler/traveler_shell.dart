@@ -199,7 +199,12 @@ class _Tab extends StatelessWidget {
 
     return Expanded(
       child: InkWell(
-        onTap: () => navigationShell.goBranch(index, initialLocation: true),
+        onTap: () => navigationShell.goBranch(
+          index,
+          // Stay on current page when re-tapping the active tab.
+          // When switching tabs, keep the branch state so My Trips opens instantly.
+          initialLocation: index == navigationShell.currentIndex,
+        ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [

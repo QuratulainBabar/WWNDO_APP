@@ -457,23 +457,46 @@ abstract final class PhoneCountries {
     'SC': (min: 7, max: 7),
   };
 
-  /// Caps [national] to the country's maximum digit count (keeps spaces).
+  /// Caps [national] to the country's maximum digit count and applies local
+  /// spacing from [nationalExample] (as-you-type friendly).
   static String clampNational(String national, PhoneCountry country) {
+    return formatNationalAsYouType(national, country);
+  }
+
+  /// Inserts spaces while typing using the country's example grouping.
+  /// Example FR `6 12 34 56 78` → typing `612345678` becomes `6 12 34 56 78`.
+  static String formatNationalAsYouType(String input, PhoneCountry country) {
+    final digitsOnly = input.replaceAll(RegExp(r'\D'), '');
     final max = nationalDigitRange(country.iso).max;
+    final digits =
+        digitsOnly.length > max ? digitsOnly.substring(0, max) : digitsOnly;
+    if (digits.isEmpty) return '';
+
+    final pattern = nationalExample(country.iso);
     final out = StringBuffer();
-    var digits = 0;
-    for (final rune in national.runes) {
-      final ch = String.fromCharCode(rune);
+    var di = 0;
+
+    for (var i = 0; i < pattern.length && di < digits.length; i++) {
+      final ch = pattern[i];
       if (ch == ' ') {
-        out.write(ch);
+        if (out.isNotEmpty && di < digits.length) {
+          out.write(' ');
+        }
         continue;
       }
       if (ch.codeUnitAt(0) >= 48 && ch.codeUnitAt(0) <= 57) {
-        if (digits >= max) continue;
-        out.write(ch);
-        digits++;
+        out.write(digits[di]);
+        di++;
       }
     }
+
+    if (di < digits.length) {
+      if (out.isNotEmpty && !out.toString().endsWith(' ')) {
+        out.write(' ');
+      }
+      out.write(digits.substring(di));
+    }
+
     return out.toString();
   }
 

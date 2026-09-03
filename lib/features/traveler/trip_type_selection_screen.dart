@@ -9,6 +9,7 @@ import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_svg_icon.dart';
 import '../../core/widgets/back_link.dart';
 import '../../core/widgets/screen_body.dart';
+import '../../data/wallet_gate.dart';
 
 enum _TripType { cityToCity, countryToCountry }
 
@@ -22,7 +23,9 @@ class TripTypeSelectionScreen extends StatefulWidget {
 class _TripTypeSelectionScreenState extends State<TripTypeSelectionScreen> {
   _TripType? _selectedType;
 
-  void _continue() {
+  Future<void> _continue() async {
+    if (!await WalletGate.ensureTravelerTripCreation(context)) return;
+    if (!mounted) return;
     if (!KycVerificationGuard.ensureKycApproved(context)) return;
     switch (_selectedType) {
       case _TripType.cityToCity:

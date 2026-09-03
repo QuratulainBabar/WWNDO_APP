@@ -60,17 +60,32 @@ abstract final class MeetupLocationMatch {
   /// True when [meetup] is in the same city/metro as [origin] (airport or city).
   ///
   /// Prefers coordinates when both pins have them, then locality / airport
-  /// catalog city, then label overlap. Never treats "same country" as enough.
+  /// catalog city, then label overlap. Same-country is enough only when
+  /// [sameCountrySufficient] is true (country-to-country routes).
   static bool placesInSameArea({
     required MeetupLocation meetup,
     required MeetupLocation origin,
     String? originCityHint,
     String? originCountryCode,
+    bool sameCountrySufficient = false,
   }) {
-    final originCc = _realIso(originCountryCode) ?? _realIso(origin.countryCode);
-    final meetupCc = _realIso(meetup.countryCode);
+    final originCc = _realIso(originCountryCode) ??
+        _realIso(origin.countryCode) ??
+        inferCountryCodeFromLabel(
+          '${origin.name} ${origin.address} ${origin.locality ?? ''} ${originCityHint ?? ''}',
+        );
+    final meetupCc = _realIso(meetup.countryCode) ??
+        inferCountryCodeFromLabel(
+          '${meetup.name} ${meetup.address} ${meetup.locality ?? ''}',
+        );
     if (originCc != null && meetupCc != null && originCc != meetupCc) {
       return false;
+    }
+    if (sameCountrySufficient &&
+        originCc != null &&
+        meetupCc != null &&
+        originCc == meetupCc) {
+      return true;
     }
 
     final originLat = origin.latitude;
@@ -96,6 +111,7 @@ abstract final class MeetupLocationMatch {
       originCity,
       routeCountryCode: originCc,
       meetupCountryCode: meetupCc,
+      sameCountrySufficient: sameCountrySufficient,
     );
   }
 
@@ -105,15 +121,24 @@ abstract final class MeetupLocationMatch {
     String routeLabel, {
     String? routeCountryCode,
     String? meetupCountryCode,
+    bool sameCountrySufficient = false,
   }) {
     final label = meetupLabel.trim().toLowerCase();
     final route = routeLabel.trim().toLowerCase();
     if (label.isEmpty || route.isEmpty) return false;
 
-    final routeCc = _realIso(routeCountryCode);
-    final meetupCc = _realIso(meetupCountryCode);
+    final routeCc = _realIso(routeCountryCode) ??
+        inferCountryCodeFromLabel(routeLabel);
+    final meetupCc = _realIso(meetupCountryCode) ??
+        inferCountryCodeFromLabel(meetupLabel);
     if (routeCc != null && meetupCc != null && routeCc != meetupCc) {
       return false;
+    }
+    if (sameCountrySufficient &&
+        routeCc != null &&
+        meetupCc != null &&
+        routeCc == meetupCc) {
+      return true;
     }
 
     final routeCity = _cityFromRouteLabel(routeLabel);
@@ -232,6 +257,34 @@ abstract final class MeetupLocationMatch {
     if (c == null || c.length != 2 || c == 'XX') return null;
     if (!WorldCountries.containsIso(c)) return null;
     return c;
+  }
+
+  /// Best-effort ISO country from a place label (airport catalog, country name, city).
+  static String? inferCountryCodeFromLabel(String label) {
+    final hay = label.trim();
+    if (hay.isEmpty) return null;
+
+    final airport = WorldAirports.matchFromLabel(hay);
+    if (airport != null) return airport.countryIso;
+
+    final lower = hay.toLowerCase();
+    WorldCountry? bestCountry;
+    for (final country in WorldCountries.all) {
+      final name = country.name.toLowerCase();
+      if (name.length < 4) continue;
+      final pattern = RegExp('\\b${RegExp.escape(name)}\\b');
+      if (!pattern.hasMatch(lower)) continue;
+      if (bestCountry == null || country.name.length > bestCountry.name.length) {
+        bestCountry = country;
+      }
+    }
+    if (bestCountry != null) return bestCountry.iso;
+
+    for (final part in hay.split(RegExp(r'[,;|]'))) {
+      final city = WorldCities.byName(part.trim());
+      if (city != null) return city.countryIso;
+    }
+    return null;
   }
 
   static List<String> _tokens(String input) {

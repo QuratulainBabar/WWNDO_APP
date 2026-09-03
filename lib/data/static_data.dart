@@ -26,6 +26,7 @@ import 'models/verified_recipient.dart';
 import 'models/parcel_creation_result.dart';
 import 'models/profile_trust_metrics.dart';
 import 'models/security_log_entry.dart';
+import 'platform_fees.dart';
 
 /// Static data repository — replace with API layer later.
 abstract final class StaticData {
@@ -251,6 +252,9 @@ abstract final class StaticData {
     final selected =
         selectedMatchingTravelerByShipmentId.putIfAbsent(shipmentId, () => []);
     if (!selected.any((b) => b.id == bid.id)) {
+      if (selected.length >= PlatformFees.maxTravelerRequestsPerDelivery) {
+        return;
+      }
       selected.add(bid);
     }
     receiverAcceptedShipmentIds.add(shipmentId);

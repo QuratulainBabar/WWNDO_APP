@@ -4,8 +4,11 @@ import 'models/created_delivery.dart';
 abstract final class PlatformFees {
   static const double minWalletSenderUsd = 2.0;
   static const double minWalletReceiverUsd = 2.0;
-  static const double minWalletTravelerUsd = 2.0;
+  static const double minWalletTravelerUsd = 3.0;
   static const int maxTravelerRequestsPerDelivery = 2;
+
+  static String get travelerRequestLimitMessage =>
+      'You can request at most $maxTravelerRequestsPerDelivery travelers for this parcel.';
 
   static bool isDocumentCategory(String? category) =>
       (category ?? '').trim().toLowerCase() == 'documents';

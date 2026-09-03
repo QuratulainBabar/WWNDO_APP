@@ -426,6 +426,7 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
                   originCity: deliveryAirportCity(_fromAirport!),
                   originCountryCode: deliveryCodeFromPlace(_fromAirport!),
                   originPlace: _fromAirport,
+                  sameCountrySufficient: true,
                 ));
       _receiverMeetupError = _receiverMeetupLocations.isEmpty
           ? 'Select a meetup location.'
@@ -436,6 +437,7 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
                   destinationCity: deliveryAirportCity(_toAirport!),
                   destinationCountryCode: deliveryCodeFromPlace(_toAirport!),
                   destinationPlace: _toAirport,
+                  sameCountrySufficient: true,
                 ));
       _budgetError = _maxBudget <= 0 ? 'Enter a valid maximum budget.' : null;
       _weightError =
@@ -500,6 +502,8 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
         destinationAirport: to.displayLabel,
         originCity: deliveryAirportCity(from),
         destinationCity: deliveryAirportCity(to),
+        fromCode: deliveryCodeFromPlace(from),
+        toCode: deliveryCodeFromPlace(to),
         platformFee: common.platformFee,
         platformFeeShare: common.platformFeeShare,
         paysReceiverFee: common.paysReceiverFee,
@@ -804,7 +808,6 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
           ),
           const SizedBox(height: 12),
           PlatformFeeSection(
-            parcelCategory: _category,
             onChanged: (pays) => setState(() => _paysReceiverFee = pays),
           ),
         ],

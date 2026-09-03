@@ -164,7 +164,6 @@ class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
                       Text(
                         'Hey, $firstName 👋',
                         style: typo.h1,
-                        overflow: TextOverflow.ellipsis,
                       ),
                       Text(
                         SelectedRoleStore.homeRatingSubtitle(

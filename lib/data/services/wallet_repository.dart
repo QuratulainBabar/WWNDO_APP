@@ -165,6 +165,14 @@ class WalletRepository {
     }
 
     final data = await topUpRaw(role: role, amountCents: amountCents);
+    if (data['mock'] == true && data['requiresPayment'] != true) {
+      throw const ApiException(
+        message:
+            'Stripe Payment Sheet was skipped. Configure STRIPE_SECRET_KEY on the server.',
+        code: 'STRIPE_NOT_CONFIGURED',
+        statusCode: 503,
+      );
+    }
     if (data['requiresPayment'] == true) {
       throw ApiException(
         message: 'Card payment required to complete top-up.',
@@ -235,7 +243,7 @@ class WalletRepository {
   }
 
   /// POST /api/v1/wallet/connect/onboard
-  Future<Map<String, dynamic>> startConnectOnboarding() async {
+  Future<Map<String, dynamic>> startConnectOnboarding({String? role}) async {
     if (_isDemoMode) {
       throw const ApiException(
         message: 'Stripe Connect is unavailable in demo mode.',
@@ -244,7 +252,10 @@ class WalletRepository {
     }
     return _apiClient.post(
       '/wallet/connect/onboard',
-      body: const {'returnPath': '/wallet'},
+      body: {
+        'returnPath': '/connect/return',
+        if (role != null && role.isNotEmpty) 'role': role,
+      },
       authenticated: true,
     );
   }

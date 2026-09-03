@@ -1,13 +1,20 @@
 /// API base URL for the WWNGO backend.
 ///
-/// Default is the hosted API. Override locally with:
-/// `flutter run --dart-define=API_BASE_URL=http://<ip>:3000`
+/// Default is the local Wi-Fi API. Hosted `wango.toolkitpro.cloud` is never
+/// used as the REST origin (a stale dart-define can otherwise send login to
+/// the hosted DB and return "Invalid email or password"). Override with
+/// another LAN host: `flutter run --dart-define=API_BASE_URL=http://<ip>:3000`
 class ApiConfig {
   ApiConfig._();
 
+  /// Wi-Fi backend used for local testing.
+  static const String localBaseUrl = 'http://172.16.11.26:3000';
+
+  static const String _hostedOriginHost = 'wango.toolkitpro.cloud';
+
   static const String _configuredBase = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://192.168.1.39:3000',
+    defaultValue: localBaseUrl,
   );
 
   static const String _configuredWebsite = String.fromEnvironment(
@@ -15,11 +22,19 @@ class ApiConfig {
     defaultValue: 'https://wango.toolkitpro.cloud',
   );
 
-  /// Hosted / configured API origin (no trailing slash).
+  /// REST / Socket.io origin (no trailing slash). Always the local API unless
+  /// a non-hosted `API_BASE_URL` dart-define is provided.
   static String get baseUrl {
-    final raw = _configuredBase.trim();
+    var raw = _configuredBase.trim();
+    if (raw.isEmpty || _isHostedApiOrigin(raw)) {
+      raw = localBaseUrl;
+    }
     if (raw.endsWith('/')) return raw.substring(0, raw.length - 1);
     return raw;
+  }
+
+  static bool _isHostedApiOrigin(String url) {
+    return url.toLowerCase().contains(_hostedOriginHost);
   }
 
   /// Optional Stripe publishable key from build defines.

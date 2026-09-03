@@ -34,6 +34,7 @@ class BidAcceptanceContext {
     this.offerId,
     this.parcelCategory = 'documents',
     this.paysReceiverFee = false,
+    this.activeRequestCount,
   });
 
   final Bid bid;
@@ -41,6 +42,14 @@ class BidAcceptanceContext {
   final String? offerId;
   final String parcelCategory;
   final bool paysReceiverFee;
+
+  /// Active traveler requests for this parcel after the latest send (1 or 2).
+  final int? activeRequestCount;
+
+  bool get canRequestAnotherTraveler {
+    final count = activeRequestCount ?? 1;
+    return count < PlatformFees.maxTravelerRequestsPerDelivery;
+  }
 }
 
 class BidAcceptancePaymentScreen extends StatefulWidget {
@@ -55,9 +64,14 @@ class BidAcceptancePaymentScreen extends StatefulWidget {
 
 class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen> {
   bool _paying = false;
+  bool _paid = false;
   bool _loading = true;
   bool _walletLoading = true;
   bool _stripeEnabled = false;
+  bool _backendStripeEnabled = false;
+  bool _stripeMethodCollected = false;
+  String? _stripeClientSecret;
+  String? _stripePaymentIntentId;
   CreatedDelivery? _delivery;
   String? _error;
   _BidPaymentMethod? _paymentMethod;
@@ -84,6 +98,11 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
         demoMode: context.read<DemoModeProvider>(),
       );
       await StripePayments.ensureConfigured(walletRepo);
+      var backendStripeEnabled = false;
+      try {
+        final config = await walletRepo.fetchPaymentsConfig();
+        backendStripeEnabled = config['stripeEnabled'] == true;
+      } catch (_) {}
       final stripeEnabled = StripePayments.isEnabled;
       int availableCents = 0;
       try {
@@ -101,6 +120,7 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
       setState(() {
         _walletAvailableCents = availableCents;
         _stripeEnabled = stripeEnabled;
+        _backendStripeEnabled = backendStripeEnabled;
         _walletLoading = false;
       });
       _applyDefaultPaymentMethod();
@@ -219,8 +239,105 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
     }
   }
 
+  int _currentTotalCents() {
+    final acceptance = widget.acceptance;
+    final delivery = _delivery;
+    final category = delivery?.parcelCategory ?? acceptance.parcelCategory;
+    final paysReceiver = delivery != null
+        ? PlatformFees.senderPaysReceiverFee(delivery)
+        : acceptance.paysReceiverFee;
+    return _totalDueCents(
+      category: category,
+      paysReceiver: paysReceiver,
+      bidAmount: acceptance.bid.price,
+    );
+  }
+
+  int _stripeChargeCents() {
+    final totalCents = _currentTotalCents();
+    final shortfall = totalCents - _walletAvailableCents;
+    if (shortfall > 0) return shortfall;
+    return totalCents;
+  }
+
+  void _selectWallet() {
+    setState(() {
+      _paymentMethod = _BidPaymentMethod.wallet;
+      _stripeMethodCollected = false;
+      _stripeClientSecret = null;
+      _stripePaymentIntentId = null;
+    });
+  }
+
+  Future<void> _selectStripe() async {
+    if (_paying || _paid || !_stripeEnabled) return;
+    setState(() {
+      _paymentMethod = _BidPaymentMethod.stripe;
+      _paying = true;
+    });
+    try {
+      await _collectStripeCard();
+    } finally {
+      if (mounted) setState(() => _paying = false);
+    }
+  }
+
+  Future<void> _collectStripeCard() async {
+    if (_paid) return;
+    final auth = context.read<AuthProvider>();
+    final walletRepo = WalletRepository(
+      apiClient: auth.repository.apiClient,
+      demoMode: context.read<DemoModeProvider>(),
+    );
+    try {
+      await StripePayments.ensureConfigured(walletRepo);
+      if (!StripePayments.isEnabled) {
+        if (!mounted) return;
+        AppToast.error(
+          context,
+          'Card payments are not available. Pay from wallet or top up first.',
+        );
+        return;
+      }
+
+      String? clientSecret = _stripeClientSecret;
+      String? paymentIntentId = _stripePaymentIntentId;
+      if (_backendStripeEnabled &&
+          (clientSecret == null || clientSecret.isEmpty)) {
+        try {
+          await walletRepo.topUp(
+            role: WalletRole.sender,
+            amountCents: _stripeChargeCents(),
+          );
+        } on ApiException catch (e) {
+          if (!e.requiresPayment || e.clientSecret == null) rethrow;
+          clientSecret = e.clientSecret;
+          paymentIntentId = e.paymentIntentId;
+        }
+      }
+
+      await StripePayments.collectPaymentMethod(
+        amountCents: _stripeChargeCents(),
+        clientSecret: clientSecret,
+      );
+      if (!mounted) return;
+      setState(() {
+        _stripeMethodCollected = true;
+        _stripeClientSecret = clientSecret;
+        _stripePaymentIntentId = paymentIntentId;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      if (e.code == 'PAYMENT_CANCELLED') return;
+      AppToast.error(context, e.message);
+    } catch (e) {
+      if (!mounted) return;
+      AppToast.error(context, 'Unable to open card payment. $e');
+    }
+  }
+
   Future<void> _payNow() async {
-    if (_paying || _paymentMethod == null) return;
+    if (_paying || _paid || _paymentMethod == null) return;
     final acceptance = widget.acceptance;
     final paymentMethod = _paymentMethod!;
 
@@ -241,21 +358,36 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
         apiClient: auth.repository.apiClient,
         demoMode: context.read<DemoModeProvider>(),
       );
+      String? paymentIntentId;
       if (paymentMethod == _BidPaymentMethod.stripe) {
         await StripePayments.ensureConfigured(walletRepo);
         if (!StripePayments.isEnabled) {
+          if (!mounted) return;
           AppToast.error(
             context,
             'Card payments are not available. Pay from wallet or top up first.',
           );
           return;
         }
+        if (!_stripeMethodCollected) {
+          await _collectStripeCard();
+          if (!_stripeMethodCollected) return;
+        }
+        if (_stripeClientSecret != null && _stripeClientSecret!.isNotEmpty) {
+          await StripePayments.confirmCollectedPayment();
+          final intentId = _stripePaymentIntentId;
+          if (intentId != null && intentId.isNotEmpty) {
+            await walletRepo.confirmTopUp(
+              paymentIntentId: intentId,
+              contextRole: WalletRole.sender,
+            );
+            paymentIntentId = intentId;
+          }
+        }
       }
 
       final methodParam =
           paymentMethod == _BidPaymentMethod.wallet ? 'wallet' : 'stripe';
-
-      String? paymentIntentId;
       for (var attempt = 0; attempt < 3; attempt++) {
         try {
           await _tripRepo().acceptSenderCounterOffer(
@@ -288,12 +420,13 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
           }
           await walletRepo.confirmTopUp(
             paymentIntentId: paymentIntentId,
-            role: WalletRole.sender,
+            contextRole: WalletRole.sender,
           );
         }
       }
 
       if (!mounted) return;
+      setState(() => _paid = true);
       await WalletGate.refreshRoles(
         context,
         [WalletRole.sender, WalletRole.traveler, WalletRole.receiver],
@@ -436,24 +569,21 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
                     ? 'Available balance: \$${walletUsd.toStringAsFixed(2)}'
                     : 'Available \$${walletUsd.toStringAsFixed(2)} — need \$${total.toStringAsFixed(2)}',
                 selected: selectedMethod == _BidPaymentMethod.wallet,
-                enabled: !_paying,
-                onTap: () => setState(
-                  () => _paymentMethod = _BidPaymentMethod.wallet,
-                ),
+                enabled: !_paying && !_paid,
+                onTap: _selectWallet,
               ),
               const SizedBox(height: 8),
               _PaymentMethodTile(
                 title: 'Pay with card (Stripe)',
-                subtitle: walletCoversTotal
-                    ? 'Charge your card instead of wallet'
-                    : 'Pay \$${(total - walletUsd).clamp(0, total).toStringAsFixed(2)} shortfall by card',
+                subtitle: _stripeMethodCollected &&
+                        selectedMethod == _BidPaymentMethod.stripe
+                    ? 'Card selected — tap Pay Now to complete'
+                    : walletCoversTotal
+                        ? 'Charge your card instead of wallet'
+                        : 'Pay \$${(total - walletUsd).clamp(0, total).toStringAsFixed(2)} shortfall by card',
                 selected: selectedMethod == _BidPaymentMethod.stripe,
-                enabled: !_paying && _stripeEnabled,
-                onTap: _stripeEnabled
-                    ? () => setState(
-                          () => _paymentMethod = _BidPaymentMethod.stripe,
-                        )
-                    : null,
+                enabled: !_paying && !_paid && _stripeEnabled,
+                onTap: _stripeEnabled ? _selectStripe : null,
               ),
               if (!_stripeEnabled)
                 Padding(
@@ -477,7 +607,8 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
             Text(
               selectedMethod == _BidPaymentMethod.wallet
                   ? 'The total is deducted from your sender wallet. Booking is not created if balance is insufficient.'
-                  : 'If wallet balance is short, Stripe collects the difference on your card, then escrow is funded from wallet. '
+                  : 'Selecting Pay with card opens Stripe so you can choose a saved card or enter number, expiry, and CVC. '
+                      'Then tap Pay Now. If wallet balance is short, Stripe collects the difference, then escrow is funded from wallet. '
                       'Your sender platform fee is collected now; the traveler pays at NFC handoff.',
               style: context.typo.sm.copyWith(
                 color: AppColors.textSecondary,
@@ -486,8 +617,13 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
             ),
             const SizedBox(height: 24),
             AppButton(
-              label: _paying ? 'Processing…' : 'Pay Now',
-              onPressed: _paying || selectedMethod == null ? null : _payNow,
+              label: _paid
+                  ? 'Paid'
+                  : _paying
+                      ? 'Processing…'
+                      : 'Pay Now',
+              onPressed:
+                  _paid || _paying || selectedMethod == null ? null : _payNow,
             ),
           ],
         ),
@@ -505,17 +641,21 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label, style: typo.sm),
-          Text(
-            value,
-            style: primary
-                ? typo.h3.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.primary,
-                  )
-                : typo.bodyBold.copyWith(fontWeight: FontWeight.w700),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: primary
+                  ? typo.h3.copyWith(
+                      fontWeight: FontWeight.w400,
+                      color: AppColors.primary,
+                    )
+                  : typo.bodyBold.copyWith(fontWeight: FontWeight.w400),
+            ),
           ),
         ],
       ),

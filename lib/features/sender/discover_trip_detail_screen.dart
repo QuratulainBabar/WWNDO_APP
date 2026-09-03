@@ -14,6 +14,7 @@ import '../../core/widgets/screen_body.dart';
 import '../../data/models/traveler_trip.dart';
 import '../../data/services/trip_repository.dart';
 import '../../providers/auth_provider.dart';
+import 'delivery_posting_actions.dart';
 
 /// Sender-facing full trip detail — opened from notifications or discover list.
 class DiscoverTripDetailScreen extends StatefulWidget {
@@ -84,9 +85,13 @@ class _DiscoverTripDetailScreenState extends State<DiscoverTripDetailScreen> {
     }
   }
 
-  void _createDelivery() {
+  Future<void> _createDelivery() async {
     final trip = _trip;
     if (trip == null || trip.status == TripStatus.cancelled) return;
+    if (!await DeliveryPostingActions.ensureWalletAllowsParcelCreation(context)) {
+      return;
+    }
+    if (!mounted) return;
     final path = trip.isCountryToCountry
         ? '/post-delivery/country-to-country'
         : '/post-delivery';

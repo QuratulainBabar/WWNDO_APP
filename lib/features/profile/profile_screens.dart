@@ -34,6 +34,7 @@ import '../../data/models/profile_trust_metrics.dart';
 import '../../data/models/wallet_role.dart';
 import '../../data/services/delivery_repository.dart';
 import '../../data/services/trust_metrics_repository.dart';
+import '../../core/payments/stripe_connect_return.dart';
 import '../../core/utils/external_links.dart';
 import '../../data/services/wallet_repository.dart';
 import '../../data/static_data.dart';
@@ -751,7 +752,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                     color: isCredit ? AppColors.success : AppColors.danger,
                   ),
                 ),
-                Text(entry.description, style: typo.sm),
+                Text(entry.displayDescription, style: typo.sm),
                 Text(
                   '${entry.type.name} · ${entry.role.name}',
                   style: typo.sm.copyWith(color: AppColors.textSecondary),
@@ -777,8 +778,6 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  bool _pushNotifications = true;
-  bool _emailNotifications = true;
   bool _biometricEnabled = false;
   bool _biometricBusy = false;
   bool _connectLoading = false;
@@ -826,11 +825,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _linkStripeConnect() async {
     setState(() => _connectLoading = true);
     try {
-      final result = await _walletRepository().startConnectOnboarding();
+      final roleParam = GoRouterState.of(context).uri.queryParameters['role'];
+      final result = await _walletRepository().startConnectOnboarding(
+        role: roleParam,
+      );
       final url = result['onboardingUrl'] as String?;
       if (url == null || url.isEmpty) {
         throw Exception('No onboarding URL returned');
       }
+      StripeConnectReturn.markOpened(role: roleParam);
       final opened = await ExternalLinks.openUrl(url);
       if (!mounted) return;
       if (!opened) {
@@ -1054,19 +1057,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onTap: () => context.push(_routeWithRole('/kyc-status', roleParam)),
                 trailing: KycStatusBadge(user: authUser),
               ),
-              _tile(
-                'Email & phone',
-                subtitle: authUser == null
-                    ? 'Link your contacts'
-                    : authUser.isFullyCrossVerified
-                        ? '${authUser.email} · ${authUser.phone}'
-                        : 'Finish linking email and phone',
-                onTap: () => context.push('/verify-account'),
-              ),
-              _tile(
-                'Security logs',
-                onTap: () => context.push(_routeWithRole('/security-logs', roleParam)),
-              ),
               _toggle(
                 '${PlatformUi.biometricShortLabel} login',
                 _biometricEnabled,
@@ -1075,11 +1065,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ? 'Not available in the browser'
                     : 'Sign in faster with ${PlatformUi.biometricShortLabel}',
               ),
-            ]),
-            _sectionLabel('Notifications'),
-            _settingsGroup([
-              _toggle('Push notifications', _pushNotifications, (v) => setState(() => _pushNotifications = v)),
-              _toggle('Email notifications', _emailNotifications, (v) => setState(() => _emailNotifications = v)),
             ]),
             _sectionLabel('Help & legal'),
             _settingsGroup([
@@ -1097,7 +1082,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _sectionLabel('Account'),
             AppButton(
               label: 'Sign out',
-              variant: AppButtonVariant.outline,
+              variant: AppButtonVariant.danger,
               onPressed: () async {
                 await context.read<AuthProvider>().logout();
                 if (context.mounted) context.go('/welcome');
@@ -1137,23 +1122,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _settingsGroup(List<Widget> children) {
+    const radius = 16.0;
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(radius),
         border: Border.all(color: AppColors.border),
       ),
-      clipBehavior: Clip.antiAlias,
-      child: Material(
-        color: AppColors.surface,
-        child: Column(
-          children: [
-            for (var i = 0; i < children.length; i++) ...[
-              children[i],
-              if (i < children.length - 1) const Divider(height: 1),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(radius - 1),
+        child: Material(
+          color: AppColors.surface,
+          child: Column(
+            children: [
+              for (var i = 0; i < children.length; i++) ...[
+                children[i],
+                if (i < children.length - 1) const Divider(height: 1),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -1305,11 +1293,15 @@ class _WalletScreenState extends State<WalletScreen> {
   Future<void> _setUpPayouts() async {
     setState(() => _connectLinking = true);
     try {
-      final result = await _walletRepository().startConnectOnboarding();
+      final roleParam = GoRouterState.of(context).uri.queryParameters['role'];
+      final result = await _walletRepository().startConnectOnboarding(
+        role: roleParam,
+      );
       final url = result['onboardingUrl'] as String?;
       if (url == null || url.isEmpty) {
         throw Exception('No onboarding URL returned');
       }
+      StripeConnectReturn.markOpened(role: roleParam);
       final opened = await ExternalLinks.openUrl(url);
       if (!mounted) return;
       if (!opened) {
@@ -1407,6 +1399,7 @@ class _WalletScreenState extends State<WalletScreen> {
               final parsedAmount = double.tryParse(_amountController.text) ?? 0;
               final displayAmount = parsedAmount;
               final canWithdraw = true;
+              final amountEnabled = available > 0;
               final minWithdraw = wallet.summary?.minimumWithdrawalCents ??
                   WalletService.minimumWithdrawalCents;
 
@@ -1499,18 +1492,47 @@ class _WalletScreenState extends State<WalletScreen> {
                         padding: const EdgeInsets.only(top: AppFieldSpacing.top),
                         child: TextField(
                           controller: _amountController,
-                          onTap: ensureSoftKeyboardVisible,
+                          enabled: amountEnabled,
+                          readOnly: !amountEnabled,
+                          enableInteractiveSelection: amountEnabled,
+                          onTap: amountEnabled
+                              ? ensureSoftKeyboardVisible
+                              : null,
                           onTapOutside: dismissKeyboardOnTapOutside,
                           keyboardType: const TextInputType.numberWithOptions(
                             decimal: true,
                           ),
-                          style: typo.amountInput
-                              .copyWith(fontWeight: FontWeight.w700),
-                          onChanged: (_) {
-                            setState(() {
-                              if (_error != null) _error = null;
-                            });
-                          },
+                          style: typo.amountInput.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: amountEnabled
+                                ? AppColors.textPrimary
+                                : AppColors.textDisabled,
+                          ),
+                          decoration: InputDecoration(
+                            filled: true,
+                            fillColor: amountEnabled
+                                ? AppColors.surface
+                                : AppColors.background,
+                            hintText: amountEnabled ? null : '0.00',
+                            hintStyle: typo.amountInput.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textDisabled,
+                            ),
+                            disabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(
+                                color: AppColors.border,
+                                width: 1.5,
+                              ),
+                            ),
+                          ),
+                          onChanged: amountEnabled
+                              ? (_) {
+                                  setState(() {
+                                    if (_error != null) _error = null;
+                                  });
+                                }
+                              : null,
                         ),
                       ),
                       if (_error != null) ...[
@@ -1597,7 +1619,9 @@ class _WalletScreenState extends State<WalletScreen> {
                               _withdrawing ? 'Withdrawing…' : 'Withdraw to bank',
                           textStyle:
                               typo.button.copyWith(fontWeight: FontWeight.w700),
-                          onPressed: (_withdrawing || _connectChecking)
+                          onPressed: (_withdrawing ||
+                                  _connectChecking ||
+                                  !amountEnabled)
                               ? null
                               : () => _withdraw(role, parsedAmount),
                         ),
@@ -1651,7 +1675,7 @@ class _WalletScreenState extends State<WalletScreen> {
                     color: isCredit ? AppColors.success : AppColors.danger,
                   ),
                 ),
-                Text(entry.description, style: typo.sm),
+                Text(entry.displayDescription, style: typo.sm),
               ],
             ),
           ),

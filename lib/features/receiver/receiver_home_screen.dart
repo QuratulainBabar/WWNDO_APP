@@ -212,10 +212,9 @@ class _ReceiverHomeScreenState extends State<ReceiverHomeScreen>
                         overflow: TextOverflow.ellipsis,
                       ),
                       Text(
-                        SelectedRoleStore.homeTaglineSubtitle(
+                        SelectedRoleStore.homeRatingSubtitle(
                           authUser,
                           WalletRole.receiver,
-                          tagline: 'Track incoming parcels',
                         ),
                         style: typo.sm,
                       ),
@@ -309,10 +308,13 @@ class _ReceiverHomeScreenState extends State<ReceiverHomeScreen>
     }
 
     if (shipment == null || status == null) {
-      return AppCard(
-        child: Text(
-          'No active shipments.',
-          style: typo.sm.copyWith(color: AppColors.textSecondary),
+      return SizedBox(
+        width: double.infinity,
+        child: AppCard(
+          child: Text(
+            'No active shipments.',
+            style: typo.sm.copyWith(color: AppColors.textSecondary),
+          ),
         ),
       );
     }

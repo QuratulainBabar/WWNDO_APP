@@ -9,6 +9,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/back_header.dart';
 import '../../data/models/chat_message.dart';
+import '../../data/models/wallet_role.dart';
 import '../../data/services/chat_repository.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/chat_realtime_provider.dart';
@@ -132,6 +133,7 @@ class _SenderChatScreenState extends State<SenderChatScreen>
         context.read<NotificationRealtimeProvider>().refreshChatUnread(
               authRepository: auth.repository,
               demoMode: context.read<DemoModeProvider>(),
+              threadType: WalletRole.sender.chatInboxThreadType,
             );
       }
     } on ApiException catch (e) {

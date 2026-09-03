@@ -10,4 +10,11 @@ enum WalletRole {
         'receiver' => WalletRole.receiver,
         _ => WalletRole.sender,
       };
+
+  /// Thread type shown in this role's Chat inbox. Null = all conversations.
+  String? get chatInboxThreadType => switch (this) {
+        WalletRole.traveler => 'sender_traveler',
+        WalletRole.receiver => 'traveler_receiver',
+        WalletRole.sender => null,
+      };
 }

@@ -922,7 +922,13 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: typo.sm),
-          Text(value, style: typo.bodyBold.copyWith(fontWeight: FontWeight.w700)),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: typo.bodyBold.copyWith(fontWeight: FontWeight.w400),
+            ),
+          ),
         ],
       ),
     );

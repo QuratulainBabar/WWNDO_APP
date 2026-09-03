@@ -1,11 +1,44 @@
 import 'package:flutter/material.dart';
 import 'core/navigation/app_navigation.dart';
+import 'core/payments/stripe_connect_return.dart';
 import 'core/theme/app_theme.dart';
 import 'core/widgets/screen_container.dart';
 import 'router/app_router.dart';
 
-class WwngoApp extends StatelessWidget {
+class WwngoApp extends StatefulWidget {
   const WwngoApp({super.key});
+
+  @override
+  State<WwngoApp> createState() => _WwngoAppState();
+}
+
+class _WwngoAppState extends State<WwngoApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    if (!StripeConnectReturn.isReturnDue) return;
+    final path = appRouter.state.uri.path;
+    if (path == '/wallet/connect-success' || path == '/connect-success') {
+      StripeConnectReturn.consume();
+      return;
+    }
+    final role = StripeConnectReturn.role;
+    StripeConnectReturn.consume();
+    final q = (role == null || role.isEmpty) ? '' : '&role=$role';
+    appRouter.go('/wallet/connect-success?status=done$q');
+  }
 
   @override
   Widget build(BuildContext context) {

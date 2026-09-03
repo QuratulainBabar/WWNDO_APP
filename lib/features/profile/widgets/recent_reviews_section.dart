@@ -93,10 +93,13 @@ class _RecentReviewsSectionState extends State<RecentReviewsSection> {
             ),
           )
         else if (_reviews.isEmpty)
-          AppCard(
-            child: Text(
-              'No reviews yet.',
-              style: typo.sm.copyWith(color: AppColors.textSecondary),
+          SizedBox(
+            width: double.infinity,
+            child: AppCard(
+              child: Text(
+                'No reviews yet.',
+                style: typo.sm.copyWith(color: AppColors.textSecondary),
+              ),
             ),
           )
         else

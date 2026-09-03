@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../core/config/demo_mode.dart';
-import '../core/widgets/app_toast.dart';
 import '../providers/wallet_provider.dart';
 import 'models/wallet_role.dart';
 import 'parcel_creation_wallet_validation.dart';
@@ -28,7 +27,12 @@ abstract final class WalletGate {
 
     if (WalletService.availableUsd(role) >= minimumUsd) return true;
     if (!context.mounted) return false;
-    AppToast.error(context, message);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
     return false;
   }
 
@@ -46,6 +50,14 @@ abstract final class WalletGate {
           paysReceiverFee: paysReceiverFee,
         ),
         ParcelCreationWalletValidation.insufficientBalanceMessage,
+      );
+
+  static Future<bool> ensureTravelerTripCreation(BuildContext context) =>
+      ensureMinimum(
+        context,
+        WalletRole.traveler,
+        PlatformFees.minWalletTravelerUsd,
+        'Minimum \$3 wallet balance is required to create a trip.',
       );
 
   static Future<bool> ensureReceiverAccept(

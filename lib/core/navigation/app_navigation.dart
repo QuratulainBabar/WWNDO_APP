@@ -172,6 +172,8 @@ String? backFallbackForContext(BuildContext context) {
   if (state.uri.path == '/wallet' ||
       state.uri.path == '/wallet/top-up' ||
       state.uri.path == '/wallet/top-up/success' ||
+      state.uri.path == '/wallet/connect-success' ||
+      state.uri.path == '/connect-success' ||
       state.uri.path == '/change-password' ||
       state.uri.path == '/change-password/success' ||
       state.uri.path == '/kyc-status') {
@@ -261,6 +263,8 @@ const _routeFallbacks = <String, String>{
   '/wallet/top-up': '/wallet',
   '/wallet/top-up/success': '/wallet',
   '/wallet/withdrawal-success': '/wallet',
+  '/wallet/connect-success': '/wallet',
+  '/connect-success': '/wallet',
   '/register': '/welcome',
   '/login': '/welcome',
   '/login/verify-otp': '/login',

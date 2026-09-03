@@ -243,7 +243,7 @@ class _ReceiverProfileScreenState extends State<ReceiverProfileScreen> {
                   const Divider(height: 24),
                   _prefRow(context, 'Preferred contact', user.phone),
                   const Divider(height: 24),
-                  _prefRow(context, 'NFC ready', 'Yes — phone supports tap'),
+                  _prefRow(context, 'NFC ready', 'Yes phone supports tap'),
                 ],
               ),
             ),
@@ -851,6 +851,7 @@ class _ReceiverChatScreenState extends State<ReceiverChatScreen>
         context.read<NotificationRealtimeProvider>().refreshChatUnread(
               authRepository: auth.repository,
               demoMode: context.read<DemoModeProvider>(),
+              threadType: WalletRole.receiver.chatInboxThreadType,
             );
       }
     } on ApiException catch (e) {
@@ -1347,7 +1348,7 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen> {
             child: Text(
               value,
               textAlign: TextAlign.right,
-              style: typo.bodyBold.copyWith(fontWeight: FontWeight.w700),
+              style: typo.bodyBold.copyWith(fontWeight: FontWeight.w400),
             ),
           ),
         ],

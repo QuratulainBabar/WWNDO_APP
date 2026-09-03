@@ -57,7 +57,7 @@ abstract final class LegalDocuments {
           'When you act as a Traveler you list a trip, review matching parcel requests, accept or counter offers, and carry the parcel on your journey. You agree to:',
       bullets: [
         'Post accurate origin, destination, travel date, and capacity, and only accept parcels you can legally and safely carry.',
-        'Pay applicable Traveler platform fees ($2 for documents, $4 for objects) from your wallet when you complete NFC Checkpoint 1 handoff with the Sender.',
+        'Pay applicable Traveler platform fees (\$2 for documents, \$4 for objects) from your wallet when you complete NFC Checkpoint 1 handoff with the Sender.',
         'Confirm or propose meetup locations, complete NFC Checkpoint 1 with the Sender, keep the parcel secure in transit, and complete NFC Checkpoint 2 (Traveler ↔ Receiver) at destination.',
         'Not open, use, swap, or abandon a parcel, and not subcontract the delivery outside WWNGO.',
         'Update shipment status in good faith (for example starting transit) and respond promptly in chat.',

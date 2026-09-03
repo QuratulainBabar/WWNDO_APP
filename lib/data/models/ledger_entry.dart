@@ -41,6 +41,11 @@ class LedgerEntry {
 
   bool get isCredit => availableDeltaCents > 0 || escrowDeltaCents > 0;
 
+  /// User-facing description without Stripe Payment Intent IDs.
+  String get displayDescription => description
+      .replaceAll(RegExp(r'\s*\((?:pi_|mock_pi_)[A-Za-z0-9_]+\)'), '')
+      .trim();
+
   factory LedgerEntry.fromJson(Map<String, dynamic> json) {
     return LedgerEntry(
       id: json['id']?.toString() ?? '',

@@ -13,9 +13,10 @@ import '../../core/widgets/app_svg_icon.dart';
 import '../../core/widgets/back_link.dart';
 import '../../core/widgets/screen_body.dart';
 import '../../core/widgets/wallet_card.dart';
+import '../../data/delivery_status_mapper.dart';
 import '../../data/models/created_delivery.dart';
-import '../../data/models/shipment.dart';
 import '../../data/models/wallet_role.dart';
+import '../../data/platform_fees.dart';
 import '../../core/auth/auth_verification_guard.dart';
 import '../../core/auth/kyc_verification_guard.dart';
 import '../../providers/auth_provider.dart';
@@ -254,6 +255,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       await realtime.refreshChatUnread(
             authRepository: auth.repository,
             demoMode: demoMode,
+            threadType: WalletRole.sender.chatInboxThreadType,
           );
     } catch (_) {
       // Badge is non-critical; keep last known count.
@@ -323,10 +325,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
 
     if (activeItems.isEmpty) {
-      return AppCard(
-        child: Text(
-          'No active deliveries yet.',
-          style: typo.sm.copyWith(color: AppColors.textSecondary),
+      return SizedBox(
+        width: double.infinity,
+        child: AppCard(
+          child: Text(
+            'No active deliveries yet.',
+            style: typo.sm.copyWith(color: AppColors.textSecondary),
+          ),
         ),
       );
     }
@@ -362,25 +367,22 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       travelerRequests: provider.travelerRequestsFor(delivery),
       postedPhase: provider.postedPhaseFor(delivery),
     );
-    final phase = provider.postedPhaseFor(delivery);
+    final requests = provider.travelerRequestsFor(delivery);
     final idLabel =
         delivery.publicId.isNotEmpty ? delivery.publicId : delivery.id;
 
-    Future<void> openMatchingTravelers() async {
-      await context.push('/bid-requests/${delivery.displayId}');
+    Future<void> openDeliveryDetails() async {
+      await context.push(
+        DeliveryStatusMapper.senderDetailRouteFor(
+          delivery,
+          travelerRequests: requests,
+        ),
+      );
       if (mounted) _loadActiveDeliveries(silent: true);
     }
-
-    Future<void> openPostedDeliveries() async {
-      await context.push('/my-posted-parcels');
-      if (mounted) _loadActiveDeliveries(silent: true);
-    }
-
-    final matchingTravelers = phase == SenderPostedPhase.matchingTravelers ||
-        status.label.startsWith('Matching Travelers');
 
     return GestureDetector(
-      onTap: matchingTravelers ? openMatchingTravelers : openPostedDeliveries,
+      onTap: openDeliveryDetails,
       child: AppCard(
         margin: EdgeInsets.zero,
         child: Column(
@@ -398,9 +400,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 ),
                 const SizedBox(width: 8),
                 GestureDetector(
-                  onTap: matchingTravelers
-                      ? openMatchingTravelers
-                      : openPostedDeliveries,
+                  onTap: openDeliveryDetails,
                   child: AppBadge(
                     label: status.label,
                     color: status.color,
@@ -416,6 +416,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               delivery.route.isNotEmpty ? delivery.route : '—',
               style: typo.sm,
             ),
+            if (requests.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                'Requested: ${requests.map((r) => r.travelerName).join(', ')}'
+                ' (${requests.length}/${PlatformFees.maxTravelerRequestsPerDelivery})',
+                style: typo.sm.copyWith(color: AppColors.textSecondary),
+              ),
+            ],
           ],
         ),
       ),

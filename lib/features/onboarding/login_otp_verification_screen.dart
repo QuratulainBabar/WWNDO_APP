@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/auth/post_auth_navigation.dart';
+import '../../core/config/api_config.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_button.dart';
@@ -104,7 +105,7 @@ class _LoginOtpVerificationScreenState extends State<LoginOtpVerificationScreen>
     try {
       if (kDebugMode) {
         debugPrint(
-          'LOGIN OTP → POST /auth/login/password-otp/send '
+          'LOGIN OTP → ${ApiConfig.authBase}/login/password-otp/send '
           '(${widget.flow.maskedContact})',
         );
       }
@@ -200,7 +201,9 @@ class _LoginOtpVerificationScreenState extends State<LoginOtpVerificationScreen>
 
     try {
       if (kDebugMode) {
-        debugPrint('LOGIN OTP → POST /auth/login/password-otp/verify');
+        debugPrint(
+          'LOGIN OTP → ${ApiConfig.authBase}/login/password-otp/verify',
+        );
       }
       final user = await auth.completePasswordLoginOtp(
         email: widget.flow.email,

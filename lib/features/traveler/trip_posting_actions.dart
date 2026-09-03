@@ -8,6 +8,7 @@ import '../../core/widgets/app_toast.dart';
 import '../../data/models/traveler_trip.dart';
 import '../../data/services/trip_repository.dart';
 import '../../data/kyc_validation.dart';
+import '../../data/wallet_gate.dart';
 import '../../providers/auth_provider.dart';
 
 /// Shared gate + post helper for traveler trip creation screens.
@@ -23,6 +24,10 @@ abstract final class TripPostingActions {
     final kycError = KycValidation.validateApproved(authUser);
     if (kycError != null) {
       AppToast.error(context, kycError);
+      return false;
+    }
+
+    if (!await WalletGate.ensureTravelerTripCreation(context)) {
       return false;
     }
 

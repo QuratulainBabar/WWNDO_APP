@@ -102,6 +102,7 @@ class _TravelerShellState extends State<TravelerShell>
     await realtime.refreshChatUnread(
       authRepository: auth.repository,
       demoMode: demoMode,
+      threadType: WalletRole.traveler.chatInboxThreadType,
     );
   }
 

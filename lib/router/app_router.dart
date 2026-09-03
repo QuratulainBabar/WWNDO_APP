@@ -77,6 +77,7 @@ import '../features/traveler/matching_requests_screen.dart';
 import '../features/traveler/matching_requests_trips_screen.dart';
 import '../features/traveler/parcel_request_detail_screen.dart';
 import '../features/traveler/send_counter_offer_screen.dart';
+import '../core/payments/stripe_connect_return.dart';
 import '../data/models/otp_channel.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -1017,6 +1018,29 @@ final appRouter = GoRouter(
       builder: (_, state) => WalletWithdrawalSuccessScreen(
         amount: (state.extra as num?)?.toDouble() ?? 50,
       ),
+    ),
+    GoRoute(
+      path: '/wallet/connect-success',
+      parentNavigatorKey: rootNavigatorKey,
+      builder: (_, __) {
+        StripeConnectReturn.consume();
+        return const WalletConnectSuccessScreen();
+      },
+    ),
+    GoRoute(
+      path: '/connect-success',
+      parentNavigatorKey: rootNavigatorKey,
+      redirect: (_, state) {
+        final params = Map<String, String>.from(state.uri.queryParameters);
+        params.putIfAbsent('status', () => 'done');
+        if (StripeConnectReturn.role != null) {
+          params.putIfAbsent('role', () => StripeConnectReturn.role!);
+        }
+        final q = Uri(queryParameters: params).query;
+        return q.isEmpty
+            ? '/wallet/connect-success'
+            : '/wallet/connect-success?$q';
+      },
     ),
     GoRoute(
       path: '/edit-profile',

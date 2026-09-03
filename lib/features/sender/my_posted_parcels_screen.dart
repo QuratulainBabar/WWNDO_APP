@@ -15,6 +15,7 @@ import '../../core/widgets/back_header.dart';
 import '../../data/delivery_status_mapper.dart';
 import '../../data/models/created_delivery.dart';
 import '../../data/models/traveler_request_summary.dart';
+import '../../data/platform_fees.dart';
 import '../../data/services/delivery_repository.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_realtime_provider.dart';
@@ -310,20 +311,20 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen>
         itemCount: parcels.length,
         itemBuilder: (context, i) {
           final parcel = parcels[i];
+          final requests = _travelerRequestsFor(parcel);
           final statusUi = SenderDeliveryStatus.fromDelivery(
             parcel,
             matchingTravelerCount: SenderDeliveryStatus.countFromMap(
               parcel,
               _matchingTravelerCounts,
             ),
-            travelerRequests: _travelerRequestsFor(parcel),
+            travelerRequests: requests,
           );
           final showMenu = _showActive && statusUi.canEditOrCancel;
           final shipmentId =
               parcel.publicId.isNotEmpty ? parcel.publicId : parcel.id;
 
           Future<void> openDetails() async {
-            final requests = _travelerRequestsFor(parcel);
             await context.push(
               DeliveryStatusMapper.senderDetailRouteFor(
                 parcel,
@@ -397,6 +398,16 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen>
                   const SizedBox(height: 10),
                   Text(
                     statusUi.description!,
+                    style: typo.sm.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+                if (_showActive && requests.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Requested: ${requests.map((r) => r.travelerName).join(', ')}'
+                    ' (${requests.length}/${PlatformFees.maxTravelerRequestsPerDelivery})',
                     style: typo.sm.copyWith(
                       color: AppColors.textSecondary,
                     ),

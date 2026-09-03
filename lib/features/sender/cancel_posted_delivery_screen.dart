@@ -96,7 +96,10 @@ class _CancelPostedDeliveryScreenState extends State<CancelPostedDeliveryScreen>
       return;
     }
 
-    final confirmed = await showCancelRequestConfirmation(context);
+    final confirmed = await showCancelRequestConfirmation(
+      context,
+      keepButtonFirst: true,
+    );
     if (!confirmed || !context.mounted) return;
 
     setState(() => _cancelling = true);
@@ -188,14 +191,14 @@ class _CancelPostedDeliveryScreenState extends State<CancelPostedDeliveryScreen>
       body: ScrollableFormScreen(
         actions: [
           AppButton(
-            label: _cancelling ? 'Cancelling…' : 'Cancel delivery',
-            variant: AppButtonVariant.danger,
-            onPressed: _cancelling || !canCancel ? null : _confirmCancel,
-          ),
-          AppButton(
             label: 'Keep delivery',
             variant: AppButtonVariant.ghost,
             onPressed: _cancelling ? null : () => context.pop(),
+          ),
+          AppButton(
+            label: _cancelling ? 'Cancelling…' : 'Cancel delivery',
+            variant: AppButtonVariant.danger,
+            onPressed: _cancelling || !canCancel ? null : _confirmCancel,
           ),
         ],
         child: Column(

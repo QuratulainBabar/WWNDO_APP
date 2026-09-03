@@ -293,8 +293,7 @@ class _IncomingParcelRequestScreenState
                     final requiredBalance = platformFee > 0
                         ? platformFee
                         : PlatformFees.minWalletReceiverUsd;
-                    final canAccept =
-                        walletBalance >= requiredBalance && !_acting;
+                    final canAccept = !_acting;
                     final isPending = status.isPendingRequest &&
                         current.status == IncomingParcelRequestStatus.pending;
 
@@ -425,6 +424,16 @@ class _IncomingParcelRequestScreenState
                                   color: AppColors.danger,
                                   fontWeight: FontWeight.w600,
                                 ),
+                              ),
+                              const SizedBox(height: 12),
+                              AppButton(
+                                label: 'Top up wallet',
+                                variant: AppButtonVariant.outline,
+                                onPressed: _acting
+                                    ? null
+                                    : () => context.push(
+                                          '/wallet/top-up?role=receiver',
+                                        ),
                               ),
                             ],
                             const SizedBox(height: 24),

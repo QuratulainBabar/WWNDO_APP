@@ -45,7 +45,7 @@ abstract final class PlatformFeePayment {
         }
         await walletRepo.confirmTopUp(
           paymentIntentId: paymentIntentId,
-          role: role,
+          contextRole: role,
         );
       }
     }

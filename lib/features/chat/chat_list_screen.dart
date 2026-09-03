@@ -15,6 +15,7 @@ import '../../data/models/wallet_role.dart';
 import '../../data/services/chat_repository.dart';
 import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/notification_realtime_provider.dart';
 
 /// WhatsApp-style inbox: search + conversation list before opening a chat.
 class ChatListScreen extends StatefulWidget {
@@ -87,18 +88,16 @@ class _ChatListScreenState extends State<ChatListScreen> {
     }
 
     try {
-      final threadType = widget.role == WalletRole.traveler
-          ? 'sender_traveler'
-          : widget.role == WalletRole.receiver
-              ? 'traveler_receiver'
-              : null;
-      final list = await _repo().listConversations(threadType: threadType);
+      final list = await _repo().listConversations(
+        threadType: widget.role.chatInboxThreadType,
+      );
       if (!mounted) return;
       setState(() {
         _conversations = list;
         _loading = false;
         _error = null;
       });
+      _syncChatBadge(list);
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -112,6 +111,26 @@ class _ChatListScreenState extends State<ChatListScreen> {
         _error = 'Unable to load chats.';
       });
     }
+  }
+
+  void _syncChatBadge(List<ChatConversationPreview> conversations) {
+    final total = conversations.fold<int>(
+      0,
+      (sum, c) => sum + (c.unreadCount < 0 ? 0 : c.unreadCount),
+    );
+    context.read<NotificationRealtimeProvider>().setChatUnreadCount(total);
+  }
+
+  void _markConversationReadLocally(ChatConversationPreview conversation) {
+    final unread = conversation.unreadCount;
+    if (unread <= 0) return;
+    setState(() {
+      _conversations = [
+        for (final c in _conversations)
+          if (c.id == conversation.id) c.copyWith(unreadCount: 0) else c,
+      ];
+    });
+    context.read<NotificationRealtimeProvider>().applyConversationRead(unread);
   }
 
   List<ChatConversationPreview> get _filtered {
@@ -244,6 +263,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
                 _ChatListTile(
                   conversation: conversation,
                   onTap: () async {
+                    _markConversationReadLocally(conversation);
                     await context.push(
                       '${widget.chatBasePath}/${conversation.id}',
                     );

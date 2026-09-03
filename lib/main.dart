@@ -51,6 +51,7 @@ Future<void> main() async {
     notificationRealtimeProvider.refreshChatUnread(
       authRepository: authProvider.repository,
       demoMode: demoMode,
+      threadType: notificationRealtimeProvider.activeRole?.chatInboxThreadType,
     );
   }
 

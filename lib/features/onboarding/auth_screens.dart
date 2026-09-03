@@ -1,9 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../core/api/api_exception.dart';
+import '../../core/config/api_config.dart';
 import '../../core/layout/responsive.dart';
 import '../../core/platform/keyboard_utils.dart';
 import '../../core/platform/biometric_auth_service.dart';
@@ -367,8 +369,17 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _login() async {
+    // Flush Android/iOS autofill into the controllers before reading them.
+    // Without this, the password field can still hold a previous/empty value
+    // while the user sees the filled password, and the API returns
+    // "Invalid email or password".
+    FocusManager.instance.primaryFocus?.unfocus();
+    TextInput.finishAutofillContext(shouldSave: false);
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    if (!mounted) return;
+
     final email = _emailController.text.trim();
-    final password = _passwordController.text;
+    final password = _passwordController.text.replaceAll(RegExp(r'[\r\n]'), '');
 
     if (email.isEmpty || password.isEmpty) {
       AppToast.error(context, 'Enter your email and password');
@@ -377,6 +388,10 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!RegExp(r'^[^@]+@[^@]+\.[^@]+$').hasMatch(email)) {
       AppToast.error(context, 'Enter a valid email address');
       return;
+    }
+
+    if (kDebugMode) {
+      debugPrint('LOGIN → ${ApiConfig.authBase}');
     }
 
     // Navigate immediately — OTP screen sends email in the background so the
@@ -406,74 +421,76 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       backgroundColor: AppColors.surface,
       resizeToAvoidBottomInset: true,
-      body: BackLinkScreen(
-        fallbackRoute: '/welcome',
-        child: SingleChildScrollView(
-          physics: PlatformUi.scrollPhysics,
-          padding: context.pagePaddingWithKeyboard(EdgeInsets.zero),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 16),
-              Text('Welcome back', style: typo.h1),
-            const SizedBox(height: 12),
-            Text(
-              'Log in to your WWNGO account',
-              style: subtitleStyle,
-            ),
-            const SizedBox(height: 32),
-            _labeledField(
-              context,
-              'Email',
-              _emailController,
-              labelStyle: fieldLabelStyle,
-              inputStyle: inputStyle,
-              keyboardType: TextInputType.emailAddress,
-              hintText: 'you@email.com',
-            ),
-            _labeledField(
-              context,
-              'Password',
-              _passwordController,
-              obscure: true,
-              labelStyle: fieldLabelStyle,
-              inputStyle: inputStyle,
-              hintText: 'Enter your password',
-            ),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(
-                onPressed: () => context.push('/forgot-password'),
-                child: Text('Forgot password?', style: forgotPasswordStyle),
-              ),
-            ),
-            const SizedBox(height: 12),
-            AppButton(
-              label: auth.loading ? 'Logging in…' : 'Log in',
-              onPressed: auth.loading ? null : _login,
-            ),
-            const SizedBox(height: AppButton.stackGap),
-            AppButton(
-              label: PlatformUi.biometricLabel,
-              variant: AppButtonVariant.outline,
-              onPressed: auth.loading ? null : _openBiometricFlow,
-            ),
-            const SizedBox(height: 20),
-            Center(
-              child: GestureDetector(
-                onTap: () => context.push('/register'),
-                child: RichText(
-                  text: TextSpan(
-                    style: footerStyle,
-                    children: [
-                      const TextSpan(text: "Don't have an account? "),
-                      TextSpan(text: 'Sign up', style: footerLinkStyle),
-                    ],
+      body: AutofillGroup(
+        child: BackLinkScreen(
+          fallbackRoute: '/welcome',
+          child: SingleChildScrollView(
+            physics: PlatformUi.scrollPhysics,
+            padding: context.pagePaddingWithKeyboard(EdgeInsets.zero),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 16),
+                Text('Welcome back', style: typo.h1),
+                const SizedBox(height: 12),
+                Text(
+                  'Log in to your WWNGO account',
+                  style: subtitleStyle,
+                ),
+                const SizedBox(height: 32),
+                _labeledField(
+                  context,
+                  'Email',
+                  _emailController,
+                  labelStyle: fieldLabelStyle,
+                  inputStyle: inputStyle,
+                  keyboardType: TextInputType.emailAddress,
+                  hintText: 'you@email.com',
+                ),
+                _labeledField(
+                  context,
+                  'Password',
+                  _passwordController,
+                  obscure: true,
+                  labelStyle: fieldLabelStyle,
+                  inputStyle: inputStyle,
+                  hintText: 'Enter your password',
+                ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () => context.push('/forgot-password'),
+                    child: Text('Forgot password?', style: forgotPasswordStyle),
                   ),
                 ),
-              ),
+                const SizedBox(height: 12),
+                AppButton(
+                  label: auth.loading ? 'Logging in…' : 'Log in',
+                  onPressed: auth.loading ? null : _login,
+                ),
+                const SizedBox(height: AppButton.stackGap),
+                AppButton(
+                  label: PlatformUi.biometricLabel,
+                  variant: AppButtonVariant.outline,
+                  onPressed: auth.loading ? null : _openBiometricFlow,
+                ),
+                const SizedBox(height: 20),
+                Center(
+                  child: GestureDetector(
+                    onTap: () => context.push('/register'),
+                    child: RichText(
+                      text: TextSpan(
+                        style: footerStyle,
+                        children: [
+                          const TextSpan(text: "Don't have an account? "),
+                          TextSpan(text: 'Sign up', style: footerLinkStyle),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-            ],
           ),
         ),
       ),
@@ -501,6 +518,11 @@ class _LoginScreenState extends State<LoginScreen> {
         onTap: () => ensureSoftKeyboardVisible(retry: obscure),
         onTapOutside: dismissKeyboardOnTapOutside,
         obscureText: obscure,
+        autocorrect: false,
+        enableSuggestions: !obscure,
+        autofillHints: obscure
+            ? const [AutofillHints.password]
+            : const [AutofillHints.email, AutofillHints.username],
         keyboardType: keyboardType,
         textInputAction: obscure ? TextInputAction.done : TextInputAction.next,
         onFieldSubmitted: obscure ? (_) => _login() : null,

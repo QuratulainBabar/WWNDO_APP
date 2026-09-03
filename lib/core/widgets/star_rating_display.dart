@@ -9,11 +9,13 @@ class StarRatingDisplay extends StatelessWidget {
     required this.rating,
     this.showValue = true,
     this.size = 14,
+    this.valueFontWeight = FontWeight.w700,
   });
 
   final double rating;
   final bool showValue;
   final double size;
+  final FontWeight valueFontWeight;
 
   @override
   Widget build(BuildContext context) {
@@ -45,7 +47,7 @@ class StarRatingDisplay extends StatelessWidget {
             const SizedBox(width: 4),
             Text(
               clamped.toStringAsFixed(1),
-              style: typo.sm.copyWith(fontWeight: FontWeight.w700),
+              style: typo.sm.copyWith(fontWeight: valueFontWeight),
             ),
           ],
         ],

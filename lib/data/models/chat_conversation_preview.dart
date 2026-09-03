@@ -49,6 +49,23 @@ class ChatConversationPreview {
     return lastMessage;
   }
 
+  ChatConversationPreview copyWith({int? unreadCount}) {
+    return ChatConversationPreview(
+      id: id,
+      name: name,
+      initial: initial,
+      lastMessage: lastMessage,
+      time: time,
+      shipmentId: shipmentId,
+      deliveryId: deliveryId,
+      unreadCount: unreadCount ?? this.unreadCount,
+      messages: messages,
+      threadType: threadType,
+      unlocked: unlocked,
+      lastMessageAt: lastMessageAt,
+    );
+  }
+
   factory ChatConversationPreview.fromJson(Map<String, dynamic> json) {
     final name = json['name'] as String? ?? 'Contact';
     final initialRaw = json['initial'] as String?;

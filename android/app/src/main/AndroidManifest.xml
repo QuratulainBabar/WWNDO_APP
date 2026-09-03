@@ -34,6 +34,13 @@
                 <category android:name="android.intent.category.DEFAULT"/>
                 <data android:mimeType="application/vnd.wwngo.nfc"/>
             </intent-filter>
+            <meta-data android:name="flutter_deeplinking_enabled" android:value="true"/>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="wwngo"/>
+            </intent-filter>
         </activity>
         <meta-data
             android:name="flutterEmbedding"

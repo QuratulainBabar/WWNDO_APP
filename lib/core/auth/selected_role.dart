@@ -29,22 +29,9 @@ abstract final class SelectedRoleStore {
         _ => 'Sender',
       };
 
-  /// "★ 4.5 · Sender" line under the greeting on role home screens.
+  /// Role name under the greeting on home screens.
   static String homeRatingSubtitle(AuthUser? user, WalletRole fallback) {
-    final role = effectiveRole(user, fallback);
-    final rating = user?.rating ?? 0;
-    final ratingLabel = rating > 0 ? rating.toStringAsFixed(1) : '—';
-    return '★ $ratingLabel · ${roleLabel(role)}';
-  }
-
-  /// "Receiver · Track incoming parcels" style subtitle.
-  static String homeTaglineSubtitle(
-    AuthUser? user,
-    WalletRole fallback, {
-    required String tagline,
-  }) {
-    final role = effectiveRole(user, fallback);
-    return '${roleLabel(role)} · $tagline';
+    return roleLabel(effectiveRole(user, fallback));
   }
 
   static String homeRouteFor(WalletRole role) => switch (role) {

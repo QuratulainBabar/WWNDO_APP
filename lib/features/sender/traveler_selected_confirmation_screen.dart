@@ -151,7 +151,8 @@ class _TravelerSelectedConfirmationScreenState
               const SizedBox(height: 8),
               Text(
                 '$name has been notified of your parcel request.\n'
-                'Payment unlocks after they send a counter offer.',
+                'Payment unlocks after they send a counter offer.'
+                '${widget.acceptance.canRequestAnotherTraveler ? '\nYou can still request 1 more traveler for this parcel.' : ''}',
                 textAlign: TextAlign.center,
                 style: typo.sm.copyWith(height: 1.5, color: AppColors.textSecondary),
               ),
@@ -186,12 +187,21 @@ class _TravelerSelectedConfirmationScreenState
                     : 'Continue',
                 onPressed: _checkingOffer ? null : _continueToOfferOrWait,
               ),
-              const SizedBox(height: AppButton.stackGap),
-              AppButton(
-                label: 'Go to My Deliveries',
-                variant: AppButtonVariant.outline,
-                onPressed: () => context.go('/my-posted-parcels'),
-              ),
+              if (widget.acceptance.canRequestAnotherTraveler) ...[
+                const SizedBox(height: AppButton.stackGap),
+                AppButton(
+                  label: 'Select another traveler',
+                  variant: AppButtonVariant.outline,
+                  onPressed: () {
+                    final shipmentId = widget.acceptance.shipmentId.trim();
+                    if (shipmentId.isEmpty) {
+                      context.go('/my-posted-parcels');
+                      return;
+                    }
+                    context.go('/bid-requests/$shipmentId');
+                  },
+                ),
+              ],
               const SizedBox(height: AppButton.stackGap),
               AppButton(
                 label: 'Back to Home',

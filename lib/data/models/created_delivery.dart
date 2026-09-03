@@ -137,6 +137,12 @@ class CreateDeliveryRequest {
       if (destinationCity != null && destinationCity!.trim().isNotEmpty) {
         fields['destinationCity'] = destinationCity!.trim();
       }
+      if (fromCode != null && fromCode!.trim().isNotEmpty) {
+        fields['fromCode'] = fromCode!.trim().toUpperCase();
+      }
+      if (toCode != null && toCode!.trim().isNotEmpty) {
+        fields['toCode'] = toCode!.trim().toUpperCase();
+      }
     }
 
     return fields;

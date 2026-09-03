@@ -88,7 +88,7 @@ class _ShipmentEscrowSectionState extends State<ShipmentEscrowSection> {
             child: Text(
               value,
               textAlign: TextAlign.end,
-              style: typo.bodyBold.copyWith(fontWeight: FontWeight.w700),
+              style: typo.bodyBold.copyWith(fontWeight: FontWeight.w400),
             ),
           ),
         ],

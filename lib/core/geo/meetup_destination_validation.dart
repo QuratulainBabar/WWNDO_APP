@@ -13,6 +13,7 @@ abstract final class MeetupDestinationValidation {
     required String destinationCity,
     String? destinationCountryCode,
     MeetupLocation? destinationPlace,
+    bool sameCountrySufficient = false,
   }) {
     if (meetups.isEmpty) return null;
     final city = destinationCity.trim();
@@ -24,6 +25,7 @@ abstract final class MeetupDestinationValidation {
         destinationCity: city,
         destinationCountryCode: destinationCountryCode,
         destinationPlace: destinationPlace,
+        sameCountrySufficient: sameCountrySufficient,
       )) {
         return message;
       }
@@ -37,6 +39,7 @@ abstract final class MeetupDestinationValidation {
     required String destinationCity,
     String? destinationCountryCode,
     MeetupLocation? destinationPlace,
+    bool sameCountrySufficient = false,
   }) {
     if (destinationPlace != null) {
       return MeetupLocationMatch.placesInSameArea(
@@ -44,6 +47,7 @@ abstract final class MeetupDestinationValidation {
         origin: destinationPlace,
         originCityHint: destinationCity,
         originCountryCode: destinationCountryCode,
+        sameCountrySufficient: sameCountrySufficient,
       );
     }
 
@@ -55,6 +59,7 @@ abstract final class MeetupDestinationValidation {
       destinationCity,
       destinationCountryCode: destinationCountryCode,
       meetupCountryCode: meetup.countryCode,
+      sameCountrySufficient: sameCountrySufficient,
     );
   }
 
@@ -64,12 +69,14 @@ abstract final class MeetupDestinationValidation {
     String destinationCity, {
     String? destinationCountryCode,
     String? meetupCountryCode,
+    bool sameCountrySufficient = false,
   }) {
     return MeetupLocationMatch.labelsInSameArea(
       meetupLabel,
       destinationCity,
       routeCountryCode: destinationCountryCode,
       meetupCountryCode: meetupCountryCode,
+      sameCountrySufficient: sameCountrySufficient,
     );
   }
 }

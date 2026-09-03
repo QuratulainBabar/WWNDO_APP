@@ -44,8 +44,7 @@ class ProfileHeaderCard extends StatelessWidget {
     final displayBio = () {
       final fromAuth = profile?.bio.trim() ?? '';
       if (fromAuth.isNotEmpty) return fromAuth;
-      final fallback = bio.trim();
-      return fallback.isNotEmpty ? fallback : 'No bio added yet.';
+      return bio.trim();
     }();
     final displayRating = profile?.rating ?? rating;
     final crossVerified = authUser?.isFullyCrossVerified ?? false;
@@ -83,8 +82,10 @@ class ProfileHeaderCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 StarRatingDisplay(rating: displayRating),
-                const SizedBox(height: 4),
-                Text(displayBio, style: typo.link),
+                if (displayBio.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(displayBio, style: typo.link),
+                ],
               ],
             ),
           ),

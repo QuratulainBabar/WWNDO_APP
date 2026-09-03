@@ -129,6 +129,7 @@ class NotificationRealtimeProvider extends ChangeNotifier {
   Future<void> refreshChatUnread({
     required AuthRepository authRepository,
     DemoModeProvider? demoMode,
+    String? threadType,
   }) async {
     if (demoMode?.enabled ?? false) {
       if (_chatUnreadCount != 0) {
@@ -143,18 +144,31 @@ class NotificationRealtimeProvider extends ChangeNotifier {
       demoMode: demoMode,
     );
     try {
-      final conversations = await chatRepository.listConversations();
+      final conversations = await chatRepository.listConversations(
+        threadType: threadType ?? _activeRole?.chatInboxThreadType,
+      );
       final total = conversations.fold<int>(
         0,
         (sum, c) => sum + (c.unreadCount < 0 ? 0 : c.unreadCount),
       );
-      if (_chatUnreadCount != total) {
-        _chatUnreadCount = total;
-        notifyListeners();
-      }
+      setChatUnreadCount(total);
     } catch (_) {
       // Badge refresh is non-critical.
     }
+  }
+
+  void setChatUnreadCount(int count) {
+    final next = count < 0 ? 0 : count;
+    if (_chatUnreadCount != next) {
+      _chatUnreadCount = next;
+      notifyListeners();
+    }
+  }
+
+  /// Instantly drop [amount] from the Chat tab badge (e.g. after opening a thread).
+  void applyConversationRead(int amount) {
+    if (amount <= 0) return;
+    setChatUnreadCount(_chatUnreadCount - amount);
   }
 
   void setUnreadCount(int count) {

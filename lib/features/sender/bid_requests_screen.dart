@@ -44,6 +44,7 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
   List<TravelerRequestSummary> _travelerRequests = const [];
   bool _loading = true;
   bool _paying = false;
+  bool _requesting = false;
   String? _error;
 
   NotificationRealtimeProvider? _realtimeProvider;
@@ -250,17 +251,18 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
     }
   }
 
+  bool get _atRequestLimit =>
+      _travelerRequests.length >= PlatformFees.maxTravelerRequestsPerDelivery;
+
   Future<void> _selectTraveler(Bid bid) async {
-    if (_travelerRequests.length >= PlatformFees.maxTravelerRequestsPerDelivery) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('You can request at most 2 travelers for this parcel.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+    if (_requesting) return;
+    if (_requestFor(bid) != null) return;
+    if (_atRequestLimit) {
+      AppToast.error(context, PlatformFees.travelerRequestLimitMessage);
       return;
     }
 
+    setState(() => _requesting = true);
     try {
       await _repository().requestTraveler(
         deliveryId: widget.shipmentId,
@@ -272,10 +274,10 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
       final message = e is ApiException
           ? e.message
           : 'Unable to send request to this traveler.';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
-      );
+      AppToast.error(context, message);
       return;
+    } finally {
+      if (mounted) setState(() => _requesting = false);
     }
 
     await _load();
@@ -285,12 +287,24 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
       extra: BidAcceptanceContext(
         bid: bid,
         shipmentId: widget.shipmentId,
+        activeRequestCount: _travelerRequests.length,
       ),
     );
   }
 
-  List<Bid> _visibleBids() =>
-      BidSortOption.sorted(_apiBids ?? const [], _sort);
+  List<Bid> _visibleBids() {
+    final sorted = BidSortOption.sorted(_apiBids ?? const [], _sort);
+    final selected = <Bid>[];
+    final rest = <Bid>[];
+    for (final bid in sorted) {
+      if (_requestFor(bid) != null) {
+        selected.add(bid);
+      } else {
+        rest.add(bid);
+      }
+    }
+    return [...selected, ...rest];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -349,7 +363,7 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
       body: ListView.builder(
         physics: PlatformUi.scrollPhysics,
         padding: context.pagePadding,
-        itemCount: bids.length + 2,
+        itemCount: bids.length + 3,
         itemBuilder: (context, i) {
           if (i == 0) {
             return Padding(
@@ -359,6 +373,16 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
           }
 
           if (i == 1) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _SelectedTravelersCard(
+                requests: _travelerRequests,
+                maxCount: PlatformFees.maxTravelerRequestsPerDelivery,
+              ),
+            );
+          }
+
+          if (i == 2) {
             return Padding(
               padding: EdgeInsets.only(bottom: bids.isEmpty ? 0 : 12),
               child: Column(
@@ -384,17 +408,20 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
             );
           }
 
-          final bid = bids[i - 2];
+          final bid = bids[i - 3];
           final status = _reviewStatusFor(bid);
           return _MatchingTravelerCard(
             bid: bid,
             status: status,
             paying: _paying,
+            atLimit: _atRequestLimit,
+            requesting: _requesting,
             onViewProfile: () => context.push(
               '/bid-traveler-profile',
               extra: BidAcceptanceContext(
                 bid: bid,
                 shipmentId: widget.shipmentId,
+                activeRequestCount: _travelerRequests.length,
               ),
             ),
             onSelectTraveler: () => _selectTraveler(bid),
@@ -489,11 +516,94 @@ class _ParcelSummaryCard extends StatelessWidget {
   }
 }
 
+class _SelectedTravelersCard extends StatelessWidget {
+  const _SelectedTravelersCard({
+    required this.requests,
+    required this.maxCount,
+  });
+
+  final List<TravelerRequestSummary> requests;
+  final int maxCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final typo = context.typo;
+    final remaining = maxCount - requests.length;
+
+    String hint;
+    if (requests.isEmpty) {
+      hint = 'You can request 1 or 2 travelers for this parcel.';
+    } else if (remaining > 0) {
+      hint = remaining == 1
+          ? 'You can request 1 more traveler for this parcel.'
+          : 'You can request $remaining more travelers for this parcel.';
+    } else {
+      hint = 'Maximum of $maxCount travelers requested for this parcel.';
+    }
+
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Selected travelers (${requests.length}/$maxCount)',
+            style: typo.bodyBold.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            hint,
+            style: typo.sm.copyWith(color: AppColors.textSecondary),
+          ),
+          if (requests.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            for (var i = 0; i < requests.length; i++) ...[
+              if (i > 0) const SizedBox(height: 10),
+              _SelectedTravelerRow(request: requests[i]),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _SelectedTravelerRow extends StatelessWidget {
+  const _SelectedTravelerRow({required this.request});
+
+  final TravelerRequestSummary request;
+
+  @override
+  Widget build(BuildContext context) {
+    final typo = context.typo;
+    final name = request.travelerName;
+    final initial = name.isNotEmpty ? name[0] : '?';
+    final accepted = request.isAccepted;
+
+    return Row(
+      children: [
+        AppAvatar(initial: initial, size: AvatarSize.small),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(name, style: typo.sm.copyWith(fontWeight: FontWeight.w600)),
+        ),
+        AppBadge(
+          label: accepted ? 'Accepted' : 'Requested',
+          color: accepted ? AppColors.primary : AppColors.warning,
+          backgroundColor: (accepted ? AppColors.primary : AppColors.warning)
+              .withValues(alpha: 0.12),
+        ),
+      ],
+    );
+  }
+}
+
 class _MatchingTravelerCard extends StatelessWidget {
   const _MatchingTravelerCard({
     required this.bid,
     required this.status,
     required this.paying,
+    required this.atLimit,
+    required this.requesting,
     required this.onViewProfile,
     required this.onSelectTraveler,
     required this.onPayNow,
@@ -502,6 +612,8 @@ class _MatchingTravelerCard extends StatelessWidget {
   final Bid bid;
   final BidReviewStatus status;
   final bool paying;
+  final bool atLimit;
+  final bool requesting;
   final VoidCallback onViewProfile;
   final VoidCallback onSelectTraveler;
   final VoidCallback onPayNow;
@@ -512,8 +624,8 @@ class _MatchingTravelerCard extends StatelessWidget {
     final requested = status == BidReviewStatus.deliveryRequested;
     final accepted = status == BidReviewStatus.approved ||
         status == BidReviewStatus.accepted;
-    final canSendRequest = !requested && !accepted;
-    final canPayNow = accepted && !paying;
+    final alreadyChosen = requested || accepted;
+    final canSendRequest = !alreadyChosen && !requesting;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -567,32 +679,72 @@ class _MatchingTravelerCard extends StatelessWidget {
             const SizedBox(height: 12),
             Row(
               children: [
-                Expanded(
-                  child: AppButton(
-                    label: 'View profile',
-                    variant: AppButtonVariant.outline,
-                    small: true,
-                    onPressed: onViewProfile,
-                  ),
+                _rowActionButton(
+                  context,
+                  label: 'View Profile',
+                  onPressed: onViewProfile,
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: AppButton(
-                    label: accepted || requested ? 'Requested' : 'Send Request',
-                    variant: AppButtonVariant.outline,
-                    small: true,
-                    onPressed: canSendRequest ? onSelectTraveler : null,
-                  ),
+                const SizedBox(width: 8),
+                _rowActionButton(
+                  context,
+                  label: accepted || requested
+                      ? 'Requested'
+                      : atLimit
+                          ? 'Limit reached'
+                          : requesting
+                              ? 'Sending…'
+                              : 'Send Request',
+                  onPressed: canSendRequest ? onSelectTraveler : null,
                 ),
               ],
             ),
-            const SizedBox(height: AppButton.stackGap),
+            const SizedBox(height: 8),
             AppButton(
               label: paying ? 'Opening…' : 'Pay Now',
               small: true,
-              onPressed: canPayNow ? onPayNow : null,
+              onPressed: paying ? null : onPayNow,
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _rowActionButton(
+    BuildContext context, {
+    required String label,
+    required VoidCallback? onPressed,
+  }) {
+    final typo = context.typo;
+    return Expanded(
+      child: SizedBox(
+        height: 40,
+        child: OutlinedButton(
+          onPressed: onPressed,
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            minimumSize: Size.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            side: const BorderSide(color: AppColors.border, width: 1.5),
+            foregroundColor: AppColors.textPrimary,
+            disabledForegroundColor: AppColors.textDisabled,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              label,
+              maxLines: 1,
+              textAlign: TextAlign.center,
+              style: typo.buttonSm.copyWith(
+                color: onPressed == null
+                    ? AppColors.textDisabled
+                    : AppColors.textPrimary,
+              ),
+            ),
+          ),
         ),
       ),
     );

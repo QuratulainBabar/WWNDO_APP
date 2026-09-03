@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "wwngo_app",
+      "request": "launch",
+      "type": "dart",
+      "toolArgs": [
+        "--dart-define=API_BASE_URL=http://172.16.11.26:3000"
+      ]
+    }
+  ]
+}

@@ -11,6 +11,7 @@ import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_labeled_field.dart';
 import '../../core/widgets/back_header.dart';
 import '../../core/widgets/screen_body.dart';
+import '../../core/payments/stripe_connect_return.dart';
 import '../../data/models/wallet_role.dart';
 import '../../data/wallet_service.dart';
 import '../../providers/wallet_provider.dart';
@@ -23,7 +24,7 @@ class WalletTopUpScreen extends StatefulWidget {
 }
 
 class _WalletTopUpScreenState extends State<WalletTopUpScreen> {
-  final _amountController = TextEditingController(text: '25.00');
+  final _amountController = TextEditingController();
   String? _error;
   bool _busy = false;
 
@@ -88,7 +89,7 @@ class _WalletTopUpScreenState extends State<WalletTopUpScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Add funds securely with Stripe. When Stripe is configured, you complete card payment in Payment Sheet; otherwise funds are credited instantly in development mode.',
+              'Add funds securely with Stripe. Tap Pay with Stripe to open the card payment sheet, choose a payment option, and complete the top-up.',
               style: typo.sm.copyWith(height: 1.5),
             ),
             const SizedBox(height: 20),
@@ -102,6 +103,13 @@ class _WalletTopUpScreenState extends State<WalletTopUpScreen> {
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
                 style: typo.amountInput.copyWith(fontWeight: FontWeight.w700),
+                decoration: InputDecoration(
+                  hintText: 'Enter amount',
+                  hintStyle: typo.amountInput.copyWith(
+                    fontWeight: FontWeight.w400,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
                 onChanged: (_) => setState(() => _error = null),
               ),
             ),
@@ -176,6 +184,87 @@ class WalletTopUpSuccessScreen extends StatelessWidget {
               AppButton(
                 label: 'Back to wallet',
                 onPressed: () => context.go('/wallet?role=${role.queryParam}'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class WalletConnectSuccessScreen extends StatelessWidget {
+  const WalletConnectSuccessScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final typo = context.typo;
+    final params = GoRouterState.of(context).uri.queryParameters;
+    final role = WalletRole.fromQuery(
+      params['role'] ?? StripeConnectReturn.role,
+    );
+    final isRefresh = params['status'] == 'refresh';
+    final walletRoute = '/wallet?role=${role.queryParam}';
+    final homeRoute = switch (role) {
+      WalletRole.receiver => '/receiver-home',
+      WalletRole.traveler => '/traveler-home',
+      WalletRole.sender => '/home',
+    };
+
+    return Scaffold(
+      backgroundColor: AppColors.surface,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  color: AppColors.success.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: Icon(
+                  isRefresh
+                      ? Icons.account_balance_outlined
+                      : Icons.check,
+                  size: 40,
+                  color: AppColors.success,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                isRefresh
+                    ? 'Continue payout setup'
+                    : 'Payout account connected',
+                style: typo.h1,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                isRefresh
+                    ? 'Return to the wallet to finish linking your Stripe payout account.'
+                    : 'Your Stripe payout account is linked. You can withdraw to your bank from the wallet.',
+                textAlign: TextAlign.center,
+                style: typo.sm.copyWith(height: 1.5),
+              ),
+              const SizedBox(height: 32),
+              AppButton(
+                label: 'Back to wallet',
+                onPressed: () => context.go(walletRoute),
+              ),
+              const SizedBox(height: AppButton.stackGap),
+              AppButton(
+                label: 'Go to home',
+                variant: AppButtonVariant.outline,
+                textStyle: typo.button.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+                onPressed: () => context.go(homeRoute),
               ),
             ],
           ),

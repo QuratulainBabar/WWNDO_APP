@@ -222,9 +222,7 @@ class _TravelerProfileScreenState extends State<TravelerProfileScreen> {
               initial: authUser.initial,
               subtitle: 'Traveler',
               memberSince: _displayOrDash(authUser.memberSince),
-              bio: authUser.bio.trim().isNotEmpty
-                  ? authUser.bio
-                  : 'No bio added yet.',
+              bio: authUser.bio,
               rating: rating,
               authUser: authUser,
             ),
@@ -248,7 +246,10 @@ class _TravelerProfileScreenState extends State<TravelerProfileScreen> {
                     context,
                     'Rating',
                     '',
-                    trailing: StarRatingDisplay(rating: rating),
+                    trailing: StarRatingDisplay(
+                      rating: rating,
+                      valueFontWeight: FontWeight.w600,
+                    ),
                   ),
                   const Divider(height: 24),
                   _infoRow(context, 'Total trips completed', tripsCompleted),
@@ -350,7 +351,7 @@ class _TravelerProfileScreenState extends State<TravelerProfileScreen> {
               Text(
                 value,
                 textAlign: TextAlign.end,
-                style: typo.bodyBold.copyWith(fontWeight: FontWeight.w700),
+                style: typo.bodyBold.copyWith(fontWeight: FontWeight.w600),
               ),
         ),
       ],

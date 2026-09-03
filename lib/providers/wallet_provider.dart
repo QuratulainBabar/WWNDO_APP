@@ -99,21 +99,21 @@ class WalletProvider extends ChangeNotifier {
       _apply(summary, transactions: history);
       return summary;
     } on ApiException catch (e) {
-      final empty = WalletSummary.empty(contextRole);
-      _apply(empty, transactions: const []);
       if (!silent) {
+        final empty = WalletSummary.empty(contextRole);
+        _apply(empty, transactions: const []);
         _error = e.message;
         rethrow;
       }
-      return empty;
+      return _summary ?? WalletSummary.empty(contextRole);
     } catch (e) {
-      final empty = WalletSummary.empty(contextRole);
-      _apply(empty, transactions: const []);
       if (!silent) {
+        final empty = WalletSummary.empty(contextRole);
+        _apply(empty, transactions: const []);
         _error = 'Unable to load wallet.';
         rethrow;
       }
-      return empty;
+      return _summary ?? WalletSummary.empty(contextRole);
     } finally {
       if (!silent) {
         _loading = false;
@@ -150,9 +150,36 @@ class WalletProvider extends ChangeNotifier {
             code: 'PAYMENT_INCOMPLETE',
           );
         }
-        await _walletRepository.confirmTopUp(
-          paymentIntentId: intentId,
-          contextRole: role,
+        WalletSummary? credited;
+        ApiException? lastConfirmError;
+        for (var i = 0; i < 6; i++) {
+          try {
+            credited = await _walletRepository.confirmTopUp(
+              paymentIntentId: intentId,
+              contextRole: role,
+            );
+            lastConfirmError = null;
+            break;
+          } on ApiException catch (err) {
+            lastConfirmError = err;
+            final retry = err.code == 'PAYMENT_INCOMPLETE' ||
+                err.code == 'TOPUP_CREDIT_FAILED';
+            if (!retry || i == 5) rethrow;
+            await Future<void>.delayed(const Duration(milliseconds: 400));
+          }
+        }
+        if (credited == null) {
+          throw lastConfirmError ??
+              const ApiException(
+                message: 'Payment succeeded but the wallet could not be credited.',
+                code: 'TOPUP_CREDIT_FAILED',
+              );
+        }
+        _apply(
+          credited,
+          transactions: credited.recentTransactions.isNotEmpty
+              ? credited.recentTransactions
+              : _transactions,
         );
       }
 

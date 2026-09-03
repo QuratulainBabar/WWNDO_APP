@@ -99,9 +99,17 @@ class _BidTravelerProfileScreenState extends State<BidTravelerProfileScreen> {
     }
   }
 
+  bool get _atRequestLimit =>
+      _travelerRequests.length >= PlatformFees.maxTravelerRequestsPerDelivery;
+
   Future<void> _selectTraveler() async {
     final id = widget.shipmentId;
     if (id == null || _requesting) return;
+    if (_alreadyRequested) return;
+    if (_atRequestLimit) {
+      AppToast.error(context, PlatformFees.travelerRequestLimitMessage);
+      return;
+    }
 
     final demoMode = context.read<DemoModeProvider>();
     if (!demoMode.enabled) {
@@ -119,23 +127,17 @@ class _BidTravelerProfileScreenState extends State<BidTravelerProfileScreen> {
       } on ApiException catch (e) {
         if (!mounted) return;
         setState(() => _requesting = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.message), behavior: SnackBarBehavior.floating),
-        );
+        AppToast.error(context, e.message);
         return;
       } catch (_) {
         if (!mounted) return;
         setState(() => _requesting = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Unable to send request to this traveler.'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AppToast.error(context, 'Unable to send request to this traveler.');
         return;
       }
       if (!mounted) return;
       setState(() => _requesting = false);
+      await _loadTravelerRequests();
     }
 
     StaticData.selectMatchingTraveler(shipmentId: id, bid: widget.bid);
@@ -143,7 +145,13 @@ class _BidTravelerProfileScreenState extends State<BidTravelerProfileScreen> {
     setState(() => _sentThisSession = true);
     context.push(
       '/traveler-selected-confirmation',
-      extra: BidAcceptanceContext(bid: widget.bid, shipmentId: id),
+      extra: BidAcceptanceContext(
+        bid: widget.bid,
+        shipmentId: id,
+        activeRequestCount: _travelerRequests.isEmpty
+            ? 1
+            : _travelerRequests.length,
+      ),
     );
   }
 
@@ -266,6 +274,7 @@ class _BidTravelerProfileScreenState extends State<BidTravelerProfileScreen> {
         reviewStatus == BidReviewStatus.approved;
     final isLocked = reviewStatus == BidReviewStatus.locked;
     final alreadyRequested = _alreadyRequested;
+    final atLimit = _atRequestLimit && !alreadyRequested;
     final canSelect =
         shipmentId != null && !isSelected && !isLocked && !alreadyRequested;
 
@@ -392,7 +401,9 @@ class _BidTravelerProfileScreenState extends State<BidTravelerProfileScreen> {
                           ? 'Request Sent'
                           : isLocked
                               ? 'Unavailable'
-                              : 'Send Request',
+                              : atLimit
+                                  ? 'Limit reached'
+                                  : 'Send Request',
                       variant: AppButtonVariant.outline,
                       onPressed: canSelect && !_requesting && _requestsLoaded
                           ? _selectTraveler

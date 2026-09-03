@@ -113,6 +113,7 @@ class SenderDeliveryStatus {
           label: 'Traveler Selected',
           color: AppColors.primary,
           isActive: true,
+          canEditOrCancel: true,
           description: 'Payment secured in escrow. Meet for NFC handoff.',
         );
       case 'ready_for_handoff':
@@ -126,6 +127,7 @@ class SenderDeliveryStatus {
           label: 'Traveler Selected',
           color: AppColors.primary,
           isActive: true,
+          canEditOrCancel: true,
         );
       case 'collected':
         return const SenderDeliveryStatus(

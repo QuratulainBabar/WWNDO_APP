@@ -217,7 +217,16 @@ class _TravelerBidDetailScreenState extends State<TravelerBidDetailScreen> {
                         style: typo.h3.copyWith(fontWeight: FontWeight.w700),
                       ),
                       const SizedBox(height: 12),
-                      _detailRow(context, 'Pickup → Destination', bid.route),
+                      _detailRow(
+                        context,
+                        'Pickup',
+                        bid.fromCity.isNotEmpty ? bid.fromCity : '—',
+                      ),
+                      _detailRow(
+                        context,
+                        'Destination',
+                        bid.toCity.isNotEmpty ? bid.toCity : '—',
+                      ),
                       _detailRow(context, 'Delivery date', deliveryDate),
                       _detailRow(
                         context,

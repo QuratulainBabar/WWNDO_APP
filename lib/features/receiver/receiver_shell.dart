@@ -101,6 +101,7 @@ class _ReceiverShellState extends State<ReceiverShell>
     await realtime.refreshChatUnread(
       authRepository: auth.repository,
       demoMode: demoMode,
+      threadType: WalletRole.receiver.chatInboxThreadType,
     );
   }
 

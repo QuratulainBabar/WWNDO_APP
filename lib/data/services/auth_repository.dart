@@ -166,8 +166,8 @@ class AuthRepository {
     final data = await _apiClient.post(
       '/auth/login',
       body: {
-        'email': email,
-        'password': password,
+        'email': email.trim(),
+        'password': password.replaceAll(RegExp(r'[\r\n]'), ''),
       },
     );
 
@@ -184,7 +184,7 @@ class AuthRepository {
       '/auth/login/password-otp/send',
       body: {
         'email': email.trim(),
-        'password': password,
+        'password': password.replaceAll(RegExp(r'[\r\n]'), ''),
       },
     );
   }
@@ -199,7 +199,7 @@ class AuthRepository {
       '/auth/login/password-otp/verify',
       body: {
         'email': email.trim(),
-        'password': password,
+        'password': password.replaceAll(RegExp(r'[\r\n]'), ''),
         'code': code.trim(),
       },
     );

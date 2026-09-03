@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/config/demo_mode.dart';
 import '../../core/layout/responsive.dart';
+import '../../core/payments/platform_fee_payment.dart';
 import '../../core/platform/platform_ui.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
@@ -13,6 +14,7 @@ import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/back_header.dart';
 import '../../data/models/shipment.dart';
+import '../../data/models/wallet_role.dart';
 import '../../data/services/platform_repository.dart';
 import '../../data/platform_fees.dart';
 import '../../data/static_data.dart';
@@ -56,9 +58,14 @@ class _ReceiverPaymentScreenState extends State<ReceiverPaymentScreen> {
     try {
       if (!demoMode) {
         final feeCents = (receiverShare * 100).round();
-        await _platformRepo().submitReceiverPayment(
-          deliveryId: shipment.id,
-          feeCents: feeCents,
+        await PlatformFeePayment.withStripeRetry(
+          context: context,
+          role: WalletRole.receiver,
+          attempt: (paymentIntentId) => _platformRepo().submitReceiverPayment(
+            deliveryId: shipment.id,
+            feeCents: feeCents,
+            paymentIntentId: paymentIntentId,
+          ),
         );
       } else {
         final paid = StaticData.approveReceiverFeeShare(

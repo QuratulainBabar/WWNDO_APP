@@ -13,6 +13,7 @@ abstract final class MeetupOriginValidation {
     required String originCity,
     String? originCountryCode,
     MeetupLocation? originPlace,
+    bool sameCountrySufficient = false,
   }) {
     if (meetups.isEmpty) return null;
     final city = originCity.trim();
@@ -24,6 +25,7 @@ abstract final class MeetupOriginValidation {
         originCity: city,
         originCountryCode: originCountryCode,
         originPlace: originPlace,
+        sameCountrySufficient: sameCountrySufficient,
       )) {
         return message;
       }
@@ -37,6 +39,7 @@ abstract final class MeetupOriginValidation {
     required String originCity,
     String? originCountryCode,
     MeetupLocation? originPlace,
+    bool sameCountrySufficient = false,
   }) {
     if (originPlace != null) {
       return MeetupLocationMatch.placesInSameArea(
@@ -44,6 +47,7 @@ abstract final class MeetupOriginValidation {
         origin: originPlace,
         originCityHint: originCity,
         originCountryCode: originCountryCode,
+        sameCountrySufficient: sameCountrySufficient,
       );
     }
 
@@ -55,6 +59,7 @@ abstract final class MeetupOriginValidation {
       originCity,
       originCountryCode: originCountryCode,
       meetupCountryCode: meetup.countryCode,
+      sameCountrySufficient: sameCountrySufficient,
     );
   }
 
@@ -64,12 +69,14 @@ abstract final class MeetupOriginValidation {
     String originCity, {
     String? originCountryCode,
     String? meetupCountryCode,
+    bool sameCountrySufficient = false,
   }) {
     return MeetupLocationMatch.labelsInSameArea(
       meetupLabel,
       originCity,
       routeCountryCode: originCountryCode,
       meetupCountryCode: meetupCountryCode,
+      sameCountrySufficient: sameCountrySufficient,
     );
   }
 }

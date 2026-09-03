@@ -1,3 +1,6 @@
 {
-    "git.ignoreLimitWarning": true
+    "git.ignoreLimitWarning": true,
+    "dart.flutterRunAdditionalArgs": [
+        "--dart-define=API_BASE_URL=http://172.16.11.26:3000"
+    ]
 }

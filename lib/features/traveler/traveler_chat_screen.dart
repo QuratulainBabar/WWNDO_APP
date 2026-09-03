@@ -10,6 +10,7 @@ import '../../core/theme/app_typography.dart';
 import '../../core/widgets/back_header.dart';
 import '../../data/models/chat_message.dart';
 import '../../data/models/traveler_bid.dart';
+import '../../data/models/wallet_role.dart';
 import '../../data/services/chat_repository.dart';
 import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
@@ -153,6 +154,7 @@ class _TravelerChatScreenState extends State<TravelerChatScreen>
         context.read<NotificationRealtimeProvider>().refreshChatUnread(
               authRepository: auth.repository,
               demoMode: context.read<DemoModeProvider>(),
+              threadType: WalletRole.traveler.chatInboxThreadType,
             );
       }
     } on ApiException catch (e) {

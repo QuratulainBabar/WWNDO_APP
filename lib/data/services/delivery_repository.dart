@@ -413,12 +413,13 @@ class DeliveryRepository {
       );
     }
 
-    final originCity = request.deliveryType == DeliveryType.cityToCity
-        ? (request.fromCity ?? '')
-        : (request.originCity ??
+    final isCountry = request.deliveryType == DeliveryType.countryToCountry;
+    final originCity = isCountry
+        ? (request.originCity ??
             request.originAirport ??
             request.originCountry ??
-            '');
+            '')
+        : (request.fromCity ?? '');
     final originCountryCode = request.fromCode;
     if (originCity.trim().isNotEmpty) {
       for (final loc in request.preferredMeetupLocations) {
@@ -426,6 +427,7 @@ class DeliveryRepository {
           loc,
           originCity,
           originCountryCode: originCountryCode,
+          sameCountrySufficient: isCountry,
         )) {
           throw const ApiException(
             message: MeetupOriginValidation.message,
@@ -435,18 +437,19 @@ class DeliveryRepository {
       }
     }
 
-    final destinationCity = request.deliveryType == DeliveryType.cityToCity
-        ? (request.toCity ?? '')
-        : (request.destinationCity ??
+    final destinationCity = isCountry
+        ? (request.destinationCity ??
             request.destinationAirport ??
             request.destinationCountry ??
-            '');
+            '')
+        : (request.toCity ?? '');
     final destinationCountryCode = request.toCode;
     if (destinationCity.trim().isNotEmpty) {
       if (!MeetupDestinationValidation.labelBelongsToDestination(
         request.receiverMeetupLocation!,
         destinationCity,
         destinationCountryCode: destinationCountryCode,
+        sameCountrySufficient: isCountry,
       )) {
         throw const ApiException(
           message: MeetupDestinationValidation.message,

@@ -113,10 +113,15 @@ class PlatformRepository {
   Future<Map<String, dynamic>> submitReceiverPayment({
     required String deliveryId,
     required int feeCents,
+    String? paymentIntentId,
   }) async {
+    final body = <String, dynamic>{'feeCents': feeCents};
+    if (paymentIntentId != null && paymentIntentId.isNotEmpty) {
+      body['paymentIntentId'] = paymentIntentId;
+    }
     final res = await _api.post(
       '/deliveries/$deliveryId/receiver-payment',
-      body: {'feeCents': feeCents},
+      body: body,
       authenticated: true,
     );
     return Map<String, dynamic>.from(res);

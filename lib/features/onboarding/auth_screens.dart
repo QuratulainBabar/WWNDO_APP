@@ -125,7 +125,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (_countryIso == null || _countryIso!.isEmpty) {
       return 'Select a country';
     }
-    if (!PhoneCountries.isValidNational(_phoneController.text, minDigits: 6)) {
+    if (!PhoneCountries.isValidNational(
+      _phoneController.text,
+      country: _phoneCountry,
+    )) {
       return 'Enter a valid phone number';
     }
     if (_passwordController.text.length < 8) {

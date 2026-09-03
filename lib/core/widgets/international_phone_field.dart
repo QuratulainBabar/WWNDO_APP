@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../platform/keyboard_utils.dart';
 import '../phone/phone_countries.dart';
+import '../phone/phone_input_formatters.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
 import 'app_labeled_field.dart';
@@ -101,6 +102,20 @@ class _PhoneInputRowState extends State<_PhoneInputRow> {
   void initState() {
     super.initState();
     _focusNode.addListener(_onFocusChange);
+    _clampToCountry();
+  }
+
+  void _clampToCountry() {
+    final clamped = PhoneCountries.clampNational(
+      widget.controller.text,
+      widget.country,
+    );
+    if (clamped != widget.controller.text) {
+      widget.controller.value = TextEditingValue(
+        text: clamped,
+        selection: TextSelection.collapsed(offset: clamped.length),
+      );
+    }
   }
 
   @override
@@ -178,6 +193,9 @@ class _PhoneInputRowState extends State<_PhoneInputRow> {
               style: widget.fieldInputStyle,
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp(r'[\d\s]')),
+                PhoneDigitLimiter(
+                  PhoneCountries.nationalDigitRange(widget.country.iso).max,
+                ),
               ],
               decoration: InputDecoration(
                 hintText: widget.hintText,

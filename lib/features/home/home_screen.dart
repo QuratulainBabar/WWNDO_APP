@@ -24,7 +24,6 @@ import '../../providers/chat_realtime_provider.dart';
 import '../../providers/notification_realtime_provider.dart';
 import '../../providers/sender_deliveries_provider.dart';
 import '../../providers/wallet_provider.dart';
-import '../sender/delivery_posting_actions.dart';
 import '../sender/sender_delivery_status.dart';
 
 class MainShell extends StatelessWidget {
@@ -473,8 +472,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             const SizedBox(height: 24),
             GestureDetector(
               onTap: () async {
-                // Wallet balance gate first — must not be masked by auth/KYC dialogs.
-                if (!await DeliveryPostingActions.ensureWalletAllowsParcelCreation(context)) return;
                 if (!AuthVerificationGuard.ensureVerifiedForTransaction(context)) return;
                 if (!KycVerificationGuard.ensureKycApproved(context)) return;
                 await context.push('/delivery-type');
@@ -515,7 +512,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               subtitle: 'Post a new delivery request.',
               route: '/delivery-type',
               requireVerification: true,
-              requireWalletBalance: true,
             ),
             _menuLink(
               context,
@@ -554,7 +550,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     int badge = 0,
     bool refreshUnreadOnReturn = false,
     bool requireVerification = false,
-    bool requireWalletBalance = false,
   }) {
     final typo = context.typo;
     return _menuLinkBody(
@@ -568,7 +563,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       badge: badge,
       refreshUnreadOnReturn: refreshUnreadOnReturn,
       requireVerification: requireVerification,
-      requireWalletBalance: requireWalletBalance,
     );
   }
 
@@ -583,7 +577,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     int badge = 0,
     bool refreshUnreadOnReturn = false,
     bool requireVerification = false,
-    bool requireWalletBalance = false,
   }) {
     return Container(
       width: double.infinity,
@@ -597,10 +590,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ),
         child: InkWell(
           onTap: () async {
-            if (requireWalletBalance &&
-                !await DeliveryPostingActions.ensureWalletAllowsParcelCreation(context)) {
-              return;
-            }
             if (requireVerification && !AuthVerificationGuard.ensureVerifiedForTransaction(context)) {
               return;
             }

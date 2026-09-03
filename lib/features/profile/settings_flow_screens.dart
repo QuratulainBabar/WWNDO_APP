@@ -135,7 +135,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       AppToast.error(context, 'Select a country');
       return;
     }
-    if (!PhoneCountries.isValidNational(_phoneController.text, minDigits: 6)) {
+    if (!PhoneCountries.isValidNational(
+      _phoneController.text,
+      country: _phoneCountry,
+    )) {
       AppToast.error(context, 'Enter a valid phone number');
       return;
     }

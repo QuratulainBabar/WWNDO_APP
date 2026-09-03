@@ -2,15 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
-import '../../core/platform/keyboard_utils.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/auth/post_auth_navigation.dart';
+import '../../core/phone/phone_countries.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_labeled_field.dart';
 import '../../core/widgets/back_link.dart';
+import '../../core/widgets/international_phone_field.dart';
 import '../../core/widgets/otp_code_field.dart';
 import '../../core/widgets/otp_countdown_timer.dart';
 import '../../core/widgets/screen_body.dart';
@@ -50,36 +51,46 @@ class AccountVerificationScreen extends StatelessWidget {
 
   Future<String?> _promptForPhone(BuildContext context) async {
     final controller = TextEditingController();
+    var country = PhoneCountries.byIso(
+      context.read<AuthProvider>().user?.countryCode ?? 'FR',
+    );
     final typo = context.typo;
 
     return showDialog<String>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text('Add phone number', style: typo.h3),
-        content: AppLabeledField(
-          label: 'Phone',
-          child: TextField(
-            controller: controller,
-            onTap: ensureSoftKeyboardVisible,
-            onTapOutside: dismissKeyboardOnTapOutside,
-            keyboardType: TextInputType.phone,
-            decoration: const InputDecoration(hintText: '+33 612 345 678'),
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Text('Add phone number', style: typo.h3),
+          content: SingleChildScrollView(
+            child: InternationalPhoneField(
+              controller: controller,
+              country: country,
+              padding: EdgeInsets.zero,
+              textInputAction: TextInputAction.done,
+              onCountryChanged: (value) => setState(() => country = value),
+            ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                if (!PhoneCountries.isValidNational(
+                  controller.text,
+                  country: country,
+                )) {
+                  return;
+                }
+                Navigator.of(dialogContext).pop(
+                  PhoneCountries.formatFull(country, controller.text),
+                );
+              },
+              child: const Text('Continue'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              final value = controller.text.trim();
-              if (value.replaceAll(' ', '').length < 8) return;
-              Navigator.of(dialogContext).pop(value);
-            },
-            child: const Text('Continue'),
-          ),
-        ],
       ),
     );
   }

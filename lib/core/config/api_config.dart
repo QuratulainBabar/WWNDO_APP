@@ -1,40 +1,32 @@
 /// API base URL for the WWNGO backend.
 ///
-/// Default is the local Wi-Fi API. Hosted `wango.toolkitpro.cloud` is never
-/// used as the REST origin (a stale dart-define can otherwise send login to
-/// the hosted DB and return "Invalid email or password"). Override with
-/// another LAN host: `flutter run --dart-define=API_BASE_URL=http://<ip>:3000`
+/// Default is the live API. For a LAN backend:
+/// `flutter run --dart-define=API_BASE_URL=http://<ip>:3000`
 class ApiConfig {
   ApiConfig._();
+
+  /// Production API / website.
+  static const String liveBaseUrl = 'https://wango.toolkitpro.cloud';
 
   /// Wi-Fi backend used for local testing.
   static const String localBaseUrl = 'http://172.16.11.26:3000';
 
-  static const String _hostedOriginHost = 'wango.toolkitpro.cloud';
-
   static const String _configuredBase = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: localBaseUrl,
+    defaultValue: liveBaseUrl,
   );
 
   static const String _configuredWebsite = String.fromEnvironment(
     'WEBSITE_URL',
-    defaultValue: 'https://wango.toolkitpro.cloud',
+    defaultValue: liveBaseUrl,
   );
 
-  /// REST / Socket.io origin (no trailing slash). Always the local API unless
-  /// a non-hosted `API_BASE_URL` dart-define is provided.
+  /// REST / Socket.io origin (no trailing slash).
   static String get baseUrl {
     var raw = _configuredBase.trim();
-    if (raw.isEmpty || _isHostedApiOrigin(raw)) {
-      raw = localBaseUrl;
-    }
+    if (raw.isEmpty) raw = liveBaseUrl;
     if (raw.endsWith('/')) return raw.substring(0, raw.length - 1);
     return raw;
-  }
-
-  static bool _isHostedApiOrigin(String url) {
-    return url.toLowerCase().contains(_hostedOriginHost);
   }
 
   /// Optional Stripe publishable key from build defines.
@@ -54,6 +46,7 @@ class ApiConfig {
   /// Marketing site (legal pages, FAQ, contact).
   static String get websiteUrl {
     final raw = _configuredWebsite.trim();
+    if (raw.isEmpty) return liveBaseUrl;
     if (raw.endsWith('/')) return raw.substring(0, raw.length - 1);
     return raw;
   }

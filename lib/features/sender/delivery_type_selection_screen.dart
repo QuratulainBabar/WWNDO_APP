@@ -25,6 +25,11 @@ class _DeliveryTypeSelectionScreenState
     extends State<DeliveryTypeSelectionScreen> {
   _DeliveryType? _selectedType;
 
+  Future<void> _selectType(_DeliveryType type) async {
+    setState(() => _selectedType = type);
+    await DeliveryPostingActions.ensureWalletAllowsParcelCreation(context);
+  }
+
   Future<void> _continue() async {
     if (!await DeliveryPostingActions.ensureWalletAllowsParcelCreation(context)) return;
     if (!KycVerificationGuard.ensureKycApproved(context)) return;
@@ -64,15 +69,14 @@ class _DeliveryTypeSelectionScreenState
               title: 'City to City',
               description: 'Send parcels between cities on a domestic route.',
               selected: _selectedType == _DeliveryType.cityToCity,
-              onTap: () => setState(() => _selectedType = _DeliveryType.cityToCity),
+              onTap: () => _selectType(_DeliveryType.cityToCity),
             ),
             _DeliveryTypeCard(
               icon: Icons.public_rounded,
               title: 'Country to Country',
               description: 'Send parcels across international borders.',
               selected: _selectedType == _DeliveryType.countryToCountry,
-              onTap: () =>
-                  setState(() => _selectedType = _DeliveryType.countryToCountry),
+              onTap: () => _selectType(_DeliveryType.countryToCountry),
             ),
             const SizedBox(height: 8),
             AppButton(

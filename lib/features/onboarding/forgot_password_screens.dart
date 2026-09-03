@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../core/platform/keyboard_utils.dart';
 import '../../core/api/api_exception.dart';
+import '../../core/phone/phone_countries.dart';
+import '../../core/phone/phone_input_formatters.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_button.dart';
@@ -73,7 +76,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     if (_channel == OtpChannel.email) {
       return RegExp(r'^[^@]+@[^@]+\.[^@]+$').hasMatch(trimmed);
     }
-    return trimmed.replaceAll(RegExp(r'\s'), '').length >= 8;
+    return PhoneCountries.isValidContactPhone(trimmed);
   }
 
   Future<void> _sendCode() async {
@@ -155,6 +158,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 keyboardType: _channel == OtpChannel.email
                     ? TextInputType.emailAddress
                     : TextInputType.phone,
+                inputFormatters: _channel == OtpChannel.email
+                    ? const []
+                    : [
+                        FilteringTextInputFormatter.allow(RegExp(r'[\d\s+]')),
+                        const PhoneDigitLimiter(15, allowPlus: true),
+                      ],
                 textInputAction: TextInputAction.done,
                 onSubmitted: (_) => _sendCode(),
                 style: typo.input,

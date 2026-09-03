@@ -138,7 +138,8 @@ abstract final class PhoneCountries {
     final normalized = dialCode.startsWith('+') ? dialCode : '+$dialCode';
     final matches = <PhoneCountry>[];
     var bestLen = 0;
-    for (final country in all) {
+
+    void consider(PhoneCountry country) {
       if (normalized == country.dialCode ||
           normalized.startsWith(country.dialCode)) {
         if (country.dialCode.length > bestLen) {
@@ -150,6 +151,20 @@ abstract final class PhoneCountries {
           matches.add(country);
         }
       }
+    }
+
+    final seen = <String>{};
+    for (final country in all) {
+      seen.add(country.iso);
+      consider(country);
+    }
+    for (final world in WorldCountries.all) {
+      if (!seen.add(world.iso)) continue;
+      final code = CountryDialCodes.forIso(world.iso);
+      if (code == null) continue;
+      consider(
+        PhoneCountry(iso: world.iso, name: world.name, dialCode: code),
+      );
     }
     if (matches.isEmpty) return null;
     if (preferIso != null) {
@@ -310,17 +325,188 @@ abstract final class PhoneCountries {
     'ZA': '71 123 4567',
     'ZM': '95 1234567',
     'ZW': '71 234 5678',
+    'HN': '9123 4567',
+    'CR': '8312 3456',
+    'GT': '5123 4567',
+    'SV': '7012 3456',
+    'NI': '8123 4567',
+    'PA': '6123 4567',
+    'PE': '912 345 678',
+    'EC': '99 123 4567',
+    'BO': '7123 4567',
+    'PY': '981 123 456',
+    'UY': '94 123 456',
+    'VE': '412 123 4567',
   };
+
+  /// ITU-style national significant number length (digits only, no calling code).
+  static ({int min, int max}) nationalDigitRange(String iso) {
+    final key = iso.toUpperCase();
+    final override = _nsnLengthOverrides[key];
+    if (override != null) return override;
+
+    final dial = CountryDialCodes.forIso(key);
+    if (key == 'US' || key == 'CA') return (min: 10, max: 10);
+    if (dial != null && dial.startsWith('+1') && dial.length > 2) {
+      return (min: 7, max: 7);
+    }
+
+    final exampleDigits =
+        (_nationalExamples[key] ?? '').replaceAll(RegExp(r'\D'), '');
+    if (exampleDigits.length >= 6) {
+      return (min: exampleDigits.length, max: exampleDigits.length);
+    }
+
+    final ccLen = (dial ?? '+').replaceAll('+', '').length;
+    final e164Max = (15 - ccLen).clamp(6, 12);
+    return (min: 7, max: e164Max);
+  }
+
+  static const Map<String, ({int min, int max})> _nsnLengthOverrides = {
+    'DE': (min: 10, max: 11),
+    'IT': (min: 9, max: 10),
+    'BR': (min: 10, max: 11),
+    'AR': (min: 10, max: 10),
+    'AT': (min: 10, max: 11),
+    'SE': (min: 9, max: 10),
+    'NO': (min: 8, max: 8),
+    'DK': (min: 8, max: 8),
+    'FI': (min: 9, max: 10),
+    'NL': (min: 9, max: 9),
+    'BE': (min: 9, max: 9),
+    'CH': (min: 9, max: 9),
+    'HN': (min: 8, max: 8),
+    'CR': (min: 8, max: 8),
+    'GT': (min: 8, max: 8),
+    'SV': (min: 8, max: 8),
+    'NI': (min: 8, max: 8),
+    'PA': (min: 8, max: 8),
+    'BO': (min: 8, max: 8),
+    'PY': (min: 9, max: 9),
+    'UY': (min: 8, max: 8),
+    'PE': (min: 9, max: 9),
+    'EC': (min: 9, max: 9),
+    'VE': (min: 10, max: 10),
+    'MX': (min: 10, max: 10),
+    'CL': (min: 9, max: 9),
+    'CO': (min: 10, max: 10),
+    'PK': (min: 10, max: 10),
+    'IN': (min: 10, max: 10),
+    'BD': (min: 10, max: 10),
+    'NG': (min: 10, max: 10),
+    'GB': (min: 10, max: 10),
+    'FR': (min: 9, max: 9),
+    'US': (min: 10, max: 10),
+    'CA': (min: 10, max: 10),
+    'AU': (min: 9, max: 9),
+    'AE': (min: 9, max: 9),
+    'SA': (min: 9, max: 9),
+    'EG': (min: 10, max: 10),
+    'ZA': (min: 9, max: 9),
+    'KE': (min: 9, max: 9),
+    'GH': (min: 9, max: 9),
+    'CN': (min: 11, max: 11),
+    'JP': (min: 10, max: 10),
+    'KR': (min: 9, max: 10),
+    'ID': (min: 10, max: 12),
+    'PH': (min: 10, max: 10),
+    'TH': (min: 9, max: 9),
+    'VN': (min: 9, max: 9),
+    'TR': (min: 10, max: 10),
+    'RU': (min: 10, max: 10),
+    'UA': (min: 9, max: 9),
+    'PL': (min: 9, max: 9),
+    'ES': (min: 9, max: 9),
+    'PT': (min: 9, max: 9),
+    'IE': (min: 9, max: 9),
+    'NZ': (min: 8, max: 10),
+    'SG': (min: 8, max: 8),
+    'HK': (min: 8, max: 8),
+    'QA': (min: 8, max: 8),
+    'KW': (min: 8, max: 8),
+    'OM': (min: 8, max: 8),
+    'BH': (min: 8, max: 8),
+    'JO': (min: 9, max: 9),
+    'LB': (min: 7, max: 8),
+    'IQ': (min: 10, max: 10),
+    'IR': (min: 10, max: 10),
+    'IL': (min: 8, max: 9),
+    'MY': (min: 9, max: 10),
+    'MM': (min: 8, max: 10),
+    'NP': (min: 10, max: 10),
+    'LK': (min: 9, max: 9),
+    'TZ': (min: 9, max: 9),
+    'UG': (min: 9, max: 9),
+    'ET': (min: 9, max: 9),
+    'MA': (min: 9, max: 9),
+    'TN': (min: 8, max: 8),
+    'DZ': (min: 9, max: 9),
+    'LY': (min: 9, max: 9),
+    'SD': (min: 9, max: 9),
+    'CI': (min: 10, max: 10),
+    'SN': (min: 9, max: 9),
+    'CM': (min: 9, max: 9),
+    'CD': (min: 9, max: 9),
+    'AO': (min: 9, max: 9),
+    'MZ': (min: 9, max: 9),
+    'ZW': (min: 9, max: 9),
+    'ZM': (min: 9, max: 9),
+    'RW': (min: 9, max: 9),
+    'MG': (min: 9, max: 9),
+    'MU': (min: 8, max: 8),
+    'SC': (min: 7, max: 7),
+  };
+
+  /// Caps [national] to the country's maximum digit count (keeps spaces).
+  static String clampNational(String national, PhoneCountry country) {
+    final max = nationalDigitRange(country.iso).max;
+    final out = StringBuffer();
+    var digits = 0;
+    for (final rune in national.runes) {
+      final ch = String.fromCharCode(rune);
+      if (ch == ' ') {
+        out.write(ch);
+        continue;
+      }
+      if (ch.codeUnitAt(0) >= 48 && ch.codeUnitAt(0) <= 57) {
+        if (digits >= max) continue;
+        out.write(ch);
+        digits++;
+      }
+    }
+    return out.toString();
+  }
 
   /// Digits-only national number (strips spaces and leading zeros).
   static String nationalDigits(String national) {
     return national.replaceAll(RegExp(r'\D'), '').replaceFirst(RegExp(r'^0+'), '');
   }
 
-  /// Digits-only national number length (ignores spaces).
-  static bool isValidNational(String national, {int minDigits = 6}) {
+  /// Digits-only national number length for [country] when provided.
+  static bool isValidNational(
+    String national, {
+    PhoneCountry? country,
+    int minDigits = 6,
+  }) {
     final digits = nationalDigits(national);
+    if (country != null) {
+      final range = nationalDigitRange(country.iso);
+      return digits.length >= range.min && digits.length <= range.max;
+    }
     return digits.length >= minDigits && digits.length <= 15;
+  }
+
+  /// Login / reset contact field: country-aware when a calling code is present.
+  static bool isValidContactPhone(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return false;
+    final digits = trimmed.replaceAll(RegExp(r'\D'), '');
+    if (digits.length > 15) return false;
+    if (trimmed.startsWith('+')) {
+      final parsed = parse(trimmed);
+      return isValidNational(parsed.national, country: parsed.country);
+    }
+    return digits.length >= 8 && digits.length <= 15;
   }
 
   /// Combines dial code + national into a compact E.164-ish string.

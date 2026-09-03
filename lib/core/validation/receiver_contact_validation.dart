@@ -1,4 +1,5 @@
 import '../../data/models/auth_user.dart';
+import '../phone/phone_countries.dart';
 
 /// Ensures parcel receiver contact details belong to a separate account
 /// from the logged-in sender (sender / traveler / receiver use different Gmails).
@@ -32,11 +33,15 @@ class ReceiverContactValidation {
     if (receiverPhone.trim().isEmpty) {
       return 'Enter the receiver\'s phone number.';
     }
-    final receiverDigits = _digitsOnly(receiverPhone);
-    if (receiverDigits.length < 8) {
+    final parsed = PhoneCountries.parse(receiverPhone);
+    if (!PhoneCountries.isValidNational(
+      parsed.national,
+      country: parsed.country,
+    )) {
       return 'Enter a valid receiver phone number.';
     }
 
+    final receiverDigits = _digitsOnly(receiverPhone);
     final senderDigits = _digitsOnly(senderPhone ?? '');
     if (senderDigits.isNotEmpty && receiverDigits == senderDigits) {
       return 'Receiver phone must be different from your sender phone. '

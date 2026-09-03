@@ -16,6 +16,8 @@ import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
 
 /// My Trips tab — lists trips from GET /api/v1/trips.
+enum _MyTripsTab { active, completed, cancelled }
+
 class TravelerMyTripsScreen extends StatefulWidget {
   const TravelerMyTripsScreen({super.key});
 
@@ -26,7 +28,7 @@ class TravelerMyTripsScreen extends StatefulWidget {
 class _TravelerMyTripsScreenState extends State<TravelerMyTripsScreen>
     with WidgetsBindingObserver {
   List<TravelerTrip> _trips = const [];
-  bool _showActive = true;
+  _MyTripsTab _tabFilter = _MyTripsTab.active;
   bool _loading = true;
   String? _error;
 
@@ -114,7 +116,12 @@ class _TravelerMyTripsScreenState extends State<TravelerMyTripsScreen>
 
   List<TravelerTrip> get _visible {
     return _trips.where((t) {
-      return _showActive ? !t.status.isCompleted : t.status.isCompleted;
+      return switch (_tabFilter) {
+        _MyTripsTab.active =>
+          t.status != TripStatus.delivered && t.status != TripStatus.cancelled,
+        _MyTripsTab.completed => t.status == TripStatus.delivered,
+        _MyTripsTab.cancelled => t.status == TripStatus.cancelled,
+      };
     }).toList();
   }
 
@@ -200,15 +207,22 @@ class _TravelerMyTripsScreenState extends State<TravelerMyTripsScreen>
                   _tab(
                     context,
                     'Active',
-                    _showActive,
-                    () => setState(() => _showActive = true),
+                    _tabFilter == _MyTripsTab.active,
+                    () => setState(() => _tabFilter = _MyTripsTab.active),
                   ),
                   const SizedBox(width: 28),
                   _tab(
                     context,
                     'Completed',
-                    !_showActive,
-                    () => setState(() => _showActive = false),
+                    _tabFilter == _MyTripsTab.completed,
+                    () => setState(() => _tabFilter = _MyTripsTab.completed),
+                  ),
+                  const SizedBox(width: 28),
+                  _tab(
+                    context,
+                    'Cancelled',
+                    _tabFilter == _MyTripsTab.cancelled,
+                    () => setState(() => _tabFilter = _MyTripsTab.cancelled),
                   ),
                 ],
               ),
@@ -254,7 +268,11 @@ class _TravelerMyTripsScreenState extends State<TravelerMyTripsScreen>
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: horizontal),
           child: Text(
-            _showActive ? 'No active trips yet.' : 'No completed trips yet.',
+            _tabFilter == _MyTripsTab.active
+                ? 'No active trips yet.'
+                : _tabFilter == _MyTripsTab.completed
+                    ? 'No completed trips yet.'
+                    : 'No cancelled trips yet.',
             style: typo.sm.copyWith(color: AppColors.textSecondary),
             textAlign: TextAlign.center,
           ),

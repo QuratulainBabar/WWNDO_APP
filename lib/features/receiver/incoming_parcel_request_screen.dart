@@ -21,6 +21,7 @@ import '../../data/models/incoming_parcel_request.dart';
 import '../../data/models/receiver_delivery_status.dart';
 import '../../data/services/delivery_repository.dart';
 import '../../data/platform_fees.dart';
+import '../../data/wallet_gate.dart';
 import '../../data/wallet_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/wallet_provider.dart';
@@ -97,6 +98,21 @@ class _IncomingParcelRequestScreenState
   Future<void> _accept() async {
     final delivery = _delivery;
     if (delivery == null || _acting) return;
+
+    final paysReceiver = PlatformFees.senderPaysReceiverFee(delivery);
+    final platformFee = PlatformFees.receiverPlatformFeeUsd(
+      category: delivery.parcelCategory,
+      paysReceiverFee: paysReceiver,
+    );
+
+    if (!await WalletGate.ensureReceiverAccept(
+      context,
+      category: delivery.parcelCategory,
+      paysReceiverFee: paysReceiver,
+      platformFeeUsd: platformFee,
+    )) {
+      return;
+    }
 
     setState(() => _acting = true);
     try {

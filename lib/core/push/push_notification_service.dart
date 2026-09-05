@@ -44,9 +44,13 @@ abstract final class PushNotificationService {
   static String? _lastRegisteredToken;
 
   /// Invoked when a chat-message push arrives while the app is foregrounded, so
-  /// listeners (e.g. the chat tab badge) can refresh live instead of waiting for
-  /// the periodic poll. Wired from `main()`.
-  static void Function()? onForegroundChatMessage;
+  /// listeners can refresh the badge and any open matching thread.
+  /// [conversationId] comes from the push data when present.
+  static void Function(String? conversationId)? onForegroundChatMessage;
+
+  /// Invoked for delivery-related pushes (status, NFC, cancel, etc.) while the
+  /// app is foregrounded so open tracking screens can reload immediately.
+  static void Function(String? type)? onForegroundDeliveryRelated;
 
   static Future<void> initialize() async {
     if (_initialized) return;
@@ -198,10 +202,16 @@ Future<void> _requestNotificationPermission() async {
 }
 
 void _handleForegroundMessage(RemoteMessage message) {
+  final type = message.data['type']?.toString();
+
   // Live-refresh the chat tab badge for incoming messages, even before the
   // banner/payload checks (chat pushes always carry a title, but be defensive).
-  if (message.data['type']?.toString() == 'chatMessage') {
-    PushNotificationService.onForegroundChatMessage?.call();
+  if (type == 'chatMessage') {
+    PushNotificationService.onForegroundChatMessage?.call(
+      message.data['conversationId']?.toString(),
+    );
+  } else if (_isDeliveryRelatedPushType(type)) {
+    PushNotificationService.onForegroundDeliveryRelated?.call(type);
   }
 
   final payload = _extractPayload(message);
@@ -227,6 +237,23 @@ void _navigateFromMessage(RemoteMessage message) {
 void _openRoute(String? route) {
   if (route == null || route.isEmpty) return;
   appRouter.go(route);
+}
+
+bool _isDeliveryRelatedPushType(String? type) {
+  switch (type) {
+    case 'deliveryStatus':
+    case 'nfcPrompt':
+    case 'cancellation':
+    case 'parcelRequest':
+    case 'matching':
+    case 'bidAccepted':
+    case 'offerAccepted':
+    case 'counterOffer':
+    case 'receiverPayment':
+      return true;
+    default:
+      return false;
+  }
 }
 
 ({String title, String? body, String? route})? _extractPayload(

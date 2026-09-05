@@ -20,7 +20,7 @@ class ParcelCreationFlowData {
     return switch (step) {
       0 => selectedTrip == null ? 'Select a traveler route to continue.' : null,
       1 => categories.contains(category) ? null : 'Select a parcel category.',
-      2 => weightKg <= 0 ? 'Enter parcel weight.' : null,
+      2 => _validateWeight(),
       3 => volumes.contains(volume) ? null : 'Select parcel volume.',
       4 => recipientId == null ? 'Select a verified recipient.' : null,
       5 => proposedBudgetUsd <= 0 ? 'Enter a proposed payment amount.' : null,
@@ -29,7 +29,19 @@ class ParcelCreationFlowData {
     };
   }
 
+  String? _validateWeight() {
+    if (weightKg <= 0) return 'Enter parcel weight.';
+    final capacity = selectedTrip?.luggageCapacityKg;
+    if (capacity != null && weightKg > capacity) {
+      return 'Parcel weight exceeds this traveler’s available luggage '
+          '(${capacity.toStringAsFixed(0)} kg).';
+    }
+    return null;
+  }
+
   String? _validateActivation() {
+    final weightError = _validateWeight();
+    if (weightError != null) return weightError;
     if (description.trim().length < 8) {
       return 'Add a short parcel description (min 8 characters).';
     }

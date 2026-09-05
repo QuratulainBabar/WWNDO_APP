@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/platform/platform_ui.dart';
+import '../../core/push/push_notification_banner.dart';
 import '../../core/widgets/app_toast.dart';
 import '../../data/models/chat_message.dart';
 import '../../data/static_data.dart';
@@ -22,6 +23,14 @@ mixin ChatConversationMixin<T extends StatefulWidget> on State<T> {
 
   StreamSubscription<ChatMessage>? _liveMessageSub;
   StreamSubscription<ChatMessageReceipt>? _liveReceiptSub;
+  StreamSubscription<String?>? _liveResyncSub;
+  VoidCallback? _liveRealtimeListener;
+  ChatRealtimeProvider? _liveRealtime;
+  String? _liveConversationId;
+  String? _liveMyId;
+  Future<List<ChatMessage>> Function()? _liveResyncMessages;
+  String? _livePeerName;
+  bool _resyncInFlight = false;
 
   /// Live conversation id — when set with [uploadLiveChatImage], attachments
   /// are uploaded to the server instead of staying local-only.
@@ -61,20 +70,37 @@ mixin ChatConversationMixin<T extends StatefulWidget> on State<T> {
   /// the API response), just drop the temp copy and keep the higher receipt.
   void confirmOptimisticMessage(String tempId, ChatMessage server) {
     if (!mounted) return;
+    final confirmed = _withBufferedReceipt(server);
     setState(() {
-      final alreadyIdx = server.id == null
+      final alreadyIdx = confirmed.id == null
           ? -1
-          : chatMessages.indexWhere((m) => m.id == server.id);
+          : chatMessages.indexWhere(
+              (m) => m.id != null && _sameId(m.id, confirmed.id),
+            );
       final idx = chatMessages.indexWhere((m) => m.id == tempId);
       if (alreadyIdx != -1) {
-        chatMessages[alreadyIdx] = _mergeReceipt(chatMessages[alreadyIdx], server);
+        chatMessages[alreadyIdx] =
+            _mergeReceipt(chatMessages[alreadyIdx], confirmed);
         if (idx != -1 && idx != alreadyIdx) chatMessages.removeAt(idx);
       } else if (idx != -1) {
-        chatMessages[idx] = server;
+        chatMessages[idx] = confirmed;
       } else {
-        chatMessages.add(server);
+        chatMessages.add(confirmed);
       }
     });
+  }
+
+  ChatMessage _withBufferedReceipt(ChatMessage message) {
+    final buffered = _liveRealtime?.receiptStatusFor(message.id);
+    if (buffered == null) return message;
+    return message.copyWith(
+      receiptStatus: maxChatReceiptStatus(message.receiptStatus, buffered),
+    );
+  }
+
+  static bool _sameId(String? a, String? b) {
+    if (a == null || b == null || a.isEmpty || b.isEmpty) return false;
+    return a.toLowerCase() == b.toLowerCase();
   }
 
   /// Drop the optimistic message [tempId] after a send failure.
@@ -87,24 +113,31 @@ mixin ChatConversationMixin<T extends StatefulWidget> on State<T> {
   /// echo was reconciled (already present, or matched a pending temp) so the
   /// caller must NOT append it again.
   bool reconcileOwnEcho(ChatMessage server) {
-    final serverId = server.id;
+    final confirmed = _withBufferedReceipt(server);
+    final serverId = confirmed.id;
     if (serverId != null) {
-      final existingIdx = chatMessages.indexWhere((m) => m.id == serverId);
+      final existingIdx = chatMessages.indexWhere(
+        (m) => m.id != null && _sameId(m.id, serverId),
+      );
       if (existingIdx != -1) {
         setState(() {
           chatMessages[existingIdx] =
-              _mergeReceipt(chatMessages[existingIdx], server);
+              _mergeReceipt(chatMessages[existingIdx], confirmed);
         });
         return true;
       }
     }
     final idx = chatMessages.indexWhere((m) {
-      if (!m.pending || !m.isMine || m.isImage != server.isImage) return false;
+      if (!m.pending || !m.isMine || m.isImage != confirmed.isImage) {
+        return false;
+      }
       if (m.isImage) return true;
-      return m.text == server.text;
+      return m.text == confirmed.text;
     });
     if (idx != -1) {
-      setState(() => chatMessages[idx] = server.copyWith(pending: false));
+      setState(
+        () => chatMessages[idx] = confirmed.copyWith(pending: false),
+      );
       return true;
     }
     return false;
@@ -112,13 +145,39 @@ mixin ChatConversationMixin<T extends StatefulWidget> on State<T> {
 
   void applyMessageReceipts(ChatMessageReceipt receipt) {
     if (!mounted || receipt.messageIds.isEmpty) return;
-    final ids = receipt.messageIds.toSet();
+    final ids = receipt.messageIds
+        .map((id) => id.toLowerCase())
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    if (ids.isEmpty) return;
     var changed = false;
     final nextMessages = List<ChatMessage>.of(chatMessages);
     for (var i = 0; i < nextMessages.length; i++) {
       final m = nextMessages[i];
-      if (m.id == null || !ids.contains(m.id)) continue;
+      final id = m.id;
+      if (id == null || !ids.contains(id.toLowerCase())) continue;
       final next = maxChatReceiptStatus(m.receiptStatus, receipt.status);
+      if (next == m.receiptStatus && !m.pending) continue;
+      nextMessages[i] = m.copyWith(pending: false, receiptStatus: next);
+      changed = true;
+    }
+    if (!changed) return;
+    setState(() => chatMessages = nextMessages);
+  }
+
+  /// Apply any receipt statuses cached on [ChatRealtimeProvider] to the open
+  /// thread (covers races where receipts beat the optimistic confirm).
+  void applyBufferedReceipts() {
+    final realtime = _liveRealtime;
+    if (!mounted || realtime == null) return;
+    var changed = false;
+    final nextMessages = List<ChatMessage>.of(chatMessages);
+    for (var i = 0; i < nextMessages.length; i++) {
+      final m = nextMessages[i];
+      if (!m.isMine || m.id == null) continue;
+      final buffered = realtime.receiptStatusFor(m.id);
+      if (buffered == null) continue;
+      final next = maxChatReceiptStatus(m.receiptStatus, buffered);
       if (next == m.receiptStatus && !m.pending) continue;
       nextMessages[i] = m.copyWith(pending: false, receiptStatus: next);
       changed = true;
@@ -143,22 +202,37 @@ mixin ChatConversationMixin<T extends StatefulWidget> on State<T> {
     );
   }
 
+  /// Attach socket listeners for an open thread.
+  ///
+  /// Call this **after** seeding [chatMessages] from REST so a live event
+  /// cannot be wiped by the initial snapshot. Pass [resyncMessages] so the
+  /// screen can catch up after reconnect / resume / missed socket events.
   void attachLiveChatListeners({
     required ChatRealtimeProvider realtime,
     required String conversationId,
     required String? myId,
+    Future<List<ChatMessage>> Function()? resyncMessages,
+    String? peerName,
   }) {
-    detachLiveChatListeners();
+    detachLiveChatListeners(leaveConversation: false);
+    _liveRealtime = realtime;
+    _liveConversationId = conversationId;
+    _liveMyId = myId;
+    _liveResyncMessages = resyncMessages;
+    _livePeerName = peerName;
+
     realtime.joinConversation(conversationId);
+    unawaited(realtime.ensureConnected());
+
     _liveMessageSub = realtime.onMessage.listen((message) {
       if (!mounted) return;
-      if (message.conversationId != null &&
-          message.conversationId!.isNotEmpty &&
-          message.conversationId != conversationId) {
+      if (!_sameConversation(message.conversationId, conversationId)) {
         return;
       }
-      final resolved = message.senderId != null
-          ? message.copyWith(isMine: message.senderId == myId)
+      final resolved = message.senderId != null && myId != null
+          ? message.copyWith(
+              isMine: message.senderId!.toLowerCase() == myId.toLowerCase(),
+            )
           : message;
       if (resolved.isMine) {
         if (reconcileOwnEcho(resolved)) {
@@ -166,27 +240,147 @@ mixin ChatConversationMixin<T extends StatefulWidget> on State<T> {
           return;
         }
       } else if (resolved.id != null &&
-          chatMessages.any((m) => m.id == resolved.id)) {
+          chatMessages.any((m) => _sameId(m.id, resolved.id))) {
         return;
       }
+      final isNewPeer = !resolved.isMine;
       setState(() => chatMessages.add(resolved));
       scrollChatToBottom();
-      if (!resolved.isMine) {
+      if (isNewPeer) {
         realtime.ackRead(conversationId);
+        _showInAppChatNotification(resolved);
       }
     });
     _liveReceiptSub = realtime.onReceipt.listen((receipt) {
       if (!mounted) return;
-      if (receipt.conversationId != conversationId) return;
+      if (!_sameConversation(receipt.conversationId, conversationId)) return;
       applyMessageReceipts(receipt);
+    });
+    // Provider cache + notifyListeners is a second path so ticks still update
+    // if a broadcast stream event is missed during attach/detach.
+    _liveRealtimeListener = () {
+      if (!mounted) return;
+      applyBufferedReceipts();
+    };
+    realtime.addListener(_liveRealtimeListener!);
+    applyBufferedReceipts();
+
+    _liveResyncSub = realtime.onResyncNeeded.listen((targetId) {
+      if (!mounted) return;
+      if (targetId != null &&
+          targetId.isNotEmpty &&
+          !_sameConversation(targetId, conversationId)) {
+        return;
+      }
+      unawaited(resyncLiveChatMessages());
     });
   }
 
-  void detachLiveChatListeners() {
+  /// Merge a REST snapshot into the open thread without dropping optimistic
+  /// pending sends.
+  void mergeLiveChatMessages(List<ChatMessage> serverMessages) {
+    if (!mounted) return;
+    final myId = _liveMyId;
+    final pending = chatMessages.where((m) => m.pending).toList();
+    final byId = <String, ChatMessage>{};
+    for (final m in serverMessages) {
+      final id = m.id;
+      if (id == null || id.isEmpty) continue;
+      final resolved = m.senderId != null && myId != null
+          ? m.copyWith(
+              isMine: m.senderId!.toLowerCase() == myId.toLowerCase(),
+            )
+          : m;
+      byId[id.toLowerCase()] = _withBufferedReceipt(resolved);
+    }
+    for (final m in chatMessages) {
+      final id = m.id;
+      if (id == null || id.isEmpty || m.pending) continue;
+      final key = id.toLowerCase();
+      final incoming = byId[key];
+      if (incoming == null) {
+        byId[key] = _withBufferedReceipt(m);
+      } else {
+        byId[key] = _mergeReceipt(m, incoming);
+      }
+    }
+    final merged = byId.values.toList()
+      ..sort((a, b) {
+        final aAt = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final bAt = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return aAt.compareTo(bAt);
+      });
+    for (final p in pending) {
+      final alreadyConfirmed = p.text.isNotEmpty &&
+          merged.any((m) =>
+              m.isMine &&
+              !m.pending &&
+              m.isImage == p.isImage &&
+              (p.isImage || m.text == p.text));
+      if (!alreadyConfirmed) merged.add(p);
+    }
+    setState(() => chatMessages = merged);
+    scrollChatToBottom();
+  }
+
+  Future<void> resyncLiveChatMessages() async {
+    final fetch = _liveResyncMessages;
+    if (fetch == null || _resyncInFlight || !mounted) return;
+    _resyncInFlight = true;
+    try {
+      final messages = await fetch();
+      if (!mounted) return;
+      mergeLiveChatMessages(messages);
+      final conversationId = _liveConversationId;
+      if (conversationId != null) {
+        _liveRealtime?.ackRead(conversationId);
+      }
+    } catch (_) {
+      // Best-effort catch-up; live socket remains the primary path.
+    } finally {
+      _resyncInFlight = false;
+    }
+  }
+
+  void _showInAppChatNotification(ChatMessage message) {
+    final title = (_livePeerName ?? '').trim();
+    if (title.isEmpty) return;
+    final body = message.isImage
+        ? '📷 Photo'
+        : message.text.trim().isEmpty
+            ? 'New message'
+            : message.text.trim();
+    PushNotificationBanner.show(title: title, body: body);
+  }
+
+  static bool _sameConversation(String? a, String b) {
+    if (a == null || a.isEmpty) return true;
+    return a.toLowerCase() == b.toLowerCase();
+  }
+
+  void detachLiveChatListeners({bool leaveConversation = true}) {
     _liveMessageSub?.cancel();
     _liveReceiptSub?.cancel();
+    _liveResyncSub?.cancel();
     _liveMessageSub = null;
     _liveReceiptSub = null;
+    _liveResyncSub = null;
+    final listener = _liveRealtimeListener;
+    if (listener != null) {
+      _liveRealtime?.removeListener(listener);
+    }
+    _liveRealtimeListener = null;
+    if (leaveConversation) {
+      final id = _liveConversationId;
+      if (id != null) {
+        _liveRealtime?.leaveConversation(id);
+      }
+    }
+    _liveRealtime = null;
+    _liveConversationId = null;
+    _liveMyId = null;
+    _liveResyncMessages = null;
+    _livePeerName = null;
   }
 
   void scrollChatToBottom() {

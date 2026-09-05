@@ -48,7 +48,6 @@ class _TravelerChatScreenState extends State<TravelerChatScreen>
   String? _conversationId;
   bool _unlocked = true;
   String? _meetupLocation;
-  ChatRealtimeProvider? _chatRealtime;
 
   @override
   ChatThread? get chatThread => null;
@@ -76,9 +75,6 @@ class _TravelerChatScreenState extends State<TravelerChatScreen>
 
   @override
   void dispose() {
-    if (_conversationId != null) {
-      _chatRealtime?.leaveConversation(_conversationId!);
-    }
     disposeChatConversation();
     super.dispose();
   }
@@ -129,16 +125,10 @@ class _TravelerChatScreenState extends State<TravelerChatScreen>
       final auth = context.read<AuthProvider>();
       final myId = auth.repository.currentUser?.id;
       final chatRt = context.read<ChatRealtimeProvider>();
-      _chatRealtime = chatRt;
       await chatRt.start(
         getAccessToken: auth.repository.tokenStorage.getAccessToken,
         userId: myId,
         demoMode: context.read<DemoModeProvider>().enabled,
-      );
-      attachLiveChatListeners(
-        realtime: chatRt,
-        conversationId: id,
-        myId: myId,
       );
 
       setState(() {
@@ -148,6 +138,16 @@ class _TravelerChatScreenState extends State<TravelerChatScreen>
         _unlocked = detail.unlocked;
         _loading = false;
       });
+      attachLiveChatListeners(
+        realtime: chatRt,
+        conversationId: id,
+        myId: myId,
+        peerName: _peerName,
+        resyncMessages: () async {
+          final latest = await _repo().getConversation(id);
+          return latest.messages;
+        },
+      );
       scrollChatToBottom();
       // Opening the thread marked it read server-side — clear the tab badge now
       // instead of waiting for the next poll.

@@ -15,6 +15,7 @@ enum AppNotificationType {
   nfcPrompt,
   deliveryStatus,
   cancellation,
+  reviewReceived,
   general,
 }
 
@@ -121,6 +122,8 @@ class AppNotification {
         return AppNotificationType.deliveryStatus;
       case 'cancellation':
         return AppNotificationType.cancellation;
+      case 'reviewReceived':
+        return AppNotificationType.reviewReceived;
       default:
         return AppNotificationType.general;
     }

@@ -25,6 +25,7 @@ String formatReviewPayout(double? amount) {
 ReviewContext? resolveReviewContext({
   required CreatedDelivery delivery,
   required WalletRole reviewerRole,
+  WalletRole? revieweeRole,
 }) {
   final shipmentId = delivery.displayId;
 
@@ -42,6 +43,19 @@ ReviewContext? resolveReviewContext({
             '$payout has been released to $travelerName\'s wallet for $shipmentId.',
       );
     case WalletRole.traveler:
+      final target = revieweeRole ?? WalletRole.receiver;
+      if (target == WalletRole.sender) {
+        final senderId = delivery.senderId?.trim();
+        if (senderId == null || senderId.isEmpty) return null;
+        final senderName = _displayName(delivery.senderName, fallback: 'the sender');
+        return ReviewContext(
+          revieweeId: senderId,
+          revieweeRole: WalletRole.sender,
+          revieweeName: senderName,
+          confirmationMessage:
+              'Delivery $shipmentId complete. How was your experience with $senderName?',
+        );
+      }
       final receiverId = delivery.receiverId?.trim();
       if (receiverId == null || receiverId.isEmpty) return null;
       final receiverName =

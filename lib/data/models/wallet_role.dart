@@ -13,7 +13,8 @@ enum WalletRole {
 
   /// Thread type shown in this role's Chat inbox. Null = all conversations.
   String? get chatInboxThreadType => switch (this) {
-        WalletRole.traveler => 'sender_traveler',
+        // Traveler needs both sender↔traveler and traveler↔receiver threads.
+        WalletRole.traveler => null,
         WalletRole.receiver => 'traveler_receiver',
         WalletRole.sender => null,
       };

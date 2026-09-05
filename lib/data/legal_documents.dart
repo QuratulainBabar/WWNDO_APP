@@ -46,7 +46,7 @@ abstract final class LegalDocuments {
         'Provide truthful parcel category, size, weight, contents description, route, travel date, and meetup preferences.',
         'Only send items that are legal to possess and transport on the chosen route, including customs and airline rules for international trips.',
         'Never list prohibited, dangerous, or illegal goods (see Section 10).',
-        'Fund escrow for the agreed traveler payout when you accept a bid or counter-offer, and pay your Sender platform fee at Pay Now (\$2 documents / \$4 objects, or \$3 / \$6 when you cover the receiver\'s fee).',
+        'Fund escrow for the agreed traveler payout when you accept a bid or counter-offer, and pay your Sender platform fee at Pay Now (\$2 documents / \$4 objects, or \$3 / \$6 when you cover the receiver\'s fee). Traveler and Receiver platform fees are also collected at Pay Now (wallet first, then card).',
         'Meet the Traveler at the agreed origin meetup location and complete NFC Checkpoint 1 (Sender ↔ Traveler) to confirm handoff.',
         'Communicate only through WWNGO chat for the delivery, and honor cancellations and timers described in the app.',
       ],
@@ -57,7 +57,7 @@ abstract final class LegalDocuments {
           'When you act as a Traveler you list a trip, review matching parcel requests, accept or counter offers, and carry the parcel on your journey. You agree to:',
       bullets: [
         'Post accurate origin, destination, travel date, and capacity, and only accept parcels you can legally and safely carry.',
-        'Pay applicable Traveler platform fees (\$2 for documents, \$4 for objects) from your wallet when you complete NFC Checkpoint 1 handoff with the Sender.',
+        'Pay applicable Traveler platform fees (\$2 for documents, \$4 for objects) from your wallet (or card if needed) when the Sender completes Pay Now.',
         'Confirm or propose meetup locations, complete NFC Checkpoint 1 with the Sender, keep the parcel secure in transit, and complete NFC Checkpoint 2 (Traveler ↔ Receiver) at destination.',
         'Not open, use, swap, or abandon a parcel, and not subcontract the delivery outside WWNGO.',
         'Update shipment status in good faith (for example starting transit) and respond promptly in chat.',
@@ -69,7 +69,7 @@ abstract final class LegalDocuments {
       body:
           'When you act as a Receiver you are named on a delivery, accept the incoming request, and take the parcel at destination. You agree to:',
       bullets: [
-        'Review parcel details before accepting. When you accept, a Receiver platform fee may be deducted from your wallet (\$2 for documents, \$3 for objects) unless the sender covers it.',
+        'Review parcel details before accepting. Accepting is consent only — a Receiver platform fee (\$2 for documents, \$3 for objects) is charged at sender Pay Now unless the sender covers it.',
         'Be available at the destination meetup, verify the parcel, and complete NFC Checkpoint 2 (Traveler ↔ Receiver) to confirm delivery.',
         'Raise a dispute in-app promptly if the parcel is missing, damaged, or not as described, instead of completing NFC confirmation if you do not accept the goods.',
         'Keep contact details accurate so the Sender and Traveler can coordinate.',

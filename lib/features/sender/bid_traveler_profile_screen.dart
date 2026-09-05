@@ -113,6 +113,15 @@ class _BidTravelerProfileScreenState extends State<BidTravelerProfileScreen> {
 
     final demoMode = context.read<DemoModeProvider>();
     if (!demoMode.enabled) {
+      final parcelWeight = StaticData.shipmentById(id)?.parcelWeightKg;
+      if (parcelWeight != null &&
+          !widget.bid.canCarryWeightKg(parcelWeight)) {
+        AppToast.error(
+          context,
+          'This traveler does not have enough luggage capacity for your parcel weight.',
+        );
+        return;
+      }
       setState(() => _requesting = true);
       try {
         final auth = context.read<AuthProvider>();

@@ -8,14 +8,16 @@ import '../../core/layout/responsive.dart';
 import '../../core/platform/platform_ui.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
+import '../../core/widgets/app_avatar.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/back_header.dart';
-import '../../data/models/traveler_trip.dart';
+import '../../data/models/sender_trip_request.dart';
 import '../../data/services/trip_repository.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/notification_realtime_provider.dart';
 
-/// Sender requests for traveler trips — loaded from API.
+/// Traveler Sender Requests — one card per request (no intermediate trip list).
 class MatchingRequestsTripsScreen extends StatefulWidget {
   const MatchingRequestsTripsScreen({super.key});
 
@@ -28,7 +30,7 @@ class _MatchingRequestsTripsScreenState
     extends State<MatchingRequestsTripsScreen> {
   bool _loading = true;
   String? _error;
-  List<({TravelerTrip trip, int requestCount})> _trips = const [];
+  List<SenderTripRequest> _requests = const [];
 
   @override
   void initState() {
@@ -51,12 +53,13 @@ class _MatchingRequestsTripsScreenState
       _error = null;
     });
     try {
-      final trips = await _repo().listSenderRequestTrips();
+      final requests = await _repo().listSenderRequests();
       if (!mounted) return;
       setState(() {
-        _trips = trips;
+        _requests = requests;
         _loading = false;
       });
+      await _markOpenedRequestsRead();
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -66,8 +69,41 @@ class _MatchingRequestsTripsScreenState
     }
   }
 
-  Future<void> _openTrip(TravelerTrip trip) async {
-    await context.push('/matching-requests/${trip.displayId}');
+  Future<void> _markOpenedRequestsRead() async {
+    final unread = _requests.where((r) => r.unread).toList();
+    if (unread.isEmpty) return;
+
+    final tripIds = unread
+        .map((r) => r.tripPublicId.isNotEmpty ? r.tripPublicId : r.tripId)
+        .where((id) => id.isNotEmpty)
+        .toSet();
+
+    final realtime = context.read<NotificationRealtimeProvider>();
+    final optimisticBadge =
+        (realtime.senderRequestUnreadCount - unread.length).clamp(0, 999);
+    realtime.setSenderRequestUnreadCount(optimisticBadge);
+    setState(() {
+      _requests = _requests.map((r) => r.unread ? r.markRead() : r).toList();
+    });
+
+    var latestUnread = realtime.senderRequestUnreadCount;
+    var latestNotifications = realtime.unreadCount;
+    for (final tripId in tripIds) {
+      try {
+        final result = await _repo().markSenderRequestsRead(tripId);
+        latestUnread = result.unreadCount;
+        latestNotifications = result.notificationsUnread;
+      } catch (_) {
+        // Keep optimistic read state; traveler already saw the list.
+      }
+    }
+    if (!mounted) return;
+    realtime.setSenderRequestUnreadCount(latestUnread);
+    realtime.setUnreadCount(latestNotifications);
+  }
+
+  Future<void> _openRequest(SenderTripRequest request) async {
+    await context.push('/request/${request.id}');
     if (mounted) _load();
   }
 
@@ -108,19 +144,27 @@ class _MatchingRequestsTripsScreenState
                           children: [
                             Text(
                               _error!,
-                              style: typo.sm.copyWith(color: AppColors.textSecondary),
+                              style: typo.sm
+                                  .copyWith(color: AppColors.textSecondary),
                             ),
-                            TextButton(onPressed: _load, child: const Text('Retry')),
+                            TextButton(
+                              onPressed: _load,
+                              child: const Text('Retry'),
+                            ),
                           ],
                         ),
                       )
-                    : _trips.isEmpty
+                    : _requests.isEmpty
                         ? Center(
                             child: Padding(
-                              padding: EdgeInsets.symmetric(horizontal: horizontal),
+                              padding: EdgeInsets.symmetric(
+                                horizontal: horizontal,
+                              ),
                               child: Text(
                                 'No trips with sender requests yet.',
-                                style: typo.sm.copyWith(color: AppColors.textSecondary),
+                                style: typo.sm.copyWith(
+                                  color: AppColors.textSecondary,
+                                ),
                                 textAlign: TextAlign.center,
                               ),
                             ),
@@ -131,16 +175,25 @@ class _MatchingRequestsTripsScreenState
                               physics: AlwaysScrollableScrollPhysics(
                                 parent: PlatformUi.scrollPhysics,
                               ),
-                              padding: EdgeInsets.fromLTRB(horizontal, 0, horizontal, 24),
-                              itemCount: _trips.length,
+                              padding: EdgeInsets.fromLTRB(
+                                horizontal,
+                                0,
+                                horizontal,
+                                24,
+                              ),
+                              itemCount: _requests.length,
                               itemBuilder: (context, i) {
-                                final entry = _trips[i];
+                                final request = _requests[i];
+                                final tripKey = _tripKey(request);
+                                final requestCount = _requests
+                                    .where((r) => _tripKey(r) == tripKey)
+                                    .length;
                                 return Padding(
                                   padding: const EdgeInsets.only(bottom: 12),
-                                  child: _TripCard(
-                                    trip: entry.trip,
-                                    requestCount: entry.requestCount,
-                                    onViewDetails: () => _openTrip(entry.trip),
+                                  child: _SenderRequestSummaryCard(
+                                    request: request,
+                                    requestCount: requestCount,
+                                    onViewDetails: () => _openRequest(request),
                                   ),
                                 );
                               },
@@ -151,16 +204,23 @@ class _MatchingRequestsTripsScreenState
       ),
     );
   }
+
+  String _tripKey(SenderTripRequest request) {
+    if (request.tripPublicId.isNotEmpty) return request.tripPublicId;
+    if (request.tripId.isNotEmpty) return request.tripId;
+    return request.id;
+  }
 }
 
-class _TripCard extends StatelessWidget {
-  const _TripCard({
-    required this.trip,
+/// Shared card: sender + amount + date + route, then View Details → full request.
+class _SenderRequestSummaryCard extends StatelessWidget {
+  const _SenderRequestSummaryCard({
+    required this.request,
     required this.requestCount,
     required this.onViewDetails,
   });
 
-  final TravelerTrip trip;
+  final SenderTripRequest request;
   final int requestCount;
   final VoidCallback onViewDetails;
 
@@ -173,21 +233,41 @@ class _TripCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            trip.route,
-            style: typo.h3.copyWith(fontWeight: FontWeight.w700),
+          Row(
+            children: [
+              AppAvatar(
+                initial: request.senderInitial,
+                size: AvatarSize.medium,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      request.senderName,
+                      style: typo.h3.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      DateFormat('MMM d, yyyy').format(request.travelDate),
+                      style: typo.sm.copyWith(color: AppColors.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+              _RequestCountBadge(count: requestCount),
+            ],
           ),
           const SizedBox(height: 12),
-          _detailRow(
-            context,
-            label: 'Sender requests',
-            valueWidget: _countBadge(context, requestCount),
+          Text(
+            request.route,
+            style: typo.h3.copyWith(fontWeight: FontWeight.w700),
           ),
-          const SizedBox(height: 6),
-          _detailRow(
-            context,
-            label: 'Travel date',
-            value: DateFormat('MMM d, yyyy').format(trip.travelDate),
+          const SizedBox(height: 8),
+          Text(
+            '\$${request.maxBudget.toStringAsFixed(0)} USD',
+            style: typo.priceSmall,
           ),
           const SizedBox(height: 14),
           AppButton(
@@ -198,38 +278,17 @@ class _TripCard extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _detailRow(
-    BuildContext context, {
-    required String label,
-    String? value,
-    Widget? valueWidget,
-  }) {
-    final typo = context.typo;
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            label,
-            style: typo.sm.copyWith(color: AppColors.textSecondary),
-          ),
-        ),
-        if (valueWidget != null)
-          valueWidget
-        else
-          Text(
-            value ?? '',
-            style: typo.sm.copyWith(
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-      ],
-    );
-  }
+class _RequestCountBadge extends StatelessWidget {
+  const _RequestCountBadge({required this.count});
 
-  Widget _countBadge(BuildContext context, int count) {
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
     final typo = context.typo;
+    final label = count > 99 ? '99+' : '$count';
     return Container(
       width: 28,
       height: 28,
@@ -239,7 +298,7 @@ class _TripCard extends StatelessWidget {
         shape: BoxShape.circle,
       ),
       child: Text(
-        '$count',
+        label,
         style: typo.sm.copyWith(
           color: Colors.white,
           fontWeight: FontWeight.w700,

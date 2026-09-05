@@ -775,7 +775,6 @@ class _ReceiverChatScreenState extends State<ReceiverChatScreen>
   String _peerName = 'Contact';
   String _shipmentId = '';
   String? _conversationId;
-  ChatRealtimeProvider? _chatRealtime;
 
   @override
   void initState() {
@@ -790,9 +789,6 @@ class _ReceiverChatScreenState extends State<ReceiverChatScreen>
 
   @override
   void dispose() {
-    if (_conversationId != null) {
-      _chatRealtime?.leaveConversation(_conversationId!);
-    }
     disposeChatConversation();
     super.dispose();
   }
@@ -828,16 +824,10 @@ class _ReceiverChatScreenState extends State<ReceiverChatScreen>
       final auth = context.read<AuthProvider>();
       final myId = auth.repository.currentUser?.id;
       final chatRt = context.read<ChatRealtimeProvider>();
-      _chatRealtime = chatRt;
       await chatRt.start(
         getAccessToken: auth.repository.tokenStorage.getAccessToken,
         userId: myId,
         demoMode: context.read<DemoModeProvider>().enabled,
-      );
-      attachLiveChatListeners(
-        realtime: chatRt,
-        conversationId: id,
-        myId: myId,
       );
 
       setState(() {
@@ -846,6 +836,16 @@ class _ReceiverChatScreenState extends State<ReceiverChatScreen>
         _shipmentId = detail.shipmentId;
         _loading = false;
       });
+      attachLiveChatListeners(
+        realtime: chatRt,
+        conversationId: id,
+        myId: myId,
+        peerName: _peerName,
+        resyncMessages: () async {
+          final latest = await _repo().getConversation(id);
+          return latest.messages;
+        },
+      );
       scrollChatToBottom();
       // Opening the thread marked it read server-side — clear the tab badge now
       // instead of waiting for the next poll.
@@ -1012,17 +1012,96 @@ class ReceiverTrackingScreen extends StatefulWidget {
   State<ReceiverTrackingScreen> createState() => _ReceiverTrackingScreenState();
 }
 
-class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen> {
+class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen>
+    with WidgetsBindingObserver {
   bool _loading = true;
   String? _error;
   CreatedDelivery? _delivery;
 
+  NotificationRealtimeProvider? _realtimeProvider;
+  VoidCallback? _realtimeListener;
+  int _lastDeliveryUpdateTick = 0;
+  Timer? _statusPollTimer;
+  int _loadGeneration = 0;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _load();
+      if (!mounted) return;
+      _ensureRealtime();
+      _load();
+      _attachRealtimeListener();
+      _startStatusPoll();
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant ReceiverTrackingScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.shipmentId != widget.shipmentId) {
+      _load();
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _ensureRealtime();
+      _load(silent: true);
+    }
+  }
+
+  void _ensureRealtime() {
+    final auth = context.read<AuthProvider>();
+    final demoMode = context.read<DemoModeProvider>();
+    context.read<NotificationRealtimeProvider>().start(
+          role: WalletRole.receiver,
+          authRepository: auth.repository,
+          demoMode: demoMode,
+        );
+  }
+
+  void _startStatusPoll() {
+    _statusPollTimer?.cancel();
+    // Fast poll while this screen is open so In Transit (and later statuses)
+    // appear immediately even if SSE stalls after a role / route switch.
+    _statusPollTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      if (!mounted) return;
+      final status = (_delivery?.status ?? '').toLowerCase();
+      if (status == 'delivered' || status == 'cancelled') return;
+      _load(silent: true);
+    });
+  }
+
+  void _attachRealtimeListener() {
+    final realtime = context.read<NotificationRealtimeProvider>();
+    if (_realtimeProvider == realtime && _realtimeListener != null) return;
+    if (_realtimeListener != null) {
+      _realtimeProvider?.removeListener(_realtimeListener!);
+    }
+    _realtimeProvider = realtime;
+    _lastDeliveryUpdateTick = realtime.deliveryUpdateTick;
+    _realtimeListener = () {
+      if (!mounted) return;
+      final tick = realtime.deliveryUpdateTick;
+      if (tick != _lastDeliveryUpdateTick) {
+        _lastDeliveryUpdateTick = tick;
+        _load(silent: true);
+      }
+    };
+    realtime.addListener(_realtimeListener!);
+  }
+
+  @override
+  void dispose() {
+    _statusPollTimer?.cancel();
+    if (_realtimeListener != null) {
+      _realtimeProvider?.removeListener(_realtimeListener!);
+    }
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   DeliveryRepository _repo() {
@@ -1034,17 +1113,20 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen> {
     );
   }
 
-  Future<void> _load() async {
+  Future<void> _load({bool silent = false}) async {
+    final generation = ++_loadGeneration;
     final id = widget.shipmentId;
     if (id == null || id.isEmpty) {
       // Fallback: pick first non-pending active delivery.
-      setState(() {
-        _loading = true;
-        _error = null;
-      });
+      if (!silent) {
+        setState(() {
+          _loading = true;
+          _error = null;
+        });
+      }
       try {
         final list = await _repo().listDeliveries(role: 'receiver');
-        if (!mounted) return;
+        if (!mounted || generation != _loadGeneration) return;
         CreatedDelivery? pick;
         for (final d in list) {
           final status = ReceiverDeliveryStatus.fromDelivery(d);
@@ -1064,15 +1146,18 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen> {
         setState(() {
           _delivery = pick;
           _loading = false;
+          _error = null;
         });
       } on ApiException catch (e) {
-        if (!mounted) return;
+        if (!mounted || generation != _loadGeneration) return;
+        if (silent && _delivery != null) return;
         setState(() {
           _loading = false;
           _error = e.message;
         });
       } catch (_) {
-        if (!mounted) return;
+        if (!mounted || generation != _loadGeneration) return;
+        if (silent && _delivery != null) return;
         setState(() {
           _loading = false;
           _error = 'Unable to load tracking.';
@@ -1081,13 +1166,15 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen> {
       return;
     }
 
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final delivery = await _repo().getDelivery(id, role: 'receiver');
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       final status = ReceiverDeliveryStatus.fromDelivery(delivery);
       if (status.isPendingRequest) {
         context.go('/receiver-incoming-request/${delivery.displayId}');
@@ -1096,15 +1183,18 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen> {
       setState(() {
         _delivery = delivery;
         _loading = false;
+        _error = null;
       });
     } on ApiException catch (e) {
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
+      if (silent && _delivery != null) return;
       setState(() {
         _loading = false;
         _error = e.message;
       });
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
+      if (silent && _delivery != null) return;
       setState(() {
         _loading = false;
         _error = 'Unable to load tracking.';

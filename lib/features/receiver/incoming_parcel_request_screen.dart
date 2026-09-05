@@ -15,14 +15,12 @@ import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/back_header.dart';
 import '../../core/widgets/cancel_request_confirmation_dialog.dart';
-import '../../core/payments/platform_fee_payment.dart';
 import '../../data/models/created_delivery.dart';
 import '../../data/models/wallet_role.dart';
 import '../../data/models/incoming_parcel_request.dart';
 import '../../data/models/receiver_delivery_status.dart';
 import '../../data/services/delivery_repository.dart';
 import '../../data/platform_fees.dart';
-import '../../data/wallet_gate.dart';
 import '../../data/wallet_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/wallet_provider.dart';
@@ -100,36 +98,9 @@ class _IncomingParcelRequestScreenState
     final delivery = _delivery;
     if (delivery == null || _acting) return;
 
-    final paysReceiver = PlatformFees.senderPaysReceiverFee(delivery);
-    final platformFee = PlatformFees.receiverPlatformFeeUsd(
-      category: delivery.parcelCategory,
-      paysReceiverFee: paysReceiver,
-    );
-
-    if (!await WalletGate.ensureReceiverAccept(
-      context,
-      category: delivery.parcelCategory,
-      paysReceiverFee: paysReceiver,
-      platformFeeUsd: platformFee,
-    )) {
-      return;
-    }
-
     setState(() => _acting = true);
     try {
-      CreatedDelivery updated;
-      if (platformFee > 0) {
-        updated = await PlatformFeePayment.withStripeRetry(
-          context: context,
-          role: WalletRole.receiver,
-          attempt: (paymentIntentId) => _repo().acceptAsReceiver(
-            delivery.displayId,
-            paymentIntentId: paymentIntentId,
-          ),
-        );
-      } else {
-        updated = await _repo().acceptAsReceiver(delivery.displayId);
-      }
+      final updated = await _repo().acceptAsReceiver(delivery.displayId);
 
       if (!mounted) return;
       setState(() {
@@ -283,7 +254,6 @@ class _IncomingParcelRequestScreenState
                       category: _delivery!.parcelCategory,
                       paysReceiverFee: paysReceiver,
                     );
-                    final requiredBalance = platformFee;
                     final canAccept = !_acting;
                     final isPending = status.isPendingRequest &&
                         current.status == IncomingParcelRequestStatus.pending;
@@ -372,8 +342,8 @@ class _IncomingParcelRequestScreenState
                                 const SizedBox(height: 4),
                                 Text(
                                   platformFee > 0
-                                      ? 'Deducted from your wallet when you tap Accept '
-                                          '(\$${platformFee.toStringAsFixed(2)}).'
+                                      ? 'Charged from your wallet (or card if needed) when the sender taps Pay Now '
+                                          '(\$${platformFee.toStringAsFixed(2)}). Nothing is deducted when you Accept.'
                                       : 'The sender chose to pay 100% of the platform fee. '
                                           'No charge when you accept.',
                                   style: typo.sm.copyWith(
@@ -407,17 +377,6 @@ class _IncomingParcelRequestScreenState
                           ),
                           const SizedBox(height: 16),
                           if (isPending) ...[
-                            if (requiredBalance > 0 &&
-                                walletBalance < requiredBalance) ...[
-                              const SizedBox(height: 10),
-                              Text(
-                                'Insufficient wallet balance. You need at least \$${requiredBalance.toStringAsFixed(2)} to accept.',
-                                style: typo.sm.copyWith(
-                                  color: AppColors.danger,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
                             const SizedBox(height: 24),
                             Row(
                               children: [

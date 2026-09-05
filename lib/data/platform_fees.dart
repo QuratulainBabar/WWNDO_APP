@@ -57,9 +57,14 @@ abstract final class PlatformFees {
     return isDocumentCategory(category) ? 2.0 : 3.0;
   }
 
-  /// Traveler platform fee — deducted from wallet at NFC CP1 handoff.
+  /// Traveler platform fee — charged at sender Pay Now (wallet first, then card).
   static double travelerPlatformFeeUsd(String category) =>
       isDocumentCategory(category) ? 2.0 : 4.0;
+
+  static String travelerPlatformFeeLabel({required String category}) {
+    final fee = travelerPlatformFeeUsd(category);
+    return '\$${fee.toStringAsFixed(2)} (charged at Pay Now)';
+  }
 
   /// Generic $2 reserve to post. Must not return senderPlatformFeeUsd ($2/$4/$3/$6).
   static double minWalletForSenderCreate({

@@ -49,13 +49,13 @@ class _ShipmentEscrowSectionState extends State<ShipmentEscrowSection> {
 
         String statusLabel;
         if (released) {
-          statusLabel = 'Released to traveler (NFC CP2)';
+          statusLabel = 'Released to traveler (Traveler ↔ Receiver)';
         } else if (refunded) {
           statusLabel = 'Refunded to sender';
         } else if (frozen) {
           statusLabel = 'Frozen — dispute under review';
         } else if (escrow > 0) {
-          statusLabel = 'Held until NFC Checkpoint 2';
+          statusLabel = 'Held until Traveler ↔ Receiver';
         } else {
           statusLabel = 'No active escrow';
         }

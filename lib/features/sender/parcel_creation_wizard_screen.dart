@@ -247,9 +247,20 @@ class _ParcelCreationWizardScreenState extends State<ParcelCreationWizardScreen>
   }
 
   Widget _buildWeightStep(AppTypography typo) {
+    final capacity = _flow.selectedTrip?.luggageCapacityKg;
+    final maxKg = (capacity != null && capacity > 0.1)
+        ? capacity.clamp(0.1, 30.0)
+        : 30.0;
     return ListView(
       children: [
         Text('Set parcel weight (kg).', style: typo.sm),
+        if (capacity != null && capacity > 0) ...[
+          const SizedBox(height: 8),
+          Text(
+            'Traveler available capacity: ${capacity.toStringAsFixed(0)} kg',
+            style: typo.sm.copyWith(color: AppColors.textSecondary),
+          ),
+        ],
         const SizedBox(height: 20),
         Text(
           '${_flow.weightKg.toStringAsFixed(1)} kg',
@@ -257,12 +268,12 @@ class _ParcelCreationWizardScreenState extends State<ParcelCreationWizardScreen>
           textAlign: TextAlign.center,
         ),
         Slider(
-          value: _flow.weightKg.clamp(0.1, 30),
+          value: _flow.weightKg.clamp(0.1, maxKg),
           min: 0.1,
-          max: 30,
-          divisions: 299,
+          max: maxKg,
+          divisions: ((maxKg - 0.1) * 10).round().clamp(1, 299),
           label: '${_flow.weightKg.toStringAsFixed(1)} kg',
-          onChanged: (value) => setState(() => _flow.weightKg = value),
+          onChanged: (v) => setState(() => _flow.weightKg = v),
         ),
       ],
     );

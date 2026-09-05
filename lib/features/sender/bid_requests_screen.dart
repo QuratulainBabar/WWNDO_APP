@@ -132,10 +132,13 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
         repo.listMatchingTravelers(widget.shipmentId),
         repo.listTravelerRequests(widget.shipmentId),
       ]);
-      final travelers = results[1] as List<MatchingTraveler>;
+      final delivery = results[0] as CreatedDelivery;
+      final travelers = (results[1] as List<MatchingTraveler>)
+          .where((t) => t.canCarryWeightKg(delivery.weightKg))
+          .toList();
       if (!mounted) return;
       setState(() {
-        _delivery = results[0] as CreatedDelivery;
+        _delivery = delivery;
         _apiBids = travelers.map((t) => t.toBid()).toList();
         _travelerRequests = results[2] as List<TravelerRequestSummary>;
         _loading = false;
@@ -259,6 +262,15 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
     if (_requestFor(bid) != null) return;
     if (_atRequestLimit) {
       AppToast.error(context, PlatformFees.travelerRequestLimitMessage);
+      return;
+    }
+
+    final parcelWeight = _delivery?.weightKg;
+    if (parcelWeight != null && !bid.canCarryWeightKg(parcelWeight)) {
+      AppToast.error(
+        context,
+        'This traveler does not have enough luggage capacity for your parcel weight.',
+      );
       return;
     }
 
@@ -702,7 +714,8 @@ class _MatchingTravelerCard extends StatelessWidget {
             AppButton(
               label: paying ? 'Opening…' : 'Pay Now',
               small: true,
-              onPressed: paying ? null : onPayNow,
+              // Enabled only after this traveler accepted the sender request.
+              onPressed: paying || !accepted ? null : onPayNow,
             ),
           ],
         ),

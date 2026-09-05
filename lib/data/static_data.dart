@@ -1188,7 +1188,9 @@ abstract final class StaticData {
       return false;
     }
 
-    // Charge sender fee at Pay Now; receiver fee at accept; traveler fee at NFC CP1.
+    // Charge all three platform fees at Pay Now (wallet first, then card).
+    final travelerFeeCents =
+        (travelerPlatformFeeUsd(category) * 100).round();
     final escrowAlreadyHeld =
         WalletService.escrowCentsForShipment(shipmentId) > 0;
     if (!escrowAlreadyHeld &&
@@ -1200,12 +1202,60 @@ abstract final class StaticData {
         )) {
       return false;
     }
-    if (!WalletService.chargePlatformFee(
-      role: WalletRole.sender,
-      shipmentId: shipmentId,
-      amountCents: senderFeeCents,
-      description: '$shipmentId · Platform fee',
-    )) {
+    if (!WalletService.ensureAvailableWithCardFallback(
+          role: WalletRole.sender,
+          amountCents: senderFeeCents,
+        ) ||
+        !WalletService.chargePlatformFee(
+          role: WalletRole.sender,
+          shipmentId: shipmentId,
+          amountCents: senderFeeCents,
+          description: '$shipmentId · Platform fee',
+        )) {
+      WalletService.refundEscrow(
+        role: WalletRole.sender,
+        shipmentId: shipmentId,
+        description: '$shipmentId · Booking failed — escrow reversed',
+      );
+      WalletService.refundAllPlatformFeesForShipment(shipmentId);
+      return false;
+    }
+    if (travelerFeeCents > 0 &&
+        (!WalletService.ensureAvailableWithCardFallback(
+              role: WalletRole.traveler,
+              amountCents: travelerFeeCents,
+            ) ||
+            !WalletService.chargePlatformFee(
+              role: WalletRole.traveler,
+              shipmentId: shipmentId,
+              amountCents: travelerFeeCents,
+              description: '$shipmentId · Platform fee',
+            ))) {
+      WalletService.refundEscrow(
+        role: WalletRole.sender,
+        shipmentId: shipmentId,
+        description: '$shipmentId · Booking failed — escrow reversed',
+      );
+      WalletService.refundAllPlatformFeesForShipment(shipmentId);
+      return false;
+    }
+    if (receiverFeeCents > 0 &&
+        (!WalletService.ensureAvailableWithCardFallback(
+              role: WalletRole.receiver,
+              amountCents: receiverFeeCents,
+            ) ||
+            !WalletService.chargePlatformFee(
+              role: WalletRole.receiver,
+              shipmentId: shipmentId,
+              amountCents: receiverFeeCents,
+              description: '$shipmentId · Platform fee',
+            ))) {
+      WalletService.refundEscrow(
+        role: WalletRole.sender,
+        shipmentId: shipmentId,
+        description: '$shipmentId · Booking failed — escrow reversed',
+      );
+      WalletService.refundAllPlatformFeesForShipment(shipmentId);
       return false;
     }
 
@@ -1214,7 +1264,7 @@ abstract final class StaticData {
     acceptedBidsByShipmentId[shipmentId] = bid;
     setShipmentStatus(shipmentId, ShipmentStatus.bidAccepted, skipNotification: true);
 
-    // Receiver share collected at accept (or covered by sender).
+    // Receiver fee collected at Pay Now (or covered by sender).
     receiverApprovedFeeShare = receiverFeeCents / 100;
     receiverPaymentAutoCancelled = false;
     receiverPaidShipmentIds.add(shipmentId);
@@ -2328,6 +2378,11 @@ abstract final class StaticData {
     if (photoPaths.isEmpty || photoPaths.length > 3) {
       throw StateError('Upload 1–3 parcel photos before activation');
     }
+    if (weightKg > trip.luggageCapacityKg) {
+      throw StateError(
+        'Parcel weight exceeds this traveler’s available luggage capacity.',
+      );
+    }
 
     final requestId = 'PR-$_nextParcelRequestId';
     _nextParcelRequestId++;
@@ -2633,6 +2688,7 @@ abstract final class StaticData {
     for (final request in deliveryRequests) {
       final score = RouteSimilarity.scoreTripToRequest(trip, request);
       if (score < 50) continue;
+      if (trip.luggageCapacityKg < request.weightKg) continue;
       matchingRequests.add(
         MatchingRequest(
           tripId: trip.id,
@@ -2646,6 +2702,7 @@ abstract final class StaticData {
     for (final shipment in senderShipments.where((s) => s.status == ShipmentStatus.open)) {
       final score = RouteSimilarity.scoreTripToShipment(trip, shipment);
       if (score < 50) continue;
+      if (trip.luggageCapacityKg < shipment.parcelWeightKg) continue;
       final already = matchingRequests.any(
         (m) =>
             m.tripId == trip.id &&
@@ -2681,10 +2738,13 @@ abstract final class StaticData {
   }
 
   /// Posted trips discoverable by senders, optionally ranked for a parcel route.
+  /// Excludes trips whose luggage capacity is below the parcel weight.
   static List<({TravelerTrip trip, int matchScore})> discoverableTripsForShipment(
     Shipment shipment,
   ) {
+    final parcelWeight = shipment.parcelWeightKg;
     final ranked = travelerPostedTrips
+        .where((trip) => trip.luggageCapacityKg >= parcelWeight)
         .map(
           (trip) => (
             trip: trip,
@@ -3185,7 +3245,7 @@ abstract final class StaticData {
   }
 
   /// NFC Checkpoint 1 complete — both parties matched; status becomes Collected.
-  /// Deducts traveler platform fee ($2 documents / $4 objects) from wallet.
+  /// Traveler platform fee is collected at Pay Now; skipped here if already paid.
   static void confirmNfcHandoffCheckpoint1(String shipmentId) {
     if (isNfcCheckpoint1Confirmed(shipmentId)) return;
 
@@ -3193,7 +3253,12 @@ abstract final class StaticData {
     if (shipment != null) {
       final travelerFeeCents =
           (travelerPlatformFeeUsd(shipment.parcelCategory) * 100).round();
-      if (travelerFeeCents > 0) {
+      final alreadyPaid = WalletService.netPlatformFeeCentsCharged(
+            role: WalletRole.traveler,
+            shipmentId: shipmentId,
+          ) >=
+          travelerFeeCents;
+      if (travelerFeeCents > 0 && !alreadyPaid) {
         if (!WalletService.ensureAvailableWithCardFallback(
           role: WalletRole.traveler,
           amountCents: travelerFeeCents,

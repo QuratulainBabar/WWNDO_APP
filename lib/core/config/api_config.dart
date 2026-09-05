@@ -1,7 +1,7 @@
 /// API base URL for the WWNGO backend.
 ///
-/// Default is the live API. For a LAN backend:
-/// `flutter run --dart-define=API_BASE_URL=http://<ip>:3000`
+/// Default is the LAN backend. Override with:
+/// `flutter run --dart-define=API_BASE_URL=https://wango.toolkitpro.cloud`
 class ApiConfig {
   ApiConfig._();
 
@@ -9,11 +9,11 @@ class ApiConfig {
   static const String liveBaseUrl = 'https://wango.toolkitpro.cloud';
 
   /// Wi-Fi backend used for local testing.
-  static const String localBaseUrl = 'http://192.168.1.9:3000';
+  static const String localBaseUrl = 'http://192.168.100.16:3000';
 
   static const String _configuredBase = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: liveBaseUrl,
+    defaultValue: localBaseUrl,
   );
 
   static const String _configuredWebsite = String.fromEnvironment(
@@ -24,7 +24,7 @@ class ApiConfig {
   /// REST / Socket.io origin (no trailing slash).
   static String get baseUrl {
     var raw = _configuredBase.trim();
-    if (raw.isEmpty) raw = liveBaseUrl;
+    if (raw.isEmpty) raw = localBaseUrl;
     if (raw.endsWith('/')) return raw.substring(0, raw.length - 1);
     return raw;
   }

@@ -82,9 +82,39 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final user = context.read<AuthProvider>().user;
     _nameController = TextEditingController(text: user?.name ?? '');
     _emailController = TextEditingController(text: user?.email ?? '');
-    _phoneController = TextEditingController();
-    _countryIso = null;
-    _phoneCountry = PhoneCountries.byIso('FR');
+
+    final savedIso = (user?.countryCode ?? '').trim().toUpperCase();
+    final hasSavedIso = savedIso.isNotEmpty;
+
+    late final PhoneCountry phoneCountry;
+    late final String nationalRaw;
+
+    if ((user?.phoneNumber ?? '').trim().isNotEmpty) {
+      phoneCountry = PhoneCountries.byIso(hasSavedIso ? savedIso : 'FR');
+      nationalRaw = user!.phoneNumber!.trim();
+    } else if ((user?.phone ?? '').trim().isNotEmpty) {
+      final parsed = PhoneCountries.parse(
+        user!.phone,
+        fallbackIso: hasSavedIso ? savedIso : 'FR',
+      );
+      phoneCountry = hasSavedIso ? PhoneCountries.byIso(savedIso) : parsed.country;
+      nationalRaw = parsed.national;
+    } else {
+      phoneCountry = PhoneCountries.byIso(hasSavedIso ? savedIso : 'FR');
+      nationalRaw = '';
+    }
+
+    _countryIso = hasSavedIso
+        ? savedIso
+        : ((user?.phone ?? '').trim().isNotEmpty ? phoneCountry.iso : null);
+    _phoneCountry = _countryIso != null && _countryIso!.isNotEmpty
+        ? PhoneCountries.byIso(_countryIso!)
+        : phoneCountry;
+    _phoneController = TextEditingController(
+      text: nationalRaw.isEmpty
+          ? ''
+          : PhoneCountries.formatNationalAsYouType(nationalRaw, _phoneCountry),
+    );
     _photoPath = ProfileDemoStore.photoPathFor(_walletRole);
   }
 
@@ -327,7 +357,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             _phoneCountry = c;
             _countryIso = c.iso;
           }),
-          hintText: '6 12 34 56 78',
           labelStyle: typo.inputLabel.copyWith(fontWeight: FontWeight.w700),
           inputStyle: typo.input,
           padding: const EdgeInsets.only(

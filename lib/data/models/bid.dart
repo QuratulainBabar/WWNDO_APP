@@ -22,6 +22,7 @@ class Bid {
     this.featured = false,
     this.bio,
     this.completedDeliveries = 0,
+    this.luggageCapacityKg,
   });
 
   final String id;
@@ -38,8 +39,16 @@ class Bid {
   final bool featured;
   final String? bio;
   final int completedDeliveries;
+  /// Traveler trip luggage capacity in kg (when known from matching API).
+  final double? luggageCapacityKg;
 
   String get routeMatchLabel => '$routeMatchConfidence% Match';
+
+  bool canCarryWeightKg(double parcelWeightKg) {
+    final capacity = luggageCapacityKg;
+    if (capacity == null) return false;
+    return capacity >= parcelWeightKg;
+  }
 
   Bid copyWith({
     String? id,
@@ -55,6 +64,7 @@ class Bid {
     bool? featured,
     String? bio,
     int? completedDeliveries,
+    double? luggageCapacityKg,
   }) {
     return Bid(
       id: id ?? this.id,
@@ -70,6 +80,7 @@ class Bid {
       featured: featured ?? this.featured,
       bio: bio ?? this.bio,
       completedDeliveries: completedDeliveries ?? this.completedDeliveries,
+      luggageCapacityKg: luggageCapacityKg ?? this.luggageCapacityKg,
     );
   }
 }

@@ -443,63 +443,60 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
                         ValueListenableBuilder<int>(
                           valueListenable: WalletService.walletVersion,
                           builder: (context, _, __) {
+                            // Traveler + Sender: no Escrow active / ID verified
+                            // badges — only party checkpoints (and refunded/frozen).
+                            final showEscrowRefunded =
+                                WalletService.isEscrowRefunded(shipment.id);
+                            final showEscrowFrozen =
+                                WalletService.isEscrowFrozen(shipment.id);
+
                             return Wrap(
                               spacing: 8,
                               runSpacing: 8,
                               children: [
-                                if (WalletService.escrowCentsForShipment(shipment.id) > 0 ||
-                                    WalletService.isEscrowReleased(shipment.id))
-                                  AppBadge.success('✓ Escrow active')
-                                else if (WalletService.isEscrowRefunded(shipment.id))
+                                if (showEscrowRefunded)
                                   AppBadge(
                                     label: 'Escrow refunded',
                                     color: AppColors.warning,
-                                    backgroundColor: AppColors.warning.withValues(alpha: 0.12),
+                                    backgroundColor: AppColors.warning
+                                        .withValues(alpha: 0.12),
                                     small: true,
                                   )
-                                else if (WalletService.isEscrowFrozen(shipment.id))
+                                else if (showEscrowFrozen)
                                   AppBadge(
                                     label: 'Escrow frozen',
                                     color: AppColors.danger,
-                                    backgroundColor: AppColors.danger.withValues(alpha: 0.12),
+                                    backgroundColor: AppColors.danger
+                                        .withValues(alpha: 0.12),
                                     small: true,
                                   ),
-                                AppBadge.success('✓ ID verified'),
                                 if (isDisputed)
                                   AppBadge(
                                     label: 'Dispute open',
                                     color: AppColors.danger,
-                                    backgroundColor: AppColors.danger.withValues(alpha: 0.12),
+                                    backgroundColor: AppColors.danger
+                                        .withValues(alpha: 0.12),
                                     small: true,
                                   ),
                                 if (cp1Confirmed)
-                                  AppBadge.success(
-                                    widget.isTravelerView
-                                        ? '✓ Sender ↔ Traveler'
-                                        : '✓ NFC CP1',
-                                  )
+                                  AppBadge.success('✓ Sender ↔ Traveler')
                                 else
                                   AppBadge(
-                                    label: widget.isTravelerView
-                                        ? '○ Sender ↔ Traveler'
-                                        : '○ NFC CP1',
+                                    label: '○ Sender ↔ Traveler',
                                     color: AppColors.textDisabled,
-                                    backgroundColor: AppColors.textDisabled.withValues(alpha: 0.4),
+                                    backgroundColor: AppColors.textDisabled
+                                        .withValues(alpha: 0.4),
                                     small: true,
                                   ),
-                                if (cp2Confirmed || status == ShipmentStatus.delivered)
-                                  AppBadge.success(
-                                    widget.isTravelerView
-                                        ? '✓ Traveler ↔ Receiver'
-                                        : '✓ NFC CP2',
-                                  )
+                                if (cp2Confirmed ||
+                                    status == ShipmentStatus.delivered)
+                                  AppBadge.success('✓ Traveler ↔ Receiver')
                                 else
                                   AppBadge(
-                                    label: widget.isTravelerView
-                                        ? '○ Traveler ↔ Receiver'
-                                        : '○ NFC CP2',
+                                    label: '○ Traveler ↔ Receiver',
                                     color: AppColors.textDisabled,
-                                    backgroundColor: AppColors.textDisabled.withValues(alpha: 0.4),
+                                    backgroundColor: AppColors.textDisabled
+                                        .withValues(alpha: 0.4),
                                     small: true,
                                   ),
                               ],
@@ -802,6 +799,19 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
               deliveryReviewRoute(
                 shipmentId: shipment.id,
                 reviewerRole: WalletRole.traveler,
+                revieweeRole: WalletRole.receiver,
+              ),
+            ),
+          ),
+        );
+        addAction(
+          AppButton(
+            label: 'Leave a review for a sender',
+            onPressed: () => context.push(
+              deliveryReviewRoute(
+                shipmentId: shipment.id,
+                reviewerRole: WalletRole.traveler,
+                revieweeRole: WalletRole.sender,
               ),
             ),
           ),
@@ -833,6 +843,19 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
             deliveryReviewRoute(
               shipmentId: shipment.id,
               reviewerRole: WalletRole.traveler,
+              revieweeRole: WalletRole.receiver,
+            ),
+          ),
+        ),
+      );
+      addAction(
+        AppButton(
+          label: 'Leave a review for a sender',
+          onPressed: () => context.push(
+            deliveryReviewRoute(
+              shipmentId: shipment.id,
+              reviewerRole: WalletRole.traveler,
+              revieweeRole: WalletRole.sender,
             ),
           ),
         ),
@@ -853,7 +876,7 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
           ),
           onPressed: () => openDeliveryChat(
             context,
-            chatBasePath: '/sender-chats',
+            chatBasePath: '/traveler-chats',
             threadType: 'sender_traveler',
             deliveryKey: shipment.id,
           ),
@@ -869,7 +892,7 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
           ),
           onPressed: () => openDeliveryChat(
             context,
-            chatBasePath: '/receiver-chats',
+            chatBasePath: '/traveler-chats',
             threadType: 'traveler_receiver',
             deliveryKey: shipment.id,
           ),
@@ -1251,26 +1274,31 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
             paymentIntentId: paymentIntentId,
           );
 
-      final Map<String, dynamic> result;
-      if (!_isCheckpoint2 && widget.isTraveler) {
-        result = await PlatformFeePayment.withStripeRetry(
-          context: context,
-          role: WalletRole.traveler,
-          attempt: confirm,
-        );
-      } else {
-        try {
-          result = await confirm(null);
-        } on ApiException catch (e) {
-          if (e.requiresPayment && e.paymentRole == 'traveler' && !widget.isTraveler) {
-            throw ApiException(
-              message:
-                  'Traveler must add funds to their wallet (or pay with card) '
-                  'before handoff can complete.',
-              code: e.code,
-              statusCode: e.statusCode,
-            );
-          }
+      late final Map<String, dynamic> result;
+      try {
+        result = await confirm(null);
+      } on ApiException catch (e) {
+        if (e.requiresPayment && e.paymentRole == 'traveler' && !widget.isTraveler) {
+          throw ApiException(
+            message:
+                'Traveler must add funds to their wallet (or pay with card) '
+                'before handoff can complete.',
+            code: e.code,
+            statusCode: e.statusCode,
+          );
+        }
+        // Fee is normally collected at Pay Now; if a legacy unpaid fee remains,
+        // let the traveler complete card payment on their device.
+        if (!_isCheckpoint2 &&
+            widget.isTraveler &&
+            e.requiresPayment &&
+            e.clientSecret != null) {
+          result = await PlatformFeePayment.withStripeRetry(
+            context: context,
+            role: WalletRole.traveler,
+            attempt: confirm,
+          );
+        } else {
           rethrow;
         }
       }
@@ -1629,12 +1657,13 @@ class TravelerNfcDeliverySuccessScreen extends StatelessWidget {
               if (!waitingForPeer) ...[
                 const SizedBox(height: AppButton.stackGap),
                 AppButton(
-                  label: 'Leave a review for receiver',
+                  label: 'Leave a review for sender',
                   variant: AppButtonVariant.outline,
                   onPressed: () => context.push(
                     deliveryReviewRoute(
                       shipmentId: shipmentId,
                       reviewerRole: WalletRole.traveler,
+                      revieweeRole: WalletRole.sender,
                     ),
                   ),
                 ),
@@ -2327,6 +2356,13 @@ class _DeliveryReviewScreenState extends State<DeliveryReviewScreen> {
     final shipmentId = state.uri.queryParameters['shipmentId']?.trim() ?? '';
     final reviewerRole =
         WalletRole.fromQuery(state.uri.queryParameters['role']);
+    final revieweeRaw = state.uri.queryParameters['reviewee']?.trim();
+    final WalletRole? revieweeRole = switch (revieweeRaw) {
+      'sender' => WalletRole.sender,
+      'traveler' => WalletRole.traveler,
+      'receiver' => WalletRole.receiver,
+      _ => null,
+    };
 
     if (shipmentId.isEmpty) {
       setState(() {
@@ -2345,6 +2381,14 @@ class _DeliveryReviewScreenState extends State<DeliveryReviewScreen> {
 
     if (context.read<DemoModeProvider>().enabled) {
       final demoContext = switch (reviewerRole) {
+        WalletRole.traveler when revieweeRole == WalletRole.sender =>
+          ReviewContext(
+            revieweeId: 'demo-sender',
+            revieweeRole: WalletRole.sender,
+            revieweeName: 'Sender',
+            confirmationMessage:
+                'Delivery $shipmentId complete. How was your experience with the sender?',
+          ),
         WalletRole.traveler => ReviewContext(
             revieweeId: 'demo-receiver',
             revieweeRole: WalletRole.receiver,
@@ -2382,6 +2426,7 @@ class _DeliveryReviewScreenState extends State<DeliveryReviewScreen> {
       final reviewContext = resolveReviewContext(
         delivery: delivery,
         reviewerRole: reviewerRole,
+        revieweeRole: revieweeRole,
       );
       if (!mounted) return;
       if (reviewContext == null) {

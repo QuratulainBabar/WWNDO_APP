@@ -167,7 +167,7 @@ class AuthRepository {
       '/auth/login',
       body: {
         'email': email.trim(),
-        'password': password.replaceAll(RegExp(r'[\r\n]'), ''),
+        'password': password.replaceAll(RegExp(r'[\r\n]'), '').trim(),
       },
     );
 
@@ -184,7 +184,7 @@ class AuthRepository {
       '/auth/login/password-otp/send',
       body: {
         'email': email.trim(),
-        'password': password.replaceAll(RegExp(r'[\r\n]'), ''),
+        'password': password.replaceAll(RegExp(r'[\r\n]'), '').trim(),
       },
     );
   }
@@ -199,7 +199,7 @@ class AuthRepository {
       '/auth/login/password-otp/verify',
       body: {
         'email': email.trim(),
-        'password': password.replaceAll(RegExp(r'[\r\n]'), ''),
+        'password': password.replaceAll(RegExp(r'[\r\n]'), '').trim(),
         'code': code.trim(),
       },
     );

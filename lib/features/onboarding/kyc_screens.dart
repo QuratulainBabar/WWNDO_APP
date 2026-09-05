@@ -163,189 +163,196 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
                 child: ColoredBox(
                   color: AppColors.kycBackground,
                   child: Padding(
-                    padding: const EdgeInsets.all(28),
+                    padding: const EdgeInsets.fromLTRB(28, 28, 28, 16),
                     child: Column(
                       children: [
-                      Container(
-                        width: 80,
-                        height: 80,
-                        decoration: const BoxDecoration(
-                          color: AppColors.primary,
-                          shape: BoxShape.circle,
+                        Container(
+                          width: 80,
+                          height: 80,
+                          decoration: const BoxDecoration(
+                            color: AppColors.primary,
+                            shape: BoxShape.circle,
+                          ),
+                          alignment: Alignment.center,
+                          child: const Icon(
+                            Icons.badge_outlined,
+                            size: 44,
+                            color: Colors.white,
+                          ),
                         ),
-                        alignment: Alignment.center,
-                        child: const Icon(
-                          Icons.badge_outlined,
-                          size: 44,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      Text('Verify your identity', style: typo.h2),
-                      const SizedBox(height: 8),
-                      Text(
-                        useSumsub
-                            ? 'Upload a government ID and complete a liveness check securely with Sumsub.'
-                            : 'Photograph your government ID and take a quick selfie to unlock all features.',
-                        textAlign: TextAlign.center,
-                        style: typo.sm.copyWith(height: 1.5),
-                      ),
-                      const SizedBox(height: 16),
-                      _KycStatusChip(status: status),
-                      if (useSumsub) ...[
                         const SizedBox(height: 20),
-                        AppCard(
-                          margin: EdgeInsets.zero,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('What you will do', style: typo.bodyBold),
-                              const SizedBox(height: 8),
-                              Text(
-                                '1. Photograph your passport, ID card, or driving licence\n'
-                                '2. Complete a short liveness selfie check\n'
-                                '3. Wait for automated review (manual review up to 48 hours)',
-                                style: typo.sm.copyWith(height: 1.5),
-                              ),
-                              if (!kyc.isSdkSupported) ...[
-                                const SizedBox(height: 12),
+                        Text('Verify your identity', style: typo.h2),
+                        const SizedBox(height: 8),
+                        Text(
+                          useSumsub
+                              ? 'Upload a government ID and complete a liveness check securely with Sumsub.'
+                              : 'Photograph your government ID and take a quick selfie to unlock all features.',
+                          textAlign: TextAlign.center,
+                          style: typo.sm.copyWith(height: 1.5),
+                        ),
+                        const SizedBox(height: 16),
+                        _KycStatusChip(status: status),
+                        if (useSumsub) ...[
+                          const SizedBox(height: 20),
+                          AppCard(
+                            margin: EdgeInsets.zero,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('What you will do', style: typo.bodyBold),
+                                const SizedBox(height: 8),
                                 Text(
-                                  'Sumsub SDK runs on Android and iOS devices only.',
-                                  style: typo.sm.copyWith(
-                                    color: AppColors.warning,
-                                    height: 1.4,
-                                  ),
+                                  '1. Photograph your passport, ID card, or driving licence\n'
+                                  '2. Complete a short liveness selfie check\n'
+                                  '3. Wait for automated review (manual review up to 48 hours)',
+                                  style: typo.sm.copyWith(height: 1.5),
                                 ),
+                                if (!kyc.isSdkSupported) ...[
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    'Sumsub SDK runs on Android and iOS devices only.',
+                                    style: typo.sm.copyWith(
+                                      color: AppColors.warning,
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                ],
                               ],
-                            ],
+                            ),
                           ),
-                        ),
-                      ] else ...[
-                        const SizedBox(height: 24),
-                        _stepCard(
-                          context,
-                          emoji: '📷',
-                          title: 'Photograph ID document',
-                          subtitle: _flow.idDocumentComplete
-                              ? (_demoMode && _flow.isDemoVerification
-                                  ? 'Demo ${_flow.documentTypeLabel.toLowerCase()} added'
-                                  : '${_flow.documentTypeLabel} captured')
-                              : _demoMode
-                                  ? 'Tap to add demo ID document'
-                                  : 'Passport, ID card, or driving licence',
-                          completed: _flow.idDocumentComplete,
-                          onTap: _openIdDocumentFlow,
-                        ),
-                        const SizedBox(height: 10),
-                        _stepCard(
-                          context,
-                          emoji: '🤳',
-                          title: 'Liveness selfie check',
-                          subtitle: _flow.selfieComplete
-                              ? (_demoMode && _flow.isDemoVerification
-                                  ? 'Demo selfie verified'
-                                  : 'Selfie verified')
-                              : _demoMode
-                                  ? 'Tap to complete demo selfie'
-                                  : 'Short video to confirm your identity',
-                          completed: _flow.selfieComplete,
-                          enabled: _flow.idDocumentComplete || _demoMode,
-                          onTap: _openSelfieFlow,
-                        ),
-                      ],
-                      // Demo mode toggle hidden from Identity Verification UI.
-                      // const SizedBox(height: 20),
-                      // _DemoModeCard(
-                      //   enabled: _demoMode,
-                      //   onChanged: (value) => setState(() => _demoMode = value),
-                      //   // onCompleteDemo: _completeDemoVerification,
-                      // ),
-                      const SizedBox(height: 20),
-                      if (_notice != null) ...[
-                        Text(
-                          _notice!,
-                          textAlign: TextAlign.center,
-                          style: typo.sm.copyWith(color: AppColors.danger, height: 1.5),
-                        ),
-                        const SizedBox(height: 12),
-                      ],
-                      if (kyc.error != null && useSumsub) ...[
-                        Text(
-                          kyc.error!,
-                          textAlign: TextAlign.center,
-                          style: typo.sm.copyWith(color: AppColors.danger, height: 1.5),
-                        ),
-                        const SizedBox(height: 12),
-                      ],
-                      if (kyc.loading)
-                        const Padding(
-                          padding: EdgeInsets.only(bottom: 16),
-                          child: CircularProgressIndicator(),
-                        ),
-                      AppButton(
-                        label: kyc.loading
-                            ? 'Opening Sumsub…'
-                            : useSumsub
-                                ? 'Verify Identity'
-                                : (_demoMode
-                                    ? 'Start demo verification'
-                                    : 'Start verification'),
-                        onPressed: kyc.loading
-                            ? null
-                            : () {
-                                if (useSumsub || _demoMode || appDemo) {
-                                  _verifyIdentity();
-                                } else {
-                                  _startLegacyCaptureFlow();
-                                }
-                              },
-                      ),
-                      if (useSumsub && status == KycStatusValue.submitted) ...[
-                        const SizedBox(height: 12),
-                        AppButton(
-                          label: 'Refresh status',
-                          variant: AppButtonVariant.outline,
-                          onPressed: kyc.loading
-                              ? null
-                              : () async {
-                                  try {
-                                    await kyc.refreshStatus(sync: true);
-                                    if (!context.mounted) return;
-                                    AppToast.info(
-                                      context,
-                                      'Status: ${kyc.statusValue.detailLabel}',
-                                    );
-                                  } catch (_) {
-                                    if (context.mounted) {
-                                      AppToast.error(
-                                        context,
-                                        kyc.error ?? 'Could not refresh KYC status',
-                                      );
-                                    }
-                                  }
-                                },
-                        ),
-                      ],
-                      if (appDemo || _demoMode) ...[
-                        const SizedBox(height: 12),
-                        TextButton(
-                          onPressed: () => KycFlowActions.rejectDemo(context),
-                          child: Text(
-                            'Simulate rejection',
-                            style: typo.sm.copyWith(fontWeight: FontWeight.w600),
+                        ] else ...[
+                          const SizedBox(height: 24),
+                          _stepCard(
+                            context,
+                            emoji: '📷',
+                            title: 'Photograph ID document',
+                            subtitle: _flow.idDocumentComplete
+                                ? (_demoMode && _flow.isDemoVerification
+                                    ? 'Demo ${_flow.documentTypeLabel.toLowerCase()} added'
+                                    : '${_flow.documentTypeLabel} captured')
+                                : _demoMode
+                                    ? 'Tap to add demo ID document'
+                                    : 'Passport, ID card, or driving licence',
+                            completed: _flow.idDocumentComplete,
+                            onTap: _openIdDocumentFlow,
                           ),
-                        ),
+                          const SizedBox(height: 10),
+                          _stepCard(
+                            context,
+                            emoji: '🤳',
+                            title: 'Liveness selfie check',
+                            subtitle: _flow.selfieComplete
+                                ? (_demoMode && _flow.isDemoVerification
+                                    ? 'Demo selfie verified'
+                                    : 'Selfie verified')
+                                : _demoMode
+                                    ? 'Tap to complete demo selfie'
+                                    : 'Short video to confirm your identity',
+                            completed: _flow.selfieComplete,
+                            enabled: _flow.idDocumentComplete || _demoMode,
+                            onTap: _openSelfieFlow,
+                          ),
+                        ],
+                        if (_notice != null) ...[
+                          const SizedBox(height: 20),
+                          Text(
+                            _notice!,
+                            textAlign: TextAlign.center,
+                            style: typo.sm
+                                .copyWith(color: AppColors.danger, height: 1.5),
+                          ),
+                        ],
+                        if (kyc.error != null && useSumsub) ...[
+                          const SizedBox(height: 12),
+                          Text(
+                            kyc.error!,
+                            textAlign: TextAlign.center,
+                            style: typo.sm
+                                .copyWith(color: AppColors.danger, height: 1.5),
+                          ),
+                        ],
+                        if (kyc.loading)
+                          const Padding(
+                            padding: EdgeInsets.only(top: 16),
+                            child: CircularProgressIndicator(),
+                          ),
                       ],
-                    ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-        ],
+            ColoredBox(
+              color: AppColors.kycBackground,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(28, 12, 28, 28),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    AppButton(
+                      label: kyc.loading
+                          ? 'Opening Sumsub…'
+                          : useSumsub
+                              ? 'Verify Identity'
+                              : (_demoMode
+                                  ? 'Start demo verification'
+                                  : 'Start verification'),
+                      onPressed: kyc.loading
+                          ? null
+                          : () {
+                              if (useSumsub || _demoMode || appDemo) {
+                                _verifyIdentity();
+                              } else {
+                                _startLegacyCaptureFlow();
+                              }
+                            },
+                    ),
+                    if (useSumsub && status == KycStatusValue.submitted) ...[
+                      const SizedBox(height: 12),
+                      AppButton(
+                        label: 'Refresh status',
+                        variant: AppButtonVariant.outline,
+                        onPressed: kyc.loading
+                            ? null
+                            : () async {
+                                try {
+                                  await kyc.refreshStatus(sync: true);
+                                  if (!context.mounted) return;
+                                  AppToast.info(
+                                    context,
+                                    'Status: ${kyc.statusValue.detailLabel}',
+                                  );
+                                } catch (_) {
+                                  if (context.mounted) {
+                                    AppToast.error(
+                                      context,
+                                      kyc.error ??
+                                          'Could not refresh KYC status',
+                                    );
+                                  }
+                                }
+                              },
+                      ),
+                    ],
+                    if (appDemo || _demoMode) ...[
+                      const SizedBox(height: 12),
+                      TextButton(
+                        onPressed: () => KycFlowActions.rejectDemo(context),
+                        child: Text(
+                          'Simulate rejection',
+                          style: typo.sm
+                              .copyWith(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
-    ),
-  );
+    );
   }
 
   Widget _stepCard(

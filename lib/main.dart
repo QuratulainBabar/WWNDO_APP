@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'app.dart';
 import 'core/config/demo_mode.dart';
 import 'core/push/push_notification_service.dart';
+import 'data/models/wallet_role.dart';
 import 'providers/auth_provider.dart';
 import 'providers/chat_realtime_provider.dart';
 import 'providers/kyc_provider.dart';
@@ -44,8 +45,8 @@ Future<void> main() async {
   final chatRealtimeProvider = ChatRealtimeProvider();
   final senderDeliveriesProvider = SenderDeliveriesProvider();
 
-  // Refresh the chat tab badge the moment a chat push arrives in the foreground,
-  // instead of waiting for the periodic poll.
+  // Refresh the chat tab badge the moment a chat push / peer socket message
+  // arrives, and pull the body into any already-open matching conversation.
   void refreshChatBadge() {
     if (!authProvider.isAuthenticated) return;
     notificationRealtimeProvider.refreshChatUnread(
@@ -55,7 +56,20 @@ Future<void> main() async {
     );
   }
 
-  PushNotificationService.onForegroundChatMessage = refreshChatBadge;
+  PushNotificationService.onForegroundChatMessage = (conversationId) {
+    refreshChatBadge();
+    chatRealtimeProvider.requestResync(conversationId);
+  };
+  PushNotificationService.onForegroundDeliveryRelated = (_) {
+    if (!authProvider.isAuthenticated) return;
+    notificationRealtimeProvider.notifyDeliveryUpdated();
+    notificationRealtimeProvider.refreshUnread(
+      role: notificationRealtimeProvider.activeRole ??
+          WalletRole.receiver,
+      authRepository: authProvider.repository,
+      demoMode: demoMode,
+    );
+  };
   chatRealtimeProvider.onIncomingPeerMessage = refreshChatBadge;
 
   runApp(

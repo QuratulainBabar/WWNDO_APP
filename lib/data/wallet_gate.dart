@@ -78,7 +78,13 @@ abstract final class WalletGate {
   ) async {
     if (context.read<DemoModeProvider>().enabled) return;
     try {
-      await context.read<WalletProvider>().refresh(null, silent: true);
+      // Always pull full history so available balance and recent fee rows stay
+      // in sync after Pay Now / platform-fee charges.
+      await context.read<WalletProvider>().refresh(
+            roles.isEmpty ? null : roles.first,
+            silent: true,
+            includeFullHistory: true,
+          );
     } catch (_) {}
   }
 }

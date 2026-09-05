@@ -153,7 +153,6 @@ class _ReceiverInfoSectionState extends State<ReceiverInfoSection> {
                 country: _phoneCountry,
                 label: 'Receiver phone number',
                 labelStyle: typo.inputLabel.copyWith(fontWeight: FontWeight.w600),
-                hintText: 'Phone number',
                 onCountryChanged: (country) {
                   setState(() => _phoneCountry = country);
                   _emitPhone();

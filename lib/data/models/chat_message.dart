@@ -174,11 +174,11 @@ class ChatMessage {
         json['imagePath']?.toString() ??
         (isImage && _looksLikeRemote(imageName) ? imageName : null);
     return ChatMessage(
-      text: json['text'] as String? ?? '',
-      isMine: json['isMine'] as bool? ?? false,
+      text: json['text']?.toString() ?? '',
+      isMine: json['isMine'] == true || json['isMine'] == 1 || json['isMine'] == 'true',
       time: createdAt != null
           ? LocalTime.clock(createdAt)
-          : (json['time'] as String? ?? ''),
+          : (json['time']?.toString() ?? ''),
       id: json['id']?.toString(),
       conversationId: json['conversationId']?.toString(),
       senderId: json['senderId']?.toString(),

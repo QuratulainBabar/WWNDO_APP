@@ -254,10 +254,9 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
   }
 
   int _stripeChargeCents() {
-    final totalCents = _currentTotalCents();
-    final shortfall = totalCents - _walletAvailableCents;
-    if (shortfall > 0) return shortfall;
-    return totalCents;
+    // Stripe Pay Now always charges the full parcel/trip total — never a
+    // wallet shortfall. The card funds escrow + fees; wallet balance is unchanged.
+    return _currentTotalCents();
   }
 
   void _selectWallet() {
@@ -276,57 +275,44 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
     });
   }
 
-  Future<void> _collectStripeCard() async {
-    if (_paid) return;
-    final auth = context.read<AuthProvider>();
-    final walletRepo = WalletRepository(
-      apiClient: auth.repository.apiClient,
-      demoMode: context.read<DemoModeProvider>(),
-    );
+  /// Creates a Stripe PaymentIntent for the full Pay Now amount and returns
+  /// the client secret + intent id needed to open Payment Sheet.
+  Future<({String clientSecret, String paymentIntentId})> _createStripeIntent(
+    WalletRepository walletRepo,
+  ) async {
+    final amountCents = _stripeChargeCents();
     try {
-      await StripePayments.ensureConfigured(walletRepo);
-      if (!StripePayments.isEnabled) {
-        if (!mounted) return;
-        AppToast.error(
-          context,
-          'Card payments are not available. Pay from wallet or top up first.',
-        );
-        return;
-      }
-
-      String? clientSecret = _stripeClientSecret;
-      String? paymentIntentId = _stripePaymentIntentId;
-      if (_backendStripeEnabled &&
-          (clientSecret == null || clientSecret.isEmpty)) {
-        try {
-          await walletRepo.topUp(
-            role: WalletRole.sender,
-            amountCents: _stripeChargeCents(),
-          );
-        } on ApiException catch (e) {
-          if (!e.requiresPayment || e.clientSecret == null) rethrow;
-          clientSecret = e.clientSecret;
-          paymentIntentId = e.paymentIntentId;
-        }
-      }
-
-      await StripePayments.collectPaymentMethod(
-        amountCents: _stripeChargeCents(),
-        clientSecret: clientSecret,
+      await walletRepo.topUp(
+        role: WalletRole.sender,
+        amountCents: amountCents,
       );
-      if (!mounted) return;
-      setState(() {
-        _stripeMethodCollected = true;
-        _stripeClientSecret = clientSecret;
-        _stripePaymentIntentId = paymentIntentId;
-      });
+      throw const ApiException(
+        message:
+            'Card payment could not be started. Check Stripe configuration and try again.',
+        code: 'STRIPE_NOT_CONFIGURED',
+        statusCode: 503,
+      );
     } on ApiException catch (e) {
-      if (!mounted) return;
-      if (e.code == 'PAYMENT_CANCELLED') return;
-      AppToast.error(context, e.message);
-    } catch (e) {
-      if (!mounted) return;
-      AppToast.error(context, 'Unable to open card payment. $e');
+      final secret = e.clientSecret;
+      final intentId = e.paymentIntentId;
+      if (e.requiresPayment &&
+          secret != null &&
+          secret.isNotEmpty &&
+          intentId != null &&
+          intentId.isNotEmpty) {
+        return (clientSecret: secret, paymentIntentId: intentId);
+      }
+      rethrow;
+    }
+  }
+
+  /// Opens Stripe Payment Sheet without leaving the button stuck on Processing.
+  Future<void> _presentStripeSheet(String clientSecret) async {
+    if (mounted) setState(() => _paying = false);
+    try {
+      await StripePayments.presentPaymentSheet(clientSecret: clientSecret);
+    } finally {
+      if (mounted) setState(() => _paying = true);
     }
   }
 
@@ -352,10 +338,11 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
         apiClient: auth.repository.apiClient,
         demoMode: context.read<DemoModeProvider>(),
       );
+
       String? paymentIntentId;
       if (paymentMethod == _BidPaymentMethod.stripe) {
         await StripePayments.ensureConfigured(walletRepo);
-        if (!StripePayments.isEnabled) {
+        if (!StripePayments.isEnabled || !_backendStripeEnabled) {
           if (!mounted) return;
           AppToast.error(
             context,
@@ -363,25 +350,32 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
           );
           return;
         }
-        if (!_stripeMethodCollected) {
-          await _collectStripeCard();
-          if (!_stripeMethodCollected) return;
+
+        // Open Payment Sheet immediately after creating the intent — do not use
+        // the slower customFlow collect/confirm path (that left Processing stuck).
+        final intent = await _createStripeIntent(walletRepo);
+        paymentIntentId = intent.paymentIntentId;
+        if (mounted) {
+          setState(() {
+            _stripeClientSecret = intent.clientSecret;
+            _stripePaymentIntentId = intent.paymentIntentId;
+          });
         }
-        if (_stripeClientSecret != null && _stripeClientSecret!.isNotEmpty) {
-          await StripePayments.confirmCollectedPayment();
-          final intentId = _stripePaymentIntentId;
-          if (intentId != null && intentId.isNotEmpty) {
-            await walletRepo.confirmTopUp(
-              paymentIntentId: intentId,
-              contextRole: WalletRole.sender,
-            );
-            paymentIntentId = intentId;
-          }
+
+        await _presentStripeSheet(intent.clientSecret);
+
+        await walletRepo.confirmTopUp(
+          paymentIntentId: intent.paymentIntentId,
+          contextRole: WalletRole.sender,
+        );
+        if (mounted) {
+          setState(() => _stripeMethodCollected = true);
         }
       }
 
       final methodParam =
           paymentMethod == _BidPaymentMethod.wallet ? 'wallet' : 'stripe';
+      var accepted = false;
       for (var attempt = 0; attempt < 3; attempt++) {
         try {
           await _tripRepo().acceptSenderCounterOffer(
@@ -389,7 +383,7 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
             paymentIntentId: paymentIntentId,
             paymentMethod: methodParam,
           );
-          paymentIntentId = null;
+          accepted = true;
           break;
         } on ApiException catch (e) {
           if (paymentMethod == _BidPaymentMethod.wallet) {
@@ -404,7 +398,8 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
             rethrow;
           }
           if (!e.requiresPayment || e.clientSecret == null) rethrow;
-          await StripePayments.presentPaymentSheet(clientSecret: e.clientSecret!);
+
+          await _presentStripeSheet(e.clientSecret!);
           paymentIntentId = e.paymentIntentId;
           if (paymentIntentId == null || paymentIntentId.isEmpty) {
             throw const ApiException(
@@ -419,8 +414,23 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
         }
       }
 
+      if (!accepted) {
+        throw const ApiException(
+          message: 'Payment could not be completed. Please try again.',
+          code: 'PAYMENT_INCOMPLETE',
+        );
+      }
+
       if (!mounted) return;
       setState(() => _paid = true);
+      // Force a post-payment wallet sync so sender available balance matches
+      // platform-fee / escrow ledger rows (avoid stale Home WalletCard fetches).
+      await context.read<WalletProvider>().refresh(
+            WalletRole.sender,
+            silent: true,
+            includeFullHistory: true,
+          );
+      if (!mounted) return;
       await WalletGate.refreshRoles(
         context,
         [WalletRole.sender, WalletRole.traveler, WalletRole.receiver],
@@ -439,6 +449,7 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
       );
     } on ApiException catch (e) {
       if (!mounted) return;
+      if (e.code == 'PAYMENT_CANCELLED') return;
       AppToast.error(context, e.message);
     } catch (e) {
       if (!mounted) return;
@@ -533,8 +544,13 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
                     _detailRow(
                       context,
                       'Receiver fee',
-                      'Paid by receiver at accept',
+                      'Charged to receiver at Pay Now',
                     ),
+                  _detailRow(
+                    context,
+                    'Traveler fee',
+                    PlatformFees.travelerPlatformFeeLabel(category: category),
+                  ),
                   const Divider(height: 24),
                   _detailRow(
                     context,
@@ -572,9 +588,7 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
                 subtitle: _stripeMethodCollected &&
                         selectedMethod == _BidPaymentMethod.stripe
                     ? 'Card selected — tap Pay Now to complete'
-                    : walletCoversTotal
-                        ? 'Charge your card instead of wallet'
-                        : 'Pay \$${(total - walletUsd).clamp(0, total).toStringAsFixed(2)} shortfall by card',
+                    : 'Charge full \$${total.toStringAsFixed(2)} to your card',
                 selected: selectedMethod == _BidPaymentMethod.stripe,
                 enabled: !_paying && !_paid && _stripeEnabled,
                 onTap: _stripeEnabled ? _selectStripe : null,
@@ -601,9 +615,9 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
             Text(
               selectedMethod == _BidPaymentMethod.wallet
                   ? 'The total is deducted from your sender wallet. Booking is not created if balance is insufficient.'
-                  : 'Tap Pay Now to open Stripe, enter or choose your card, and complete payment. '
-                      'If wallet balance is short, Stripe collects the difference, then escrow is funded from wallet. '
-                      'Your sender platform fee is collected now; the traveler pays at NFC handoff.',
+                  : 'Tap Pay Now to open Stripe and charge the full amount to your card. '
+                      'Your wallet balance is not used or changed. '
+                      'Your sender platform fee is collected now; traveler and receiver fees are collected at Pay Now from their wallets.',
               style: context.typo.sm.copyWith(
                 color: AppColors.textSecondary,
                 height: 1.4,

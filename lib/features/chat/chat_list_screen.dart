@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -11,10 +13,12 @@ import '../../core/widgets/app_avatar.dart';
 import '../../core/widgets/back_link.dart';
 import '../../core/widgets/screen_body.dart';
 import '../../data/models/chat_conversation_preview.dart';
+import '../../data/models/chat_message.dart';
 import '../../data/models/wallet_role.dart';
 import '../../data/services/chat_repository.dart';
 import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/chat_realtime_provider.dart';
 import '../../providers/notification_realtime_provider.dart';
 
 /// WhatsApp-style inbox: search + conversation list before opening a chat.
@@ -38,6 +42,10 @@ class _ChatListScreenState extends State<ChatListScreen> {
   bool _loading = true;
   String? _error;
   List<ChatConversationPreview> _conversations = const [];
+  StreamSubscription<ChatMessage>? _senderPeerMessageSub;
+  VoidCallback? _senderBadgeListener;
+  NotificationRealtimeProvider? _senderNotifications;
+  int _lastSenderChatUnread = -1;
 
   String get _homeRoute => switch (widget.role) {
         WalletRole.sender => '/home',
@@ -47,18 +55,71 @@ class _ChatListScreenState extends State<ChatListScreen> {
 
   bool get _useApi => !context.read<DemoModeProvider>().enabled;
 
+  bool get _isSenderInbox => widget.role == WalletRole.sender;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _load();
+      if (!mounted) return;
+      _load();
+      _attachSenderLiveInbox();
     });
   }
 
   @override
   void dispose() {
+    _senderPeerMessageSub?.cancel();
+    if (_senderBadgeListener != null) {
+      _senderNotifications?.removeListener(_senderBadgeListener!);
+    }
     _searchController.dispose();
     super.dispose();
+  }
+
+  /// Sender-only: keep inbox previews in sync when a traveler messages, without
+  /// requiring a manual pull-to-refresh. Traveler/receiver inboxes are unchanged.
+  void _attachSenderLiveInbox() {
+    if (!_isSenderInbox || !_useApi) return;
+
+    final auth = context.read<AuthProvider>();
+    final demoMode = context.read<DemoModeProvider>();
+    final chatRt = context.read<ChatRealtimeProvider>();
+    chatRt.start(
+      getAccessToken: auth.repository.tokenStorage.getAccessToken,
+      userId: auth.repository.currentUser?.id,
+      demoMode: demoMode.enabled,
+    );
+
+    _senderPeerMessageSub?.cancel();
+    _senderPeerMessageSub = chatRt.onMessage.listen((message) {
+      if (!mounted) return;
+      final myId = auth.repository.currentUser?.id;
+      final senderId = message.senderId;
+      if (myId != null &&
+          senderId != null &&
+          senderId.toLowerCase() == myId.toLowerCase()) {
+        return;
+      }
+      _load(silent: true);
+    });
+
+    // Also catch traveler messages that arrive as FCM/badge bumps when the
+    // socket event was missed — notification already shows, inbox must update.
+    final notifications = context.read<NotificationRealtimeProvider>();
+    if (_senderBadgeListener != null) {
+      _senderNotifications?.removeListener(_senderBadgeListener!);
+    }
+    _senderNotifications = notifications;
+    _lastSenderChatUnread = notifications.chatUnreadCount;
+    _senderBadgeListener = () {
+      if (!mounted) return;
+      final next = notifications.chatUnreadCount;
+      if (next == _lastSenderChatUnread) return;
+      _lastSenderChatUnread = next;
+      _load(silent: true);
+    };
+    notifications.addListener(_senderBadgeListener!);
   }
 
   ChatRepository _repo() {
@@ -119,6 +180,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
       (sum, c) => sum + (c.unreadCount < 0 ? 0 : c.unreadCount),
     );
     context.read<NotificationRealtimeProvider>().setChatUnreadCount(total);
+    if (_isSenderInbox) _lastSenderChatUnread = total;
   }
 
   void _markConversationReadLocally(ChatConversationPreview conversation) {

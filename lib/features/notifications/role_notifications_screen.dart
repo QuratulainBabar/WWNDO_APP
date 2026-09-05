@@ -721,6 +721,10 @@ class _NotificationTile extends StatelessWidget {
           icon: Icons.cancel_rounded,
           color: AppColors.danger,
         ),
+      AppNotificationType.reviewReceived => (
+          icon: Icons.star_rounded,
+          color: AppColors.warning,
+        ),
       AppNotificationType.kycUpdate => (
           icon: Icons.verified_user_rounded,
           color: AppColors.primary,
@@ -947,6 +951,7 @@ class _TypeChip extends StatelessWidget {
       AppNotificationType.nfcPrompt => 'NFC',
       AppNotificationType.deliveryStatus => 'Delivery',
       AppNotificationType.cancellation => 'Cancel',
+      AppNotificationType.reviewReceived => 'Review',
       AppNotificationType.general => 'Alert',
     };
     return Container(

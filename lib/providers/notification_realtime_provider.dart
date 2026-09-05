@@ -90,7 +90,14 @@ class NotificationRealtimeProvider extends ChangeNotifier {
 
     _unreadSub = _realtimeService.onUnreadCount.listen((count) {
       if (_unreadCount != count) {
+        final increased = count > _unreadCount;
         _unreadCount = count;
+        // Alert badge can update even when the nested notification payload
+        // fails to parse — still invalidate delivery screens so status UI
+        // (e.g. receiver In Transit) refreshes immediately.
+        if (increased) {
+          _deliveryUpdateTick++;
+        }
         notifyListeners();
       }
     });

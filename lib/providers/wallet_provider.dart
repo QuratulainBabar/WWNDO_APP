@@ -41,6 +41,10 @@ class WalletProvider extends ChangeNotifier {
   List<LedgerEntry> _transactions = const [];
   List<LedgerEntry> get transactions => _transactions;
 
+  /// Monotonic counter so an older in-flight GET /wallet cannot overwrite a
+  /// newer balance after Pay Now / fee deduction.
+  int _refreshGeneration = 0;
+
   bool get isDemoMode => _demoMode?.enabled ?? false;
 
   /// Unified balance — [role] is ignored (same wallet for all roles).
@@ -67,6 +71,8 @@ class WalletProvider extends ChangeNotifier {
     bool silent = false,
     bool includeFullHistory = false,
   }) async {
+    final generation = ++_refreshGeneration;
+
     if (!silent) {
       _loading = true;
       _error = null;
@@ -75,6 +81,9 @@ class WalletProvider extends ChangeNotifier {
 
     try {
       if (isDemoMode || _authRepository.currentUser == null) {
+        if (generation != _refreshGeneration) {
+          return _summary ?? WalletSummary.empty(contextRole);
+        }
         final empty = WalletSummary.empty(contextRole);
         _apply(empty, transactions: const []);
         return empty;
@@ -96,9 +105,18 @@ class WalletProvider extends ChangeNotifier {
         history = await _walletRepository.fetchTransactions();
       }
 
+      // Drop stale responses that finished after a newer refresh started
+      // (common after Pay Now when Home's WalletCard refresh is still in flight).
+      if (generation != _refreshGeneration) {
+        return _summary ?? summary;
+      }
+
       _apply(summary, transactions: history);
       return summary;
     } on ApiException catch (e) {
+      if (generation != _refreshGeneration) {
+        return _summary ?? WalletSummary.empty(contextRole);
+      }
       if (!silent) {
         final empty = WalletSummary.empty(contextRole);
         _apply(empty, transactions: const []);
@@ -107,6 +125,9 @@ class WalletProvider extends ChangeNotifier {
       }
       return _summary ?? WalletSummary.empty(contextRole);
     } catch (e) {
+      if (generation != _refreshGeneration) {
+        return _summary ?? WalletSummary.empty(contextRole);
+      }
       if (!silent) {
         final empty = WalletSummary.empty(contextRole);
         _apply(empty, transactions: const []);
@@ -115,7 +136,7 @@ class WalletProvider extends ChangeNotifier {
       }
       return _summary ?? WalletSummary.empty(contextRole);
     } finally {
-      if (!silent) {
+      if (!silent && generation == _refreshGeneration) {
         _loading = false;
         notifyListeners();
       }
@@ -322,7 +343,7 @@ class WalletProvider extends ChangeNotifier {
     _summary = effective;
     _transactions = List<LedgerEntry>.unmodifiable(transactions);
     WalletService.applyRemoteState(
-      availableCents: summary.availableCents,
+      availableCents: effective.availableCents,
       escrowCents: effective.escrowCents,
       history: transactions,
       shipmentEscrows: effective.shipmentEscrows,

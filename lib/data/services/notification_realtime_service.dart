@@ -133,9 +133,9 @@ class NotificationRealtimeService {
         }
 
         final notificationJson = decoded['notification'];
-        if (notificationJson is Map<String, dynamic>) {
+        if (notificationJson is Map) {
           final notification = AppNotification.fromJson(
-            notificationJson,
+            Map<String, dynamic>.from(notificationJson),
             fallbackRole: _role,
           );
           _incomingController.add(notification);

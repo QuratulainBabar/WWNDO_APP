@@ -26,10 +26,50 @@ import '../../providers/sender_deliveries_provider.dart';
 import '../../providers/wallet_provider.dart';
 import '../sender/sender_delivery_status.dart';
 
-class MainShell extends StatelessWidget {
+class MainShell extends StatefulWidget {
   const MainShell({super.key, required this.navigationShell});
 
   final StatefulNavigationShell navigationShell;
+
+  @override
+  State<MainShell> createState() => _MainShellState();
+}
+
+class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _ensureSenderChatRealtime();
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      _ensureSenderChatRealtime();
+    }
+  }
+
+  /// Keep the sender socket alive for every shell tab (not only Home).
+  /// Traveler/receiver already do this from their shells; without it, traveler
+  /// → sender messages only show after a manual refresh.
+  void _ensureSenderChatRealtime() {
+    final auth = context.read<AuthProvider>();
+    final demoMode = context.read<DemoModeProvider>();
+    context.read<ChatRealtimeProvider>().start(
+          getAccessToken: auth.repository.tokenStorage.getAccessToken,
+          userId: auth.repository.currentUser?.id,
+          demoMode: demoMode.enabled,
+        );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,7 +78,7 @@ class MainShell extends StatelessWidget {
     final unreadAlerts =
         context.watch<NotificationRealtimeProvider>().unreadCount;
     return Scaffold(
-      body: navigationShell,
+      body: widget.navigationShell,
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
           color: AppColors.surface,
@@ -50,11 +90,11 @@ class MainShell extends StatelessWidget {
             height: 72,
             child: Row(
               children: [
-                _Tab(navigationShell: navigationShell, index: 0, iconAsset: AppIcons.home, label: 'Home'),
-                _Tab(navigationShell: navigationShell, index: 1, iconAsset: AppIcons.track, label: 'Track'),
-                _Tab(navigationShell: navigationShell, index: 2, iconAsset: AppIcons.notification, label: 'Alert', badge: unreadAlerts),
-                _Tab(navigationShell: navigationShell, index: 3, iconAsset: AppIcons.chat, label: 'Chat', badge: unreadChats),
-                _Tab(navigationShell: navigationShell, index: 4, iconAsset: AppIcons.profile, label: 'Profile'),
+                _Tab(navigationShell: widget.navigationShell, index: 0, iconAsset: AppIcons.home, label: 'Home'),
+                _Tab(navigationShell: widget.navigationShell, index: 1, iconAsset: AppIcons.track, label: 'Track'),
+                _Tab(navigationShell: widget.navigationShell, index: 2, iconAsset: AppIcons.notification, label: 'Alert', badge: unreadAlerts),
+                _Tab(navigationShell: widget.navigationShell, index: 3, iconAsset: AppIcons.chat, label: 'Chat', badge: unreadChats),
+                _Tab(navigationShell: widget.navigationShell, index: 4, iconAsset: AppIcons.profile, label: 'Profile'),
               ],
             ),
           ),
@@ -199,6 +239,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       _startNotificationRealtime();
       _attachRealtimeListener();
       _loadUnreadNotifications();
+      context.read<WalletProvider>().refresh(
+            WalletRole.sender,
+            silent: true,
+            includeFullHistory: true,
+          );
     }
   }
 

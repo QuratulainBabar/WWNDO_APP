@@ -76,8 +76,16 @@ String disputeFormRoute(String shipmentId, {bool travelerView = false, String? r
 String deliveryReviewRoute({
   required String shipmentId,
   required WalletRole reviewerRole,
+  WalletRole? revieweeRole,
 }) {
-  return '/delivery-review?shipmentId=${Uri.encodeComponent(shipmentId)}&role=${reviewerRole.queryParam}';
+  final buffer = StringBuffer(
+    '/delivery-review?shipmentId=${Uri.encodeComponent(shipmentId)}'
+    '&role=${reviewerRole.queryParam}',
+  );
+  if (revieweeRole != null) {
+    buffer.write('&reviewee=${revieweeRole.queryParam}');
+  }
+  return buffer.toString();
 }
 
 String homeRouteForWalletRole(WalletRole role) => switch (role) {

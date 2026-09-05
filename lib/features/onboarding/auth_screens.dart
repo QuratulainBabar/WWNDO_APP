@@ -74,7 +74,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         dialCode: _phoneCountry.dialCode,
         phoneNumber: national,
         phone: PhoneCountries.formatFull(_phoneCountry, _phoneController.text),
-        password: _passwordController.text,
+        password: _passwordController.text.replaceAll(RegExp(r'[\r\n]'), '').trim(),
         countryCode: _countryIso!,
         acceptedTerms: _acceptedTerms,
       );
@@ -318,12 +318,28 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  /// Mirrors onChanged — browser autofill can update the visual field without
+  /// always syncing [TextEditingController] before submit.
+  String _emailTyped = '';
+  String _passwordTyped = '';
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  String _readEmail() {
+    final fromController = _emailController.text.trim();
+    if (fromController.isNotEmpty) return fromController;
+    return _emailTyped.trim();
+  }
+
+  String _readPassword() {
+    final fromController = _passwordController.text.replaceAll(RegExp(r'[\r\n]'), '').trim();
+    if (fromController.isNotEmpty) return fromController;
+    return _passwordTyped.replaceAll(RegExp(r'[\r\n]'), '').trim();
   }
 
   Future<void> _openBiometricFlow() async {
@@ -367,20 +383,21 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _login() async {
-    // Flush Android/iOS autofill into the controllers before reading them.
-    // Without this, the password field can still hold a previous/empty value
-    // while the user sees the filled password, and the API returns
-    // "Invalid email or password".
+    // Capture credentials first. Do NOT call finishAutofillContext(shouldSave: false)
+    // before reading — on Flutter web/Edge that discards autofill without writing
+    // into the controllers and causes "Invalid email or password".
     FocusManager.instance.primaryFocus?.unfocus();
-    TextInput.finishAutofillContext(shouldSave: false);
-    await Future<void>.delayed(const Duration(milliseconds: 50));
+    await Future<void>.delayed(const Duration(milliseconds: 80));
     if (!mounted) return;
 
-    final email = _emailController.text.trim();
-    final password = _passwordController.text.replaceAll(RegExp(r'[\r\n]'), '');
+    final email = _readEmail();
+    final password = _readPassword();
 
     if (email.isEmpty || password.isEmpty) {
-      AppToast.error(context, 'Enter your email and password');
+      AppToast.error(
+        context,
+        'Enter your email and password. If the browser autofilled them, tap each field once, then try again.',
+      );
       return;
     }
     if (!RegExp(r'^[^@]+@[^@]+\.[^@]+$').hasMatch(email)) {
@@ -389,7 +406,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     if (kDebugMode) {
-      debugPrint('LOGIN → ${ApiConfig.authBase}');
+      debugPrint('LOGIN → ${ApiConfig.authBase} (password len=${password.length})');
     }
 
     // Navigate immediately — OTP screen sends email in the background so the
@@ -444,6 +461,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   inputStyle: inputStyle,
                   keyboardType: TextInputType.emailAddress,
                   hintText: 'you@email.com',
+                  onChanged: (value) => _emailTyped = value,
                 ),
                 _labeledField(
                   context,
@@ -453,6 +471,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   labelStyle: fieldLabelStyle,
                   inputStyle: inputStyle,
                   hintText: 'Enter your password',
+                  onChanged: (value) => _passwordTyped = value,
                 ),
                 Align(
                   alignment: Alignment.centerRight,
@@ -504,6 +523,7 @@ class _LoginScreenState extends State<LoginScreen> {
     TextStyle? inputStyle,
     TextInputType? keyboardType,
     String? hintText,
+    ValueChanged<String>? onChanged,
   }) {
     final typo = context.typo;
     final fieldInputStyle = inputStyle ?? typo.input;
@@ -524,6 +544,7 @@ class _LoginScreenState extends State<LoginScreen> {
         keyboardType: keyboardType,
         textInputAction: obscure ? TextInputAction.done : TextInputAction.next,
         onFieldSubmitted: obscure ? (_) => _login() : null,
+        onChanged: onChanged,
         style: fieldInputStyle,
         decoration: InputDecoration(
           hintText: hintText,

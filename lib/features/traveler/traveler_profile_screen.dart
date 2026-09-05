@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/api/api_exception.dart';
+import '../../core/config/demo_mode.dart';
 import '../../core/navigation/app_navigation.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
@@ -15,7 +16,10 @@ import '../../core/widgets/screen_body.dart';
 import '../../core/widgets/star_rating_display.dart';
 import '../../data/models/profile_trust_metrics.dart';
 import '../../data/models/shipment.dart';
+import '../../data/models/traveler_trip.dart';
 import '../../data/models/wallet_role.dart';
+import '../../data/services/delivery_repository.dart';
+import '../../data/services/trip_repository.dart';
 import '../../data/static_data.dart';
 import '../../data/wallet_service.dart';
 import '../../providers/auth_provider.dart';
@@ -36,13 +40,16 @@ class _TravelerProfileScreenState extends State<TravelerProfileScreen> {
   String? _error;
   String? _lastMatchedLocation;
 
-  /// Traveler marketplace stats are not on `/auth/me` yet — show empty values
-  /// (not StaticData mocks) until a stats endpoint exists.
-  static const _emptyTrustMetrics = ProfileTrustMetrics(
-    completedDeliveries: 0,
-    cancellationRate: 0,
-    disputeRate: 0,
-  );
+  int _totalDeliveries = 0;
+  int _completedDeliveries = 0;
+  int _activeTrips = 0;
+  bool _statsLoading = true;
+
+  ProfileTrustMetrics get _trustMetrics => ProfileTrustMetrics(
+        completedDeliveries: _completedDeliveries,
+        cancellationRate: 0,
+        disputeRate: 0,
+      );
 
   @override
   void initState() {
@@ -65,7 +72,9 @@ class _TravelerProfileScreenState extends State<TravelerProfileScreen> {
         _lastMatchedLocation != '/traveler-profile') {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        _refreshProfile(silent: !_loading && context.read<AuthProvider>().user != null);
+        _refreshProfile(
+          silent: !_loading && context.read<AuthProvider>().user != null,
+        );
         context
             .read<WalletProvider>()
             .refresh(WalletRole.traveler, silent: true)
@@ -73,6 +82,24 @@ class _TravelerProfileScreenState extends State<TravelerProfileScreen> {
       });
     }
     _lastMatchedLocation = location;
+  }
+
+  DeliveryRepository _deliveryRepository() {
+    final auth = context.read<AuthProvider>();
+    final demoMode = context.read<DemoModeProvider>();
+    return DeliveryRepository(
+      apiClient: auth.repository.apiClient,
+      demoMode: demoMode,
+    );
+  }
+
+  TripRepository _tripRepository() {
+    final auth = context.read<AuthProvider>();
+    final demoMode = context.read<DemoModeProvider>();
+    return TripRepository(
+      apiClient: auth.repository.apiClient,
+      demoMode: demoMode,
+    );
   }
 
   Future<void> _refreshProfile({bool silent = false}) async {
@@ -92,6 +119,7 @@ class _TravelerProfileScreenState extends State<TravelerProfileScreen> {
             ? 'Unable to load profile. Pull to retry.'
             : null;
       });
+      await _loadTravelerStats(silent: silent);
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -109,6 +137,49 @@ class _TravelerProfileScreenState extends State<TravelerProfileScreen> {
         }
       });
     }
+  }
+
+  Future<void> _loadTravelerStats({bool silent = false}) async {
+    if (!silent && mounted) {
+      setState(() => _statsLoading = true);
+    }
+
+    var totalDeliveries = _totalDeliveries;
+    var completedDeliveries = _completedDeliveries;
+    var activeTrips = _activeTrips;
+
+    try {
+      final deliveries =
+          await _deliveryRepository().listDeliveries(role: 'traveler');
+      totalDeliveries = deliveries.length;
+      completedDeliveries = deliveries.where((d) {
+        final status = (d.status ?? '').trim().toLowerCase();
+        return status == 'delivered' || status == 'completed';
+      }).length;
+    } catch (_) {
+      // Keep last known delivery counts.
+    }
+
+    try {
+      final trips = await _tripRepository().listMyTrips();
+      activeTrips = trips
+          .where(
+            (t) =>
+                t.status != TripStatus.delivered &&
+                t.status != TripStatus.cancelled,
+          )
+          .length;
+    } catch (_) {
+      // Keep last known trip count.
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _totalDeliveries = totalDeliveries;
+      _completedDeliveries = completedDeliveries;
+      _activeTrips = activeTrips;
+      _statsLoading = false;
+    });
   }
 
   String _displayOrDash(String? value) {
@@ -176,16 +247,16 @@ class _TravelerProfileScreenState extends State<TravelerProfileScreen> {
 
     final country = _countryLabel(authUser.countryCode);
     final rating = authUser.rating;
-    // Trips / delivery counts require traveler APIs that are not implemented yet.
     const tripsCompleted = '0';
     const parcelsDelivered = '0';
-    const totalDeliveries = '0';
-    const activeTrips = '0';
+    final totalDeliveries = '$_totalDeliveries';
+    final activeTrips = '$_activeTrips';
     const successfulRate = '—';
 
     return Scaffold(
       backgroundColor: AppColors.background,
       body: ScreenBody(
+        onRefresh: () => _refreshProfile(silent: true),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -260,8 +331,9 @@ class _TravelerProfileScreenState extends State<TravelerProfileScreen> {
             ),
             const SizedBox(height: 16),
             ProfileTrustIndicators(
-              metrics: _emptyTrustMetrics,
+              metrics: _trustMetrics,
               authUser: authUser,
+              loading: _statsLoading,
             ),
             const SizedBox(height: 16),
             Text(

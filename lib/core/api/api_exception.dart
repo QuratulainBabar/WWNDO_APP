@@ -11,9 +11,26 @@ class ApiException implements Exception {
   final String? code;
   final Map<String, dynamic>? details;
 
-  String? get clientSecret => details?['clientSecret'] as String?;
-  String? get paymentIntentId => details?['paymentIntentId'] as String?;
-  String? get paymentRole => details?['role'] as String?;
+  String? get clientSecret {
+    final value = details?['clientSecret'];
+    if (value == null) return null;
+    final text = value.toString().trim();
+    return text.isEmpty ? null : text;
+  }
+
+  String? get paymentIntentId {
+    final value = details?['paymentIntentId'];
+    if (value == null) return null;
+    final text = value.toString().trim();
+    return text.isEmpty ? null : text;
+  }
+
+  String? get paymentRole {
+    final value = details?['role'];
+    if (value == null) return null;
+    final text = value.toString().trim();
+    return text.isEmpty ? null : text;
+  }
 
   bool get requiresPayment =>
       code == 'PAYMENT_REQUIRED' || statusCode == 402;

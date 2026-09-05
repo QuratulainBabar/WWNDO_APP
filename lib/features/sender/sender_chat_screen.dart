@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -37,7 +39,7 @@ class SenderChatScreen extends StatefulWidget {
 }
 
 class _SenderChatScreenState extends State<SenderChatScreen>
-    with ChatConversationMixin {
+    with ChatConversationMixin, WidgetsBindingObserver {
   @override
   ChatThread? get chatThread => null;
 
@@ -55,11 +57,11 @@ class _SenderChatScreenState extends State<SenderChatScreen>
   String _shipmentId = '';
   String? _conversationId;
   bool _unlocked = true;
-  ChatRealtimeProvider? _chatRealtime;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     initChatMessages(const []);
     _conversationId = widget.conversationId;
     _peerName = widget.contactName ?? 'Contact';
@@ -70,11 +72,18 @@ class _SenderChatScreenState extends State<SenderChatScreen>
 
   @override
   void dispose() {
-    if (_conversationId != null) {
-      _chatRealtime?.leaveConversation(_conversationId!);
-    }
+    WidgetsBinding.instance.removeObserver(this);
     disposeChatConversation();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      // Traveler messages can arrive while the app was backgrounded; pull them
+      // in without requiring the sender to leave and re-open the thread.
+      unawaited(resyncLiveChatMessages());
+    }
   }
 
   ChatRepository _repo() {
@@ -108,18 +117,14 @@ class _SenderChatScreenState extends State<SenderChatScreen>
       final auth = context.read<AuthProvider>();
       final myId = auth.repository.currentUser?.id;
       final chatRt = context.read<ChatRealtimeProvider>();
-      _chatRealtime = chatRt;
       await chatRt.start(
         getAccessToken: auth.repository.tokenStorage.getAccessToken,
         userId: myId,
         demoMode: context.read<DemoModeProvider>().enabled,
       );
-      attachLiveChatListeners(
-        realtime: chatRt,
-        conversationId: id,
-        myId: myId,
-      );
 
+      // Seed REST messages BEFORE attaching listeners so a live event cannot
+      // be wiped by this setState.
       setState(() {
         chatMessages = List.of(detail.messages);
         _peerName = widget.contactName ?? detail.name;
@@ -127,6 +132,16 @@ class _SenderChatScreenState extends State<SenderChatScreen>
         _unlocked = detail.unlocked;
         _loading = false;
       });
+      attachLiveChatListeners(
+        realtime: chatRt,
+        conversationId: id,
+        myId: myId,
+        peerName: _peerName,
+        resyncMessages: () async {
+          final latest = await _repo().getConversation(id);
+          return latest.messages;
+        },
+      );
       scrollChatToBottom();
       // Opening the thread marked it read server-side — clear the tab badge now
       // instead of waiting for the next poll.

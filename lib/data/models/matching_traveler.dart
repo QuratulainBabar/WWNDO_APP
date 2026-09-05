@@ -95,6 +95,14 @@ class MatchingTraveler {
       message: message,
       bio: bio,
       completedDeliveries: reviewCount,
+      luggageCapacityKg: luggageCapacityKg,
     );
+  }
+
+  /// True when this traveler's luggage capacity can carry [parcelWeightKg].
+  bool canCarryWeightKg(double parcelWeightKg) {
+    final capacity = luggageCapacityKg;
+    if (capacity == null) return false;
+    return capacity >= parcelWeightKg;
   }
 }

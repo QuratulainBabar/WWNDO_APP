@@ -306,14 +306,17 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
     }
   }
 
-  /// Opens Stripe Payment Sheet without leaving the button stuck on Processing.
+  /// Present Stripe Payment Sheet. Avoid setState immediately before present —
+  /// a rebuild here can prevent the native sheet from opening on Android.
   Future<void> _presentStripeSheet(String clientSecret) async {
-    if (mounted) setState(() => _paying = false);
-    try {
-      await StripePayments.presentPaymentSheet(clientSecret: clientSecret);
-    } finally {
-      if (mounted) setState(() => _paying = true);
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) {
+      throw const ApiException(
+        message: 'Payment cancelled.',
+        code: 'PAYMENT_CANCELLED',
+      );
     }
+    await StripePayments.presentPaymentSheet(clientSecret: clientSecret);
   }
 
   Future<void> _payNow() async {
@@ -323,16 +326,6 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
 
     setState(() => _paying = true);
     try {
-      final offerId = await _resolveOfferId();
-      if (offerId == null || offerId.isEmpty) {
-        if (!mounted) return;
-        AppToast.error(
-          context,
-          'Counter offer is not ready yet. Wait for the traveler’s offer, then pay from Counter Offer Details.',
-        );
-        return;
-      }
-
       final auth = context.read<AuthProvider>();
       final walletRepo = WalletRepository(
         apiClient: auth.repository.apiClient,
@@ -340,9 +333,14 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
       );
 
       String? paymentIntentId;
+
+      // Card path: open Stripe sheet first (same as wallet top-up). Do not wait
+      // on offer resolution / setState before present — that blocked the sheet.
       if (paymentMethod == _BidPaymentMethod.stripe) {
         await StripePayments.ensureConfigured(walletRepo);
-        if (!StripePayments.isEnabled || !_backendStripeEnabled) {
+        final stripeReady =
+            StripePayments.isEnabled && (_backendStripeEnabled || _stripeEnabled);
+        if (!stripeReady) {
           if (!mounted) return;
           AppToast.error(
             context,
@@ -351,16 +349,10 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
           return;
         }
 
-        // Open Payment Sheet immediately after creating the intent — do not use
-        // the slower customFlow collect/confirm path (that left Processing stuck).
         final intent = await _createStripeIntent(walletRepo);
         paymentIntentId = intent.paymentIntentId;
-        if (mounted) {
-          setState(() {
-            _stripeClientSecret = intent.clientSecret;
-            _stripePaymentIntentId = intent.paymentIntentId;
-          });
-        }
+        _stripeClientSecret = intent.clientSecret;
+        _stripePaymentIntentId = intent.paymentIntentId;
 
         await _presentStripeSheet(intent.clientSecret);
 
@@ -368,9 +360,17 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
           paymentIntentId: intent.paymentIntentId,
           contextRole: WalletRole.sender,
         );
-        if (mounted) {
-          setState(() => _stripeMethodCollected = true);
-        }
+        _stripeMethodCollected = true;
+      }
+
+      final offerId = await _resolveOfferId();
+      if (offerId == null || offerId.isEmpty) {
+        if (!mounted) return;
+        AppToast.error(
+          context,
+          'Counter offer is not ready yet. Wait for the traveler’s offer, then pay from Counter Offer Details.',
+        );
+        return;
       }
 
       final methodParam =

@@ -28,7 +28,21 @@ class CapturedImagePreview extends StatefulWidget {
 }
 
 class _CapturedImagePreviewState extends State<CapturedImagePreview> {
-  late final Future<Uint8List?> _bytesFuture = _loadBytes();
+  late Future<Uint8List?> _bytesFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _bytesFuture = _loadBytes();
+  }
+
+  @override
+  void didUpdateWidget(covariant CapturedImagePreview oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.path != widget.path) {
+      _bytesFuture = _loadBytes();
+    }
+  }
 
   Future<Uint8List?> _loadBytes() async {
     try {
@@ -61,6 +75,7 @@ class _CapturedImagePreviewState extends State<CapturedImagePreview> {
             fit: widget.fit,
             width: widget.width,
             height: widget.height,
+            gaplessPlayback: true,
           );
         } else {
           image = Container(

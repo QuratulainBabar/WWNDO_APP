@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -72,6 +74,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   String? _countryIso;
   late PhoneCountry _phoneCountry;
   String? _photoPath;
+  /// In-memory preview so the circle updates immediately after pick / re-pick
+  /// (Android may reuse the same cache path, which would not remount a path-based widget).
+  Uint8List? _photoPreviewBytes;
   bool _saving = false;
 
   final ImagePicker _imagePicker = ImagePicker();
@@ -147,8 +152,59 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         maxWidth: 1024,
       );
       if (!mounted || image == null) return;
-      setState(() => _photoPath = image.path);
+      final bytes = await image.readAsBytes();
+      if (!mounted || bytes.isEmpty) return;
+      setState(() {
+        _photoPath = image.path;
+        _photoPreviewBytes = bytes;
+      });
     } catch (_) {}
+  }
+
+  Widget _buildProfilePhotoCircle(String avatarInitial) {
+    const size = 96.0;
+    final Widget photo;
+    if (_photoPreviewBytes != null) {
+      photo = ClipOval(
+        child: Image.memory(
+          _photoPreviewBytes!,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+        ),
+      );
+    } else if (_photoPath != null) {
+      photo = CapturedImagePreview(
+        key: ValueKey(_photoPath),
+        path: _photoPath!,
+        width: size,
+        height: size,
+        clipOval: true,
+      );
+    } else {
+      photo = AppAvatar(initial: avatarInitial, size: AvatarSize.large);
+    }
+
+    return GestureDetector(
+      onTap: _pickPhoto,
+      child: Stack(
+        alignment: Alignment.bottomRight,
+        children: [
+          photo,
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: AppColors.primary,
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.surface, width: 2),
+            ),
+            child: const Icon(Icons.camera_alt_outlined, size: 16, color: Colors.white),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _save() async {
@@ -279,33 +335,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           labelStyle: typo.inputLabel.copyWith(fontWeight: FontWeight.w700),
           child: Column(
             children: [
-              GestureDetector(
-                onTap: _pickPhoto,
-                child: Stack(
-                  alignment: Alignment.bottomRight,
-                  children: [
-                    if (_photoPath != null)
-                      CapturedImagePreview(
-                        path: _photoPath!,
-                        width: 96,
-                        height: 96,
-                        clipOval: true,
-                      )
-                    else
-                      AppAvatar(initial: avatarInitial, size: AvatarSize.large),
-                    Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: AppColors.primary,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: AppColors.surface, width: 2),
-                      ),
-                      child: const Icon(Icons.camera_alt_outlined, size: 16, color: Colors.white),
-                    ),
-                  ],
-                ),
-              ),
+              _buildProfilePhotoCircle(avatarInitial),
               const SizedBox(height: 8),
               Text(
                 'Tap to upload a photo',

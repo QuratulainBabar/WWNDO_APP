@@ -63,14 +63,9 @@ class _DiscoverTravelersScreenState extends State<DiscoverTravelersScreen> {
         ).listMatchingTravelers(shipmentId);
 
         if (!mounted) return;
-        final parcelWeight =
-            StaticData.shipmentById(shipmentId)?.parcelWeightKg;
+        // Backend already filters by matching route + luggage capacity.
         setState(() {
           _apiRanked = travelers
-              .where(
-                (t) =>
-                    parcelWeight == null || t.canCarryWeightKg(parcelWeight),
-              )
               .map(
                 (t) => (
                   trip: TravelerTrip(

@@ -119,6 +119,13 @@ class StripePayments {
     bool customFlow = false,
   }) async {
     _assertReady();
+    final secret = clientSecret.trim();
+    if (secret.isEmpty) {
+      throw const ApiException(
+        message: 'Card payment could not be started. Missing payment secret.',
+        code: 'STRIPE_NOT_CONFIGURED',
+      );
+    }
 
     if (kDebugMode) {
       debugPrint(
@@ -131,13 +138,16 @@ class StripePayments {
       await Stripe.instance.initPaymentSheet(
         paymentSheetParameters: SetupPaymentSheetParameters(
           customFlow: customFlow,
-          paymentIntentClientSecret: clientSecret,
+          paymentIntentClientSecret: secret,
           merchantDisplayName: merchantDisplayName,
           style: ThemeMode.light,
           allowsDelayedPaymentMethods: false,
           appearance: _appearance,
         ),
       );
+      // Let the current Flutter frame finish so the native sheet can attach
+      // to a stable Activity window (Android).
+      await Future<void>.delayed(Duration.zero);
       await Stripe.instance.presentPaymentSheet();
       if (kDebugMode) {
         debugPrint('Stripe: payment sheet completed');

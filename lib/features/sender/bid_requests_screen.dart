@@ -133,9 +133,9 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
         repo.listTravelerRequests(widget.shipmentId),
       ]);
       final delivery = results[0] as CreatedDelivery;
-      final travelers = (results[1] as List<MatchingTraveler>)
-          .where((t) => t.canCarryWeightKg(delivery.weightKg))
-          .toList();
+      // Backend already filters by destination route + luggage capacity.
+      // Show every returned match so the count is dynamic (1/2/3…).
+      final travelers = results[1] as List<MatchingTraveler>;
       if (!mounted) return;
       setState(() {
         _delivery = delivery;

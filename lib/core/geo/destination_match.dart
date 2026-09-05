@@ -12,13 +12,31 @@ abstract final class DestinationMatch {
         .trim();
   }
 
-  /// Exact or containment match only (no loose token overlap).
+  /// Primary place token — usually the city (text before the first comma).
+  /// Lets "Paris, France" match "Paris, Île-de-France, France".
+  static String placeHead(String? value) {
+    final raw = (value ?? '').trim();
+    if (raw.isEmpty) return '';
+    final head = raw.split(',').first;
+    return normalizePlace(head);
+  }
+
+  /// Exact, containment, or matching city-head labels.
   static bool placesMatch(String? a, String? b) {
     final left = normalizePlace(a);
     final right = normalizePlace(b);
     if (left.isEmpty || right.isEmpty) return false;
     if (left == right) return true;
-    return left.contains(right) || right.contains(left);
+    if (left.contains(right) || right.contains(left)) return true;
+
+    final leftHead = placeHead(a);
+    final rightHead = placeHead(b);
+    if (leftHead.isEmpty || rightHead.isEmpty) return false;
+    if (leftHead == rightHead) return true;
+
+    // Avoid ultra-short heads ("san", "st") causing false positives.
+    if (leftHead.length < 4 || rightHead.length < 4) return false;
+    return leftHead.contains(rightHead) || rightHead.contains(leftHead);
   }
 
   static bool codesMatch(String? a, String? b) {

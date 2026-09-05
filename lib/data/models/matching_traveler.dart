@@ -100,6 +100,7 @@ class MatchingTraveler {
   }
 
   /// True when this traveler's luggage capacity can carry [parcelWeightKg].
+  /// Unknown capacity fails closed (cannot confirm fit).
   bool canCarryWeightKg(double parcelWeightKg) {
     final capacity = luggageCapacityKg;
     if (capacity == null) return false;

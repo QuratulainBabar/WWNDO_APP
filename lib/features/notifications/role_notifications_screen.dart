@@ -717,6 +717,10 @@ class _NotificationTile extends StatelessWidget {
           icon: Icons.account_balance_wallet_rounded,
           color: AppColors.success,
         ),
+      AppNotificationType.platformFee => (
+          icon: Icons.payments_rounded,
+          color: AppColors.success,
+        ),
       AppNotificationType.cancellation => (
           icon: Icons.cancel_rounded,
           color: AppColors.danger,
@@ -948,6 +952,7 @@ class _TypeChip extends StatelessWidget {
       AppNotificationType.parcelRequest => 'Request',
       AppNotificationType.senderRequest => 'Request',
       AppNotificationType.receiverPayment => 'Payment',
+      AppNotificationType.platformFee => 'Fee',
       AppNotificationType.nfcPrompt => 'NFC',
       AppNotificationType.deliveryStatus => 'Delivery',
       AppNotificationType.cancellation => 'Cancel',

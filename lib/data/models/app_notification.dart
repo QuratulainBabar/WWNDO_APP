@@ -12,6 +12,7 @@ enum AppNotificationType {
   parcelRequest,
   senderRequest,
   receiverPayment,
+  platformFee,
   nfcPrompt,
   deliveryStatus,
   cancellation,
@@ -55,6 +56,7 @@ class AppNotification {
       case AppNotificationType.cancellation:
       case AppNotificationType.nfcPrompt:
       case AppNotificationType.receiverPayment:
+      case AppNotificationType.platformFee:
         return true;
       default:
         return false;
@@ -116,6 +118,8 @@ class AppNotification {
         return AppNotificationType.senderRequest;
       case 'receiverPayment':
         return AppNotificationType.receiverPayment;
+      case 'platformFee':
+        return AppNotificationType.platformFee;
       case 'nfcPrompt':
         return AppNotificationType.nfcPrompt;
       case 'deliveryStatus':

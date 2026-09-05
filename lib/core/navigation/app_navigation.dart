@@ -9,31 +9,30 @@ import '../../data/models/wallet_role.dart';
 
 /// Clears the session and navigates to the account suspended screen.
 Future<void> logoutToSuspendedScreen(BuildContext context) async {
+  // Leave the current shell immediately so profile screens cannot flash
+  // "unavailable" after AuthProvider.user becomes null.
+  appRouter.go('/account-suspended');
   try {
     context.read<WalletProvider>().clear();
   } catch (_) {}
   try {
     await context.read<AuthProvider>().logout();
   } catch (_) {
-    // Still navigate even if logout fails.
+    // Local navigation already happened; server logout is best-effort.
   }
-  appRouter.go('/account-suspended');
 }
 
 /// Clears the session and navigates to the login screen.
 Future<void> logoutToLoginScreen(BuildContext context) async {
+  // Navigate first so role profile/home tabs are disposed before user is cleared.
+  appRouter.go('/login');
   try {
     context.read<WalletProvider>().clear();
   } catch (_) {}
   try {
     await context.read<AuthProvider>().logout();
   } catch (_) {
-    // Still navigate even if logout fails.
-  }
-  if (context.mounted) {
-    context.go('/login');
-  } else {
-    appRouter.go('/login');
+    // Still leave the user on login even if logout fails.
   }
 }
 

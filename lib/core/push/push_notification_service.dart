@@ -48,6 +48,9 @@ abstract final class PushNotificationService {
   /// [conversationId] comes from the push data when present.
   static void Function(String? conversationId)? onForegroundChatMessage;
 
+  /// When true, skip the in-app banner for this chat push (thread already open).
+  static bool Function(String? conversationId)? shouldSuppressChatBanner;
+
   /// Invoked for delivery-related pushes (status, NFC, cancel, etc.) while the
   /// app is foregrounded so open tracking screens can reload immediately.
   static void Function(String? type)? onForegroundDeliveryRelated;
@@ -203,16 +206,19 @@ Future<void> _requestNotificationPermission() async {
 
 void _handleForegroundMessage(RemoteMessage message) {
   final type = message.data['type']?.toString();
+  final conversationId = message.data['conversationId']?.toString();
 
-  // Live-refresh the chat tab badge for incoming messages, even before the
-  // banner/payload checks (chat pushes always carry a title, but be defensive).
+  // Live-refresh the chat tab badge / open thread for incoming messages.
   if (type == 'chatMessage') {
-    PushNotificationService.onForegroundChatMessage?.call(
-      message.data['conversationId']?.toString(),
-    );
+    PushNotificationService.onForegroundChatMessage?.call(conversationId);
   } else if (_isDeliveryRelatedPushType(type)) {
     PushNotificationService.onForegroundDeliveryRelated?.call(type);
   }
+
+  final suppressChatBanner = type == 'chatMessage' &&
+      (PushNotificationService.shouldSuppressChatBanner?.call(conversationId) ??
+          false);
+  if (suppressChatBanner) return;
 
   final payload = _extractPayload(message);
   if (payload == null) return;
@@ -250,6 +256,7 @@ bool _isDeliveryRelatedPushType(String? type) {
     case 'offerAccepted':
     case 'counterOffer':
     case 'receiverPayment':
+    case 'platformFee':
       return true;
     default:
       return false;

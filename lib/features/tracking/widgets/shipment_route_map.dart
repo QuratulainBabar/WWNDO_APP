@@ -336,56 +336,19 @@ class _ShipmentRouteMapState extends State<ShipmentRouteMap> {
                     onRetry: _resolveMap,
                     onOpenExternal: _openInGoogleMaps,
                   ),
-                Positioned(
-                  left: 10,
-                  right: 10,
-                  bottom: 10,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.surface.withValues(alpha: 0.94),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: _EndpointChip(
-                            label: 'From',
-                            value: shipment.fromCity.isNotEmpty
-                                ? shipment.fromCity
-                                : shipment.fromCode,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 6),
-                          child: Icon(
-                            Icons.arrow_forward_rounded,
-                            size: 16,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                        Expanded(
-                          child: _EndpointChip(
-                            label: 'To',
-                            value: shipment.toCity.isNotEmpty
-                                ? shipment.toCity
-                                : shipment.toCode,
-                            color: AppColors.success,
-                            alignEnd: true,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
               ],
             ),
           ),
+        ),
+        const SizedBox(height: 10),
+        _RouteEndpointsBar(
+          fromLabel: shipment.fromCity.isNotEmpty
+              ? shipment.fromCity
+              : shipment.fromCode,
+          fromCode: shipment.fromCode,
+          toLabel:
+              shipment.toCity.isNotEmpty ? shipment.toCity : shipment.toCode,
+          toCode: shipment.toCode,
         ),
         if (shipment.flightNumber != null) ...[
           const SizedBox(height: 8),
@@ -399,45 +362,146 @@ class _ShipmentRouteMapState extends State<ShipmentRouteMap> {
   }
 }
 
-class _EndpointChip extends StatelessWidget {
-  const _EndpointChip({
-    required this.label,
-    required this.value,
-    required this.color,
+class _RouteEndpointsBar extends StatelessWidget {
+  const _RouteEndpointsBar({
+    required this.fromLabel,
+    required this.fromCode,
+    required this.toLabel,
+    required this.toCode,
+  });
+
+  final String fromLabel;
+  final String fromCode;
+  final String toLabel;
+  final String toCode;
+
+  @override
+  Widget build(BuildContext context) {
+    final fromSub = fromCode.trim().isNotEmpty &&
+            fromCode.trim().toUpperCase() != 'XX' &&
+            fromCode.trim().toLowerCase() != fromLabel.trim().toLowerCase()
+        ? fromCode.trim().toUpperCase()
+        : null;
+    final toSub = toCode.trim().isNotEmpty &&
+            toCode.trim().toUpperCase() != 'XX' &&
+            toCode.trim().toLowerCase() != toLabel.trim().toLowerCase()
+        ? toCode.trim().toUpperCase()
+        : null;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _RouteEndpoint(
+              markerColor: AppColors.primary,
+              title: 'From',
+              place: fromLabel,
+              subtitle: fromSub,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 28,
+                  height: 2,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Icon(
+                  Icons.flight_takeoff_rounded,
+                  size: 16,
+                  color: AppColors.textSecondary.withValues(alpha: 0.85),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: _RouteEndpoint(
+              markerColor: AppColors.success,
+              title: 'To',
+              place: toLabel,
+              subtitle: toSub,
+              alignEnd: true,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RouteEndpoint extends StatelessWidget {
+  const _RouteEndpoint({
+    required this.markerColor,
+    required this.title,
+    required this.place,
+    this.subtitle,
     this.alignEnd = false,
   });
 
-  final String label;
-  final String value;
-  final Color color;
+  final Color markerColor;
+  final String title;
+  final String place;
+  final String? subtitle;
   final bool alignEnd;
 
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
+    final cross =
+        alignEnd ? CrossAxisAlignment.end : CrossAxisAlignment.start;
+    final textAlign = alignEnd ? TextAlign.end : TextAlign.start;
+
     return Column(
-      crossAxisAlignment:
-          alignEnd ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      crossAxisAlignment: cross,
       children: [
         Text(
-          label.toUpperCase(),
+          title.toUpperCase(),
+          textAlign: textAlign,
           style: typo.caption.copyWith(
             fontSize: 10,
             fontWeight: FontWeight.w800,
-            letterSpacing: 0.6,
-            color: color,
+            letterSpacing: 0.7,
+            color: markerColor,
           ),
         ),
-        const SizedBox(height: 2),
+        const SizedBox(height: 3),
         Text(
-          value,
-          maxLines: 1,
+          place,
+          textAlign: textAlign,
+          maxLines: 2,
           overflow: TextOverflow.ellipsis,
           style: typo.sm.copyWith(
             fontWeight: FontWeight.w700,
             color: AppColors.textPrimary,
           ),
         ),
+        if (subtitle != null) ...[
+          const SizedBox(height: 2),
+          Text(
+            subtitle!,
+            textAlign: textAlign,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: typo.caption.copyWith(
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ],
     );
   }

@@ -219,6 +219,7 @@ class _TravelerProfileScreenState extends State<TravelerProfileScreen> {
       );
     }
 
+    // User cleared during logout — show a brief loader, never "Profile unavailable".
     if (authUser == null) {
       return Scaffold(
         backgroundColor: AppColors.background,
@@ -226,18 +227,10 @@ class _TravelerProfileScreenState extends State<TravelerProfileScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              BackLink(onTap: () => context.go('/traveler-home')),
-              const SizedBox(height: 16),
               Text('Profile', style: typo.h1),
-              const SizedBox(height: 24),
-              Text(
-                _error ?? 'Profile unavailable.',
-                style: typo.sm.copyWith(color: AppColors.danger, height: 1.4),
-              ),
-              const SizedBox(height: 16),
-              AppButton(
-                label: 'Retry',
-                onPressed: () => _refreshProfile(),
+              const SizedBox(height: 48),
+              const Center(
+                child: CircularProgressIndicator(color: AppColors.primary),
               ),
             ],
           ),

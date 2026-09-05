@@ -534,23 +534,7 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
                       paysReceiverFee: paysReceiver,
                     ),
                   ),
-                  if (paysReceiver)
-                    _detailRow(
-                      context,
-                      'Receiver fee',
-                      'Included in your platform fee',
-                    )
-                  else
-                    _detailRow(
-                      context,
-                      'Receiver fee',
-                      'Charged to receiver at Pay Now',
-                    ),
-                  _detailRow(
-                    context,
-                    'Traveler fee',
-                    PlatformFees.travelerPlatformFeeLabel(category: category),
-                  ),
+                  // Receiver fee / Traveler fee rows hidden on sender Payment Summary (UI only).
                   const Divider(height: 24),
                   _detailRow(
                     context,
@@ -617,7 +601,7 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
                   ? 'The total is deducted from your sender wallet. Booking is not created if balance is insufficient.'
                   : 'Tap Pay Now to open Stripe and charge the full amount to your card. '
                       'Your wallet balance is not used or changed. '
-                      'Your sender platform fee is collected now; traveler and receiver fees are collected at Pay Now from their wallets.',
+                      'Your sender platform fee is collected now.',
               style: context.typo.sm.copyWith(
                 color: AppColors.textSecondary,
                 height: 1.4,

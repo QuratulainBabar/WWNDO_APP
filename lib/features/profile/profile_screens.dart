@@ -1090,10 +1090,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             AppButton(
               label: 'Sign out',
               variant: AppButtonVariant.danger,
-              onPressed: () async {
-                await context.read<AuthProvider>().logout();
-                if (context.mounted) context.go('/welcome');
-              },
+              onPressed: () => logoutToLoginScreen(context),
             ),
             const SizedBox(height: 12),
             AppButton(

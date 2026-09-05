@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 
 import '../core/config/demo_mode.dart';
 import '../data/models/app_notification.dart';
@@ -12,7 +13,8 @@ import '../data/services/notification_repository.dart';
 import '../data/notification_service.dart';
 
 /// Keeps sender / traveler / receiver notification badges and inbox in sync via SSE.
-class NotificationRealtimeProvider extends ChangeNotifier {
+class NotificationRealtimeProvider extends ChangeNotifier
+    with WidgetsBindingObserver {
   NotificationRealtimeProvider({
     NotificationRealtimeService? realtimeService,
   }) : _realtimeService = realtimeService ?? NotificationRealtimeService();
@@ -27,6 +29,10 @@ class NotificationRealtimeProvider extends ChangeNotifier {
   int _deliveryUpdateTick = 0;
   StreamSubscription<AppNotification>? _notificationSub;
   StreamSubscription<int>? _unreadSub;
+  AuthRepository? _authRepository;
+  DemoModeProvider? _demoMode;
+  Timer? _chatBadgePoll;
+  bool _observingLifecycle = false;
 
   int get unreadCount => _unreadCount;
   /// Total unread chat messages across all conversations (Chat tab badge).
@@ -51,14 +57,22 @@ class NotificationRealtimeProvider extends ChangeNotifier {
     required AuthRepository authRepository,
     DemoModeProvider? demoMode,
   }) async {
+    _ensureLifecycleObserver();
+    _authRepository = authRepository;
+    _demoMode = demoMode;
+
     if (demoMode?.enabled ?? false) {
+      _stopChatBadgePoll();
       await stop();
       return;
     }
 
-    if (_activeRole == role && _realtimeService.isConnected) return;
+    if (_activeRole == role && _realtimeService.isConnected) {
+      _ensureChatBadgePoll();
+      return;
+    }
 
-    await stop();
+    await _teardownStreams();
     _activeRole = role;
 
     final repository = NotificationRepository(
@@ -106,6 +120,13 @@ class NotificationRealtimeProvider extends ChangeNotifier {
       role: role,
       tokenProvider: authRepository.tokenStorage.getAccessToken,
     );
+
+    await refreshChatUnread(
+      authRepository: authRepository,
+      demoMode: demoMode,
+      threadType: role.chatInboxThreadType,
+    );
+    _ensureChatBadgePoll();
     notifyListeners();
   }
 
@@ -134,11 +155,15 @@ class NotificationRealtimeProvider extends ChangeNotifier {
   /// Refresh the total unread chat count by summing per-conversation unread
   /// from the chat list endpoint. Non-critical — failures keep the last count.
   Future<void> refreshChatUnread({
-    required AuthRepository authRepository,
+    AuthRepository? authRepository,
     DemoModeProvider? demoMode,
     String? threadType,
   }) async {
-    if (demoMode?.enabled ?? false) {
+    final auth = authRepository ?? _authRepository;
+    final demo = demoMode ?? _demoMode;
+    if (auth == null) return;
+
+    if (demo?.enabled ?? false) {
       if (_chatUnreadCount != 0) {
         _chatUnreadCount = 0;
         notifyListeners();
@@ -147,8 +172,8 @@ class NotificationRealtimeProvider extends ChangeNotifier {
     }
 
     final chatRepository = ChatRepository(
-      apiClient: authRepository.apiClient,
-      demoMode: demoMode,
+      apiClient: auth.apiClient,
+      demoMode: demo,
     );
     try {
       final conversations = await chatRepository.listConversations(
@@ -170,6 +195,13 @@ class NotificationRealtimeProvider extends ChangeNotifier {
       _chatUnreadCount = next;
       notifyListeners();
     }
+  }
+
+  /// Instantly bump the Chat tab badge when an FCM chat push arrives (thread
+  /// not open). A following [refreshChatUnread] reconciles the exact total.
+  void bumpChatUnread([int amount = 1]) {
+    if (amount <= 0) return;
+    setChatUnreadCount(_chatUnreadCount + amount);
   }
 
   /// Instantly drop [amount] from the Chat tab badge (e.g. after opening a thread).
@@ -201,12 +233,11 @@ class NotificationRealtimeProvider extends ChangeNotifier {
   }
 
   Future<void> stop() async {
-    await _notificationSub?.cancel();
-    await _unreadSub?.cancel();
-    _notificationSub = null;
-    _unreadSub = null;
-    await _realtimeService.disconnect();
+    _stopChatBadgePoll();
+    await _teardownStreams();
     _activeRole = null;
+    _authRepository = null;
+    _demoMode = null;
     _deliveryUpdateTick = 0;
     _senderRequestUnreadCount = 0;
     _chatUnreadCount = 0;
@@ -214,8 +245,55 @@ class NotificationRealtimeProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> _teardownStreams() async {
+    await _notificationSub?.cancel();
+    await _unreadSub?.cancel();
+    _notificationSub = null;
+    _unreadSub = null;
+    await _realtimeService.disconnect();
+  }
+
+  void _ensureLifecycleObserver() {
+    if (_observingLifecycle) return;
+    WidgetsBinding.instance.addObserver(this);
+    _observingLifecycle = true;
+  }
+
+  void _ensureChatBadgePoll() {
+    if (_demoMode?.enabled ?? false) {
+      _stopChatBadgePoll();
+      return;
+    }
+    if (_chatBadgePoll != null) return;
+    // Keep bottom-bar Chat badge fresh on Home / any screen when FCM is delayed.
+    _chatBadgePoll = Timer.periodic(const Duration(seconds: 6), (_) {
+      unawaited(refreshChatUnread());
+    });
+  }
+
+  void _stopChatBadgePoll() {
+    _chatBadgePoll?.cancel();
+    _chatBadgePoll = null;
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(refreshChatUnread());
+      _ensureChatBadgePoll();
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      _stopChatBadgePoll();
+    }
+  }
+
   @override
   void dispose() {
+    if (_observingLifecycle) {
+      WidgetsBinding.instance.removeObserver(this);
+      _observingLifecycle = false;
+    }
+    _stopChatBadgePoll();
     stop();
     _realtimeService.dispose();
     super.dispose();

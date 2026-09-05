@@ -45,8 +45,8 @@ Future<void> main() async {
   final chatRealtimeProvider = ChatRealtimeProvider();
   final senderDeliveriesProvider = SenderDeliveriesProvider();
 
-  // Refresh the chat tab badge the moment a chat push / peer socket message
-  // arrives, and pull the body into any already-open matching conversation.
+  // Refresh the chat tab badge when an FCM chat push arrives, and pull the
+  // body into any already-open matching conversation via REST resync.
   void refreshChatBadge() {
     if (!authProvider.isAuthenticated) return;
     notificationRealtimeProvider.refreshChatUnread(
@@ -57,8 +57,19 @@ Future<void> main() async {
   }
 
   PushNotificationService.onForegroundChatMessage = (conversationId) {
+    final open = conversationId != null &&
+        conversationId.isNotEmpty &&
+        chatRealtimeProvider.isConversationOpen(conversationId);
+    // Instant bottom-bar badge while REST catch-up runs (Home / any screen).
+    if (!open) {
+      notificationRealtimeProvider.bumpChatUnread();
+    }
     refreshChatBadge();
     chatRealtimeProvider.requestResync(conversationId);
+  };
+  PushNotificationService.shouldSuppressChatBanner = (conversationId) {
+    if (conversationId == null || conversationId.isEmpty) return false;
+    return chatRealtimeProvider.isConversationOpen(conversationId);
   };
   PushNotificationService.onForegroundDeliveryRelated = (_) {
     if (!authProvider.isAuthenticated) return;
@@ -70,7 +81,6 @@ Future<void> main() async {
       demoMode: demoMode,
     );
   };
-  chatRealtimeProvider.onIncomingPeerMessage = refreshChatBadge;
 
   runApp(
     MultiProvider(

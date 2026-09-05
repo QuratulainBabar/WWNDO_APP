@@ -1601,7 +1601,7 @@ class TravelerNfcDeliverySuccessScreen extends StatelessWidget {
         : 'NFC Checkpoint 2 complete';
     final body = waitingForPeer
         ? 'Your NFC tap for $shipmentId is recorded. Ask the receiver to complete their NFC Checkpoint 2 tap to confirm delivery and release escrow.'
-        : 'Final delivery confirmed for $shipmentId. Parcel marked Delivered. Escrow released to your wallet. Leave a review is now available.';
+        : 'Final delivery confirmed for $shipmentId. Parcel marked Delivered. Escrow released to your wallet. You can leave reviews for the receiver and sender.';
 
     return Scaffold(
       backgroundColor: AppColors.surface,
@@ -1655,6 +1655,18 @@ class TravelerNfcDeliverySuccessScreen extends StatelessWidget {
                 onPressed: () => context.go('/shipment/$shipmentId?traveler=true'),
               ),
               if (!waitingForPeer) ...[
+                const SizedBox(height: AppButton.stackGap),
+                AppButton(
+                  label: 'Leave a review for receiver',
+                  variant: AppButtonVariant.outline,
+                  onPressed: () => context.push(
+                    deliveryReviewRoute(
+                      shipmentId: shipmentId,
+                      reviewerRole: WalletRole.traveler,
+                      revieweeRole: WalletRole.receiver,
+                    ),
+                  ),
+                ),
                 const SizedBox(height: AppButton.stackGap),
                 AppButton(
                   label: 'Leave a review for sender',

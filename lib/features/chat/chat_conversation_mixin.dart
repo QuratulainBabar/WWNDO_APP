@@ -6,7 +6,6 @@ import 'package:intl/intl.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/platform/platform_ui.dart';
-import '../../core/push/push_notification_banner.dart';
 import '../../core/widgets/app_toast.dart';
 import '../../data/models/chat_message.dart';
 import '../../data/static_data.dart';
@@ -21,15 +20,12 @@ mixin ChatConversationMixin<T extends StatefulWidget> on State<T> {
   late List<ChatMessage> chatMessages;
   ChatThread? get chatThread => null;
 
-  StreamSubscription<ChatMessage>? _liveMessageSub;
-  StreamSubscription<ChatMessageReceipt>? _liveReceiptSub;
   StreamSubscription<String?>? _liveResyncSub;
   VoidCallback? _liveRealtimeListener;
   ChatRealtimeProvider? _liveRealtime;
   String? _liveConversationId;
   String? _liveMyId;
   Future<List<ChatMessage>> Function()? _liveResyncMessages;
-  String? _livePeerName;
   bool _resyncInFlight = false;
 
   /// Live conversation id — when set with [uploadLiveChatImage], attachments
@@ -202,62 +198,26 @@ mixin ChatConversationMixin<T extends StatefulWidget> on State<T> {
     );
   }
 
-  /// Attach socket listeners for an open thread.
+  /// Attach FCM/REST live listeners for an open thread.
   ///
-  /// Call this **after** seeding [chatMessages] from REST so a live event
-  /// cannot be wiped by the initial snapshot. Pass [resyncMessages] so the
-  /// screen can catch up after reconnect / resume / missed socket events.
+  /// Call this **after** seeding [chatMessages] from REST. Pass [resyncMessages]
+  /// so the screen can catch up when an FCM chat push arrives or the app resumes.
   void attachLiveChatListeners({
     required ChatRealtimeProvider realtime,
     required String conversationId,
     required String? myId,
     Future<List<ChatMessage>> Function()? resyncMessages,
-    String? peerName,
+    String? peerName, // ignore: unused_element — API compat; FCM shows banner
   }) {
     detachLiveChatListeners(leaveConversation: false);
     _liveRealtime = realtime;
     _liveConversationId = conversationId;
     _liveMyId = myId;
     _liveResyncMessages = resyncMessages;
-    _livePeerName = peerName;
 
     realtime.joinConversation(conversationId);
-    unawaited(realtime.ensureConnected());
 
-    _liveMessageSub = realtime.onMessage.listen((message) {
-      if (!mounted) return;
-      if (!_sameConversation(message.conversationId, conversationId)) {
-        return;
-      }
-      final resolved = message.senderId != null && myId != null
-          ? message.copyWith(
-              isMine: message.senderId!.toLowerCase() == myId.toLowerCase(),
-            )
-          : message;
-      if (resolved.isMine) {
-        if (reconcileOwnEcho(resolved)) {
-          scrollChatToBottom();
-          return;
-        }
-      } else if (resolved.id != null &&
-          chatMessages.any((m) => _sameId(m.id, resolved.id))) {
-        return;
-      }
-      final isNewPeer = !resolved.isMine;
-      setState(() => chatMessages.add(resolved));
-      scrollChatToBottom();
-      if (isNewPeer) {
-        realtime.ackRead(conversationId);
-        _showInAppChatNotification(resolved);
-      }
-    });
-    _liveReceiptSub = realtime.onReceipt.listen((receipt) {
-      if (!mounted) return;
-      if (!_sameConversation(receipt.conversationId, conversationId)) return;
-      applyMessageReceipts(receipt);
-    });
-    // Provider cache + notifyListeners is a second path so ticks still update
-    // if a broadcast stream event is missed during attach/detach.
+    // Provider cache + notifyListeners keeps ticks in sync after REST merges.
     _liveRealtimeListener = () {
       if (!mounted) return;
       applyBufferedReceipts();
@@ -336,21 +296,10 @@ mixin ChatConversationMixin<T extends StatefulWidget> on State<T> {
         _liveRealtime?.ackRead(conversationId);
       }
     } catch (_) {
-      // Best-effort catch-up; live socket remains the primary path.
+      // Best-effort catch-up after FCM / poll / resume.
     } finally {
       _resyncInFlight = false;
     }
-  }
-
-  void _showInAppChatNotification(ChatMessage message) {
-    final title = (_livePeerName ?? '').trim();
-    if (title.isEmpty) return;
-    final body = message.isImage
-        ? '📷 Photo'
-        : message.text.trim().isEmpty
-            ? 'New message'
-            : message.text.trim();
-    PushNotificationBanner.show(title: title, body: body);
   }
 
   static bool _sameConversation(String? a, String b) {
@@ -359,11 +308,7 @@ mixin ChatConversationMixin<T extends StatefulWidget> on State<T> {
   }
 
   void detachLiveChatListeners({bool leaveConversation = true}) {
-    _liveMessageSub?.cancel();
-    _liveReceiptSub?.cancel();
     _liveResyncSub?.cancel();
-    _liveMessageSub = null;
-    _liveReceiptSub = null;
     _liveResyncSub = null;
     final listener = _liveRealtimeListener;
     if (listener != null) {
@@ -380,7 +325,6 @@ mixin ChatConversationMixin<T extends StatefulWidget> on State<T> {
     _liveConversationId = null;
     _liveMyId = null;
     _liveResyncMessages = null;
-    _livePeerName = null;
   }
 
   void scrollChatToBottom() {

@@ -217,8 +217,11 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen>
     final typo = context.typo;
     return GestureDetector(
       onTap: onTap,
+      behavior: HitTestBehavior.opaque,
       child: Container(
+        width: double.infinity,
         padding: const EdgeInsets.only(top: 4, bottom: 12),
+        alignment: Alignment.center,
         decoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(
@@ -229,6 +232,7 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen>
         ),
         child: Text(
           label,
+          textAlign: TextAlign.center,
           style: typo.body.copyWith(
             fontSize: 14,
             fontWeight: FontWeight.w700,
@@ -454,25 +458,29 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen>
             ),
             child: Row(
               children: [
-                _tab(
-                  context,
-                  'Active',
-                  _tabFilter == _ShipmentsTab.active,
-                  () => setState(() => _tabFilter = _ShipmentsTab.active),
+                Expanded(
+                  child: _tab(
+                    context,
+                    'Active',
+                    _tabFilter == _ShipmentsTab.active,
+                    () => setState(() => _tabFilter = _ShipmentsTab.active),
+                  ),
                 ),
-                const SizedBox(width: 28),
-                _tab(
-                  context,
-                  'Completed',
-                  _tabFilter == _ShipmentsTab.completed,
-                  () => setState(() => _tabFilter = _ShipmentsTab.completed),
+                Expanded(
+                  child: _tab(
+                    context,
+                    'Completed',
+                    _tabFilter == _ShipmentsTab.completed,
+                    () => setState(() => _tabFilter = _ShipmentsTab.completed),
+                  ),
                 ),
-                const SizedBox(width: 28),
-                _tab(
-                  context,
-                  'Cancelled',
-                  _tabFilter == _ShipmentsTab.cancelled,
-                  () => setState(() => _tabFilter = _ShipmentsTab.cancelled),
+                Expanded(
+                  child: _tab(
+                    context,
+                    'Cancelled',
+                    _tabFilter == _ShipmentsTab.cancelled,
+                    () => setState(() => _tabFilter = _ShipmentsTab.cancelled),
+                  ),
                 ),
               ],
             ),

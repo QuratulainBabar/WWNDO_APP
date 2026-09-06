@@ -6,7 +6,8 @@ import '../data/models/chat_message.dart';
 
 /// Coordinates open chat threads without Socket.io.
 ///
-/// New peer messages arrive via FCM → [requestResync] → open screens fetch REST.
+/// New peer messages arrive via FCM → [requestResync] / [requestInboxRefresh]
+/// → open screens and the Chats inbox fetch REST.
 /// A short HTTP poll while a thread is open covers cases where FCM is delayed
 /// (e.g. web / flaky push).
 class ChatRealtimeProvider extends ChangeNotifier with WidgetsBindingObserver {
@@ -16,6 +17,7 @@ class ChatRealtimeProvider extends ChangeNotifier with WidgetsBindingObserver {
   final _messageController = StreamController<ChatMessage>.broadcast();
   final _receiptController = StreamController<ChatMessageReceipt>.broadcast();
   final _resyncController = StreamController<String?>.broadcast();
+  final _inboxRefreshController = StreamController<void>.broadcast();
 
   /// Latest known receipt status by message id (lowercase). Survives races
   /// where a receipt arrives before the optimistic send is confirmed.
@@ -37,6 +39,10 @@ class ChatRealtimeProvider extends ChangeNotifier with WidgetsBindingObserver {
   /// Emits the conversation id that should refresh, or `null` to refresh all
   /// open conversations (e.g. after app resume / FCM).
   Stream<String?> get onResyncNeeded => _resyncController.stream;
+
+  /// Fires when the Chats inbox list should re-fetch conversation previews
+  /// (latest message, unread, ordering) without requiring pull-to-refresh.
+  Stream<void> get onInboxRefreshNeeded => _inboxRefreshController.stream;
 
   /// Always false — chat realtime no longer uses Socket.io.
   bool get isConnected => false;
@@ -103,6 +109,14 @@ class ChatRealtimeProvider extends ChangeNotifier with WidgetsBindingObserver {
     _resyncController.add(conversationId);
   }
 
+  /// Ask any mounted Chats inbox (sender / traveler / receiver) to reload
+  /// conversation previews from REST.
+  void requestInboxRefresh() {
+    if (_inboxRefreshController.isClosed) return;
+    _inboxRefreshController.add(null);
+    onIncomingPeerMessage?.call();
+  }
+
   Future<void> stop() async {
     _stopOpenPoll();
     _openConversations.clear();
@@ -159,6 +173,7 @@ class ChatRealtimeProvider extends ChangeNotifier with WidgetsBindingObserver {
     _messageController.close();
     _receiptController.close();
     _resyncController.close();
+    _inboxRefreshController.close();
     _openConversations.clear();
     _receiptByMessageId.clear();
     super.dispose();

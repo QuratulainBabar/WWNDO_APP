@@ -65,7 +65,9 @@ Future<void> main() async {
       notificationRealtimeProvider.bumpChatUnread();
     }
     refreshChatBadge();
+    // Open thread body + Chats inbox previews (all roles) without pull-refresh.
     chatRealtimeProvider.requestResync(conversationId);
+    chatRealtimeProvider.requestInboxRefresh();
   };
   PushNotificationService.shouldSuppressChatBanner = (conversationId) {
     if (conversationId == null || conversationId.isEmpty) return false;

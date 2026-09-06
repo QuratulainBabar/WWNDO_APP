@@ -59,6 +59,17 @@ class _MeetupAgreementCardState extends State<MeetupAgreementCard> {
     return PlatformRepository(apiClient: auth.repository.apiClient);
   }
 
+  bool get _hasValidChipSelection =>
+      _selectedProposal != null && _locations.contains(_selectedProposal);
+
+  /// Once the traveler accepts, sender cannot propose again.
+  bool get _proposeLocked => _agreedByTraveler || _fullyAgreed;
+
+  String? _chipSelectionFromLocation(String? location) {
+    if (location == null || location.isEmpty) return null;
+    return _locations.contains(location) ? location : null;
+  }
+
   Future<void> _load() async {
     if (widget.deliveryId.isEmpty) {
       setState(() => _loading = false);
@@ -68,11 +79,10 @@ class _MeetupAgreementCardState extends State<MeetupAgreementCard> {
     if (context.read<DemoModeProvider>().enabled) {
       setState(() {
         _location = StaticData.thread1ProposedMeetupLocation;
-        _agreedBySender = StaticData.locationAgreementConfirmed;
+        _agreedBySender = StaticData.senderLocationAgreementAccepted;
         _agreedByTraveler = StaticData.travelerLocationAgreementAccepted;
-        _fullyAgreed =
-            StaticData.locationAgreementConfirmed &&
-            StaticData.travelerLocationAgreementAccepted;
+        _fullyAgreed = StaticData.locationAgreementConfirmed;
+        _selectedProposal = _chipSelectionFromLocation(_location);
         _loading = false;
       });
       return;
@@ -87,7 +97,8 @@ class _MeetupAgreementCardState extends State<MeetupAgreementCard> {
         _agreedBySender = status['agreedBySender'] == true;
         _agreedByTraveler = status['agreedByTraveler'] == true;
         _fullyAgreed = status['fullyAgreed'] == true;
-        _selectedProposal = _location;
+        // Only pre-select when location is one of the 6 venue chips.
+        _selectedProposal = _chipSelectionFromLocation(_location);
         _loading = false;
       });
     } catch (_) {
@@ -96,8 +107,12 @@ class _MeetupAgreementCardState extends State<MeetupAgreementCard> {
   }
 
   Future<void> _propose() async {
+    if (_acting || _proposeLocked) return;
     final label = _selectedProposal;
-    if (label == null || label.isEmpty || _acting) return;
+    if (!_hasValidChipSelection || label == null) {
+      AppToast.info(context, 'Please select a meetup location first.');
+      return;
+    }
     setState(() => _acting = true);
     try {
       if (context.read<DemoModeProvider>().enabled) {
@@ -111,6 +126,8 @@ class _MeetupAgreementCardState extends State<MeetupAgreementCard> {
       }
       await _load();
       widget.onUpdated?.call();
+      if (!mounted) return;
+      AppToast.success(context, 'Meetup location proposed.');
     } catch (e) {
       if (mounted) {
         AppToast.error(context, 'Could not propose meetup: $e');
@@ -219,7 +236,7 @@ class _MeetupAgreementCardState extends State<MeetupAgreementCard> {
           _partyRow(context, 'Sender', _agreedBySender),
           const SizedBox(height: 4),
           _partyRow(context, 'Traveler', _agreedByTraveler),
-          if (widget.allowPropose && !_fullyAgreed) ...[
+          if (widget.allowPropose) ...[
             const SizedBox(height: 12),
             Wrap(
               children: _locations
@@ -229,7 +246,9 @@ class _MeetupAgreementCardState extends State<MeetupAgreementCard> {
                       child: AppChip(
                         label: loc,
                         selected: _selectedProposal == loc,
-                        onTap: () => setState(() => _selectedProposal = loc),
+                        onTap: _proposeLocked
+                            ? null
+                            : () => setState(() => _selectedProposal = loc),
                       ),
                     ),
                   )
@@ -239,7 +258,9 @@ class _MeetupAgreementCardState extends State<MeetupAgreementCard> {
             AppButton(
               label: _acting ? 'Saving…' : 'Propose location',
               small: true,
-              onPressed: _acting || _selectedProposal == null ? null : _propose,
+              // Keep tappable when no chip is selected so we can show a toast.
+              // Disable only while saving or after the traveler has accepted.
+              onPressed: _acting || _proposeLocked ? null : _propose,
             ),
           ],
           if (!_fullyAgreed && (needsSenderConfirm || needsTravelerConfirm)) ...[

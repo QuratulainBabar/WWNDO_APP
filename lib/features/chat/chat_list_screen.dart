@@ -13,7 +13,6 @@ import '../../core/widgets/app_avatar.dart';
 import '../../core/widgets/back_link.dart';
 import '../../core/widgets/screen_body.dart';
 import '../../data/models/chat_conversation_preview.dart';
-import '../../data/models/chat_message.dart';
 import '../../data/models/wallet_role.dart';
 import '../../data/services/chat_repository.dart';
 import '../../data/static_data.dart';
@@ -42,10 +41,11 @@ class _ChatListScreenState extends State<ChatListScreen> {
   bool _loading = true;
   String? _error;
   List<ChatConversationPreview> _conversations = const [];
-  StreamSubscription<ChatMessage>? _senderPeerMessageSub;
-  VoidCallback? _senderBadgeListener;
-  NotificationRealtimeProvider? _senderNotifications;
-  int _lastSenderChatUnread = -1;
+  StreamSubscription<void>? _inboxRefreshSub;
+  VoidCallback? _badgeListener;
+  NotificationRealtimeProvider? _notifications;
+  int _lastChatUnread = -1;
+  int _loadGeneration = 0;
 
   String get _homeRoute => switch (widget.role) {
         WalletRole.sender => '/home',
@@ -55,32 +55,30 @@ class _ChatListScreenState extends State<ChatListScreen> {
 
   bool get _useApi => !context.read<DemoModeProvider>().enabled;
 
-  bool get _isSenderInbox => widget.role == WalletRole.sender;
-
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _load();
-      _attachSenderLiveInbox();
+      _attachLiveInbox();
     });
   }
 
   @override
   void dispose() {
-    _senderPeerMessageSub?.cancel();
-    if (_senderBadgeListener != null) {
-      _senderNotifications?.removeListener(_senderBadgeListener!);
+    _inboxRefreshSub?.cancel();
+    if (_badgeListener != null) {
+      _notifications?.removeListener(_badgeListener!);
     }
     _searchController.dispose();
     super.dispose();
   }
 
-  /// Sender-only: keep inbox previews in sync when a traveler messages, without
-  /// requiring a manual pull-to-refresh. Traveler/receiver inboxes are unchanged.
-  void _attachSenderLiveInbox() {
-    if (!_isSenderInbox || !_useApi) return;
+  /// Keep inbox previews in sync for sender / traveler / receiver when a peer
+  /// messages (FCM → [ChatRealtimeProvider.requestInboxRefresh], or badge poll).
+  void _attachLiveInbox() {
+    if (!_useApi) return;
 
     final auth = context.read<AuthProvider>();
     final demoMode = context.read<DemoModeProvider>();
@@ -91,35 +89,27 @@ class _ChatListScreenState extends State<ChatListScreen> {
       demoMode: demoMode.enabled,
     );
 
-    _senderPeerMessageSub?.cancel();
-    _senderPeerMessageSub = chatRt.onMessage.listen((message) {
+    _inboxRefreshSub?.cancel();
+    _inboxRefreshSub = chatRt.onInboxRefreshNeeded.listen((_) {
       if (!mounted) return;
-      final myId = auth.repository.currentUser?.id;
-      final senderId = message.senderId;
-      if (myId != null &&
-          senderId != null &&
-          senderId.toLowerCase() == myId.toLowerCase()) {
-        return;
-      }
       _load(silent: true);
     });
 
-    // Also catch traveler messages that arrive as FCM/badge bumps when the
-    // socket event was missed — notification already shows, inbox must update.
+    // Backup when FCM is delayed: badge poll / resume changes unread → reload.
     final notifications = context.read<NotificationRealtimeProvider>();
-    if (_senderBadgeListener != null) {
-      _senderNotifications?.removeListener(_senderBadgeListener!);
+    if (_badgeListener != null) {
+      _notifications?.removeListener(_badgeListener!);
     }
-    _senderNotifications = notifications;
-    _lastSenderChatUnread = notifications.chatUnreadCount;
-    _senderBadgeListener = () {
+    _notifications = notifications;
+    _lastChatUnread = notifications.chatUnreadCount;
+    _badgeListener = () {
       if (!mounted) return;
       final next = notifications.chatUnreadCount;
-      if (next == _lastSenderChatUnread) return;
-      _lastSenderChatUnread = next;
+      if (next == _lastChatUnread) return;
+      _lastChatUnread = next;
       _load(silent: true);
     };
-    notifications.addListener(_senderBadgeListener!);
+    notifications.addListener(_badgeListener!);
   }
 
   ChatRepository _repo() {
@@ -141,6 +131,8 @@ class _ChatListScreenState extends State<ChatListScreen> {
       return;
     }
 
+    final generation = ++_loadGeneration;
+
     if (!silent) {
       setState(() {
         _loading = true;
@@ -152,7 +144,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
       final list = await _repo().listConversations(
         threadType: widget.role.chatInboxThreadType,
       );
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _conversations = list;
         _loading = false;
@@ -160,13 +152,13 @@ class _ChatListScreenState extends State<ChatListScreen> {
       });
       _syncChatBadge(list);
     } on ApiException catch (e) {
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _loading = false;
         _error = e.message;
       });
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _loading = false;
         _error = 'Unable to load chats.';
@@ -180,7 +172,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
       (sum, c) => sum + (c.unreadCount < 0 ? 0 : c.unreadCount),
     );
     context.read<NotificationRealtimeProvider>().setChatUnreadCount(total);
-    if (_isSenderInbox) _lastSenderChatUnread = total;
+    _lastChatUnread = total;
   }
 
   void _markConversationReadLocally(ChatConversationPreview conversation) {

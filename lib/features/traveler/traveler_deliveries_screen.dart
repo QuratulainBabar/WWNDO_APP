@@ -16,6 +16,8 @@ import '../../data/models/created_delivery.dart';
 import '../../data/services/delivery_repository.dart';
 import '../../providers/auth_provider.dart';
 
+enum _DeliveriesTab { active, completed, cancelled }
+
 /// Traveler assigned bookings — GET /deliveries?role=traveler.
 class TravelerDeliveriesScreen extends StatefulWidget {
   const TravelerDeliveriesScreen({super.key});
@@ -27,15 +29,10 @@ class TravelerDeliveriesScreen extends StatefulWidget {
 
 class _TravelerDeliveriesScreenState extends State<TravelerDeliveriesScreen>
     with WidgetsBindingObserver {
-  bool _showActive = true;
+  _DeliveriesTab _tabFilter = _DeliveriesTab.active;
   bool _loading = true;
   String? _error;
   List<CreatedDelivery> _deliveries = const [];
-
-  static const _completedStatuses = {
-    'delivered',
-    'cancelled',
-  };
 
   @override
   void initState() {
@@ -100,8 +97,12 @@ class _TravelerDeliveriesScreenState extends State<TravelerDeliveriesScreen>
   List<CreatedDelivery> get _visible {
     return _deliveries.where((d) {
       final status = (d.status ?? '').toLowerCase();
-      final completed = _completedStatuses.contains(status);
-      return _showActive ? !completed : completed;
+      return switch (_tabFilter) {
+        _DeliveriesTab.active =>
+          status != 'delivered' && status != 'cancelled',
+        _DeliveriesTab.completed => status == 'delivered',
+        _DeliveriesTab.cancelled => status == 'cancelled',
+      };
     }).toList();
   }
 
@@ -154,15 +155,22 @@ class _TravelerDeliveriesScreenState extends State<TravelerDeliveriesScreen>
                   _tab(
                     context,
                     'Active',
-                    _showActive,
-                    () => setState(() => _showActive = true),
+                    _tabFilter == _DeliveriesTab.active,
+                    () => setState(() => _tabFilter = _DeliveriesTab.active),
                   ),
                   const SizedBox(width: 28),
                   _tab(
                     context,
                     'Completed',
-                    !_showActive,
-                    () => setState(() => _showActive = false),
+                    _tabFilter == _DeliveriesTab.completed,
+                    () => setState(() => _tabFilter = _DeliveriesTab.completed),
+                  ),
+                  const SizedBox(width: 28),
+                  _tab(
+                    context,
+                    'Cancelled',
+                    _tabFilter == _DeliveriesTab.cancelled,
+                    () => setState(() => _tabFilter = _DeliveriesTab.cancelled),
                   ),
                 ],
               ),
@@ -208,9 +216,11 @@ class _TravelerDeliveriesScreenState extends State<TravelerDeliveriesScreen>
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: horizontal),
           child: Text(
-            _showActive
-                ? 'No active deliveries yet.'
-                : 'No completed deliveries yet.',
+            switch (_tabFilter) {
+              _DeliveriesTab.active => 'No active deliveries yet.',
+              _DeliveriesTab.completed => 'No completed deliveries yet.',
+              _DeliveriesTab.cancelled => 'No cancelled deliveries yet.',
+            },
             style: typo.sm.copyWith(color: AppColors.textSecondary),
             textAlign: TextAlign.center,
           ),

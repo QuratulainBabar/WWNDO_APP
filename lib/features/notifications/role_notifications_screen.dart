@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/config/demo_mode.dart';
+import '../../core/navigation/app_navigation.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/back_header.dart';
@@ -768,22 +769,24 @@ class _NotificationTile extends StatelessWidget {
         return;
       }
       if (rawRoute != null && rawRoute.isNotEmpty) {
-        context.push(rawRoute);
+        context.push(normalizeNotificationRoute(rawRoute));
       }
       return;
     }
 
     if (rawRoute == null || rawRoute.isEmpty) return;
 
-    if (rawRoute.startsWith('/discover-trips/')) {
-      context.push(rawRoute);
+    final route = normalizeNotificationRoute(rawRoute);
+
+    if (route.startsWith('/discover-trips/')) {
+      context.push(route);
       return;
     }
 
-    if (_isShellTabRoute(rawRoute)) {
-      context.go(rawRoute);
+    if (_isShellTabRoute(route)) {
+      context.go(route);
     } else {
-      context.push(rawRoute);
+      context.push(route);
     }
   }
 

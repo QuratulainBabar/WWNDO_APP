@@ -8,6 +8,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../../firebase_options.dart';
 import '../../data/services/auth_repository.dart';
 import '../../router/app_router.dart';
+import '../navigation/app_navigation.dart';
 import 'push_notification_banner.dart';
 
 /// Android channel id — must match AndroidManifest meta-data.
@@ -242,7 +243,7 @@ void _navigateFromMessage(RemoteMessage message) {
 
 void _openRoute(String? route) {
   if (route == null || route.isEmpty) return;
-  appRouter.go(route);
+  appRouter.go(normalizeNotificationRoute(route));
 }
 
 bool _isDeliveryRelatedPushType(String? type) {

@@ -93,6 +93,32 @@ String homeRouteForWalletRole(WalletRole role) => switch (role) {
       _ => '/home',
     };
 
+/// Rewrites legacy / incorrect notification deep links to registered go_router
+/// paths so taps open the existing Track screens with the shipment id.
+String normalizeNotificationRoute(String route) {
+  final trimmed = route.trim();
+  if (trimmed.isEmpty) return trimmed;
+
+  final uri = Uri.tryParse(trimmed);
+  if (uri == null) return trimmed;
+  final path = uri.path;
+
+  final receiverParcel =
+      RegExp(r'^/receiver-parcel/([^/?#]+)').firstMatch(path);
+  if (receiverParcel != null) {
+    final id = receiverParcel.group(1)!;
+    return '/receiver-tracking?shipmentId=${Uri.encodeComponent(id)}';
+  }
+
+  // `/track` is the sender shipments list; `/track/:id` was never registered.
+  final trackDetail = RegExp(r'^/track/([^/?#]+)').firstMatch(path);
+  if (trackDetail != null) {
+    return '/shipment/${trackDetail.group(1)!}';
+  }
+
+  return trimmed;
+}
+
 String disputeRoute(String shipmentId, {bool travelerView = false, String? role}) {
   if (travelerView) return '/dispute/$shipmentId?traveler=true';
   if (role == 'receiver') return '/dispute/$shipmentId?role=receiver';

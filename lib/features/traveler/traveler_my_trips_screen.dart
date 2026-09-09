@@ -14,6 +14,7 @@ import '../../data/models/traveler_trip.dart';
 import '../../data/services/trip_repository.dart';
 import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
+import 'open_trip_delivery_detail.dart';
 
 /// My Trips tab — lists trips from GET /api/v1/trips.
 enum _MyTripsTab { active, completed, cancelled }
@@ -131,6 +132,13 @@ class _TravelerMyTripsScreenState extends State<TravelerMyTripsScreen>
 
   Future<void> _onMenuSelected(String value, TravelerTrip trip) async {
     final id = trip.displayId;
+    if (value == 'view') {
+      await openTravelerTripDeliveryDetail(context, trip);
+      if (mounted) {
+        await _load(silent: true);
+      }
+      return;
+    }
     if (value == 'edit') {
       final updated = await context.push<bool>('/edit-trip/$id');
       if (updated == true && mounted) {
@@ -151,6 +159,21 @@ class _TravelerMyTripsScreenState extends State<TravelerMyTripsScreen>
     final itemStyle = typo.body.copyWith(fontWeight: FontWeight.w400);
 
     return [
+      PopupMenuItem(
+        value: 'view',
+        height: 42,
+        child: Text('View', style: itemStyle),
+      ),
+      const PopupMenuItem<String>(
+        enabled: false,
+        height: 1,
+        padding: EdgeInsets.zero,
+        child: Divider(
+          height: 1,
+          thickness: 1,
+          color: AppColors.border,
+        ),
+      ),
       PopupMenuItem(
         value: 'edit',
         height: 42,

@@ -84,9 +84,16 @@ class WalletProvider extends ChangeNotifier {
         if (generation != _refreshGeneration) {
           return _summary ?? WalletSummary.empty(contextRole);
         }
-        final empty = WalletSummary.empty(contextRole);
-        _apply(empty, transactions: const []);
-        return empty;
+        // Demo / signed-out: keep local WalletService balances (holds, payouts).
+        final local = WalletSummary(
+          contextRole: contextRole,
+          availableCents: WalletService.availableCents(),
+          escrowCents: WalletService.escrowCents(),
+        );
+        _summary = local;
+        _transactions = WalletService.historyFor();
+        if (!silent) notifyListeners();
+        return local;
       }
 
       final ok = await _authRepository.ensureAuthenticated();

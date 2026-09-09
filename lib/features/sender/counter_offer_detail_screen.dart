@@ -129,7 +129,9 @@ class _CounterOfferDetailScreenState extends State<CounterOfferDetailScreen> {
       travelDate: offer.travelDate,
       routeMatchConfidence: 90,
       bio: offer.travelerBio,
-      message: 'Counter offer',
+      message: (offer.message ?? '').trim().isNotEmpty
+          ? offer.message!.trim()
+          : 'Counter offer',
       featured: true,
     );
   }
@@ -232,6 +234,7 @@ class _CounterOfferDetailScreenState extends State<CounterOfferDetailScreen> {
             travelerRating: offer.travelerRating,
             travelerReviewCount: offer.travelerReviewCount,
             travelerBio: offer.travelerBio,
+            message: offer.message,
             fromCity: offer.fromCity,
             toCity: offer.toCity,
             travelDate: offer.travelDate,
@@ -242,6 +245,11 @@ class _CounterOfferDetailScreenState extends State<CounterOfferDetailScreen> {
             parcelPhotoCount: offer.parcelPhotoCount,
             parcelPhotoUrls: offer.parcelPhotoUrls,
             deliveryPublicId: offer.deliveryPublicId,
+            originCountry: offer.originCountry,
+            originAirport: offer.originAirport,
+            destinationCountry: offer.destinationCountry,
+            destinationAirport: offer.destinationAirport,
+            apiRoute: offer.apiRoute,
           );
         });
       } else {
@@ -412,6 +420,24 @@ class _CounterOfferDetailScreenState extends State<CounterOfferDetailScreen> {
                               'Status',
                               offer.status.label,
                             ),
+                            if ((offer.message ?? '').trim().isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              Text('Traveler message', style: typo.sm),
+                              const SizedBox(height: 8),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary
+                                      .withValues(alpha: 0.06),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  '"${offer.message!.trim()}"',
+                                  style: typo.italicQuote,
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),

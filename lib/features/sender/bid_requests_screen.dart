@@ -22,6 +22,7 @@ import '../../data/models/traveler_request_summary.dart';
 import '../../data/platform_fees.dart';
 import '../../data/services/delivery_repository.dart';
 import '../../data/services/trip_repository.dart';
+import '../../data/static_data.dart';
 import '../../core/widgets/app_toast.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_realtime_provider.dart';
@@ -136,10 +137,34 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
       // Backend already filters by destination route + luggage capacity.
       // Show every returned match so the count is dynamic (1/2/3…).
       final travelers = results[1] as List<MatchingTraveler>;
+      final bids = travelers.map((t) => t.toBid()).toList();
+      if (bids.isNotEmpty) {
+        // Highlight the best match for the existing card badge.
+        final bestScore = bids
+            .map((b) => b.routeMatchConfidence)
+            .fold<int>(0, (a, b) => a > b ? a : b);
+        for (var i = 0; i < bids.length; i++) {
+          if (bids[i].routeMatchConfidence == bestScore) {
+            bids[i] = bids[i].copyWith(featured: true);
+            break;
+          }
+        }
+      }
+      // Keep StaticData in sync for any leftover demo/profile helpers.
+      StaticData.replaceMatchingTravelersFromApi(
+        shipmentId: delivery.displayId,
+        bids: bids,
+      );
+      if (delivery.id.isNotEmpty && delivery.id != delivery.displayId) {
+        StaticData.replaceMatchingTravelersFromApi(
+          shipmentId: delivery.id,
+          bids: bids,
+        );
+      }
       if (!mounted) return;
       setState(() {
         _delivery = delivery;
-        _apiBids = travelers.map((t) => t.toBid()).toList();
+        _apiBids = bids;
         _travelerRequests = results[2] as List<TravelerRequestSummary>;
         _loading = false;
       });
@@ -364,7 +389,7 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
 
     final summary = _ParcelSummary(
       id: delivery.displayId,
-      route: delivery.route.isNotEmpty ? delivery.route : '—',
+      route: delivery.displayRoute.isNotEmpty ? delivery.displayRoute : '—',
       travelDate: delivery.travelDateParsed ?? DateTime.now(),
       weightKg: delivery.weightKg,
     );
@@ -415,6 +440,17 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
                       setState(() => _sort = BidSortOption.fromLabel(label));
                     },
                   ),
+                  if (bids.isEmpty) ...[
+                    const SizedBox(height: 16),
+                    AppCard(
+                      child: Text(
+                        'No matching travelers on this route yet. '
+                        'When a traveler posts a trip to your destination, '
+                        'they will appear here.',
+                        style: typo.sm.copyWith(color: AppColors.textSecondary),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             );

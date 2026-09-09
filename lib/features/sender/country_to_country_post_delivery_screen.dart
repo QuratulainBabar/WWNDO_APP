@@ -76,8 +76,12 @@ class _CountryToCountryPostDeliveryScreenState
       if (demoMode.enabled) {
         StaticData.registerPostedDelivery(
           shipmentId: created.publicId,
-          fromCity: request.originCountry ?? '',
-          toCity: request.destinationCountry ?? '',
+          fromCity: request.originAirport?.trim().isNotEmpty == true
+              ? request.originAirport!.trim()
+              : (request.originCountry ?? ''),
+          toCity: request.destinationAirport?.trim().isNotEmpty == true
+              ? request.destinationAirport!.trim()
+              : (request.destinationCountry ?? ''),
           fromCode: fromIso ?? 'WW',
           toCode: toIso ?? 'WW',
           travelDate: request.travelDate,

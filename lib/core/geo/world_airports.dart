@@ -235,6 +235,13 @@ abstract final class WorldAirports {
       city: 'Amsterdam',
       countryIso: 'NL',
     ),
+    // Denmark
+    WorldAirport(
+      code: 'CPH',
+      name: 'Copenhagen',
+      city: 'Copenhagen',
+      countryIso: 'DK',
+    ),
     // Belgium
     WorldAirport(
       code: 'BRU',

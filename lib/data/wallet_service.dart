@@ -70,6 +70,25 @@ abstract final class WalletService {
     _ledger
       ..clear()
       ..addAll(history);
+
+    // Related list is only held/frozen — drop stale active rows no longer returned.
+    final relatedIds = <String>{
+      for (final e in shipmentEscrows)
+        if (e.shipmentId.isNotEmpty) e.shipmentId,
+    };
+    final staleActiveIds = _escrowCentsByShipmentId.keys
+        .where(
+          (id) =>
+              !relatedIds.contains(id) &&
+              !_releasedShipmentIds.contains(id) &&
+              !_refundedShipmentIds.contains(id),
+        )
+        .toList();
+    for (final id in staleActiveIds) {
+      _escrowCentsByShipmentId.remove(id);
+      _frozenShipmentIds.remove(id);
+    }
+
     for (final escrow in shipmentEscrows) {
       _applyShipmentEscrow(escrow);
     }
@@ -146,8 +165,31 @@ abstract final class WalletService {
   /// Unified available balance — [role] is ignored (same wallet for all roles).
   static int availableCents([WalletRole? role]) => _availableCents;
 
-  /// Unified escrow balance — [role] is ignored.
+  /// Unified escrow balance on this user's wallet (sender-held funds).
+  /// [role] is ignored for the ledger total.
   static int escrowCents([WalletRole? role]) => _escrowCents;
+
+  /// Active (held/frozen) escrow still awaiting delivery release.
+  /// Used so Travelers can see payouts locked for their shipments even though
+  /// the hold lives on the Sender's wallet.
+  static int pendingIncomingEscrowCents() {
+    var total = 0;
+    for (final entry in _escrowCentsByShipmentId.entries) {
+      if (_releasedShipmentIds.contains(entry.key)) continue;
+      if (_refundedShipmentIds.contains(entry.key)) continue;
+      if (entry.value > 0) total += entry.value;
+    }
+    return total;
+  }
+
+  /// Home WalletCard escrow line: Sender shows locked funds; Traveler shows
+  /// expected payout still in escrow for their deliveries.
+  static int displayEscrowCents(WalletRole role) {
+    if (role == WalletRole.traveler) {
+      return pendingIncomingEscrowCents();
+    }
+    return _escrowCents;
+  }
 
   static int escrowCentsForShipment(String shipmentId) =>
       _escrowCentsByShipmentId[shipmentId] ?? 0;
@@ -164,6 +206,9 @@ abstract final class WalletService {
   static double availableUsd([WalletRole? role]) => availableCents(role) / 100;
 
   static double escrowUsd([WalletRole? role]) => escrowCents(role) / 100;
+
+  static double displayEscrowUsd(WalletRole role) =>
+      displayEscrowCents(role) / 100;
 
   static String formatCents(int cents) => '\$${(cents / 100).toStringAsFixed(2)}';
 

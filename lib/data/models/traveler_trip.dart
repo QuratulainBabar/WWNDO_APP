@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../route_display.dart';
 
 enum TripStatus {
   openBid,
@@ -92,7 +93,30 @@ class TravelerTrip {
   final String? originAirport;
   final String? destinationAirport;
 
-  String get route => '$origin → $destination';
+  /// Exact map place when available (C2C airport), else stored origin/destination.
+  String get displayOrigin {
+    final airport = (originAirport ?? '').trim();
+    if (airport.isNotEmpty) {
+      return compactRouteEndpoint(airport, country: originCountry);
+    }
+    return displayRouteEndpoint(
+      city: origin,
+      country: originCountry,
+    );
+  }
+
+  String get displayDestination {
+    final airport = (destinationAirport ?? '').trim();
+    if (airport.isNotEmpty) {
+      return compactRouteEndpoint(airport, country: destinationCountry);
+    }
+    return displayRouteEndpoint(
+      city: destination,
+      country: destinationCountry,
+    );
+  }
+
+  String get route => formatRouteArrow(displayOrigin, displayDestination);
 
   String get displayId => (publicId?.trim().isNotEmpty ?? false) ? publicId! : id;
 

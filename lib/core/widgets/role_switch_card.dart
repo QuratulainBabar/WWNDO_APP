@@ -53,7 +53,7 @@ class _RoleSwitchCardState extends State<RoleSwitchCard> {
       walletRole: WalletRole.receiver,
       iconAsset: AppIcons.roleReceiver,
       title: 'Receiver',
-      description: 'Track parcel progress and confirm delivery',
+      description: 'Follow parcel progress and confirm delivery',
       profileRoute: '/receiver-profile',
     ),
   ];

@@ -226,7 +226,7 @@ class _ReceiverProfileScreenState extends State<ReceiverProfileScreen> {
               children: [
                 _quickAction(context, AppIcons.parcel, 'My Incoming Parcels', () => context.go('/receiver-shipments')),
                 const SizedBox(width: 10),
-                _quickAction(context, AppIcons.track, 'Parcel Tracking', () => context.push('/receiver-tracking')),
+                _quickAction(context, AppIcons.track, 'Parcel', () => context.push('/receiver-tracking')),
                 const SizedBox(width: 10),
                 _quickAction(context, AppIcons.history, 'Delivery history', () => context.push('/receiver-shipments?tab=past')),
               ],
@@ -621,10 +621,7 @@ class _ReceiverShipmentsScreenState extends State<ReceiverShipmentsScreen>
                     ],
                   ),
                   const SizedBox(height: 10),
-                  Text(
-                    d.route.isNotEmpty ? d.route : '—',
-                    style: context.typo.sm.copyWith(color: AppColors.textPrimary),
-                  ),
+                  _exactMapRoute(context, d),
                   if (d.description.trim().isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Text(d.description, style: context.typo.sm),
@@ -663,6 +660,53 @@ class _ReceiverShipmentsScreenState extends State<ReceiverShipmentsScreen>
           );
         },
       ),
+    );
+  }
+
+  /// Exact map places as stacked From / To — readable wraps, no cramped arrow line.
+  Widget _exactMapRoute(BuildContext context, CreatedDelivery delivery) {
+    final typo = context.typo;
+    final from = delivery.exactDisplayFrom.trim();
+    final to = delivery.exactDisplayTo.trim();
+    if (from.isEmpty && to.isEmpty) {
+      final fallback = delivery.exactDisplayRoute.trim();
+      return Text(
+        fallback.isNotEmpty ? fallback : '—',
+        style: typo.sm.copyWith(height: 1.4, color: AppColors.textPrimary),
+      );
+    }
+
+    final placeStyle = typo.sm.copyWith(
+      height: 1.4,
+      color: AppColors.textPrimary,
+    );
+    final labelStyle = typo.sm.copyWith(
+      fontSize: 11,
+      fontWeight: FontWeight.w700,
+      letterSpacing: 0.4,
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (from.isNotEmpty) ...[
+          Text(
+            'FROM',
+            style: labelStyle.copyWith(color: AppColors.primary),
+          ),
+          const SizedBox(height: 3),
+          Text(from, style: placeStyle),
+        ],
+        if (from.isNotEmpty && to.isNotEmpty) const SizedBox(height: 10),
+        if (to.isNotEmpty) ...[
+          Text(
+            'TO',
+            style: labelStyle.copyWith(color: AppColors.success),
+          ),
+          const SizedBox(height: 3),
+          Text(to, style: placeStyle),
+        ],
+      ],
     );
   }
 
@@ -1207,7 +1251,7 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen>
     if (_loading) {
       return Scaffold(
         backgroundColor: AppColors.background,
-        appBar: const BackHeader(title: 'Track parcel'),
+        appBar: const BackHeader(title: 'Parcel'),
         body: const Center(
           child: SizedBox(
             width: 22,
@@ -1224,7 +1268,7 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen>
     if (_error != null || _delivery == null) {
       return Scaffold(
         backgroundColor: AppColors.background,
-        appBar: const BackHeader(title: 'Track parcel'),
+        appBar: const BackHeader(title: 'Parcel'),
         body: Center(
           child: Padding(
             padding: context.pagePadding,
@@ -1269,7 +1313,7 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen>
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: BackHeader(title: 'Track ${shipment.id}'),
+      appBar: BackHeader(title: shipment.id),
       body: SafeArea(
         child: SingleChildScrollView(
           physics: PlatformUi.scrollPhysics,
@@ -1298,10 +1342,13 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen>
                       style: typo.h3.copyWith(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 12),
-                    _detailRow(
+                    _routeDetail(
                       context,
-                      'Route',
-                      delivery.route.isNotEmpty ? delivery.route : shipment.route,
+                      from: delivery.exactDisplayFrom,
+                      to: delivery.exactDisplayTo,
+                      fallback: delivery.exactDisplayRoute.isNotEmpty
+                          ? delivery.exactDisplayRoute
+                          : shipment.route,
                     ),
                     _detailRow(
                       context,
@@ -1444,14 +1491,80 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen>
     );
   }
 
+  Widget _routeDetail(
+    BuildContext context, {
+    required String from,
+    required String to,
+    required String fallback,
+  }) {
+    final typo = context.typo;
+    final fromPlace = from.trim();
+    final toPlace = to.trim();
+
+    if (fromPlace.isEmpty && toPlace.isEmpty) {
+      return _detailRow(
+        context,
+        'Route',
+        fallback.trim().isNotEmpty ? fallback.trim() : '—',
+      );
+    }
+
+    final valueStyle = typo.bodyBold.copyWith(
+      fontWeight: FontWeight.w400,
+      height: 1.35,
+      color: AppColors.textPrimary,
+    );
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Route', style: typo.sm),
+          const SizedBox(height: 8),
+          if (fromPlace.isNotEmpty) ...[
+            Text(
+              'FROM',
+              style: typo.sm.copyWith(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.4,
+                color: AppColors.primary,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(fromPlace, style: valueStyle),
+          ],
+          if (fromPlace.isNotEmpty && toPlace.isNotEmpty)
+            const SizedBox(height: 10),
+          if (toPlace.isNotEmpty) ...[
+            Text(
+              'TO',
+              style: typo.sm.copyWith(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.4,
+                color: AppColors.success,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(toPlace, style: valueStyle),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _detailRow(BuildContext context, String label, String value) {
     final typo = context.typo;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: typo.sm),
+          const SizedBox(width: 12),
           Flexible(
             child: Text(
               value,

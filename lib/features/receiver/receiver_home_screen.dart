@@ -252,7 +252,7 @@ class _ReceiverHomeScreenState extends State<ReceiverHomeScreen>
                 _action(
                   context,
                   AppIcons.track,
-                  'Track parcel',
+                  'Parcel',
                   () => context.go('/receiver-shipments'),
                 ),
                 const SizedBox(width: 10),
@@ -271,7 +271,7 @@ class _ReceiverHomeScreenState extends State<ReceiverHomeScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _tip(context, '1', 'Track your parcel in real time as the traveler carries it.'),
+                  _tip(context, '1', 'Follow your parcel in real time as the traveler carries it.'),
                   const SizedBox(height: 10),
                   _tip(context, '2', 'Chat with the traveler to coordinate handover details.'),
                   const SizedBox(height: 10),
@@ -362,10 +362,7 @@ class _ReceiverHomeScreenState extends State<ReceiverHomeScreen>
               ],
             ),
             const SizedBox(height: 8),
-            Text(
-              shipment.route.isNotEmpty ? shipment.route : '—',
-              style: typo.sm,
-            ),
+            _exactMapRoute(typo, shipment),
             const SizedBox(height: 8),
             Text(
               status.isPendingRequest
@@ -427,6 +424,52 @@ class _ReceiverHomeScreenState extends State<ReceiverHomeScreen>
           ),
         ),
       ),
+    );
+  }
+
+  /// Exact map places as stacked From / To — readable wraps, no cramped arrow line.
+  Widget _exactMapRoute(AppTypography typo, CreatedDelivery shipment) {
+    final from = shipment.exactDisplayFrom.trim();
+    final to = shipment.exactDisplayTo.trim();
+    if (from.isEmpty && to.isEmpty) {
+      final fallback = shipment.exactDisplayRoute.trim();
+      return Text(
+        fallback.isNotEmpty ? fallback : '—',
+        style: typo.sm.copyWith(height: 1.4),
+      );
+    }
+
+    final placeStyle = typo.sm.copyWith(
+      height: 1.4,
+      color: AppColors.textPrimary,
+    );
+    final labelStyle = typo.sm.copyWith(
+      fontSize: 11,
+      fontWeight: FontWeight.w700,
+      letterSpacing: 0.4,
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (from.isNotEmpty) ...[
+          Text(
+            'FROM',
+            style: labelStyle.copyWith(color: AppColors.primary),
+          ),
+          const SizedBox(height: 3),
+          Text(from, style: placeStyle),
+        ],
+        if (from.isNotEmpty && to.isNotEmpty) const SizedBox(height: 10),
+        if (to.isNotEmpty) ...[
+          Text(
+            'TO',
+            style: labelStyle.copyWith(color: AppColors.success),
+          ),
+          const SizedBox(height: 3),
+          Text(to, style: placeStyle),
+        ],
+      ],
     );
   }
 

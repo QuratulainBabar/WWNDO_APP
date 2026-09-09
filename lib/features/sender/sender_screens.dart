@@ -23,6 +23,7 @@ import '../../data/models/created_delivery.dart';
 import '../../data/models/parcel_creation_result.dart';
 import '../../data/models/shipment.dart';
 import '../../data/delivery_status_mapper.dart';
+import '../../data/route_display.dart';
 import '../../data/services/delivery_repository.dart';
 import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
@@ -643,11 +644,15 @@ class _PostDeliveryPostedSuccessScreenState
   Widget build(BuildContext context) {
     final typo = context.typo;
     final delivery = _liveDelivery ?? widget.delivery;
-    final displayRoute = delivery?.route.isNotEmpty == true
-        ? delivery!.route
-        : widget.result?.route ??
-            widget.route ??
-            StaticData.activeShipment.route;
+    final fallbackRoute = widget.result?.route ??
+        widget.route ??
+        StaticData.activeShipment.route;
+    final fromLocation = delivery != null
+        ? delivery.displayFrom
+        : routeLeft(fallbackRoute);
+    final toLocation = delivery != null
+        ? delivery.displayTo
+        : routeRight(fallbackRoute);
     final deliveryId = _deliveryId;
     final waiting = _isWaitingForReceiver;
 
@@ -685,26 +690,21 @@ class _PostDeliveryPostedSuccessScreenState
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 10),
-              Text.rich(
-                TextSpan(
-                  style: typo.sm.copyWith(
-                    height: 1.5,
-                    color: AppColors.textSecondary,
-                  ),
-                  children: [
-                    const TextSpan(text: 'Your parcel request for '),
-                    TextSpan(
-                      text: displayRoute,
-                      style: typo.sm.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const TextSpan(text: ' is live.'),
-                  ],
+              Text(
+                'Your parcel request is live.',
+                style: typo.sm.copyWith(
+                  height: 1.5,
+                  color: AppColors.textSecondary,
                 ),
                 textAlign: TextAlign.center,
               ),
+              if (fromLocation.isNotEmpty || toLocation.isNotEmpty) ...[
+                const SizedBox(height: 18),
+                _PostedDeliveryRouteCard(
+                  fromLocation: fromLocation,
+                  toLocation: toLocation,
+                ),
+              ],
               const SizedBox(height: 28),
               Image.asset(
                 waiting
@@ -806,6 +806,146 @@ class _PostDeliveryPostedSuccessScreenState
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Vertical From → To summary for long city/airport place labels on the
+/// post-delivery success screen. Keeps full addresses readable (no ellipsis).
+class _PostedDeliveryRouteCard extends StatelessWidget {
+  const _PostedDeliveryRouteCard({
+    required this.fromLocation,
+    required this.toLocation,
+  });
+
+  final String fromLocation;
+  final String toLocation;
+
+  @override
+  Widget build(BuildContext context) {
+    final from = fromLocation.trim();
+    final to = toLocation.trim();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (from.isNotEmpty)
+            _PostedRouteEndpoint(
+              label: 'From',
+              place: from,
+              markerColor: AppColors.primary,
+              showConnector: to.isNotEmpty,
+            ),
+          if (from.isNotEmpty && to.isNotEmpty) const SizedBox(height: 2),
+          if (to.isNotEmpty)
+            _PostedRouteEndpoint(
+              label: 'To',
+              place: to,
+              markerColor: AppColors.success,
+              showConnector: false,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PostedRouteEndpoint extends StatelessWidget {
+  const _PostedRouteEndpoint({
+    required this.label,
+    required this.place,
+    required this.markerColor,
+    required this.showConnector,
+  });
+
+  final String label;
+  final String place;
+  final Color markerColor;
+  final bool showConnector;
+
+  @override
+  Widget build(BuildContext context) {
+    final typo = context.typo;
+
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 20,
+            child: Column(
+              children: [
+                Container(
+                  width: 12,
+                  height: 12,
+                  margin: const EdgeInsets.only(top: 4),
+                  decoration: BoxDecoration(
+                    color: markerColor.withValues(alpha: 0.16),
+                    shape: BoxShape.circle,
+                  ),
+                  alignment: Alignment.center,
+                  child: Container(
+                    width: 7,
+                    height: 7,
+                    decoration: BoxDecoration(
+                      color: markerColor,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+                if (showConnector)
+                  Expanded(
+                    child: Container(
+                      width: 2,
+                      margin: const EdgeInsets.symmetric(vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.22),
+                        borderRadius: BorderRadius.circular(1),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(bottom: showConnector ? 16 : 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label.toUpperCase(),
+                    style: typo.caption.copyWith(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.7,
+                      color: markerColor,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    place,
+                    style: typo.sm.copyWith(
+                      height: 1.45,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -61,6 +61,7 @@ import '../features/tracking/tracking_screens.dart';
 import '../features/traveler/traveler_home_screen.dart';
 import '../features/traveler/traveler_my_trips_screen.dart';
 import '../features/traveler/edit_trip_screen.dart';
+import '../features/traveler/view_trip_screen.dart';
 import '../features/traveler/cancel_trip_screen.dart';
 import '../features/traveler/traveler_profile_screen.dart';
 import '../features/traveler/traveler_shell.dart';
@@ -751,6 +752,13 @@ final appRouter = GoRouter(
       ),
     ),
     GoRoute(
+      path: '/view-trip/:id',
+      parentNavigatorKey: rootNavigatorKey,
+      builder: (_, state) => ViewTripScreen(
+        tripId: state.pathParameters['id']!,
+      ),
+    ),
+    GoRoute(
       path: '/edit-trip/:id',
       parentNavigatorKey: rootNavigatorKey,
       builder: (_, state) => EditTripScreen(
@@ -791,9 +799,18 @@ final appRouter = GoRouter(
         GoRoute(
           path: 'counter-offer',
           parentNavigatorKey: rootNavigatorKey,
-          builder: (_, state) => SendCounterOfferScreen(
-            requestId: state.pathParameters['id']!,
-          ),
+          builder: (_, state) {
+            final extra = state.extra;
+            String? message;
+            if (extra is Map) {
+              final raw = extra['message'];
+              if (raw is String) message = raw;
+            }
+            return SendCounterOfferScreen(
+              requestId: state.pathParameters['id']!,
+              initialMessage: message,
+            );
+          },
         ),
       ],
     ),
@@ -831,7 +848,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/traveler-bids',
       parentNavigatorKey: rootNavigatorKey,
-      builder: (_, __) => const TravelerMyBidsScreen(),
+      builder: (_, state) => TravelerMyBidsScreen(
+        showAcceptedOffers:
+            state.uri.queryParameters['filter'] == 'acceptance',
+      ),
     ),
     GoRoute(
       path: '/traveler-bid-detail/:id',

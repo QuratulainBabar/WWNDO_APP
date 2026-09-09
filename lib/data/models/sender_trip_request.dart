@@ -1,4 +1,5 @@
 import '../photo_urls.dart';
+import '../route_display.dart';
 import 'delivery_request.dart';
 
 class SenderTripRequest {
@@ -21,10 +22,15 @@ class SenderTripRequest {
     this.unread = true,
     this.parcelSize = '',
     this.meetupLocations = const [],
+    this.receiverMeetupLocation = '',
     this.photoCount = 0,
     this.photoUrls = const [],
     this.fromCity = '',
     this.toCity = '',
+    this.originCountry = '',
+    this.destinationCountry = '',
+    this.originAirport = '',
+    this.destinationAirport = '',
   });
 
   final String id;
@@ -45,10 +51,15 @@ class SenderTripRequest {
   final String status;
   final bool unread;
   final List<String> meetupLocations;
+  final String receiverMeetupLocation;
   final int photoCount;
   final List<String> photoUrls;
   final String fromCity;
   final String toCity;
+  final String originCountry;
+  final String destinationCountry;
+  final String originAirport;
+  final String destinationAirport;
 
   String get categoryTypeLabel {
     final normalized = parcelCategory.trim().toLowerCase();
@@ -65,6 +76,12 @@ class SenderTripRequest {
     return meetupLocations.join(', ');
   }
 
+  String get displayReceiverMeetupLocation {
+    final location = receiverMeetupLocation.trim();
+    if (location.isNotEmpty) return location;
+    return 'Not specified';
+  }
+
   String get displayDescription {
     final custom = description.trim();
     if (custom.isNotEmpty) return custom;
@@ -74,18 +91,33 @@ class SenderTripRequest {
     return 'Physical object package — packed item(s) for hand delivery. Handle carefully in transit.';
   }
 
+  /// Full sender-selected map / airport place (no City, Country compaction).
+  String get displayFrom => exactRouteEndpoint(
+        airport: originAirport,
+        city: fromCity,
+        country: originCountry,
+        routeFallback: routeLeft(route),
+      );
+
+  String get displayTo => exactRouteEndpoint(
+        airport: destinationAirport,
+        city: toCity,
+        country: destinationCountry,
+        routeFallback: routeRight(route),
+      );
+
+  String get displayRoute {
+    final exact = formatRouteArrow(displayFrom, displayTo);
+    if (exact.isNotEmpty) return exact;
+    return route;
+  }
+
   /// Bridges API sender-request data into the existing parcel-detail / bid UI model.
   DeliveryRequest toDeliveryRequest() {
-    final origin = fromCity.trim().isNotEmpty
-        ? fromCity
-        : (route.contains('→') ? route.split('→').first.trim() : route);
-    final destination = toCity.trim().isNotEmpty
-        ? toCity
-        : (route.contains('→') ? route.split('→').last.trim() : '');
     return DeliveryRequest(
       id: id,
-      fromCity: origin,
-      toCity: destination,
+      fromCity: displayFrom,
+      toCity: displayTo,
       travelDate: travelDate,
       maxBudget: maxBudget,
       category: parcelCategory,
@@ -96,6 +128,7 @@ class SenderTripRequest {
       senderRating: senderRating ?? 0,
       description: description,
       meetupLocations: meetupLocations,
+      receiverHandoffLocation: receiverMeetupLocation,
       photoCount: photoUrls.isNotEmpty ? photoUrls.length : photoCount,
       photoUrls: photoUrls,
     );
@@ -120,10 +153,15 @@ class SenderTripRequest {
         status: status,
         unread: false,
         meetupLocations: meetupLocations,
+        receiverMeetupLocation: receiverMeetupLocation,
         photoCount: photoCount,
         photoUrls: photoUrls,
         fromCity: fromCity,
         toCity: toCity,
+        originCountry: originCountry,
+        destinationCountry: destinationCountry,
+        originAirport: originAirport,
+        destinationAirport: destinationAirport,
       );
 
   factory SenderTripRequest.fromJson(Map<String, dynamic> json) {
@@ -161,10 +199,16 @@ class SenderTripRequest {
       status: json['status'] as String? ?? 'pending',
       unread: json['unread'] as bool? ?? true,
       meetupLocations: meetup,
+      receiverMeetupLocation:
+          json['receiverMeetupLocation'] as String? ?? '',
       photoCount: photoCount,
       photoUrls: photoUrls,
       fromCity: json['fromCity'] as String? ?? '',
       toCity: json['toCity'] as String? ?? '',
+      originCountry: json['originCountry'] as String? ?? '',
+      destinationCountry: json['destinationCountry'] as String? ?? '',
+      originAirport: json['originAirport'] as String? ?? '',
+      destinationAirport: json['destinationAirport'] as String? ?? '',
     );
   }
 }

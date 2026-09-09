@@ -20,9 +20,15 @@ import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
 
 class SendCounterOfferScreen extends StatefulWidget {
-  const SendCounterOfferScreen({super.key, required this.requestId});
+  const SendCounterOfferScreen({
+    super.key,
+    required this.requestId,
+    this.initialMessage,
+  });
 
   final String requestId;
+  /// Optional note from Parcel Request Details ("Message to sender").
+  final String? initialMessage;
 
   @override
   State<SendCounterOfferScreen> createState() => _SendCounterOfferScreenState();
@@ -128,10 +134,12 @@ class _SendCounterOfferScreenState extends State<SendCounterOfferScreen> {
 
     setState(() => _submitting = true);
 
+    final message = widget.initialMessage?.trim();
     try {
       final offer = await _repo().sendCounterOffer(
         requestId: widget.requestId,
         amount: amount,
+        message: message,
       );
       if (!mounted) return;
       StaticData.upsertTravelerBid(offer);
@@ -163,6 +171,7 @@ class _SendCounterOfferScreenState extends State<SendCounterOfferScreen> {
       amount: amount,
       authUser: authUser,
       allowAboveMaxBudget: true,
+      message: message,
     );
     if (!mounted) return;
     setState(() => _submitting = false);

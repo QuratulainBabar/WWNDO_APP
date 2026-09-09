@@ -457,8 +457,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             ),
             const SizedBox(height: 8),
             Text(
-              delivery.route.isNotEmpty ? delivery.route : '—',
+              delivery.displayRoute.isNotEmpty ? delivery.displayRoute : '—',
               style: typo.sm,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
             if (requests.isNotEmpty) ...[
               const SizedBox(height: 6),

@@ -23,6 +23,7 @@ import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_realtime_provider.dart';
 import '../../providers/wallet_provider.dart';
+import 'open_trip_delivery_detail.dart';
 
 class TravelerHomeScreen extends StatefulWidget {
   const TravelerHomeScreen({super.key});
@@ -67,6 +68,10 @@ class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
         context.read<AuthProvider>().refreshUser();
         _tripsKey.currentState?.reload(silent: true);
         _refreshSenderRequestBadge();
+        context
+            .read<WalletProvider>()
+            .refresh(WalletRole.traveler, silent: true)
+            .ignore();
       });
     }
     _lastMatchedLocation = location;
@@ -91,6 +96,11 @@ class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
       if (tick != _lastDeliveryUpdateTick) {
         _lastDeliveryUpdateTick = tick;
         _refreshSenderRequestBadge();
+        // Keep Wallet + Escrow in sync when Pay Now / Delivered updates arrive.
+        context
+            .read<WalletProvider>()
+            .refresh(WalletRole.traveler, silent: true)
+            .ignore();
       }
     };
     realtime.addListener(_realtimeListener!);
@@ -253,7 +263,12 @@ class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
                   () => context.push('/traveler-bids'),
                 ),
                 const SizedBox(width: 10),
-                const Expanded(child: SizedBox()),
+                _quickAction(
+                  context,
+                  AppIcons.match,
+                  'Accepted offers',
+                  () => context.push('/traveler-bids?filter=acceptance'),
+                ),
               ],
             ),
           ],
@@ -426,6 +441,13 @@ class _MyTripsSectionState extends State<_MyTripsSection> {
 
   Future<void> _onMenuSelected(String value, TravelerTrip trip) async {
     final id = trip.displayId;
+    if (value == 'view') {
+      await openTravelerTripDeliveryDetail(context, trip);
+      if (mounted) {
+        await reload(silent: true);
+      }
+      return;
+    }
     if (value == 'edit') {
       final updated = await context.push<bool>('/edit-trip/$id');
       if (updated == true && mounted) {
@@ -446,6 +468,21 @@ class _MyTripsSectionState extends State<_MyTripsSection> {
     final itemStyle = typo.body.copyWith(fontWeight: FontWeight.w400);
 
     return [
+      PopupMenuItem(
+        value: 'view',
+        height: 42,
+        child: Text('View', style: itemStyle),
+      ),
+      const PopupMenuItem<String>(
+        enabled: false,
+        height: 1,
+        padding: EdgeInsets.zero,
+        child: Divider(
+          height: 1,
+          thickness: 1,
+          color: AppColors.border,
+        ),
+      ),
       PopupMenuItem(
         value: 'edit',
         height: 42,
@@ -537,6 +574,7 @@ class _TripCard extends StatelessWidget {
 
     return AppCard(
       margin: EdgeInsets.zero,
+      onTap: () => openTravelerTripDeliveryDetail(context, trip),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -544,14 +582,11 @@ class _TripCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: GestureDetector(
-                  onTap: () => context.go('/traveler-trips'),
-                  child: Text(
-                    trip.route,
-                    style: typo.h3.copyWith(fontWeight: FontWeight.w800),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                child: Text(
+                  trip.route,
+                  style: typo.h3.copyWith(fontWeight: FontWeight.w800),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               if (showMenu)

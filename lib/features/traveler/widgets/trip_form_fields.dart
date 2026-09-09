@@ -177,6 +177,11 @@ class TripFormFieldsState extends State<TripFormFields> {
         destination: create.destinationCountry ?? '',
         travelDate: create.travelDate,
         luggageCapacityKg: create.luggageCapacityKg,
+        tripType: 'country_to_country',
+        originCountry: create.originCountry,
+        destinationCountry: create.destinationCountry,
+        originAirport: create.originAirport,
+        destinationAirport: create.destinationAirport,
       );
     }
     return TravelerTrip(
@@ -184,6 +189,7 @@ class TripFormFieldsState extends State<TripFormFields> {
       destination: create.toCity ?? '',
       travelDate: create.travelDate,
       luggageCapacityKg: create.luggageCapacityKg,
+      tripType: 'city_to_city',
     );
   }
 

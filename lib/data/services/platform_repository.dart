@@ -94,9 +94,16 @@ class PlatformRepository {
     return Map<String, dynamic>.from(res);
   }
 
-  Future<Map<String, dynamic>> acceptSenderRequest(String requestId) async {
+  Future<Map<String, dynamic>> acceptSenderRequest(
+    String requestId, {
+    String? message,
+  }) async {
+    final trimmed = message?.trim();
     final res = await _api.post(
       '/trips/sender-requests/$requestId/accept',
+      body: {
+        if (message != null) 'message': trimmed ?? '',
+      },
       authenticated: true,
     );
     return Map<String, dynamic>.from(res);

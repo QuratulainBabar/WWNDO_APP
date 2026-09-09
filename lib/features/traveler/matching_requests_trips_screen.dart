@@ -261,7 +261,7 @@ class _SenderRequestSummaryCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            request.route,
+            request.displayRoute,
             style: typo.h3.copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 8),

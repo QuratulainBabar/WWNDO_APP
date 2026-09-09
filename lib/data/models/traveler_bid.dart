@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../photo_urls.dart';
+import '../route_display.dart';
 
 enum TravelerBidStatus {
   pending('Pending', AppColors.warning),
@@ -59,6 +60,12 @@ class TravelerBid {
     this.parcelPhotoCount = 1,
     this.parcelPhotoUrls = const [],
     this.deliveryPublicId,
+    this.maxBudget,
+    this.isAcceptance = false,
+    this.originCountry = '',
+    this.destinationCountry = '',
+    this.originAirport = '',
+    this.destinationAirport = '',
   });
 
   final String id;
@@ -76,13 +83,50 @@ class TravelerBid {
   final int parcelPhotoCount;
   final List<String> parcelPhotoUrls;
   final String? deliveryPublicId;
+  /// Sender's original max budget for this delivery (when provided by the API).
+  final double? maxBudget;
+  /// True when the traveler accepted the sender's budget (not a counter-offer).
+  final bool isAcceptance;
+  final String originCountry;
+  final String destinationCountry;
+  final String originAirport;
+  final String destinationAirport;
 
   DateTime get offerSentAt => sentAt ?? deliveryDate;
 
-  String get route {
-    if (fromCity.isNotEmpty && toCity.isNotEmpty) {
-      return '$fromCity → $toCity';
+  /// True when the traveler accepted the sender's exact maximum budget
+  /// (Accept Offer), not a negotiated counter-offer amount.
+  bool get isExactMaxBudgetAcceptance {
+    if (isAcceptance) return true;
+    final max = maxBudget;
+    if (max != null &&
+        (amount - max).abs() < 0.005 &&
+        status != TravelerBidStatus.updated) {
+      // Legacy rows: Accept Offer stored as pending/accepted at max budget.
+      return true;
     }
+    return false;
+  }
+
+  /// Counter Offers Sent should only include traveler-submitted counter offers.
+  bool get isCounterOfferSent => !isExactMaxBudgetAcceptance;
+
+  /// Full sender-selected map / airport place for C2C (no country-only label).
+  String get displayFrom => exactRouteEndpoint(
+        airport: originAirport,
+        city: fromCity,
+        country: originCountry,
+      );
+
+  String get displayTo => exactRouteEndpoint(
+        airport: destinationAirport,
+        city: toCity,
+        country: destinationCountry,
+      );
+
+  String get route {
+    final exact = formatRouteArrow(displayFrom, displayTo);
+    if (exact.isNotEmpty) return exact;
     return [fromCity, toCity].where((s) => s.isNotEmpty).join(' → ');
   }
 
@@ -134,6 +178,14 @@ class TravelerBid {
           : (json['photoCount'] as num?)?.toInt() ?? 1,
       parcelPhotoUrls: photoUrls,
       deliveryPublicId: json['deliveryPublicId'] as String?,
+      maxBudget: (json['maxBudget'] as num?)?.toDouble(),
+      isAcceptance: json['isAcceptance'] == true,
+      originCountry: (json['originCountry'] as String?)?.trim() ?? '',
+      destinationCountry:
+          (json['destinationCountry'] as String?)?.trim() ?? '',
+      originAirport: (json['originAirport'] as String?)?.trim() ?? '',
+      destinationAirport:
+          (json['destinationAirport'] as String?)?.trim() ?? '',
     );
   }
 }

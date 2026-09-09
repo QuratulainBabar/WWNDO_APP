@@ -376,8 +376,10 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen>
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            parcel.route.isNotEmpty ? parcel.route : '—',
+                            parcel.displayRoute.isNotEmpty ? parcel.displayRoute : '—',
                             style: typo.sm,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 4),
                           Text(

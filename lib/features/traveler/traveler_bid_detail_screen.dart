@@ -18,7 +18,6 @@ import '../../data/services/trip_repository.dart';
 import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
 import '../chat/open_delivery_chat.dart';
-import '../shared/meetup_agreement_card.dart';
 import '../tracking/widgets/parcel_photo_viewer.dart';
 
 class TravelerBidDetailScreen extends StatefulWidget {
@@ -57,12 +56,6 @@ class _TravelerBidDetailScreenState extends State<TravelerBidDetailScreen> {
     );
   }
 
-  Future<void> _loadMeetup(String deliveryId) async {
-    // MeetupAgreementCard reloads its own state; keep hook for refresh after accept.
-    if (!mounted) return;
-    setState(() {});
-  }
-
   Future<void> _load() async {
     final id = (widget.offerId ?? widget.bid?.id ?? '').trim();
     if (id.isEmpty) {
@@ -92,9 +85,6 @@ class _TravelerBidDetailScreenState extends State<TravelerBidDetailScreen> {
         _loading = false;
         _error = null;
       });
-      if (offer.isAccepted && (offer.deliveryPublicId ?? '').isNotEmpty) {
-        await _loadMeetup(offer.deliveryPublicId!);
-      }
     } catch (_) {
       if (!mounted) return;
       final fallback =
@@ -220,12 +210,12 @@ class _TravelerBidDetailScreenState extends State<TravelerBidDetailScreen> {
                       _detailRow(
                         context,
                         'Pickup',
-                        bid.fromCity.isNotEmpty ? bid.fromCity : '—',
+                        bid.displayFrom.isNotEmpty ? bid.displayFrom : '—',
                       ),
                       _detailRow(
                         context,
                         'Destination',
-                        bid.toCity.isNotEmpty ? bid.toCity : '—',
+                        bid.displayTo.isNotEmpty ? bid.displayTo : '—',
                       ),
                       _detailRow(context, 'Delivery date', deliveryDate),
                       _detailRow(
@@ -240,12 +230,6 @@ class _TravelerBidDetailScreenState extends State<TravelerBidDetailScreen> {
                 ),
                 if (bid.isAccepted && deliveryId.isNotEmpty) ...[
                   const SizedBox(height: 24),
-                  MeetupAgreementCard(
-                    deliveryId: deliveryId,
-                    allowPropose: false,
-                    onUpdated: () => _loadMeetup(deliveryId),
-                  ),
-                  const SizedBox(height: 16),
                   AppButton(
                     label: 'Open delivery / NFC',
                     onPressed: deliveryId.isEmpty

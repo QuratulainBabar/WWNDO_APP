@@ -152,25 +152,31 @@ class _TravelerDeliveriesScreenState extends State<TravelerDeliveriesScreen>
               ),
               child: Row(
                 children: [
-                  _tab(
-                    context,
-                    'Active',
-                    _tabFilter == _DeliveriesTab.active,
-                    () => setState(() => _tabFilter = _DeliveriesTab.active),
+                  Expanded(
+                    child: _tab(
+                      context,
+                      'Active',
+                      _tabFilter == _DeliveriesTab.active,
+                      () => setState(() => _tabFilter = _DeliveriesTab.active),
+                    ),
                   ),
-                  const SizedBox(width: 28),
-                  _tab(
-                    context,
-                    'Completed',
-                    _tabFilter == _DeliveriesTab.completed,
-                    () => setState(() => _tabFilter = _DeliveriesTab.completed),
+                  Expanded(
+                    child: _tab(
+                      context,
+                      'Completed',
+                      _tabFilter == _DeliveriesTab.completed,
+                      () =>
+                          setState(() => _tabFilter = _DeliveriesTab.completed),
+                    ),
                   ),
-                  const SizedBox(width: 28),
-                  _tab(
-                    context,
-                    'Cancelled',
-                    _tabFilter == _DeliveriesTab.cancelled,
-                    () => setState(() => _tabFilter = _DeliveriesTab.cancelled),
+                  Expanded(
+                    child: _tab(
+                      context,
+                      'Cancelled',
+                      _tabFilter == _DeliveriesTab.cancelled,
+                      () =>
+                          setState(() => _tabFilter = _DeliveriesTab.cancelled),
+                    ),
                   ),
                 ],
               ),
@@ -262,7 +268,9 @@ class _TravelerDeliveriesScreenState extends State<TravelerDeliveriesScreen>
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  d.route.isNotEmpty ? d.route : '—',
+                  d.exactDisplayRoute.isNotEmpty
+                      ? d.exactDisplayRoute
+                      : '—',
                   style: typo.sm.copyWith(color: AppColors.textPrimary),
                 ),
                 const SizedBox(height: 8),
@@ -288,8 +296,11 @@ class _TravelerDeliveriesScreenState extends State<TravelerDeliveriesScreen>
     final typo = context.typo;
     return GestureDetector(
       onTap: onTap,
+      behavior: HitTestBehavior.opaque,
       child: Container(
+        width: double.infinity,
         padding: const EdgeInsets.only(top: 4, bottom: 12),
+        alignment: Alignment.center,
         decoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(
@@ -300,6 +311,7 @@ class _TravelerDeliveriesScreenState extends State<TravelerDeliveriesScreen>
         ),
         child: Text(
           label,
+          textAlign: TextAlign.center,
           style: typo.body.copyWith(
             fontSize: 14,
             fontWeight: FontWeight.w700,

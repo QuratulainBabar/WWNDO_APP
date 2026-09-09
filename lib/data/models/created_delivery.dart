@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../../core/config/api_config.dart';
+import '../route_display.dart';
 
 /// Delivery type selected on the Choose Delivery Type screen.
 enum DeliveryType {
@@ -86,9 +87,18 @@ class CreateDeliveryRequest {
 
   String get routeLabel {
     if (deliveryType == DeliveryType.countryToCountry) {
-      return '${originCountry ?? ''} → ${destinationCountry ?? ''}';
+      return formatRouteArrow(
+        displayRouteEndpoint(
+          airport: originAirport,
+          country: originCountry,
+        ),
+        displayRouteEndpoint(
+          airport: destinationAirport,
+          country: destinationCountry,
+        ),
+      );
     }
-    return '${fromCity ?? ''} → ${toCity ?? ''}';
+    return formatRouteArrow(fromCity ?? '', toCity ?? '');
   }
 
   Map<String, String> toFormFields() {
@@ -397,6 +407,48 @@ class CreatedDelivery {
       receiverAcceptedAt != null && receiverAcceptedAt!.trim().isNotEmpty;
 
   String get displayId => publicId.isNotEmpty ? publicId : id;
+
+  /// Compact map place when available, else city / country / API route segment.
+  String get displayFrom => displayRouteEndpoint(
+        airport: originAirport,
+        city: fromCity,
+        country: originCountry,
+        routeFallback: routeLeft(route),
+      );
+
+  String get displayTo => displayRouteEndpoint(
+        airport: destinationAirport,
+        city: toCity,
+        country: destinationCountry,
+        routeFallback: routeRight(route),
+      );
+
+  String get displayRoute {
+    final exact = formatRouteArrow(displayFrom, displayTo);
+    if (exact.isNotEmpty) return exact;
+    return route;
+  }
+
+  /// Full sender-selected map / airport place (Receiver-side location display).
+  String get exactDisplayFrom => exactRouteEndpoint(
+        airport: originAirport,
+        city: fromCity,
+        country: originCountry,
+        routeFallback: routeLeft(route),
+      );
+
+  String get exactDisplayTo => exactRouteEndpoint(
+        airport: destinationAirport,
+        city: toCity,
+        country: destinationCountry,
+        routeFallback: routeRight(route),
+      );
+
+  String get exactDisplayRoute {
+    final exact = formatRouteArrow(exactDisplayFrom, exactDisplayTo);
+    if (exact.isNotEmpty) return exact;
+    return route;
+  }
 
   DateTime? get travelDateParsed {
     if (travelDate.isEmpty) return null;

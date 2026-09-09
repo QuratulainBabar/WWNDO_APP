@@ -5,6 +5,7 @@ import '../models/sender_counter_offer.dart';
 import '../models/sender_trip_request.dart';
 import '../models/traveler_bid.dart';
 import '../models/traveler_trip.dart';
+import '../route_display.dart';
 
 enum TripType {
   cityToCity,
@@ -325,15 +326,22 @@ class TripRepository {
 
   /// POST /api/v1/trips/sender-requests/:requestId/accept
   /// Traveler accepts the sender's max-budget offer.
-  Future<TravelerBid> acceptSenderRequest(String requestId) async {
+  Future<TravelerBid> acceptSenderRequest(
+    String requestId, {
+    String? message,
+  }) async {
     if (_isDemoMode) {
       throw const ApiException(
         message: 'Accepting sender requests is unavailable in demo mode.',
         code: 'DEMO_MODE',
       );
     }
+    final trimmed = message?.trim();
     final data = await _apiClient.post(
       '/trips/sender-requests/${Uri.encodeComponent(requestId)}/accept',
+      body: {
+        if (message != null) 'message': trimmed ?? '',
+      },
       authenticated: true,
     );
     return TravelerBid.fromJson(Map<String, dynamic>.from(data));
@@ -343,6 +351,7 @@ class TripRepository {
   Future<TravelerBid> sendCounterOffer({
     required String requestId,
     required double amount,
+    String? message,
   }) async {
     if (_isDemoMode) {
       throw const ApiException(
@@ -350,19 +359,32 @@ class TripRepository {
         code: 'DEMO_MODE',
       );
     }
+    final trimmed = message?.trim();
     final data = await _apiClient.post(
       '/trips/sender-requests/${Uri.encodeComponent(requestId)}/counter-offers',
-      body: {'amount': amount},
+      body: {
+        'amount': amount,
+        // Always send when provided (including empty) so updates can clear/set text.
+        if (message != null) 'message': trimmed ?? '',
+      },
       authenticated: true,
     );
     return TravelerBid.fromJson(Map<String, dynamic>.from(data));
   }
 
   /// GET /api/v1/trips/counter-offers
-  Future<List<TravelerBid>> listCounterOffers() async {
+  ///
+  /// [acceptancesOnly] requests `filter=acceptance` — deliveries where the
+  /// traveler accepted the sender's exact maximum budget.
+  Future<List<TravelerBid>> listCounterOffers({
+    bool acceptancesOnly = false,
+  }) async {
     if (_isDemoMode) return const [];
+    final path = acceptancesOnly
+        ? '/trips/counter-offers?filter=acceptance'
+        : '/trips/counter-offers';
     final data = await _apiClient.get(
-      '/trips/counter-offers',
+      path,
       authenticated: true,
     );
     final list = data['offers'];
@@ -575,14 +597,20 @@ class TripRepository {
     final travelDate = travelRaw is String
         ? (DateTime.tryParse(travelRaw) ?? DateTime.now())
         : DateTime.now();
-    final origin = json['origin'] as String? ??
-        json['fromCity'] as String? ??
-        json['originCountry'] as String? ??
-        '';
-    final destination = json['destination'] as String? ??
-        json['toCity'] as String? ??
-        json['destinationCountry'] as String? ??
-        '';
+    final originAirport = json['originAirport'] as String?;
+    final destinationAirport = json['destinationAirport'] as String?;
+    final origin = firstNonEmpty([
+      originAirport,
+      json['origin'] as String?,
+      json['fromCity'] as String?,
+      json['originCountry'] as String?,
+    ]);
+    final destination = firstNonEmpty([
+      destinationAirport,
+      json['destination'] as String?,
+      json['toCity'] as String?,
+      json['destinationCountry'] as String?,
+    ]);
     return TravelerTrip(
       id: json['id'] as String? ?? json['publicId'] as String? ?? '',
       publicId: json['publicId'] as String?,
@@ -602,8 +630,8 @@ class TripRepository {
       destinationCountry: json['destinationCountry'] as String?,
       originCountryCode: json['originCountryCode'] as String?,
       destinationCountryCode: json['destinationCountryCode'] as String?,
-      originAirport: json['originAirport'] as String?,
-      destinationAirport: json['destinationAirport'] as String?,
+      originAirport: originAirport,
+      destinationAirport: destinationAirport,
     );
   }
 }

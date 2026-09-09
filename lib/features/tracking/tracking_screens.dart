@@ -40,14 +40,12 @@ import '../../data/models/wallet_role.dart';
 import '../../data/services/delivery_live_loader.dart';
 import '../../data/wallet_gate.dart';
 import '../../data/wallet_service.dart';
-import '../../data/platform_fees.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_realtime_provider.dart';
 import '../../providers/wallet_provider.dart';
+import '../../data/delivery_review_store.dart';
 import '../../data/review_context.dart';
 import '../../data/services/review_repository.dart';
-import '../../core/widgets/app_toast.dart';
-import '../shared/meetup_agreement_card.dart';
 import '../sender/bid_acceptance_payment_screen.dart';
 import '../sender/my_posted_parcels_screen.dart';
 import '../sender/sender_delivery_status.dart';
@@ -86,9 +84,12 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
   DeliveryLiveSnapshot? _snapshot;
   bool _loading = true;
   String? _loadError;
+  bool _travelerReviewedSender = false;
+  bool _travelerReviewedReceiver = false;
 
   NotificationRealtimeProvider? _realtimeProvider;
   VoidCallback? _realtimeListener;
+  VoidCallback? _reviewStoreListener;
   int _lastDeliveryUpdateTick = 0;
 
   @override
@@ -98,6 +99,8 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadSnapshot();
       _attachRealtimeListener();
+      _attachReviewStoreListener();
+      _loadTravelerReviewFlags();
     });
   }
 
@@ -120,10 +123,45 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
     realtime.addListener(_realtimeListener!);
   }
 
+  void _attachReviewStoreListener() {
+    if (_reviewStoreListener != null) return;
+    _reviewStoreListener = () {
+      if (!mounted || !widget.isTravelerView) return;
+      _loadTravelerReviewFlags();
+    };
+    DeliveryReviewStore.version.addListener(_reviewStoreListener!);
+  }
+
+  Future<void> _loadTravelerReviewFlags() async {
+    if (!widget.isTravelerView) return;
+    final userId = context.read<AuthProvider>().user?.id ?? '';
+    final shipmentId = widget.shipmentId;
+    final senderDone = await DeliveryReviewStore.hasSubmitted(
+      reviewerUserId: userId,
+      shipmentId: shipmentId,
+      reviewerRole: WalletRole.traveler,
+      revieweeRole: WalletRole.sender,
+    );
+    final receiverDone = await DeliveryReviewStore.hasSubmitted(
+      reviewerUserId: userId,
+      shipmentId: shipmentId,
+      reviewerRole: WalletRole.traveler,
+      revieweeRole: WalletRole.receiver,
+    );
+    if (!mounted) return;
+    setState(() {
+      _travelerReviewedSender = senderDone;
+      _travelerReviewedReceiver = receiverDone;
+    });
+  }
+
   @override
   void dispose() {
     if (_realtimeListener != null) {
       _realtimeProvider?.removeListener(_realtimeListener!);
+    }
+    if (_reviewStoreListener != null) {
+      DeliveryReviewStore.version.removeListener(_reviewStoreListener!);
     }
     super.dispose();
   }
@@ -354,12 +392,6 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
     final selectedStatus = _selectedOptionFor(status);
     const statusUpdateHint =
         'NFC handoff is complete. Tap Start Transit when you begin travel with this parcel.';
-    final showMeetupAgreement = !isDisputed &&
-        (snap.status == 'bid_accepted' ||
-            snap.status == 'matched' ||
-            snap.status == 'ready_for_handoff') &&
-        !cp1Confirmed;
-
     return Scaffold(
           backgroundColor: AppColors.background,
           appBar: BackHeader(
@@ -562,14 +594,6 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
                       onPressed: () => _updateStatus(selectedStatus),
                     ),
                   ],
-                  if (showMeetupAgreement) ...[
-                    const SizedBox(height: 24),
-                    MeetupAgreementCard(
-                      deliveryId: shipment.id,
-                      allowPropose: !widget.isTravelerView,
-                      onUpdated: _loadSnapshot,
-                    ),
-                  ],
                   // Show pay CTA only while booking is still unpaid (posted).
                   // After escrow payment, status is bid_accepted — hide this card.
                   if (!widget.isTravelerView &&
@@ -611,7 +635,6 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
                       margin: EdgeInsets.zero,
                       child: _NfcCheckpoint1Section(
                         shipmentId: shipment.id,
-                        parcelCategory: shipment.parcelCategory,
                         isTravelerView: widget.isTravelerView,
                       ),
                     ),
@@ -624,29 +647,6 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
                       child: _TravelerNfcDeliverySection(
                         status: status,
                         shipmentId: shipment.id,
-                      ),
-                    ),
-                  ] else if (widget.isTravelerView &&
-                      !cp1Confirmed &&
-                      !showMeetupAgreement &&
-                      (snap.status == 'bid_accepted' ||
-                          snap.status == 'matched')) ...[
-                    const SizedBox(height: 24),
-                    AppCard(
-                      margin: EdgeInsets.zero,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Waiting for meetup agreement',
-                            style: typo.h3.copyWith(fontWeight: FontWeight.w700),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Confirm the meetup location with the sender before NFC handoff.',
-                            style: typo.sm.copyWith(height: 1.5),
-                          ),
-                        ],
                       ),
                     ),
                   ],
@@ -665,7 +665,11 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
     if (snap == null) return false;
     if (snap.disputed) return false;
     if (snap.cp1Confirmed) return false;
-    return snap.status == 'ready_for_handoff';
+    // After escrow booking until CP1 is confirmed (sender + traveler detail).
+    final status = DeliveryStatusMapper.toShipmentStatus(snap.status);
+    return status == ShipmentStatus.bidAccepted ||
+        status == ShipmentStatus.photosUploaded ||
+        status == ShipmentStatus.collected;
   }
 
   List<Widget> _buildActions(
@@ -713,6 +717,29 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
             threadType: 'sender_traveler',
             deliveryKey: shipment.id,
           ),
+        ),
+      );
+    }
+
+    void addTravelerReviewButton({
+      required String label,
+      required WalletRole revieweeRole,
+    }) {
+      final alreadyReviewed = revieweeRole == WalletRole.sender
+          ? _travelerReviewedSender
+          : _travelerReviewedReceiver;
+      addAction(
+        AppButton(
+          label: label,
+          onPressed: alreadyReviewed
+              ? null
+              : () => context.push(
+                    deliveryReviewRoute(
+                      shipmentId: shipment.id,
+                      reviewerRole: WalletRole.traveler,
+                      revieweeRole: revieweeRole,
+                    ),
+                  ),
         ),
       );
     }
@@ -792,29 +819,13 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
         ),
       );
       if (status == ShipmentStatus.delivered || cp2Confirmed) {
-        addAction(
-          AppButton(
-            label: 'Leave a review for receiver',
-            onPressed: () => context.push(
-              deliveryReviewRoute(
-                shipmentId: shipment.id,
-                reviewerRole: WalletRole.traveler,
-                revieweeRole: WalletRole.receiver,
-              ),
-            ),
-          ),
+        addTravelerReviewButton(
+          label: 'Leave a review for receiver',
+          revieweeRole: WalletRole.receiver,
         );
-        addAction(
-          AppButton(
-            label: 'Leave a review for a sender',
-            onPressed: () => context.push(
-              deliveryReviewRoute(
-                shipmentId: shipment.id,
-                reviewerRole: WalletRole.traveler,
-                revieweeRole: WalletRole.sender,
-              ),
-            ),
-          ),
+        addTravelerReviewButton(
+          label: 'Leave a review for a sender',
+          revieweeRole: WalletRole.sender,
         );
       }
       return actions;
@@ -836,29 +847,13 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
           ),
         );
       }
-      addAction(
-        AppButton(
-          label: 'Leave a review for receiver',
-          onPressed: () => context.push(
-            deliveryReviewRoute(
-              shipmentId: shipment.id,
-              reviewerRole: WalletRole.traveler,
-              revieweeRole: WalletRole.receiver,
-            ),
-          ),
-        ),
+      addTravelerReviewButton(
+        label: 'Leave a review for receiver',
+        revieweeRole: WalletRole.receiver,
       );
-      addAction(
-        AppButton(
-          label: 'Leave a review for a sender',
-          onPressed: () => context.push(
-            deliveryReviewRoute(
-              shipmentId: shipment.id,
-              reviewerRole: WalletRole.traveler,
-              revieweeRole: WalletRole.sender,
-            ),
-          ),
-        ),
+      addTravelerReviewButton(
+        label: 'Leave a review for a sender',
+        revieweeRole: WalletRole.sender,
       );
       return actions;
     }
@@ -962,12 +957,10 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
 class _NfcCheckpoint1Section extends StatelessWidget {
   const _NfcCheckpoint1Section({
     required this.shipmentId,
-    required this.parcelCategory,
     required this.isTravelerView,
   });
 
   final String shipmentId;
-  final String parcelCategory;
   final bool isTravelerView;
 
   @override
@@ -984,7 +977,7 @@ class _NfcCheckpoint1Section extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                'NFC Checkpoint 1 — Handoff',
+                'NFC Checkpoint — Traveler & Sender',
                 style: typo.h3.copyWith(fontWeight: FontWeight.w700),
               ),
             ),
@@ -993,15 +986,17 @@ class _NfcCheckpoint1Section extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           isTravelerView
-              ? 'Tap phones with the sender to confirm handoff. When both parties confirm, '
-                  '\$${PlatformFees.travelerPlatformFeeUsd(parcelCategory).toStringAsFixed(2)} '
-                  'is deducted from your wallet and the parcel becomes Collected — then mark in transit when you begin travel.'
+              ? 'This NFC checkpoint confirms the sender handed you the parcel. '
+                  'Tap phones with the sender so both of you can confirm on your own devices. '
+                  'Once both confirm, the parcel is marked Collected.'
               : 'Tap phones with the traveler to confirm handoff. When both parties confirm, the parcel becomes Collected.',
           style: typo.sm.copyWith(height: 1.5),
         ),
         const SizedBox(height: 16),
         AppButton(
-          label: 'Start NFC matching',
+          label: isTravelerView
+              ? 'Start NFC with Sender'
+              : 'Start NFC matching',
           icon: const Icon(Icons.nfc, size: 18, color: Colors.white),
           onPressed: () => context.push(
             '/nfc-confirm',
@@ -2488,6 +2483,8 @@ class _DeliveryReviewScreenState extends State<DeliveryReviewScreen> {
         shipmentId: _shipmentId,
       );
       if (!mounted) return;
+      await _markReviewSubmitted(reviewContext.revieweeRole);
+      if (!mounted) return;
       await context.read<AuthProvider>().refreshUser();
       if (!mounted) return;
       context.pushReplacement(
@@ -2502,6 +2499,8 @@ class _DeliveryReviewScreenState extends State<DeliveryReviewScreen> {
       if (!mounted) return;
       setState(() => _submitting = false);
       if (e.code == 'REVIEW_EXISTS') {
+        await _markReviewSubmitted(reviewContext.revieweeRole);
+        if (!mounted) return;
         AppToast.info(context, e.message);
         context.go(homeRouteForWalletRole(_reviewerRole));
         return;
@@ -2512,6 +2511,16 @@ class _DeliveryReviewScreenState extends State<DeliveryReviewScreen> {
       setState(() => _submitting = false);
       AppToast.error(context, 'Unable to submit review. Please try again.');
     }
+  }
+
+  Future<void> _markReviewSubmitted(WalletRole revieweeRole) async {
+    final userId = context.read<AuthProvider>().user?.id ?? '';
+    await DeliveryReviewStore.markSubmitted(
+      reviewerUserId: userId,
+      shipmentId: _shipmentId,
+      reviewerRole: _reviewerRole,
+      revieweeRole: revieweeRole,
+    );
   }
 
   @override

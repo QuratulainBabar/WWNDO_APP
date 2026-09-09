@@ -17,9 +17,17 @@ import '../../data/services/trip_repository.dart';
 import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
 
-/// Counter offers sent by the traveler — loaded from API.
+/// Counter offers / accepted max-budget offers for the traveler — loaded from API.
+///
+/// When [showAcceptedOffers] is true, lists only deliveries where the traveler
+/// accepted the sender's exact maximum budget (not negotiated counters).
 class TravelerMyBidsScreen extends StatefulWidget {
-  const TravelerMyBidsScreen({super.key});
+  const TravelerMyBidsScreen({
+    super.key,
+    this.showAcceptedOffers = false,
+  });
+
+  final bool showAcceptedOffers;
 
   @override
   State<TravelerMyBidsScreen> createState() => _TravelerMyBidsScreenState();
@@ -29,6 +37,8 @@ class _TravelerMyBidsScreenState extends State<TravelerMyBidsScreen> {
   bool _loading = true;
   String? _error;
   List<TravelerBid> _offers = const [];
+
+  bool get _acceptedOnly => widget.showAcceptedOffers;
 
   @override
   void initState() {
@@ -51,9 +61,20 @@ class _TravelerMyBidsScreenState extends State<TravelerMyBidsScreen> {
       _error = null;
     });
     try {
-      final offers = await _repo().listCounterOffers();
+      final offers = (await _repo().listCounterOffers(
+        acceptancesOnly: _acceptedOnly,
+      ))
+          .where(
+            (o) => _acceptedOnly
+                ? o.isExactMaxBudgetAcceptance
+                : o.isCounterOfferSent,
+          )
+          .toList();
       if (!mounted) return;
-      StaticData.syncTravelerBidsFromApi(offers);
+      // Keep local Counter Offers Sent cache in sync only for the counter list.
+      if (!_acceptedOnly) {
+        StaticData.syncTravelerBidsFromApi(offers);
+      }
       setState(() {
         _offers = offers;
         _loading = false;
@@ -61,12 +82,20 @@ class _TravelerMyBidsScreenState extends State<TravelerMyBidsScreen> {
     } catch (_) {
       if (!mounted) return;
       // Demo / offline fallback to in-memory bids.
-      final fallback = List<TravelerBid>.from(StaticData.travelerBids);
+      final fallback = StaticData.travelerBids
+          .where(
+            (o) => _acceptedOnly
+                ? o.isExactMaxBudgetAcceptance
+                : o.isCounterOfferSent,
+          )
+          .toList();
       setState(() {
         _offers = fallback;
         _loading = false;
         if (fallback.isEmpty) {
-          _error = 'Unable to load counter offers.';
+          _error = _acceptedOnly
+              ? 'Unable to load accepted offers.'
+              : 'Unable to load counter offers.';
         }
       });
     }
@@ -76,17 +105,25 @@ class _TravelerMyBidsScreenState extends State<TravelerMyBidsScreen> {
   Widget build(BuildContext context) {
     final typo = context.typo;
     final horizontal = context.horizontalPadding;
+    final title =
+        _acceptedOnly ? 'Accepted Offers' : 'Counter Offers Sent';
+    final subtitle = _acceptedOnly
+        ? 'These are deliveries where you accepted the sender\'s maximum budget.'
+        : 'These are the counter offers you have sent to senders.';
+    final emptyLabel = _acceptedOnly
+        ? 'No accepted offers yet.'
+        : 'No counter offers yet.';
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: const BackHeader(title: 'Counter Offers Sent'),
+      appBar: BackHeader(title: title),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
             padding: EdgeInsets.fromLTRB(horizontal, 4, horizontal, 12),
             child: Text(
-              'These are the counter offers you have sent to senders.',
+              subtitle,
               style: typo.sm.copyWith(color: AppColors.textSecondary, height: 1.4),
             ),
           ),
@@ -120,7 +157,7 @@ class _TravelerMyBidsScreenState extends State<TravelerMyBidsScreen> {
                             child: Padding(
                               padding: EdgeInsets.symmetric(horizontal: horizontal),
                               child: Text(
-                                'No counter offers yet.',
+                                emptyLabel,
                                 style: typo.sm.copyWith(color: AppColors.textSecondary),
                                 textAlign: TextAlign.center,
                               ),

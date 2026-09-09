@@ -57,7 +57,7 @@ class DeliveryRequest {
   String get displayReceiverHandoffLocation {
     final location = receiverHandoffLocation.trim();
     if (location.isNotEmpty) return location;
-    return '$toCity Airport';
+    return 'Not specified';
   }
 
   /// Parcel category type shown to travelers: Document or Object.

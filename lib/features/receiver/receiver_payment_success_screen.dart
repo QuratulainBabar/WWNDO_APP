@@ -71,7 +71,7 @@ class ReceiverPaymentSuccessScreen extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'You can now view parcel details and track your shipment.',
+                'You can now view parcel details and follow your shipment.',
                 textAlign: TextAlign.center,
                 style: typo.sm.copyWith(color: AppColors.textSecondary),
               ),

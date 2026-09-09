@@ -50,7 +50,8 @@ class _WalletCardState extends State<WalletCard> {
           valueListenable: WalletService.walletVersion,
           builder: (context, _, __) {
             final available = WalletService.availableUsd(widget.role);
-            final escrow = WalletService.escrowUsd(widget.role);
+            // Traveler: show related held escrow (sender-funded). Sender: own escrow.
+            final escrow = WalletService.displayEscrowUsd(widget.role);
 
             return Padding(
               padding: const EdgeInsets.only(right: 8),

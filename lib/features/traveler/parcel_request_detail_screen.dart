@@ -180,12 +180,17 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
 
     setState(() => _busy = true);
 
+    final message = _messageController.text.trim();
     try {
       final offer = acceptedOffer
-          ? await _repo().acceptSenderRequest(widget.requestId)
+          ? await _repo().acceptSenderRequest(
+              widget.requestId,
+              message: message,
+            )
           : await _repo().sendCounterOffer(
               requestId: widget.requestId,
               amount: amount,
+              message: message,
             );
       if (!mounted) return;
       StaticData.upsertTravelerBid(offer);
@@ -220,6 +225,7 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
       authUser: authUser,
       allowAboveMaxBudget: false,
       acceptedOffer: acceptedOffer,
+      message: message,
     );
     if (!mounted) return;
     if (error != null) {
@@ -258,9 +264,12 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
   }
 
   Future<void> _onSendCounterOfferTap() async {
-    if (_busy || _completedAction == _ParcelOfferAction.accepted) return;
+    if (_busy || _completedAction != _ParcelOfferAction.none) return;
     final sent = await context.push<bool>(
       '/request/${widget.requestId}/counter-offer',
+      extra: {
+        'message': _messageController.text.trim(),
+      },
     );
     if (!mounted || sent != true) return;
     setState(() => _completedAction = _ParcelOfferAction.countered);
@@ -311,10 +320,12 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
     final existingBid = _existingBid();
     final acceptedOffer = _completedAction == _ParcelOfferAction.accepted;
     final sentCounter = _completedAction == _ParcelOfferAction.countered;
-    // Mutual exclusivity: Accept disables Counter; Counter disables Accept.
+    // Mutual exclusivity: Accept disables Counter; Counter disables Accept
+    // and further Update Counter Offer until the flow allows another action.
     final canAcceptOffer =
         !_busy && _completedAction == _ParcelOfferAction.none;
-    final canSendCounterOffer = !_busy && !acceptedOffer;
+    final canSendCounterOffer =
+        !_busy && _completedAction == _ParcelOfferAction.none;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -389,9 +400,17 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
                       ),
                       _detailRow(
                         context,
-                        'Meetup location',
+                        'Sender meetup location',
                         request.displayMeetupLocation,
-                        multiline: request.meetupLocations.length > 1,
+                        multiline: request.meetupLocations.length > 1 ||
+                            request.displayMeetupLocation.length > 40,
+                      ),
+                      _detailRow(
+                        context,
+                        'Receiver meetup location',
+                        request.displayReceiverHandoffLocation,
+                        multiline:
+                            request.displayReceiverHandoffLocation.length > 40,
                       ),
                       const SizedBox(height: 8),
                       ParcelPhotoViewer(

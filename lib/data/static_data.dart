@@ -342,6 +342,7 @@ abstract final class StaticData {
     AuthUser? authUser,
     bool allowAboveMaxBudget = false,
     bool acceptedOffer = false,
+    String? message,
   }) {
     if (amount <= 0) return 'Enter a valid budget amount.';
     if (!allowAboveMaxBudget && amount > request.maxBudget) {
@@ -374,47 +375,63 @@ abstract final class StaticData {
     final initial = travelerName.isNotEmpty ? travelerName[0].toUpperCase() : 'T';
     final matchScore = matchingRequestById(request.id)?.matchScore ?? 90;
 
-    // Record / revise traveler-side counter offer (My Bids).
     final existingTravelerBid = travelerBidForRequest(request.id);
-    if (existingTravelerBid == null) {
-      travelerBids.add(
-        TravelerBid(
-          id: 'tb-$_nextTravelerBidId',
-          requestId: request.id,
-          tripId: tripId,
-          senderName: request.senderName,
-          senderInitial: request.senderInitial,
-          fromCity: request.fromCity,
-          toCity: request.toCity,
-          deliveryDate: request.travelDate,
-          amount: amount,
-          status: TravelerBidStatus.pending,
-          sentAt: DateTime.now(),
-          parcelPhotoCount: request.photoCount,
-        ),
-      );
-      _nextTravelerBidId++;
-      travelerBidsVersion.value++;
-    } else if (existingTravelerBid.status == TravelerBidStatus.pending ||
-        existingTravelerBid.status == TravelerBidStatus.updated) {
-      final index = travelerBids.indexWhere((b) => b.id == existingTravelerBid.id);
-      if (index >= 0) {
-        travelerBids[index] = TravelerBid(
-          id: existingTravelerBid.id,
-          requestId: existingTravelerBid.requestId,
-          tripId: existingTravelerBid.tripId,
-          senderName: existingTravelerBid.senderName,
-          senderInitial: existingTravelerBid.senderInitial,
-          fromCity: existingTravelerBid.fromCity,
-          toCity: existingTravelerBid.toCity,
-          deliveryDate: existingTravelerBid.deliveryDate,
-          amount: amount,
-          status: TravelerBidStatus.updated,
-          sentAt: DateTime.now(),
-          parcelPhotoCount: existingTravelerBid.parcelPhotoCount,
-          deliveryPublicId: existingTravelerBid.deliveryPublicId,
+    final isAccept = acceptedOffer ||
+        (existingTravelerBid == null &&
+            (amount - request.maxBudget).abs() < 0.005);
+
+    // Record / revise traveler-side counter offer (My Bids / Counter Offers Sent).
+    // Accept Offer must not appear on Counter Offers Sent.
+    if (!isAccept) {
+      if (existingTravelerBid == null) {
+        travelerBids.add(
+          TravelerBid(
+            id: 'tb-$_nextTravelerBidId',
+            requestId: request.id,
+            tripId: tripId,
+            senderName: request.senderName,
+            senderInitial: request.senderInitial,
+            fromCity: request.fromCity,
+            toCity: request.toCity,
+            deliveryDate: request.travelDate,
+            amount: amount,
+            status: TravelerBidStatus.pending,
+            sentAt: DateTime.now(),
+            parcelPhotoCount: request.photoCount,
+            maxBudget: request.maxBudget,
+            isAcceptance: false,
+          ),
         );
+        _nextTravelerBidId++;
         travelerBidsVersion.value++;
+      } else if (existingTravelerBid.status == TravelerBidStatus.pending ||
+          existingTravelerBid.status == TravelerBidStatus.updated) {
+        final index =
+            travelerBids.indexWhere((b) => b.id == existingTravelerBid.id);
+        if (index >= 0) {
+          travelerBids[index] = TravelerBid(
+            id: existingTravelerBid.id,
+            requestId: existingTravelerBid.requestId,
+            tripId: existingTravelerBid.tripId,
+            senderName: existingTravelerBid.senderName,
+            senderInitial: existingTravelerBid.senderInitial,
+            fromCity: existingTravelerBid.fromCity,
+            toCity: existingTravelerBid.toCity,
+            deliveryDate: existingTravelerBid.deliveryDate,
+            amount: amount,
+            status: TravelerBidStatus.updated,
+            sentAt: DateTime.now(),
+            parcelPhotoCount: existingTravelerBid.parcelPhotoCount,
+            deliveryPublicId: existingTravelerBid.deliveryPublicId,
+            maxBudget: request.maxBudget,
+            isAcceptance: false,
+            originCountry: existingTravelerBid.originCountry,
+            destinationCountry: existingTravelerBid.destinationCountry,
+            originAirport: existingTravelerBid.originAirport,
+            destinationAirport: existingTravelerBid.destinationAirport,
+          );
+          travelerBidsVersion.value++;
+        }
       }
     }
 
@@ -422,6 +439,7 @@ abstract final class StaticData {
     final bidId = existingProposal?.bidId ??
         'bid-final-$shipmentId-${DateTime.now().millisecondsSinceEpoch}';
 
+    final trimmedMessage = message?.trim();
     final bid = Bid(
       id: bidId,
       travelerName: travelerName,
@@ -431,9 +449,11 @@ abstract final class StaticData {
       price: amount,
       travelDate: request.travelDate,
       routeMatchConfidence: matchScore,
-      message: allowAboveMaxBudget
-          ? 'Final budget proposal (counter-offer).'
-          : 'Accepted sender budget as final.',
+      message: (trimmedMessage != null && trimmedMessage.isNotEmpty)
+          ? trimmedMessage
+          : (allowAboveMaxBudget
+              ? 'Final budget proposal (counter-offer).'
+              : 'Accepted sender budget as final.'),
       featured: true,
     );
 
@@ -457,8 +477,6 @@ abstract final class StaticData {
 
     final routeLabel = '${request.fromCity} → ${request.toCity}';
     final isUpdate = existingProposal != null;
-    final isAccept =
-        acceptedOffer || (!isUpdate && (amount - request.maxBudget).abs() < 0.005);
     final String notifTitle;
     final String notifBody;
     if (isAccept && !isUpdate) {
@@ -524,6 +542,7 @@ abstract final class StaticData {
       travelerRating: bid?.rating,
       travelerReviewCount: bid?.reviewCount ?? 0,
       travelerBio: bid?.bio,
+      message: bid?.message,
       fromCity: shipment?.fromCity ?? '',
       toCity: shipment?.toCity ?? '',
       travelDate: bid?.travelDate ?? shipment?.travelDate ?? DateTime.now(),
@@ -4006,7 +4025,16 @@ abstract final class StaticData {
   }
 
   /// Upserts an API-backed counter offer into the local traveler bids list.
+  /// Acceptances (sender budget accepted as-is) are excluded from Counter Offers Sent.
   static void upsertTravelerBid(TravelerBid offer) {
+    if (!offer.isCounterOfferSent) {
+      // Drop any prior counter row for this request if the traveler later accepted.
+      travelerBids.removeWhere(
+        (b) => b.id == offer.id || b.requestId == offer.requestId,
+      );
+      travelerBidsVersion.value++;
+      return;
+    }
     final byId = travelerBids.indexWhere((b) => b.id == offer.id);
     if (byId >= 0) {
       travelerBids[byId] = offer;
@@ -4028,7 +4056,7 @@ abstract final class StaticData {
   static void syncTravelerBidsFromApi(List<TravelerBid> offers) {
     travelerBids
       ..clear()
-      ..addAll(offers);
+      ..addAll(offers.where((o) => o.isCounterOfferSent));
     travelerBidsVersion.value++;
   }
 

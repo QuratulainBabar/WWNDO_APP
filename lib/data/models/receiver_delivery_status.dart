@@ -125,13 +125,6 @@ extension CreatedDeliveryReceiverX on CreatedDelivery {
     final name = senderName?.trim().isNotEmpty == true
         ? senderName!.trim()
         : 'Sender';
-    final pickup = fromCity?.isNotEmpty == true
-        ? fromCity!
-        : (originCountry ?? route.split('→').first.trim());
-    final destination = toCity?.isNotEmpty == true
-        ? toCity!
-        : (destinationCountry ??
-            (route.contains('→') ? route.split('→').last.trim() : route));
 
     return IncomingParcelRequest(
       id: displayId,
@@ -139,8 +132,8 @@ extension CreatedDeliveryReceiverX on CreatedDelivery {
       senderInitial: name.isNotEmpty ? name[0].toUpperCase() : 'S',
       parcelType: parcelCategory,
       weightKg: weightKg,
-      pickupLocation: pickup,
-      receiverLocation: destination,
+      pickupLocation: exactDisplayFrom,
+      receiverLocation: exactDisplayTo,
       travelDate: travelDateParsed ?? DateTime.now(),
       status: isReceiverAccepted
           ? IncomingParcelRequestStatus.accepted
@@ -154,8 +147,8 @@ extension CreatedDeliveryReceiverX on CreatedDelivery {
     final statusInfo = ReceiverDeliveryStatus.fromDelivery(this);
     return Shipment(
       id: displayId,
-      fromCity: fromCity ?? originCountry ?? '',
-      toCity: toCity ?? destinationCountry ?? '',
+      fromCity: exactDisplayFrom,
+      toCity: exactDisplayTo,
       fromCode: fromCode ?? '',
       toCode: toCode ?? '',
       travelDate: travelDateParsed ?? DateTime.now(),

@@ -13,6 +13,7 @@ import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/back_header.dart';
+import '../../core/widgets/stacked_route_endpoints.dart';
 import '../../data/models/shipment.dart';
 import '../../data/models/wallet_role.dart';
 import '../../data/services/platform_repository.dart';
@@ -147,7 +148,13 @@ class _ReceiverPaymentScreenState extends State<ReceiverPaymentScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _detailRow(context, 'Parcel ID', s.id),
-                  _detailRow(context, 'Route', s.route),
+                  StackedRouteEndpoints(
+                    from: s.fromCity,
+                    to: s.toCity,
+                    fallbackRoute: s.route,
+                    sectionLabel: 'Route',
+                    bottomPadding: 8,
+                  ),
                   const Divider(height: 24),
                   Text(
                     'Platform fee',

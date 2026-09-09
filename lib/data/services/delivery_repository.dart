@@ -134,7 +134,7 @@ class DeliveryRepository {
         ? ''
         : '?role=${Uri.encodeQueryComponent(role)}';
     final data = await _apiClient.get(
-      '/deliveries/$id$suffix',
+      '/deliveries/${Uri.encodeComponent(id)}$suffix',
       authenticated: true,
     );
     return CreatedDelivery.fromJson(data);

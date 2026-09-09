@@ -11,6 +11,7 @@ import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_badge.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/back_header.dart';
+import '../../core/widgets/stacked_route_endpoints.dart';
 import '../../data/models/traveler_trip.dart';
 import '../../data/services/delivery_repository.dart';
 import '../../data/services/trip_repository.dart';
@@ -200,13 +201,17 @@ class _DiscoverTripCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: Text(
-                    trip.route,
-                    style: typo.h3.copyWith(fontWeight: FontWeight.w700),
+                  child: StackedRouteEndpoints(
+                    from: trip.displayOrigin,
+                    to: trip.displayDestination,
+                    fallbackRoute: trip.route,
+                    emphasized: true,
                   ),
                 ),
+                const SizedBox(width: 8),
                 AppBadge(
                   label: '$matchScore% Match',
                   color: matchColor,

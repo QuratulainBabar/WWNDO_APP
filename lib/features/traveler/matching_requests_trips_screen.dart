@@ -12,6 +12,7 @@ import '../../core/widgets/app_avatar.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/back_header.dart';
+import '../../core/widgets/stacked_route_endpoints.dart';
 import '../../data/models/sender_trip_request.dart';
 import '../../data/services/trip_repository.dart';
 import '../../providers/auth_provider.dart';
@@ -260,9 +261,11 @@ class _SenderRequestSummaryCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          Text(
-            request.displayRoute,
-            style: typo.h3.copyWith(fontWeight: FontWeight.w700),
+          StackedRouteEndpoints(
+            from: request.displayFrom,
+            to: request.displayTo,
+            fallbackRoute: request.displayRoute,
+            emphasized: true,
           ),
           const SizedBox(height: 8),
           Text(

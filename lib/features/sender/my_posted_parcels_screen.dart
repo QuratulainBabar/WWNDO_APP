@@ -12,6 +12,7 @@ import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_badge.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/back_header.dart';
+import '../../core/widgets/stacked_route_endpoints.dart';
 import '../../data/delivery_status_mapper.dart';
 import '../../data/models/created_delivery.dart';
 import '../../data/models/traveler_request_summary.dart';
@@ -375,11 +376,10 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen>
                             wide: true,
                           ),
                           const SizedBox(height: 8),
-                          Text(
-                            parcel.displayRoute.isNotEmpty ? parcel.displayRoute : '—',
-                            style: typo.sm,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
+                          StackedRouteEndpoints(
+                            from: parcel.exactDisplayFrom,
+                            to: parcel.exactDisplayTo,
+                            fallbackRoute: parcel.exactDisplayRoute,
                           ),
                           const SizedBox(height: 4),
                           Text(

@@ -20,8 +20,10 @@ import '../../core/widgets/back_header.dart';
 import '../../core/widgets/back_link.dart';
 import '../../core/widgets/role_switch_card.dart';
 import '../../core/widgets/screen_body.dart';
+import '../../core/widgets/stacked_route_endpoints.dart';
 import '../../core/widgets/star_rating_display.dart';
 import '../../data/delivery_lifecycle.dart';
+import '../../data/delivery_review_store.dart';
 import '../../data/models/created_delivery.dart';
 import '../../data/models/profile_trust_metrics.dart';
 import '../../data/models/delivery_tracking.dart';
@@ -621,7 +623,11 @@ class _ReceiverShipmentsScreenState extends State<ReceiverShipmentsScreen>
                     ],
                   ),
                   const SizedBox(height: 10),
-                  _exactMapRoute(context, d),
+                  StackedRouteEndpoints(
+                    from: d.exactDisplayFrom,
+                    to: d.exactDisplayTo,
+                    fallbackRoute: d.exactDisplayRoute,
+                  ),
                   if (d.description.trim().isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Text(d.description, style: context.typo.sm),
@@ -660,53 +666,6 @@ class _ReceiverShipmentsScreenState extends State<ReceiverShipmentsScreen>
           );
         },
       ),
-    );
-  }
-
-  /// Exact map places as stacked From / To — readable wraps, no cramped arrow line.
-  Widget _exactMapRoute(BuildContext context, CreatedDelivery delivery) {
-    final typo = context.typo;
-    final from = delivery.exactDisplayFrom.trim();
-    final to = delivery.exactDisplayTo.trim();
-    if (from.isEmpty && to.isEmpty) {
-      final fallback = delivery.exactDisplayRoute.trim();
-      return Text(
-        fallback.isNotEmpty ? fallback : '—',
-        style: typo.sm.copyWith(height: 1.4, color: AppColors.textPrimary),
-      );
-    }
-
-    final placeStyle = typo.sm.copyWith(
-      height: 1.4,
-      color: AppColors.textPrimary,
-    );
-    final labelStyle = typo.sm.copyWith(
-      fontSize: 11,
-      fontWeight: FontWeight.w700,
-      letterSpacing: 0.4,
-    );
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (from.isNotEmpty) ...[
-          Text(
-            'FROM',
-            style: labelStyle.copyWith(color: AppColors.primary),
-          ),
-          const SizedBox(height: 3),
-          Text(from, style: placeStyle),
-        ],
-        if (from.isNotEmpty && to.isNotEmpty) const SizedBox(height: 10),
-        if (to.isNotEmpty) ...[
-          Text(
-            'TO',
-            style: labelStyle.copyWith(color: AppColors.success),
-          ),
-          const SizedBox(height: 3),
-          Text(to, style: placeStyle),
-        ],
-      ],
     );
   }
 
@@ -1061,9 +1020,11 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen>
   bool _loading = true;
   String? _error;
   CreatedDelivery? _delivery;
+  bool _reviewedTraveler = false;
 
   NotificationRealtimeProvider? _realtimeProvider;
   VoidCallback? _realtimeListener;
+  VoidCallback? _reviewStoreListener;
   int _lastDeliveryUpdateTick = 0;
   Timer? _statusPollTimer;
   int _loadGeneration = 0;
@@ -1077,6 +1038,8 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen>
       _ensureRealtime();
       _load();
       _attachRealtimeListener();
+      _attachReviewStoreListener();
+      _loadReviewFlag();
       _startStatusPoll();
     });
   }
@@ -1086,6 +1049,7 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.shipmentId != widget.shipmentId) {
       _load();
+      _loadReviewFlag();
     }
   }
 
@@ -1138,11 +1102,40 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen>
     realtime.addListener(_realtimeListener!);
   }
 
+  void _attachReviewStoreListener() {
+    if (_reviewStoreListener != null) return;
+    _reviewStoreListener = () {
+      if (!mounted) return;
+      _loadReviewFlag();
+    };
+    DeliveryReviewStore.version.addListener(_reviewStoreListener!);
+  }
+
+  Future<void> _loadReviewFlag() async {
+    final shipmentId =
+        widget.shipmentId?.trim().isNotEmpty == true
+            ? widget.shipmentId!.trim()
+            : (_delivery?.displayId ?? '');
+    if (shipmentId.isEmpty) return;
+    final userId = context.read<AuthProvider>().user?.id ?? '';
+    final done = await DeliveryReviewStore.hasSubmitted(
+      reviewerUserId: userId,
+      shipmentId: shipmentId,
+      reviewerRole: WalletRole.receiver,
+      revieweeRole: WalletRole.traveler,
+    );
+    if (!mounted) return;
+    setState(() => _reviewedTraveler = done);
+  }
+
   @override
   void dispose() {
     _statusPollTimer?.cancel();
     if (_realtimeListener != null) {
       _realtimeProvider?.removeListener(_realtimeListener!);
+    }
+    if (_reviewStoreListener != null) {
+      DeliveryReviewStore.version.removeListener(_reviewStoreListener!);
     }
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
@@ -1192,6 +1185,7 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen>
           _loading = false;
           _error = null;
         });
+        await _loadReviewFlag();
       } on ApiException catch (e) {
         if (!mounted || generation != _loadGeneration) return;
         if (silent && _delivery != null) return;
@@ -1229,6 +1223,7 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen>
         _loading = false;
         _error = null;
       });
+      await _loadReviewFlag();
     } on ApiException catch (e) {
       if (!mounted || generation != _loadGeneration) return;
       if (silent && _delivery != null) return;
@@ -1342,13 +1337,14 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen>
                       style: typo.h3.copyWith(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 12),
-                    _routeDetail(
-                      context,
+                    StackedRouteEndpoints(
                       from: delivery.exactDisplayFrom,
                       to: delivery.exactDisplayTo,
-                      fallback: delivery.exactDisplayRoute.isNotEmpty
+                      fallbackRoute: delivery.exactDisplayRoute.isNotEmpty
                           ? delivery.exactDisplayRoute
                           : shipment.route,
+                      sectionLabel: 'Route',
+                      bottomPadding: 12,
                     ),
                     _detailRow(
                       context,
@@ -1390,7 +1386,7 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen>
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'NFC Checkpoint 2 — Confirm delivery',
+                              'NFC Checkpoint Traveler & Receiver',
                               style: typo.h3.copyWith(fontWeight: FontWeight.w700),
                             ),
                           ),
@@ -1398,13 +1394,12 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen>
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Meet the traveler and tap phones (or use Simulate tap) to confirm you received the parcel. Both of you must complete NFC Checkpoint 2.',
+                        'Meet the traveler and tap phones (or use Simulate tap) to confirm you received the parcel. Both of you must complete NFC Checkpoint Traveler & Receiver.',
                         style: typo.sm.copyWith(height: 1.5),
                       ),
                       const SizedBox(height: 16),
                       AppButton(
-                        label: 'Confirm delivery (NFC)',
-                        icon: const Icon(Icons.nfc, size: 18, color: Colors.white),
+                        label: 'Start NFC with Traveler',
                         onPressed: () async {
                           await context.push(
                             '/nfc-confirm',
@@ -1475,82 +1470,20 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen>
                   const SizedBox(height: AppButton.stackGap),
                   AppButton(
                     label: 'Leave a review',
-                    onPressed: () => context.push(
-                      deliveryReviewRoute(
-                        shipmentId: delivery.displayId,
-                        reviewerRole: WalletRole.receiver,
-                      ),
-                    ),
+                    onPressed: _reviewedTraveler
+                        ? null
+                        : () => context.push(
+                              deliveryReviewRoute(
+                                shipmentId: delivery.displayId,
+                                reviewerRole: WalletRole.receiver,
+                              ),
+                            ),
                   ),
                 ],
               ],
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _routeDetail(
-    BuildContext context, {
-    required String from,
-    required String to,
-    required String fallback,
-  }) {
-    final typo = context.typo;
-    final fromPlace = from.trim();
-    final toPlace = to.trim();
-
-    if (fromPlace.isEmpty && toPlace.isEmpty) {
-      return _detailRow(
-        context,
-        'Route',
-        fallback.trim().isNotEmpty ? fallback.trim() : '—',
-      );
-    }
-
-    final valueStyle = typo.bodyBold.copyWith(
-      fontWeight: FontWeight.w400,
-      height: 1.35,
-      color: AppColors.textPrimary,
-    );
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Route', style: typo.sm),
-          const SizedBox(height: 8),
-          if (fromPlace.isNotEmpty) ...[
-            Text(
-              'FROM',
-              style: typo.sm.copyWith(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.4,
-                color: AppColors.primary,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(fromPlace, style: valueStyle),
-          ],
-          if (fromPlace.isNotEmpty && toPlace.isNotEmpty)
-            const SizedBox(height: 10),
-          if (toPlace.isNotEmpty) ...[
-            Text(
-              'TO',
-              style: typo.sm.copyWith(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.4,
-                color: AppColors.success,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(toPlace, style: valueStyle),
-          ],
-        ],
       ),
     );
   }
@@ -1578,7 +1511,7 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen>
   }
 }
 
-class ReceiverNfcDeliverySuccessScreen extends StatelessWidget {
+class ReceiverNfcDeliverySuccessScreen extends StatefulWidget {
   const ReceiverNfcDeliverySuccessScreen({
     super.key,
     required this.shipmentId,
@@ -1589,23 +1522,75 @@ class ReceiverNfcDeliverySuccessScreen extends StatelessWidget {
   final bool waitingForPeer;
 
   @override
+  State<ReceiverNfcDeliverySuccessScreen> createState() =>
+      _ReceiverNfcDeliverySuccessScreenState();
+}
+
+class _ReceiverNfcDeliverySuccessScreenState
+    extends State<ReceiverNfcDeliverySuccessScreen> {
+  bool _reviewedTraveler = false;
+  VoidCallback? _reviewStoreListener;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _attachReviewStoreListener();
+      _loadReviewFlag();
+    });
+  }
+
+  void _attachReviewStoreListener() {
+    if (_reviewStoreListener != null) return;
+    _reviewStoreListener = () {
+      if (!mounted) return;
+      _loadReviewFlag();
+    };
+    DeliveryReviewStore.version.addListener(_reviewStoreListener!);
+  }
+
+  Future<void> _loadReviewFlag() async {
+    final userId = context.read<AuthProvider>().user?.id ?? '';
+    final done = await DeliveryReviewStore.hasSubmitted(
+      reviewerUserId: userId,
+      shipmentId: widget.shipmentId,
+      reviewerRole: WalletRole.receiver,
+      revieweeRole: WalletRole.traveler,
+    );
+    if (!mounted) return;
+    setState(() => _reviewedTraveler = done);
+  }
+
+  @override
+  void dispose() {
+    if (_reviewStoreListener != null) {
+      DeliveryReviewStore.version.removeListener(_reviewStoreListener!);
+    }
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final typo = context.typo;
+    final waitingForPeer = widget.waitingForPeer;
+    final shipmentId = widget.shipmentId;
     final title = waitingForPeer
         ? 'Waiting for traveler'
-        : 'NFC Checkpoint 2 complete';
+        : 'NFC Checkpoint Traveler & Receiver complete';
     final body = waitingForPeer
-        ? 'Your NFC tap for $shipmentId is recorded. Ask the traveler to complete their NFC Checkpoint 2 tap to confirm delivery and release escrow.'
-        : 'Final delivery confirmed for $shipmentId. Parcel marked Delivered. Escrow released to traveler. Leave a review is now available.';
+        ? 'Your NFC tap for $shipmentId is recorded. Ask the traveler to complete their NFC Checkpoint Traveler & Receiver tap to confirm delivery and release escrow.'
+        : 'You and the Traveler successfully verified the same trip/delivery. The Traveler is handing over the parcel to you (the correct Receiver), and this parcel belongs to this exact trip/delivery.';
 
     return Scaffold(
       backgroundColor: AppColors.surface,
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(32),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              const SizedBox(height: 24),
               Container(
                 width: 80,
                 height: 80,
@@ -1616,20 +1601,69 @@ class ReceiverNfcDeliverySuccessScreen extends StatelessWidget {
                 ),
                 alignment: Alignment.center,
                 child: Icon(
-                  waitingForPeer ? Icons.hourglass_top_rounded : Icons.nfc,
+                  waitingForPeer
+                      ? Icons.hourglass_top_rounded
+                      : Icons.check_circle_rounded,
                   size: 40,
                   color: waitingForPeer ? AppColors.primary : AppColors.success,
                 ),
               ),
               const SizedBox(height: 20),
               Text(title, style: typo.h1, textAlign: TextAlign.center),
-              const SizedBox(height: 8),
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: BoxDecoration(
+                  color: AppColors.success.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: AppColors.success.withValues(alpha: 0.28),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      'Trip / Delivery ID',
+                      textAlign: TextAlign.center,
+                      style: typo.sm.copyWith(
+                        color: AppColors.success,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      shipmentId,
+                      textAlign: TextAlign.center,
+                      style: typo.h2.copyWith(color: AppColors.success),
+                    ),
+                    if (!waitingForPeer) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        'Traveler ↔ Receiver verified this exact ID',
+                        textAlign: TextAlign.center,
+                        style: typo.sm.copyWith(
+                          color: AppColors.success,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
               Text(
                 body,
                 textAlign: TextAlign.center,
                 style: typo.sm.copyWith(height: 1.5),
               ),
               if (!waitingForPeer) ...[
+                const SizedBox(height: 12),
+                Text(
+                  'Parcel status is now Delivered. Escrow has been released to the traveler. You can leave a review.',
+                  textAlign: TextAlign.center,
+                  style: typo.sm.copyWith(height: 1.5),
+                ),
                 const SizedBox(height: 24),
                 AppCard(
                   margin: EdgeInsets.zero,
@@ -1658,14 +1692,17 @@ class ReceiverNfcDeliverySuccessScreen extends StatelessWidget {
                 AppButton(
                   label: 'Leave a review',
                   variant: AppButtonVariant.outline,
-                  onPressed: () => context.push(
-                    deliveryReviewRoute(
-                      shipmentId: shipmentId,
-                      reviewerRole: WalletRole.receiver,
-                    ),
-                  ),
+                  onPressed: _reviewedTraveler
+                      ? null
+                      : () => context.push(
+                            deliveryReviewRoute(
+                              shipmentId: shipmentId,
+                              reviewerRole: WalletRole.receiver,
+                            ),
+                          ),
                 ),
               ],
+              const SizedBox(height: 24),
             ],
           ),
         ),

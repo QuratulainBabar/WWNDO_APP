@@ -184,7 +184,7 @@ class _ReceiverInfoSectionState extends State<ReceiverInfoSection> {
                   const FieldInfoTag(
                     title: 'Traveler ↔ Receiver meetup',
                     message:
-                        'This is the destination meetup spot where the traveler will meet the receiver to deliver the parcel (NFC Checkpoint 2).\n\n'
+                        'This is the destination meetup spot where the traveler will meet the receiver to deliver the parcel (NFC Checkpoint Traveler & Receiver).\n\n'
                         'Choose a public place in the To / destination city.',
                   ),
                 ],

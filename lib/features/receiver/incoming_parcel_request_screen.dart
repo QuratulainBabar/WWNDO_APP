@@ -315,11 +315,13 @@ class _IncomingParcelRequestScreenState
                                   context,
                                   'Pickup location',
                                   current.pickupLocation,
+                                  valueAlign: TextAlign.left,
                                 ),
                                 _detailRow(
                                   context,
                                   'Receiver location',
                                   current.receiverLocation,
+                                  valueAlign: TextAlign.left,
                                 ),
                                 _detailRow(
                                   context,
@@ -438,6 +440,7 @@ class _IncomingParcelRequestScreenState
     String value, {
     bool bold = false,
     Color? valueColor,
+    TextAlign valueAlign = TextAlign.right,
   }) {
     final typo = context.typo;
     return Padding(
@@ -450,7 +453,7 @@ class _IncomingParcelRequestScreenState
           Flexible(
             child: Text(
               value,
-              textAlign: TextAlign.right,
+              textAlign: valueAlign,
               style: (bold ? typo.bodyBold : typo.body).copyWith(
                 fontWeight: bold ? FontWeight.w700 : FontWeight.w600,
                 color: valueColor ?? AppColors.textPrimary,

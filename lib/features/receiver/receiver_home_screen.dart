@@ -15,6 +15,7 @@ import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_svg_icon.dart';
 import '../../core/widgets/back_link.dart';
 import '../../core/widgets/screen_body.dart';
+import '../../core/widgets/stacked_route_endpoints.dart';
 import '../../core/widgets/wallet_card.dart';
 import '../../data/models/created_delivery.dart';
 import '../../data/models/receiver_delivery_status.dart';
@@ -362,7 +363,11 @@ class _ReceiverHomeScreenState extends State<ReceiverHomeScreen>
               ],
             ),
             const SizedBox(height: 8),
-            _exactMapRoute(typo, shipment),
+            StackedRouteEndpoints(
+              from: shipment.exactDisplayFrom,
+              to: shipment.exactDisplayTo,
+              fallbackRoute: shipment.exactDisplayRoute,
+            ),
             const SizedBox(height: 8),
             Text(
               status.isPendingRequest
@@ -424,52 +429,6 @@ class _ReceiverHomeScreenState extends State<ReceiverHomeScreen>
           ),
         ),
       ),
-    );
-  }
-
-  /// Exact map places as stacked From / To — readable wraps, no cramped arrow line.
-  Widget _exactMapRoute(AppTypography typo, CreatedDelivery shipment) {
-    final from = shipment.exactDisplayFrom.trim();
-    final to = shipment.exactDisplayTo.trim();
-    if (from.isEmpty && to.isEmpty) {
-      final fallback = shipment.exactDisplayRoute.trim();
-      return Text(
-        fallback.isNotEmpty ? fallback : '—',
-        style: typo.sm.copyWith(height: 1.4),
-      );
-    }
-
-    final placeStyle = typo.sm.copyWith(
-      height: 1.4,
-      color: AppColors.textPrimary,
-    );
-    final labelStyle = typo.sm.copyWith(
-      fontSize: 11,
-      fontWeight: FontWeight.w700,
-      letterSpacing: 0.4,
-    );
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (from.isNotEmpty) ...[
-          Text(
-            'FROM',
-            style: labelStyle.copyWith(color: AppColors.primary),
-          ),
-          const SizedBox(height: 3),
-          Text(from, style: placeStyle),
-        ],
-        if (from.isNotEmpty && to.isNotEmpty) const SizedBox(height: 10),
-        if (to.isNotEmpty) ...[
-          Text(
-            'TO',
-            style: labelStyle.copyWith(color: AppColors.success),
-          ),
-          const SizedBox(height: 3),
-          Text(to, style: placeStyle),
-        ],
-      ],
     );
   }
 

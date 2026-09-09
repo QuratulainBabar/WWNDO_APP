@@ -108,8 +108,17 @@ class TravelerBid {
     return false;
   }
 
-  /// Counter Offers Sent should only include traveler-submitted counter offers.
-  bool get isCounterOfferSent => !isExactMaxBudgetAcceptance;
+  /// Accepted Offers list: only while still awaiting sender decision.
+  /// Once sender accepts (or rejects), the item moves to My Deliveries / drops.
+  bool get isPendingExactMaxBudgetAcceptance =>
+      isExactMaxBudgetAcceptance &&
+      (status == TravelerBidStatus.pending ||
+          status == TravelerBidStatus.updated);
+
+  /// Counter Offers Sent: traveler-submitted counters still awaiting sender
+  /// decision. Once the sender accepts, the delivery leaves this list.
+  bool get isCounterOfferSent =>
+      !isExactMaxBudgetAcceptance && status != TravelerBidStatus.accepted;
 
   /// Full sender-selected map / airport place for C2C (no country-only label).
   String get displayFrom => exactRouteEndpoint(

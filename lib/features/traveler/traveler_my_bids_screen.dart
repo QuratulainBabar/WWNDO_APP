@@ -12,15 +12,21 @@ import '../../core/widgets/app_avatar.dart';
 import '../../core/widgets/app_badge.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/back_header.dart';
+import '../../core/widgets/stacked_route_endpoints.dart';
 import '../../data/models/traveler_bid.dart';
 import '../../data/services/trip_repository.dart';
 import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/notification_realtime_provider.dart';
 
 /// Counter offers / accepted max-budget offers for the traveler — loaded from API.
 ///
+/// Default (Counter Offers Sent): traveler-submitted counters still awaiting
+/// the sender. Once the sender accepts, that delivery is removed from this list.
+///
 /// When [showAcceptedOffers] is true, lists only deliveries where the traveler
-/// accepted the sender's exact maximum budget (not negotiated counters).
+/// accepted the sender's exact maximum budget and the sender has not finalized
+/// yet (accepted / rejected / completed deliveries are removed from this list).
 class TravelerMyBidsScreen extends StatefulWidget {
   const TravelerMyBidsScreen({
     super.key,
@@ -37,13 +43,48 @@ class _TravelerMyBidsScreenState extends State<TravelerMyBidsScreen> {
   bool _loading = true;
   String? _error;
   List<TravelerBid> _offers = const [];
+  VoidCallback? _realtimeListener;
+  NotificationRealtimeProvider? _realtimeProvider;
+  int _lastDeliveryUpdateTick = 0;
 
   bool get _acceptedOnly => widget.showAcceptedOffers;
+
+  bool _matchesListFilter(TravelerBid o) => _acceptedOnly
+      ? o.isPendingExactMaxBudgetAcceptance
+      : o.isCounterOfferSent;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _load();
+      _attachRealtimeListener();
+    });
+  }
+
+  @override
+  void dispose() {
+    if (_realtimeListener != null) {
+      _realtimeProvider?.removeListener(_realtimeListener!);
+    }
+    super.dispose();
+  }
+
+  void _attachRealtimeListener() {
+    if (!mounted) return;
+    final realtime = context.read<NotificationRealtimeProvider>();
+    _realtimeProvider = realtime;
+    _lastDeliveryUpdateTick = realtime.deliveryUpdateTick;
+    _realtimeListener ??= () {
+      if (!mounted) return;
+      final tick = realtime.deliveryUpdateTick;
+      if (tick != _lastDeliveryUpdateTick) {
+        _lastDeliveryUpdateTick = tick;
+        // Sender accept / delivery updates → drop finalized items immediately.
+        _load(silent: true);
+      }
+    };
+    realtime.addListener(_realtimeListener!);
   }
 
   TripRepository _repo() {
@@ -55,20 +96,18 @@ class _TravelerMyBidsScreenState extends State<TravelerMyBidsScreen> {
     );
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final offers = (await _repo().listCounterOffers(
         acceptancesOnly: _acceptedOnly,
       ))
-          .where(
-            (o) => _acceptedOnly
-                ? o.isExactMaxBudgetAcceptance
-                : o.isCounterOfferSent,
-          )
+          .where(_matchesListFilter)
           .toList();
       if (!mounted) return;
       // Keep local Counter Offers Sent cache in sync only for the counter list.
@@ -78,17 +117,13 @@ class _TravelerMyBidsScreenState extends State<TravelerMyBidsScreen> {
       setState(() {
         _offers = offers;
         _loading = false;
+        _error = null;
       });
     } catch (_) {
       if (!mounted) return;
       // Demo / offline fallback to in-memory bids.
-      final fallback = StaticData.travelerBids
-          .where(
-            (o) => _acceptedOnly
-                ? o.isExactMaxBudgetAcceptance
-                : o.isCounterOfferSent,
-          )
-          .toList();
+      final fallback =
+          StaticData.travelerBids.where(_matchesListFilter).toList();
       setState(() {
         _offers = fallback;
         _loading = false;
@@ -108,10 +143,10 @@ class _TravelerMyBidsScreenState extends State<TravelerMyBidsScreen> {
     final title =
         _acceptedOnly ? 'Accepted Offers' : 'Counter Offers Sent';
     final subtitle = _acceptedOnly
-        ? 'These are deliveries where you accepted the sender\'s maximum budget.'
+        ? 'Offers where you accepted the sender\'s max budget. Once the sender confirms, they move to My Deliveries.'
         : 'These are the counter offers you have sent to senders.';
     final emptyLabel = _acceptedOnly
-        ? 'No accepted offers yet.'
+        ? 'No pending accepted offers.'
         : 'No counter offers yet.';
 
     return Scaffold(
@@ -177,10 +212,13 @@ class _TravelerMyBidsScreenState extends State<TravelerMyBidsScreen> {
                                   padding: const EdgeInsets.only(bottom: 12),
                                   child: _CounterOfferCard(
                                     bid: bid,
-                                    onTap: () => context.push(
-                                      '/traveler-bid-detail/${bid.id}',
-                                      extra: bid,
-                                    ),
+                                    onTap: () async {
+                                      await context.push(
+                                        '/traveler-bid-detail/${bid.id}',
+                                        extra: bid,
+                                      );
+                                      if (mounted) await _load(silent: true);
+                                    },
                                   ),
                                 );
                               },
@@ -226,8 +264,12 @@ class _CounterOfferCard extends StatelessWidget {
                       bid.senderName,
                       style: typo.bodyBold.copyWith(fontWeight: FontWeight.w700),
                     ),
-                    const SizedBox(height: 2),
-                    Text(bid.route, style: typo.sm),
+                    const SizedBox(height: 6),
+                    StackedRouteEndpoints(
+                      from: bid.displayFrom,
+                      to: bid.displayTo,
+                      fallbackRoute: bid.route,
+                    ),
                   ],
                 ),
               ),

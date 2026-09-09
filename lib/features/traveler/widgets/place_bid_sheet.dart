@@ -6,6 +6,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_labeled_field.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/stacked_route_endpoints.dart';
 import '../../../data/models/delivery_request.dart';
 
 /// Bottom sheet for placing a traveler bid on a parcel request.
@@ -94,9 +95,11 @@ class _PlaceBidSheetState extends State<PlaceBidSheet> {
                 style: typo.h3.copyWith(fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 6),
-              Text(
-                request.route,
-                style: typo.body.copyWith(fontWeight: FontWeight.w500),
+              StackedRouteEndpoints(
+                from: request.fromCity,
+                to: request.toCity,
+                fallbackRoute: request.route,
+                emphasized: true,
               ),
               const SizedBox(height: 4),
               Text(

@@ -12,6 +12,7 @@ import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_svg_icon.dart';
 import '../../core/widgets/back_link.dart';
 import '../../core/widgets/screen_body.dart';
+import '../../core/widgets/stacked_route_endpoints.dart';
 import '../../core/widgets/wallet_card.dart';
 import '../../data/delivery_status_mapper.dart';
 import '../../data/models/created_delivery.dart';
@@ -456,11 +457,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               ],
             ),
             const SizedBox(height: 8),
-            Text(
-              delivery.displayRoute.isNotEmpty ? delivery.displayRoute : '—',
-              style: typo.sm,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+            StackedRouteEndpoints(
+              from: delivery.exactDisplayFrom,
+              to: delivery.exactDisplayTo,
+              fallbackRoute: delivery.exactDisplayRoute,
             ),
             if (requests.isNotEmpty) ...[
               const SizedBox(height: 6),

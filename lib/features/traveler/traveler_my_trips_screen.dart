@@ -10,6 +10,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/back_link.dart';
+import '../../core/widgets/stacked_route_endpoints.dart';
 import '../../data/models/traveler_trip.dart';
 import '../../data/services/trip_repository.dart';
 import '../../data/static_data.dart';
@@ -154,7 +155,10 @@ class _TravelerMyTripsScreenState extends State<TravelerMyTripsScreen>
     }
   }
 
-  List<PopupMenuEntry<String>> _menuItems(BuildContext context) {
+  List<PopupMenuEntry<String>> _menuItems(
+    BuildContext context, {
+    required bool canEditOrCancel,
+  }) {
     final typo = context.typo;
     final itemStyle = typo.body.copyWith(fontWeight: FontWeight.w400);
 
@@ -164,36 +168,38 @@ class _TravelerMyTripsScreenState extends State<TravelerMyTripsScreen>
         height: 42,
         child: Text('View', style: itemStyle),
       ),
-      const PopupMenuItem<String>(
-        enabled: false,
-        height: 1,
-        padding: EdgeInsets.zero,
-        child: Divider(
+      if (canEditOrCancel) ...[
+        const PopupMenuItem<String>(
+          enabled: false,
           height: 1,
-          thickness: 1,
-          color: AppColors.border,
+          padding: EdgeInsets.zero,
+          child: Divider(
+            height: 1,
+            thickness: 1,
+            color: AppColors.border,
+          ),
         ),
-      ),
-      PopupMenuItem(
-        value: 'edit',
-        height: 42,
-        child: Text('Edit', style: itemStyle),
-      ),
-      const PopupMenuItem<String>(
-        enabled: false,
-        height: 1,
-        padding: EdgeInsets.zero,
-        child: Divider(
+        PopupMenuItem(
+          value: 'edit',
+          height: 42,
+          child: Text('Edit', style: itemStyle),
+        ),
+        const PopupMenuItem<String>(
+          enabled: false,
           height: 1,
-          thickness: 1,
-          color: AppColors.border,
+          padding: EdgeInsets.zero,
+          child: Divider(
+            height: 1,
+            thickness: 1,
+            color: AppColors.border,
+          ),
         ),
-      ),
-      PopupMenuItem(
-        value: 'cancel',
-        height: 42,
-        child: Text('Cancel', style: itemStyle),
-      ),
+        PopupMenuItem(
+          value: 'cancel',
+          height: 42,
+          child: Text('Cancel', style: itemStyle),
+        ),
+      ],
     ];
   }
 
@@ -231,25 +237,29 @@ class _TravelerMyTripsScreenState extends State<TravelerMyTripsScreen>
               ),
               child: Row(
                 children: [
-                  _tab(
-                    context,
-                    'Active',
-                    _tabFilter == _MyTripsTab.active,
-                    () => setState(() => _tabFilter = _MyTripsTab.active),
+                  Expanded(
+                    child: _tab(
+                      context,
+                      'Active',
+                      _tabFilter == _MyTripsTab.active,
+                      () => setState(() => _tabFilter = _MyTripsTab.active),
+                    ),
                   ),
-                  const SizedBox(width: 28),
-                  _tab(
-                    context,
-                    'Completed',
-                    _tabFilter == _MyTripsTab.completed,
-                    () => setState(() => _tabFilter = _MyTripsTab.completed),
+                  Expanded(
+                    child: _tab(
+                      context,
+                      'Completed',
+                      _tabFilter == _MyTripsTab.completed,
+                      () => setState(() => _tabFilter = _MyTripsTab.completed),
+                    ),
                   ),
-                  const SizedBox(width: 28),
-                  _tab(
-                    context,
-                    'Cancelled',
-                    _tabFilter == _MyTripsTab.cancelled,
-                    () => setState(() => _tabFilter = _MyTripsTab.cancelled),
+                  Expanded(
+                    child: _tab(
+                      context,
+                      'Cancelled',
+                      _tabFilter == _MyTripsTab.cancelled,
+                      () => setState(() => _tabFilter = _MyTripsTab.cancelled),
+                    ),
                   ),
                 ],
               ),
@@ -315,12 +325,17 @@ class _TravelerMyTripsScreenState extends State<TravelerMyTripsScreen>
         padding: EdgeInsets.fromLTRB(horizontal, 20, horizontal, 24),
         itemCount: trips.length,
         itemBuilder: (context, i) {
+          final trip = trips[i];
           return Padding(
             padding: EdgeInsets.only(bottom: i == trips.length - 1 ? 0 : 10),
             child: _TripCard(
-              trip: trips[i],
-              onMenuSelected: (value) => _onMenuSelected(value, trips[i]),
-              menuItems: _menuItems,
+              trip: trip,
+              onTap: () => openTravelerTripDeliveryDetail(context, trip),
+              onMenuSelected: (value) => _onMenuSelected(value, trip),
+              menuItems: (ctx) => _menuItems(
+                ctx,
+                canEditOrCancel: trip.status.canEditOrCancel,
+              ),
             ),
           );
         },
@@ -337,8 +352,11 @@ class _TravelerMyTripsScreenState extends State<TravelerMyTripsScreen>
     final typo = context.typo;
     return GestureDetector(
       onTap: onTap,
+      behavior: HitTestBehavior.opaque,
       child: Container(
+        width: double.infinity,
         padding: const EdgeInsets.only(top: 4, bottom: 12),
+        alignment: Alignment.center,
         decoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(
@@ -349,6 +367,7 @@ class _TravelerMyTripsScreenState extends State<TravelerMyTripsScreen>
         ),
         child: Text(
           label,
+          textAlign: TextAlign.center,
           style: typo.body.copyWith(
             fontSize: 14,
             fontWeight: FontWeight.w700,
@@ -363,21 +382,23 @@ class _TravelerMyTripsScreenState extends State<TravelerMyTripsScreen>
 class _TripCard extends StatelessWidget {
   const _TripCard({
     required this.trip,
+    required this.onTap,
     required this.onMenuSelected,
     required this.menuItems,
   });
 
   final TravelerTrip trip;
+  final VoidCallback onTap;
   final ValueChanged<String> onMenuSelected;
   final List<PopupMenuEntry<String>> Function(BuildContext context) menuItems;
 
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
-    final showMenu = trip.status.canEditOrCancel;
 
     return AppCard(
       margin: EdgeInsets.zero,
+      onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -385,29 +406,28 @@ class _TripCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Text(
-                  trip.route,
-                  style: typo.h3.copyWith(fontWeight: FontWeight.w800),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                child: StackedRouteEndpoints(
+                  from: trip.displayOrigin,
+                  to: trip.displayDestination,
+                  fallbackRoute: trip.route,
+                  emphasized: true,
                 ),
               ),
-              if (showMenu)
-                PopupMenuButton<String>(
-                  icon: const Icon(
-                    Icons.more_vert,
-                    color: AppColors.textSecondary,
-                    size: 22,
-                  ),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(
-                    minWidth: 36,
-                    minHeight: 36,
-                  ),
-                  tooltip: 'More options',
-                  onSelected: onMenuSelected,
-                  itemBuilder: menuItems,
+              PopupMenuButton<String>(
+                icon: const Icon(
+                  Icons.more_vert,
+                  color: AppColors.textSecondary,
+                  size: 22,
                 ),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(
+                  minWidth: 36,
+                  minHeight: 36,
+                ),
+                tooltip: 'More options',
+                onSelected: onMenuSelected,
+                itemBuilder: menuItems,
+              ),
             ],
           ),
           const SizedBox(height: 6),

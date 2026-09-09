@@ -17,6 +17,7 @@ import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_labeled_field.dart';
 import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/back_header.dart';
+import '../../core/widgets/stacked_route_endpoints.dart';
 import '../../data/models/delivery_request.dart';
 import '../../data/models/matching_request.dart';
 import '../../data/models/sender_trip_request.dart';
@@ -382,7 +383,13 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      _detailRow(context, 'Route', request.route),
+                      StackedRouteEndpoints(
+                        from: request.fromCity,
+                        to: request.toCity,
+                        fallbackRoute: request.route,
+                        sectionLabel: 'Route',
+                        bottomPadding: 8,
+                      ),
                       _detailRow(
                         context,
                         'Travel / delivery date',

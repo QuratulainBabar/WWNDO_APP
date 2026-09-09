@@ -62,29 +62,20 @@ class SenderCounterOffer {
   /// Raw `route` string from the API (used as fallback only).
   final String apiRoute;
 
-  String get displayFrom {
-    final airport = (originAirport ?? '').trim();
-    if (airport.isNotEmpty) {
-      return compactRouteEndpoint(airport, country: originCountry);
-    }
-    return displayRouteEndpoint(
-      city: fromCity,
-      country: originCountry,
-      routeFallback: routeLeft(apiRoute),
-    );
-  }
+  /// Full map / airport place as chosen (no City, Country compaction).
+  String get displayFrom => exactRouteEndpoint(
+        airport: originAirport,
+        city: fromCity,
+        country: originCountry,
+        routeFallback: routeLeft(apiRoute),
+      );
 
-  String get displayTo {
-    final airport = (destinationAirport ?? '').trim();
-    if (airport.isNotEmpty) {
-      return compactRouteEndpoint(airport, country: destinationCountry);
-    }
-    return displayRouteEndpoint(
-      city: toCity,
-      country: destinationCountry,
-      routeFallback: routeRight(apiRoute),
-    );
-  }
+  String get displayTo => exactRouteEndpoint(
+        airport: destinationAirport,
+        city: toCity,
+        country: destinationCountry,
+        routeFallback: routeRight(apiRoute),
+      );
 
   String get route {
     final exact = formatRouteArrow(displayFrom, displayTo);

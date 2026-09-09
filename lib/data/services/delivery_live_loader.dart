@@ -106,6 +106,8 @@ abstract final class DeliveryLiveLoader {
       senderName: delivery.senderName,
       travelerId: delivery.travelerId,
       travelerName: delivery.travelerName,
+      tripId: delivery.tripId,
+      tripPublicId: delivery.tripPublicId,
       receiverId: delivery.receiverId,
       receiverName: delivery.receiverName,
       bidAmount: delivery.bidAmount,

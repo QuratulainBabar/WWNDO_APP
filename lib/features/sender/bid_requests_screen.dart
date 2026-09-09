@@ -24,6 +24,7 @@ import '../../data/services/delivery_repository.dart';
 import '../../data/services/trip_repository.dart';
 import '../../data/static_data.dart';
 import '../../core/widgets/app_toast.dart';
+import '../../core/widgets/stacked_route_endpoints.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_realtime_provider.dart';
 import 'bid_acceptance_payment_screen.dart';
@@ -389,7 +390,11 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
 
     final summary = _ParcelSummary(
       id: delivery.displayId,
-      route: delivery.displayRoute.isNotEmpty ? delivery.displayRoute : '—',
+      from: delivery.exactDisplayFrom,
+      to: delivery.exactDisplayTo,
+      route: delivery.exactDisplayRoute.isNotEmpty
+          ? delivery.exactDisplayRoute
+          : '—',
       travelDate: delivery.travelDateParsed ?? DateTime.now(),
       weightKg: delivery.weightKg,
     );
@@ -484,12 +489,16 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
 class _ParcelSummary {
   const _ParcelSummary({
     required this.id,
+    required this.from,
+    required this.to,
     required this.route,
     required this.travelDate,
     required this.weightKg,
   });
 
   final String id;
+  final String from;
+  final String to;
   final String route;
   final DateTime travelDate;
   final double weightKg;
@@ -516,7 +525,11 @@ class _ParcelSummaryCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          Text(summary.route, style: typo.sm),
+          StackedRouteEndpoints(
+            from: summary.from,
+            to: summary.to,
+            fallbackRoute: summary.route,
+          ),
           const SizedBox(height: 4),
           Text(
             'Travel date: ${DateFormat('MMM d, yyyy').format(summary.travelDate)}'

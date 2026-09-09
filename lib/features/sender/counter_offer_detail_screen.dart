@@ -15,6 +15,7 @@ import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/back_header.dart';
+import '../../core/widgets/stacked_route_endpoints.dart';
 import '../../data/models/bid.dart';
 import '../../data/models/sender_counter_offer.dart';
 import '../../data/models/traveler_bid.dart';
@@ -409,10 +410,12 @@ class _CounterOfferDetailScreenState extends State<CounterOfferDetailScreen> {
                               'Shipment ID',
                               offer.deliveryPublicId ?? '—',
                             ),
-                            _detailRow(
-                              context,
-                              'Route',
-                              offer.route.isNotEmpty ? offer.route : '—',
+                            StackedRouteEndpoints(
+                              from: offer.displayFrom,
+                              to: offer.displayTo,
+                              fallbackRoute: offer.route,
+                              sectionLabel: 'Route',
+                              bottomPadding: 8,
                             ),
                             _detailRow(context, 'Travel date', travelDate),
                             _detailRow(

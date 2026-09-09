@@ -13,6 +13,7 @@ import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/back_header.dart';
 import '../../core/widgets/cancel_request_confirmation_dialog.dart';
 import '../../core/widgets/scrollable_form_screen.dart';
+import '../../core/widgets/stacked_route_endpoints.dart';
 import '../../data/models/created_delivery.dart';
 import '../../data/delivery_lifecycle.dart';
 import '../../data/services/delivery_repository.dart';
@@ -249,9 +250,11 @@ class _CancelPostedDeliveryScreenState extends State<CancelPostedDeliveryScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      delivery.route,
-                      style: typo.h3.copyWith(fontWeight: FontWeight.w800),
+                    StackedRouteEndpoints(
+                      from: delivery.exactDisplayFrom,
+                      to: delivery.exactDisplayTo,
+                      fallbackRoute: delivery.exactDisplayRoute,
+                      emphasized: true,
                     ),
                     const SizedBox(height: 6),
                     Text(

@@ -61,7 +61,6 @@ import '../features/tracking/tracking_screens.dart';
 import '../features/traveler/traveler_home_screen.dart';
 import '../features/traveler/traveler_my_trips_screen.dart';
 import '../features/traveler/edit_trip_screen.dart';
-import '../features/traveler/view_trip_screen.dart';
 import '../features/traveler/cancel_trip_screen.dart';
 import '../features/traveler/traveler_profile_screen.dart';
 import '../features/traveler/traveler_shell.dart';
@@ -749,13 +748,6 @@ final appRouter = GoRouter(
       parentNavigatorKey: rootNavigatorKey,
       builder: (_, state) => PostTripSuccessScreen(
         route: state.extra as String? ?? StaticData.deliveryRequests.first.route,
-      ),
-    ),
-    GoRoute(
-      path: '/view-trip/:id',
-      parentNavigatorKey: rootNavigatorKey,
-      builder: (_, state) => ViewTripScreen(
-        tripId: state.pathParameters['id']!,
       ),
     ),
     GoRoute(

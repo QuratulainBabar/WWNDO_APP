@@ -28,6 +28,7 @@ import '../../core/widgets/back_header.dart';
 import '../../core/widgets/back_link.dart';
 import '../../core/widgets/role_switch_card.dart';
 import '../../core/widgets/screen_body.dart';
+import '../../core/widgets/stacked_route_endpoints.dart';
 import '../../data/models/created_delivery.dart';
 import '../../data/models/shipment.dart';
 import '../../data/models/ledger_entry.dart';
@@ -627,9 +628,8 @@ class _ShipmentHistoryScreenState extends State<ShipmentHistoryScreen> {
                           ],
                         ),
                         const SizedBox(height: 10),
-                        Text(
-                          s.route.isNotEmpty ? s.route : '—',
-                          style: typo.sm.copyWith(color: AppColors.textPrimary),
+                        StackedRouteEndpoints.split(
+                          s.route,
                         ),
                         const SizedBox(height: 12),
                         Text(

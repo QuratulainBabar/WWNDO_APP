@@ -14,10 +14,14 @@ import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_svg_icon.dart';
 import '../../core/widgets/back_link.dart';
+import '../../core/widgets/delivery_status_badge.dart';
 import '../../core/widgets/screen_body.dart';
+import '../../core/widgets/stacked_route_endpoints.dart';
 import '../../core/widgets/wallet_card.dart';
+import '../../data/models/created_delivery.dart';
 import '../../data/models/traveler_trip.dart';
 import '../../data/models/wallet_role.dart';
+import '../../data/services/delivery_repository.dart';
 import '../../data/services/trip_repository.dart';
 import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
@@ -36,6 +40,8 @@ class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
   String? _lastMatchedLocation;
   final GlobalKey<_MyTripsSectionState> _tripsKey =
       GlobalKey<_MyTripsSectionState>();
+  final GlobalKey<_MyDeliveriesSectionState> _deliveriesKey =
+      GlobalKey<_MyDeliveriesSectionState>();
   VoidCallback? _realtimeListener;
   NotificationRealtimeProvider? _realtimeProvider;
   int _lastDeliveryUpdateTick = 0;
@@ -67,6 +73,7 @@ class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
         if (!mounted) return;
         context.read<AuthProvider>().refreshUser();
         _tripsKey.currentState?.reload(silent: true);
+        _deliveriesKey.currentState?.reload(silent: true);
         _refreshSenderRequestBadge();
         context
             .read<WalletProvider>()
@@ -96,6 +103,7 @@ class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
       if (tick != _lastDeliveryUpdateTick) {
         _lastDeliveryUpdateTick = tick;
         _refreshSenderRequestBadge();
+        _deliveriesKey.currentState?.reload(silent: true);
         // Keep Wallet + Escrow in sync when Pay Now / Delivered updates arrive.
         context
             .read<WalletProvider>()
@@ -134,6 +142,7 @@ class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
     await Future.wait([
       context.read<AuthProvider>().refreshUser(),
       _tripsKey.currentState?.reload(silent: true) ?? Future<void>.value(),
+      _deliveriesKey.currentState?.reload(silent: true) ?? Future<void>.value(),
       _refreshSenderRequestBadge(),
       context.read<WalletProvider>().refresh(WalletRole.traveler, silent: true),
     ]);
@@ -249,7 +258,12 @@ class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
                   context,
                   AppIcons.track,
                   'My deliveries',
-                  () => context.push('/traveler-deliveries'),
+                  () async {
+                    await context.push('/traveler-deliveries');
+                    if (mounted) {
+                      _deliveriesKey.currentState?.reload(silent: true);
+                    }
+                  },
                 ),
               ],
             ),
@@ -271,6 +285,28 @@ class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Active Deliveries',
+                  style: typo.h3.copyWith(fontWeight: FontWeight.w700),
+                ),
+                GestureDetector(
+                  onTap: () => context.push('/traveler-deliveries'),
+                  child: Text(
+                    'See all',
+                    style: typo.sm.copyWith(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _MyDeliveriesSection(key: _deliveriesKey),
           ],
         ),
       ),
@@ -463,7 +499,10 @@ class _MyTripsSectionState extends State<_MyTripsSection> {
     }
   }
 
-  List<PopupMenuEntry<String>> _menuItems(BuildContext context) {
+  List<PopupMenuEntry<String>> _menuItems(
+    BuildContext context, {
+    required bool canEditOrCancel,
+  }) {
     final typo = context.typo;
     final itemStyle = typo.body.copyWith(fontWeight: FontWeight.w400);
 
@@ -473,36 +512,38 @@ class _MyTripsSectionState extends State<_MyTripsSection> {
         height: 42,
         child: Text('View', style: itemStyle),
       ),
-      const PopupMenuItem<String>(
-        enabled: false,
-        height: 1,
-        padding: EdgeInsets.zero,
-        child: Divider(
+      if (canEditOrCancel) ...[
+        const PopupMenuItem<String>(
+          enabled: false,
           height: 1,
-          thickness: 1,
-          color: AppColors.border,
+          padding: EdgeInsets.zero,
+          child: Divider(
+            height: 1,
+            thickness: 1,
+            color: AppColors.border,
+          ),
         ),
-      ),
-      PopupMenuItem(
-        value: 'edit',
-        height: 42,
-        child: Text('Edit', style: itemStyle),
-      ),
-      const PopupMenuItem<String>(
-        enabled: false,
-        height: 1,
-        padding: EdgeInsets.zero,
-        child: Divider(
+        PopupMenuItem(
+          value: 'edit',
+          height: 42,
+          child: Text('Edit', style: itemStyle),
+        ),
+        const PopupMenuItem<String>(
+          enabled: false,
           height: 1,
-          thickness: 1,
-          color: AppColors.border,
+          padding: EdgeInsets.zero,
+          child: Divider(
+            height: 1,
+            thickness: 1,
+            color: AppColors.border,
+          ),
         ),
-      ),
-      PopupMenuItem(
-        value: 'cancel',
-        height: 42,
-        child: Text('Cancel', style: itemStyle),
-      ),
+        PopupMenuItem(
+          value: 'cancel',
+          height: 42,
+          child: Text('Cancel', style: itemStyle),
+        ),
+      ],
     ];
   }
 
@@ -545,13 +586,20 @@ class _MyTripsSectionState extends State<_MyTripsSection> {
       children: [
         for (var i = 0; i < _trips.length; i++) ...[
           if (i > 0) const SizedBox(height: 10),
-          _TripCard(
-            trip: _trips[i],
-            onMenuSelected: (value) => _onMenuSelected(value, _trips[i]),
-            menuItems: _menuItems,
-          ),
+          _tripCard(_trips[i]),
         ],
       ],
+    );
+  }
+
+  Widget _tripCard(TravelerTrip trip) {
+    return _TripCard(
+      trip: trip,
+      onMenuSelected: (value) => _onMenuSelected(value, trip),
+      menuItems: (ctx) => _menuItems(
+        ctx,
+        canEditOrCancel: trip.status.canEditOrCancel,
+      ),
     );
   }
 }
@@ -570,7 +618,6 @@ class _TripCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
-    final showMenu = trip.status.canEditOrCancel;
 
     return AppCard(
       margin: EdgeInsets.zero,
@@ -582,29 +629,28 @@ class _TripCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Text(
-                  trip.route,
-                  style: typo.h3.copyWith(fontWeight: FontWeight.w800),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                child: StackedRouteEndpoints(
+                  from: trip.displayOrigin,
+                  to: trip.displayDestination,
+                  fallbackRoute: trip.route,
+                  emphasized: true,
                 ),
               ),
-              if (showMenu)
-                PopupMenuButton<String>(
-                  icon: const Icon(
-                    Icons.more_vert,
-                    color: AppColors.textSecondary,
-                    size: 22,
-                  ),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(
-                    minWidth: 36,
-                    minHeight: 36,
-                  ),
-                  tooltip: 'More options',
-                  onSelected: onMenuSelected,
-                  itemBuilder: menuItems,
+              PopupMenuButton<String>(
+                icon: const Icon(
+                  Icons.more_vert,
+                  color: AppColors.textSecondary,
+                  size: 22,
                 ),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(
+                  minWidth: 36,
+                  minHeight: 36,
+                ),
+                tooltip: 'More options',
+                onSelected: onMenuSelected,
+                itemBuilder: menuItems,
+              ),
             ],
           ),
           const SizedBox(height: 6),
@@ -619,6 +665,187 @@ class _TripCard extends StatelessWidget {
               color: AppColors.primary,
               fontWeight: FontWeight.w600,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MyDeliveriesSection extends StatefulWidget {
+  const _MyDeliveriesSection({super.key});
+
+  @override
+  State<_MyDeliveriesSection> createState() => _MyDeliveriesSectionState();
+}
+
+class _MyDeliveriesSectionState extends State<_MyDeliveriesSection> {
+  List<CreatedDelivery> _deliveries = const [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => reload());
+  }
+
+  DeliveryRepository _repository() {
+    final auth = context.read<AuthProvider>();
+    final demoMode = context.read<DemoModeProvider>();
+    return DeliveryRepository(
+      apiClient: auth.repository.apiClient,
+      demoMode: demoMode,
+    );
+  }
+
+  List<CreatedDelivery> _activeOnly(List<CreatedDelivery> list) {
+    return list.where((d) {
+      final status = (d.status ?? '').toLowerCase();
+      return status != 'delivered' && status != 'cancelled';
+    }).toList();
+  }
+
+  Future<void> reload({bool silent = false}) async {
+    if (!mounted) return;
+
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
+
+    try {
+      final list = await _repository().listDeliveries(role: 'traveler');
+      if (!mounted) return;
+      setState(() {
+        _deliveries = _activeOnly(list);
+        _loading = false;
+        _error = null;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        if (_deliveries.isEmpty) {
+          _error = 'Unable to load deliveries. Tap to retry.';
+        }
+      });
+    }
+  }
+
+  Future<void> _openDelivery(CreatedDelivery delivery) async {
+    final id = delivery.publicId.isNotEmpty ? delivery.publicId : delivery.id;
+    await context.push('/shipment/$id?traveler=true');
+    if (mounted) await reload(silent: true);
+  }
+
+  String _formatTravelDate(String raw) {
+    final parsed = DateTime.tryParse(raw);
+    if (parsed == null) return raw.isEmpty ? '—' : raw;
+    return DateFormat('MMM d, yyyy').format(parsed);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final typo = context.typo;
+
+    if (_loading && _deliveries.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 16),
+        child: Center(
+          child: SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.5,
+              color: AppColors.primary,
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (_deliveries.isEmpty) {
+      return GestureDetector(
+        onTap: _error != null ? () => reload() : null,
+        child: AppCard(
+          margin: EdgeInsets.zero,
+          child: Text(
+            _error ?? 'No active deliveries yet.',
+            style: typo.sm.copyWith(color: AppColors.textSecondary, height: 1.4),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var i = 0; i < _deliveries.length; i++) ...[
+          if (i > 0) const SizedBox(height: 10),
+          _HomeDeliveryCard(
+            delivery: _deliveries[i],
+            formatTravelDate: _formatTravelDate,
+            onTap: () => _openDelivery(_deliveries[i]),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _HomeDeliveryCard extends StatelessWidget {
+  const _HomeDeliveryCard({
+    required this.delivery,
+    required this.formatTravelDate,
+    required this.onTap,
+  });
+
+  final CreatedDelivery delivery;
+  final String Function(String raw) formatTravelDate;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final typo = context.typo;
+    final id =
+        delivery.publicId.isNotEmpty ? delivery.publicId : delivery.id;
+
+    return AppCard(
+      onTap: onTap,
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+      margin: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  id,
+                  style: typo.h3.copyWith(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              DeliveryStatusBadge(delivery.status, semiBold: true),
+            ],
+          ),
+          const SizedBox(height: 10),
+          StackedRouteEndpoints(
+            from: delivery.exactDisplayFrom,
+            to: delivery.exactDisplayTo,
+            fallbackRoute: delivery.exactDisplayRoute,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Travel date: ${formatTravelDate(delivery.travelDate)}'
+            '${delivery.senderName != null && delivery.senderName!.isNotEmpty ? ' · ${delivery.senderName}' : ''}',
+            style: typo.sm.copyWith(color: AppColors.textSecondary),
           ),
         ],
       ),

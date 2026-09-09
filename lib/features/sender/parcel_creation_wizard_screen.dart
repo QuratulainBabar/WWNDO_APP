@@ -10,10 +10,10 @@ import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_chip.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_card.dart';
-import '../../core/widgets/app_chip.dart';
 import '../../core/widgets/app_labeled_field.dart';
 import '../../core/widgets/back_header.dart';
 import '../../core/widgets/screen_body.dart';
+import '../../core/widgets/stacked_route_endpoints.dart';
 import '../../data/models/parcel_creation_result.dart';
 import '../../data/models/traveler_trip.dart';
 import '../../data/static_data.dart';
@@ -212,10 +212,18 @@ class _ParcelCreationWizardScreenState extends State<ParcelCreationWizardScreen>
             margin: const EdgeInsets.only(bottom: 10),
             child: ListTile(
               contentPadding: EdgeInsets.zero,
-              title: Text(trip.route, style: typo.bodyBold),
-              subtitle: Text(
-                '${DateFormat('MMM d, yyyy').format(trip.travelDate)} · ${trip.luggageCapacityKg.toStringAsFixed(0)} kg capacity',
-                style: typo.sm,
+              title: StackedRouteEndpoints(
+                from: trip.displayOrigin,
+                to: trip.displayDestination,
+                fallbackRoute: trip.route,
+                emphasized: true,
+              ),
+              subtitle: Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  '${DateFormat('MMM d, yyyy').format(trip.travelDate)} · ${trip.luggageCapacityKg.toStringAsFixed(0)} kg capacity',
+                  style: typo.sm,
+                ),
               ),
               trailing: const Icon(Icons.chevron_right_rounded),
               onTap: () => setState(() {
@@ -395,7 +403,14 @@ class _ParcelCreationWizardScreenState extends State<ParcelCreationWizardScreen>
             children: [
               Text('Review', style: typo.bodyBold),
               const SizedBox(height: 8),
-              if (trip != null) Text('Route: ${trip.route}', style: typo.sm),
+              if (trip != null)
+                StackedRouteEndpoints(
+                  from: trip.displayOrigin,
+                  to: trip.displayDestination,
+                  fallbackRoute: trip.route,
+                  sectionLabel: 'Route',
+                  bottomPadding: 4,
+                ),
               Text('Category: ${_flow.category}', style: typo.sm),
               Text('Weight: ${_flow.weightKg.toStringAsFixed(1)} kg', style: typo.sm),
               Text('Volume: ${_flow.volume}', style: typo.sm),

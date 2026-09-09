@@ -11,6 +11,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/back_header.dart';
+import '../../core/widgets/stacked_route_endpoints.dart';
 import '../../data/delivery_status_mapper.dart';
 import '../../data/models/created_delivery.dart';
 import '../../data/models/shipment.dart';
@@ -251,8 +252,15 @@ class _SenderParcelWaitingScreenState extends State<SenderParcelWaitingScreen>
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 10),
+                      StackedRouteEndpoints(
+                        from: delivery.exactDisplayFrom,
+                        to: delivery.exactDisplayTo,
+                        fallbackRoute: delivery.exactDisplayRoute.isNotEmpty
+                            ? delivery.exactDisplayRoute
+                            : delivery.route,
+                      ),
+                      const SizedBox(height: 8),
                       Text(
-                        '${delivery.route}\n'
                         'Travel date: ${travelDate != null ? DateFormat('MMM d, yyyy').format(travelDate) : delivery.travelDate}',
                         textAlign: TextAlign.center,
                         style: typo.sm.copyWith(

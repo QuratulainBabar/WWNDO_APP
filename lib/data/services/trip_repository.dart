@@ -374,8 +374,9 @@ class TripRepository {
 
   /// GET /api/v1/trips/counter-offers
   ///
-  /// [acceptancesOnly] requests `filter=acceptance` — deliveries where the
-  /// traveler accepted the sender's exact maximum budget.
+  /// [acceptancesOnly] requests `filter=acceptance` — pending Accept Offer
+  /// rows only (sender-confirmed / completed deliveries are excluded).
+  /// Default lists traveler counter-offers that the sender has not accepted.
   Future<List<TravelerBid>> listCounterOffers({
     bool acceptancesOnly = false,
   }) async {
@@ -632,6 +633,7 @@ class TripRepository {
       destinationCountryCode: json['destinationCountryCode'] as String?,
       originAirport: originAirport,
       destinationAirport: destinationAirport,
+      linkedDeliveryPublicId: json['linkedDeliveryPublicId'] as String?,
     );
   }
 }

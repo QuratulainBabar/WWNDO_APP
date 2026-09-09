@@ -70,6 +70,7 @@ class TravelerTrip {
     this.destinationCountryCode,
     this.originAirport,
     this.destinationAirport,
+    this.linkedDeliveryPublicId,
   });
 
   final String id;
@@ -92,29 +93,21 @@ class TravelerTrip {
   final String? destinationCountryCode;
   final String? originAirport;
   final String? destinationAirport;
+  /// Linked WW-… shipment for traveler View → tracking screen.
+  final String? linkedDeliveryPublicId;
 
-  /// Exact map place when available (C2C airport), else stored origin/destination.
-  String get displayOrigin {
-    final airport = (originAirport ?? '').trim();
-    if (airport.isNotEmpty) {
-      return compactRouteEndpoint(airport, country: originCountry);
-    }
-    return displayRouteEndpoint(
-      city: origin,
-      country: originCountry,
-    );
-  }
+  /// Full map / airport place as chosen (no City, Country compaction).
+  String get displayOrigin => exactRouteEndpoint(
+        airport: originAirport,
+        city: origin,
+        country: originCountry,
+      );
 
-  String get displayDestination {
-    final airport = (destinationAirport ?? '').trim();
-    if (airport.isNotEmpty) {
-      return compactRouteEndpoint(airport, country: destinationCountry);
-    }
-    return displayRouteEndpoint(
-      city: destination,
-      country: destinationCountry,
-    );
-  }
+  String get displayDestination => exactRouteEndpoint(
+        airport: destinationAirport,
+        city: destination,
+        country: destinationCountry,
+      );
 
   String get route => formatRouteArrow(displayOrigin, displayDestination);
 

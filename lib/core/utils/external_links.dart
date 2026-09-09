@@ -52,4 +52,19 @@ class ExternalLinks {
     );
     return openUrl(uri.toString());
   }
+
+  /// Opens a place / address in the device Maps app (or browser).
+  ///
+  /// Uses Google Maps search so the exact sender-selected label
+  /// (city street, airport, etc.) resolves to that pin.
+  static Future<bool> openMapPlace(String query) async {
+    final q = query.trim();
+    if (q.isEmpty) return false;
+    final uri = Uri.https(
+      'www.google.com',
+      '/maps/search/',
+      {'api': '1', 'query': q},
+    );
+    return openUrl(uri.toString());
+  }
 }

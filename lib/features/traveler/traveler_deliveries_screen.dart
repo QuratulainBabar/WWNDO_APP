@@ -12,6 +12,7 @@ import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/back_link.dart';
 import '../../core/widgets/delivery_status_badge.dart';
+import '../../core/widgets/stacked_route_endpoints.dart';
 import '../../data/models/created_delivery.dart';
 import '../../data/services/delivery_repository.dart';
 import '../../providers/auth_provider.dart';
@@ -267,11 +268,10 @@ class _TravelerDeliveriesScreenState extends State<TravelerDeliveriesScreen>
                   ],
                 ),
                 const SizedBox(height: 10),
-                Text(
-                  d.exactDisplayRoute.isNotEmpty
-                      ? d.exactDisplayRoute
-                      : '—',
-                  style: typo.sm.copyWith(color: AppColors.textPrimary),
+                StackedRouteEndpoints(
+                  from: d.exactDisplayFrom,
+                  to: d.exactDisplayTo,
+                  fallbackRoute: d.exactDisplayRoute,
                 ),
                 const SizedBox(height: 8),
                 Text(

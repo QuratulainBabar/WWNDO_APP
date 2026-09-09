@@ -202,16 +202,10 @@ class Shipment {
     ShipmentRole role = ShipmentRole.sender,
     String? travelerName,
   }) {
-    // Traveler + receiver see the full sender-selected map place for C2C.
-    final useExact =
-        role == ShipmentRole.receiver || role == ShipmentRole.traveler;
-    final from =
-        useExact ? delivery.exactDisplayFrom : delivery.displayFrom;
-    final to = useExact ? delivery.exactDisplayTo : delivery.displayTo;
     return Shipment(
       id: delivery.displayId,
-      fromCity: from,
-      toCity: to,
+      fromCity: delivery.exactDisplayFrom,
+      toCity: delivery.exactDisplayTo,
       fromCode: delivery.fromCode ?? '',
       toCode: delivery.toCode ?? '',
       travelDate: delivery.travelDateParsed ?? DateTime.now(),

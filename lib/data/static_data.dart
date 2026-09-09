@@ -3146,7 +3146,7 @@ abstract final class StaticData {
         id: 'trv-cp2-ready-$shipmentId',
         role: WalletRole.traveler,
         type: AppNotificationType.nfcPrompt,
-        title: 'NFC Checkpoint 2 ready',
+        title: 'NFC Checkpoint Traveler & Receiver ready',
         body: 'Meet the receiver and complete NFC delivery for $shipmentId.',
         time: 'Just now',
         route: '/shipment/$shipmentId?traveler=true',
@@ -3157,8 +3157,9 @@ abstract final class StaticData {
         id: 'rcv-cp2-ready-$shipmentId',
         role: WalletRole.receiver,
         type: AppNotificationType.nfcPrompt,
-        title: 'NFC Checkpoint 2 ready',
-        body: 'Traveler is ready to hand off $shipmentId. Complete NFC Checkpoint 2.',
+        title: 'NFC Checkpoint Traveler & Receiver ready',
+        body:
+            'Traveler is ready to hand off $shipmentId. Complete NFC Checkpoint Traveler & Receiver.',
         time: 'Just now',
         route: '/receiver-tracking?shipmentId=$shipmentId',
       ),
@@ -3315,9 +3316,9 @@ abstract final class StaticData {
         id: 'snd-cp1-$shipmentId',
         role: WalletRole.sender,
         type: AppNotificationType.nfcPrompt,
-        title: 'NFC Checkpoint 1 complete',
+        title: 'NFC verification successful',
         body:
-            'Handoff confirmed for $shipmentId via NFC. Parcel is now Collected. Traveler can mark In Transit when ready.',
+            'NFC match confirmed for Trip/Delivery $shipmentId. You and the Traveler verified the same delivery — the Traveler is connected to the correct Sender for this parcel. Status is now Collected.',
         time: 'Just now',
         route: '/shipment/$shipmentId',
       ),
@@ -3327,9 +3328,9 @@ abstract final class StaticData {
         id: 'trv-cp1-$shipmentId',
         role: WalletRole.traveler,
         type: AppNotificationType.nfcPrompt,
-        title: 'Parcel Collected',
+        title: 'NFC verification successful',
         body:
-            'NFC matching complete for $shipmentId. Status is Collected — mark In Transit when you begin travel.',
+            'NFC match confirmed for Trip/Delivery $shipmentId. You and the Sender verified the same delivery — you are connected to the correct Sender for this parcel. Status is now Collected. Mark In Transit when you begin travel.',
         time: 'Just now',
         route: '/shipment/$shipmentId?traveler=true',
       ),
@@ -3407,22 +3408,24 @@ abstract final class StaticData {
     );
     NotificationService.push(
       AppNotification(
-        id: 'trv-pay-$shipmentId',
+        id: 'trv-cp2-$shipmentId',
         role: WalletRole.traveler,
         type: AppNotificationType.deliveryStatus,
-        title: 'Payout released',
-        body: 'Escrow for $shipmentId released to your wallet.',
+        title: 'NFC verification successful',
+        body:
+            'NFC match confirmed for Trip/Delivery $shipmentId. You and the Receiver verified the same delivery — you are handing over the parcel to the correct Receiver for this exact trip/delivery. Status is now Delivered. Escrow released.',
         time: 'Just now',
-        route: '/wallet?role=traveler',
+        route: '/shipment/$shipmentId?traveler=true',
       ),
     );
     NotificationService.push(
       AppNotification(
-        id: 'rcv-del-$shipmentId',
+        id: 'rcv-cp2-$shipmentId',
         role: WalletRole.receiver,
         type: AppNotificationType.deliveryStatus,
-        title: 'Parcel received',
-        body: 'Delivery confirmed for $shipmentId via NFC Checkpoint 2. You can leave a review.',
+        title: 'NFC verification successful',
+        body:
+            'NFC match confirmed for Trip/Delivery $shipmentId. You and the Traveler verified the same delivery — the Traveler is handing over the parcel to you (the correct Receiver) for this exact trip/delivery. Status is now Delivered. You can leave a review.',
         time: 'Just now',
         route: '/delivery-review?shipmentId=$shipmentId&role=receiver',
       ),
@@ -3742,7 +3745,7 @@ abstract final class StaticData {
           type: AppNotificationType.nfcPrompt,
           title: 'Ready for delivery',
           body:
-              'When you meet the receiver, enable NFC for $shipmentId to unlock Checkpoint 2.',
+              'When you meet the receiver, enable NFC for $shipmentId to unlock NFC Checkpoint Traveler & Receiver.',
           time: 'Just now',
           route: '/shipment/$shipmentId?traveler=true',
         ),
@@ -3754,7 +3757,7 @@ abstract final class StaticData {
           type: AppNotificationType.nfcPrompt,
           title: 'Parcel in transit',
           body:
-              '$shipmentId is in transit. NFC Checkpoint 2 unlocks when the traveler enables NFC for you.',
+              '$shipmentId is in transit. NFC Checkpoint Traveler & Receiver unlocks when the traveler enables NFC for you.',
           time: 'Just now',
           route: '/receiver-tracking?shipmentId=$shipmentId',
         ),
@@ -4025,7 +4028,7 @@ abstract final class StaticData {
   }
 
   /// Upserts an API-backed counter offer into the local traveler bids list.
-  /// Acceptances (sender budget accepted as-is) are excluded from Counter Offers Sent.
+  /// Acceptances and sender-accepted counters are excluded from Counter Offers Sent.
   static void upsertTravelerBid(TravelerBid offer) {
     if (!offer.isCounterOfferSent) {
       // Drop any prior counter row for this request if the traveler later accepted.

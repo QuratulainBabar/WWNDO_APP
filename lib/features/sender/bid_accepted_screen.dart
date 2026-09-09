@@ -11,6 +11,7 @@ import '../../core/widgets/app_badge.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/back_header.dart';
+import '../../core/widgets/stacked_route_endpoints.dart';
 import '../../data/models/bid.dart';
 import '../../data/static_data.dart';
 
@@ -77,7 +78,11 @@ class BidAcceptedScreen extends StatelessWidget {
                       style: typo.h3.copyWith(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 12),
-                    _detailRow(context, 'Route', route),
+                    StackedRouteEndpoints.split(
+                      route,
+                      sectionLabel: 'Route',
+                      bottomPadding: 8,
+                    ),
                     _detailRow(context, 'Travel date', travelDate),
                     _detailRow(
                       context,

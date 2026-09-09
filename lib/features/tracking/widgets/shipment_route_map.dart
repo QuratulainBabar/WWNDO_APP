@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/config/api_config.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/utils/external_links.dart';
 import '../../../data/models/shipment.dart';
 
 /// Real map preview for the shipment route.
@@ -349,6 +350,14 @@ class _ShipmentRouteMapState extends State<ShipmentRouteMap> {
           toLabel:
               shipment.toCity.isNotEmpty ? shipment.toCity : shipment.toCode,
           toCode: shipment.toCode,
+          onOpenFrom: () => ExternalLinks.openMapPlace(
+            shipment.fromCity.isNotEmpty
+                ? shipment.fromCity
+                : _origin,
+          ),
+          onOpenTo: () => ExternalLinks.openMapPlace(
+            shipment.toCity.isNotEmpty ? shipment.toCity : _destination,
+          ),
         ),
         if (shipment.flightNumber != null) ...[
           const SizedBox(height: 8),
@@ -368,12 +377,16 @@ class _RouteEndpointsBar extends StatelessWidget {
     required this.fromCode,
     required this.toLabel,
     required this.toCode,
+    required this.onOpenFrom,
+    required this.onOpenTo,
   });
 
   final String fromLabel;
   final String fromCode;
   final String toLabel;
   final String toCode;
+  final VoidCallback onOpenFrom;
+  final VoidCallback onOpenTo;
 
   @override
   Widget build(BuildContext context) {
@@ -388,57 +401,27 @@ class _RouteEndpointsBar extends StatelessWidget {
         ? toCode.trim().toUpperCase()
         : null;
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _RouteEndpoint(
-              markerColor: AppColors.primary,
-              title: 'From',
-              place: fromLabel,
-              subtitle: fromSub,
-            ),
+    return Column(
+      children: [
+        if (fromLabel.trim().isNotEmpty)
+          _RouteEndpoint(
+            markerColor: AppColors.primary,
+            title: 'From',
+            place: fromLabel,
+            subtitle: fromSub,
+            onTap: onOpenFrom,
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 28,
-                  height: 2,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.35),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Icon(
-                  Icons.flight_takeoff_rounded,
-                  size: 16,
-                  color: AppColors.textSecondary.withValues(alpha: 0.85),
-                ),
-              ],
-            ),
+        if (fromLabel.trim().isNotEmpty && toLabel.trim().isNotEmpty)
+          const SizedBox(height: 8),
+        if (toLabel.trim().isNotEmpty)
+          _RouteEndpoint(
+            markerColor: AppColors.success,
+            title: 'To',
+            place: toLabel,
+            subtitle: toSub,
+            onTap: onOpenTo,
           ),
-          Expanded(
-            child: _RouteEndpoint(
-              markerColor: AppColors.success,
-              title: 'To',
-              place: toLabel,
-              subtitle: toSub,
-              alignEnd: true,
-            ),
-          ),
-        ],
-      ),
+      ],
     );
   }
 }
@@ -448,61 +431,108 @@ class _RouteEndpoint extends StatelessWidget {
     required this.markerColor,
     required this.title,
     required this.place,
+    required this.onTap,
     this.subtitle,
-    this.alignEnd = false,
   });
 
   final Color markerColor;
   final String title;
   final String place;
   final String? subtitle;
-  final bool alignEnd;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
-    final cross =
-        alignEnd ? CrossAxisAlignment.end : CrossAxisAlignment.start;
-    final textAlign = alignEnd ? TextAlign.end : TextAlign.start;
 
-    return Column(
-      crossAxisAlignment: cross,
-      children: [
-        Text(
-          title.toUpperCase(),
-          textAlign: textAlign,
-          style: typo.caption.copyWith(
-            fontSize: 10,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 0.7,
-            color: markerColor,
+    return Material(
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                margin: const EdgeInsets.only(top: 2),
+                decoration: BoxDecoration(
+                  color: markerColor.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: Icon(
+                  Icons.place_rounded,
+                  size: 18,
+                  color: markerColor,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title.toUpperCase(),
+                      style: typo.caption.copyWith(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.7,
+                        color: markerColor,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      place,
+                      style: typo.sm.copyWith(
+                        height: 1.4,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle!,
+                        style: typo.caption.copyWith(
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 6),
+                    Text(
+                      'Open in Maps',
+                      style: typo.caption.copyWith(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 4),
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Icon(
+                  Icons.open_in_new_rounded,
+                  size: 16,
+                  color: AppColors.textSecondary.withValues(alpha: 0.9),
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 3),
-        Text(
-          place,
-          textAlign: textAlign,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: typo.sm.copyWith(
-            fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
-          ),
-        ),
-        if (subtitle != null) ...[
-          const SizedBox(height: 2),
-          Text(
-            subtitle!,
-            textAlign: textAlign,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: typo.caption.copyWith(
-              color: AppColors.textSecondary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ],
+      ),
     );
   }
 }

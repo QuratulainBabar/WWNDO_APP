@@ -11,6 +11,7 @@ import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/back_header.dart';
 import '../../core/widgets/screen_body.dart';
+import '../../core/widgets/stacked_route_endpoints.dart';
 import '../../data/models/traveler_trip.dart';
 import '../../data/services/trip_repository.dart';
 import '../../providers/auth_provider.dart';
@@ -139,7 +140,12 @@ class _DiscoverTripDetailScreenState extends State<DiscoverTripDetailScreen> {
                     : Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(trip.route, style: typo.h1),
+                          StackedRouteEndpoints(
+                            from: trip.displayOrigin,
+                            to: trip.displayDestination,
+                            fallbackRoute: trip.route,
+                            emphasized: true,
+                          ),
                           const SizedBox(height: 8),
                           Text(
                             'Posted by ${trip.travelerName ?? 'Traveler'}',

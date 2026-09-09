@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -13,6 +12,7 @@ import '../../core/widgets/app_badge.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/back_header.dart';
+import '../../core/widgets/stacked_route_endpoints.dart';
 import '../../data/models/traveler_bid.dart';
 import '../../data/services/trip_repository.dart';
 import '../../data/static_data.dart';
@@ -207,22 +207,22 @@ class _TravelerBidDetailScreenState extends State<TravelerBidDetailScreen> {
                         style: typo.h3.copyWith(fontWeight: FontWeight.w700),
                       ),
                       const SizedBox(height: 12),
-                      _detailRow(
-                        context,
-                        'Pickup',
-                        bid.displayFrom.isNotEmpty ? bid.displayFrom : '—',
-                      ),
-                      _detailRow(
-                        context,
-                        'Destination',
-                        bid.displayTo.isNotEmpty ? bid.displayTo : '—',
+                      StackedRouteEndpoints(
+                        from: bid.displayFrom,
+                        to: bid.displayTo,
+                        fallbackRoute: bid.route,
+                        sectionLabel: 'Route',
+                        bottomPadding: 8,
                       ),
                       _detailRow(context, 'Delivery date', deliveryDate),
                       _detailRow(
                         context,
                         amountLabel,
                         '\$${bid.amount.toStringAsFixed(2)}',
-                        valueStyle: typo.priceSmall.copyWith(fontSize: 16),
+                        valueStyle: typo.priceSmall.copyWith(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                       _detailRow(context, 'Bid status', bid.status.label),
                     ],
@@ -230,15 +230,6 @@ class _TravelerBidDetailScreenState extends State<TravelerBidDetailScreen> {
                 ),
                 if (bid.isAccepted && deliveryId.isNotEmpty) ...[
                   const SizedBox(height: 24),
-                  AppButton(
-                    label: 'Open delivery / NFC',
-                    onPressed: deliveryId.isEmpty
-                        ? null
-                        : () => context.push(
-                              '/shipment/$deliveryId?traveler=true',
-                            ),
-                  ),
-                  const SizedBox(height: 12),
                   AppButton(
                     label: 'Chat with Sender',
                     onPressed: () => openDeliveryChat(
@@ -277,7 +268,7 @@ class _TravelerBidDetailScreenState extends State<TravelerBidDetailScreen> {
               value,
               textAlign: TextAlign.right,
               style: valueStyle ??
-                  typo.bodyBold.copyWith(fontWeight: FontWeight.w700),
+                  typo.body.copyWith(fontWeight: FontWeight.w500),
             ),
           ),
         ],

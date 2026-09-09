@@ -13,6 +13,7 @@ import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/back_header.dart';
 import '../../core/widgets/cancel_request_confirmation_dialog.dart';
 import '../../core/widgets/scrollable_form_screen.dart';
+import '../../core/widgets/stacked_route_endpoints.dart';
 import '../../data/models/traveler_trip.dart';
 import '../../data/services/trip_repository.dart';
 import '../../data/delivery_cancel_policy.dart';
@@ -294,9 +295,11 @@ class _CancelTripScreenState extends State<CancelTripScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      trip.route,
-                      style: typo.h3.copyWith(fontWeight: FontWeight.w800),
+                    StackedRouteEndpoints(
+                      from: trip.displayOrigin,
+                      to: trip.displayDestination,
+                      fallbackRoute: trip.route,
+                      emphasized: true,
                     ),
                     const SizedBox(height: 6),
                     Text(

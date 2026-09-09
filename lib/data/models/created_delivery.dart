@@ -358,6 +358,8 @@ class CreatedDelivery {
     this.senderId,
     this.travelerId,
     this.travelerName,
+    this.tripId,
+    this.tripPublicId,
     this.bidAmount,
     this.receiverId,
     this.receiverName,
@@ -397,6 +399,10 @@ class CreatedDelivery {
   final String? senderId;
   final String? travelerId;
   final String? travelerName;
+  /// Linked traveler trip UUID, when the backend includes it.
+  final String? tripId;
+  /// Linked traveler trip public id (TR-…), when the backend includes it.
+  final String? tripPublicId;
   final double? bidAmount;
   final String? receiverId;
   final String? receiverName;
@@ -429,7 +435,7 @@ class CreatedDelivery {
     return route;
   }
 
-  /// Full sender-selected map / airport place (Receiver-side location display).
+  /// Full sender-selected map / airport place (no City, Country compaction).
   String get exactDisplayFrom => exactRouteEndpoint(
         airport: originAirport,
         city: fromCity,
@@ -499,6 +505,8 @@ class CreatedDelivery {
       senderId: json['senderId'] as String?,
       travelerId: json['travelerId'] as String?,
       travelerName: json['travelerName'] as String?,
+      tripId: json['tripId'] as String?,
+      tripPublicId: json['tripPublicId'] as String?,
       bidAmount: (json['bidAmount'] as num?)?.toDouble(),
       receiverId: json['receiverId'] as String?,
       receiverName: json['receiverName'] as String?,

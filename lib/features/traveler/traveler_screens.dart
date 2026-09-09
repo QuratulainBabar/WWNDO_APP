@@ -12,6 +12,7 @@ import '../../core/layout/responsive.dart';
 import '../../core/platform/platform_ui.dart';
 import '../../core/widgets/back_header.dart';
 import '../../core/widgets/back_link.dart';
+import '../../core/widgets/stacked_route_endpoints.dart';
 import '../../data/models/delivery_request.dart';
 import '../../data/static_data.dart';
 
@@ -104,9 +105,11 @@ class _RequestCard extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            request.route,
-                            style: typo.h3.copyWith(fontWeight: FontWeight.w800),
+                          StackedRouteEndpoints(
+                            from: request.fromCity,
+                            to: request.toCity,
+                            fallbackRoute: request.route,
+                            emphasized: true,
                           ),
                           Text(
                             DateFormat('MMM d, yyyy').format(request.travelDate),

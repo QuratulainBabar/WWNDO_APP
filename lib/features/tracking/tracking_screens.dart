@@ -27,6 +27,7 @@ import '../../core/widgets/cancel_request_confirmation_dialog.dart';
 import '../../core/widgets/dispute_warning_icon.dart';
 import '../../core/utils/external_links.dart';
 import '../../core/widgets/scrollable_form_screen.dart';
+import '../../core/widgets/stacked_route_endpoints.dart';
 import '../chat/open_delivery_chat.dart';
 import '../../data/models/delivery_tracking.dart';
 import '../../data/models/shipment.dart';
@@ -86,6 +87,7 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
   String? _loadError;
   bool _travelerReviewedSender = false;
   bool _travelerReviewedReceiver = false;
+  bool _senderReviewedTraveler = false;
 
   NotificationRealtimeProvider? _realtimeProvider;
   VoidCallback? _realtimeListener;
@@ -100,7 +102,7 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
       _loadSnapshot();
       _attachRealtimeListener();
       _attachReviewStoreListener();
-      _loadTravelerReviewFlags();
+      _loadReviewFlags();
     });
   }
 
@@ -126,33 +128,44 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
   void _attachReviewStoreListener() {
     if (_reviewStoreListener != null) return;
     _reviewStoreListener = () {
-      if (!mounted || !widget.isTravelerView) return;
-      _loadTravelerReviewFlags();
+      if (!mounted) return;
+      _loadReviewFlags();
     };
     DeliveryReviewStore.version.addListener(_reviewStoreListener!);
   }
 
-  Future<void> _loadTravelerReviewFlags() async {
-    if (!widget.isTravelerView) return;
+  Future<void> _loadReviewFlags() async {
     final userId = context.read<AuthProvider>().user?.id ?? '';
     final shipmentId = widget.shipmentId;
-    final senderDone = await DeliveryReviewStore.hasSubmitted(
+    if (widget.isTravelerView) {
+      final senderDone = await DeliveryReviewStore.hasSubmitted(
+        reviewerUserId: userId,
+        shipmentId: shipmentId,
+        reviewerRole: WalletRole.traveler,
+        revieweeRole: WalletRole.sender,
+      );
+      final receiverDone = await DeliveryReviewStore.hasSubmitted(
+        reviewerUserId: userId,
+        shipmentId: shipmentId,
+        reviewerRole: WalletRole.traveler,
+        revieweeRole: WalletRole.receiver,
+      );
+      if (!mounted) return;
+      setState(() {
+        _travelerReviewedSender = senderDone;
+        _travelerReviewedReceiver = receiverDone;
+      });
+      return;
+    }
+
+    final travelerDone = await DeliveryReviewStore.hasSubmitted(
       reviewerUserId: userId,
       shipmentId: shipmentId,
-      reviewerRole: WalletRole.traveler,
-      revieweeRole: WalletRole.sender,
-    );
-    final receiverDone = await DeliveryReviewStore.hasSubmitted(
-      reviewerUserId: userId,
-      shipmentId: shipmentId,
-      reviewerRole: WalletRole.traveler,
-      revieweeRole: WalletRole.receiver,
+      reviewerRole: WalletRole.sender,
+      revieweeRole: WalletRole.traveler,
     );
     if (!mounted) return;
-    setState(() {
-      _travelerReviewedSender = senderDone;
-      _travelerReviewedReceiver = receiverDone;
-    });
+    setState(() => _senderReviewedTraveler = travelerDone);
   }
 
   @override
@@ -466,7 +479,13 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
                         ),
                         Text('Delivery details', style: typo.h3.copyWith(fontWeight: FontWeight.w700)),
                         const SizedBox(height: 12),
-                        _detailRow(context, 'Route', shipment.route),
+                        StackedRouteEndpoints(
+                          from: shipment.fromCity,
+                          to: shipment.toCity,
+                          fallbackRoute: shipment.route,
+                          sectionLabel: 'Route',
+                          bottomPadding: 8,
+                        ),
                         _detailRow(context, 'Travel date', DateFormat('MMM d, yyyy').format(shipment.travelDate)),
                         _detailRow(context, 'Parcel type', '${shipment.parcelCategory} · ${shipment.parcelWeightKg}kg'),
                         const SizedBox(height: 16),
@@ -793,12 +812,14 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
         addAction(
           AppButton(
             label: 'Leave a review',
-            onPressed: () => context.push(
-              deliveryReviewRoute(
-                shipmentId: shipment.id,
-                reviewerRole: WalletRole.sender,
-              ),
-            ),
+            onPressed: _senderReviewedTraveler
+                ? null
+                : () => context.push(
+                      deliveryReviewRoute(
+                        shipmentId: shipment.id,
+                        reviewerRole: WalletRole.sender,
+                      ),
+                    ),
           ),
         );
       }
@@ -966,7 +987,6 @@ class _NfcCheckpoint1Section extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
-    final otherLabel = isTravelerView ? 'sender' : 'traveler';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -977,7 +997,7 @@ class _NfcCheckpoint1Section extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                'NFC Checkpoint — Traveler & Sender',
+                'NFC Checkpoint Traveler & Sender',
                 style: typo.h3.copyWith(fontWeight: FontWeight.w700),
               ),
             ),
@@ -986,18 +1006,19 @@ class _NfcCheckpoint1Section extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           isTravelerView
-              ? 'This NFC checkpoint confirms the sender handed you the parcel. '
-                  'Tap phones with the sender so both of you can confirm on your own devices. '
-                  'Once both confirm, the parcel is marked Collected.'
-              : 'Tap phones with the traveler to confirm handoff. When both parties confirm, the parcel becomes Collected.',
+              ? 'This NFC checkpoint confirms the sender handed over the parcel. '
+                  'Tap your phones with the sender so both of you can confirm on your own devices. '
+                  'After both confirm, the parcel is marked Collected. '
+                  'The sender should confirm on their device after the tap.'
+              : 'Tap phones with the traveler to confirm handoff. When both parties confirm, the parcel becomes Collected. '
+                  'Waiting for the traveler to confirm on their device after your tap.',
           style: typo.sm.copyWith(height: 1.5),
         ),
         const SizedBox(height: 16),
         AppButton(
           label: isTravelerView
               ? 'Start NFC with Sender'
-              : 'Start NFC matching',
-          icon: const Icon(Icons.nfc, size: 18, color: Colors.white),
+              : 'Start NFC with Traveler',
           onPressed: () => context.push(
             '/nfc-confirm',
             extra: {
@@ -1006,11 +1027,6 @@ class _NfcCheckpoint1Section extends StatelessWidget {
               'checkpoint': 1,
             },
           ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'Waiting for the $otherLabel to confirm on their device after your tap.',
-          style: typo.sm.copyWith(color: AppColors.textSecondary, height: 1.4),
         ),
       ],
     );
@@ -1043,7 +1059,7 @@ class _TravelerNfcDeliverySection extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                'NFC Checkpoint 2 — Delivery',
+                'NFC Checkpoint Traveler & Receiver',
                 style: typo.h3.copyWith(fontWeight: FontWeight.w700),
               ),
             ),
@@ -1056,15 +1072,15 @@ class _TravelerNfcDeliverySection extends StatelessWidget {
             style: typo.sm.copyWith(height: 1.5, color: AppColors.success),
           ),
           const SizedBox(height: 12),
-          AppBadge.success('✓ NFC CP2 confirmed'),
+          AppBadge.success('✓ NFC Traveler & Receiver confirmed'),
         ] else ...[
           Text(
-            'Meet the receiver and tap phones to confirm final delivery. Both parties must complete NFC Checkpoint 2 to release escrow.',
+            'Meet the receiver and tap phones to confirm final delivery. Both parties must complete NFC Checkpoint Traveler & Receiver to release escrow.',
             style: typo.sm.copyWith(height: 1.5),
           ),
           const SizedBox(height: 16),
           AppButton(
-            label: 'Confirm delivery (NFC CP2)',
+            label: 'Start NFC with Receiver',
             onPressed: () => context.push(
               '/nfc-confirm',
               extra: {
@@ -1346,7 +1362,9 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
-    final title = _isCheckpoint2 ? 'NFC Checkpoint 2' : 'NFC Checkpoint 1';
+    final title = _isCheckpoint2
+        ? 'NFC Checkpoint Traveler & Receiver'
+        : 'NFC Checkpoint Traveler & Sender';
     final body = _isCheckpoint2
         ? (widget.isTraveler
             ? "Hold your phone near the receiver's phone to confirm delivery. Both of you must match NFC to mark Delivered and release escrow."
@@ -1382,6 +1400,31 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
                   textAlign: TextAlign.center,
                   style: typo.nfcTitle,
                 ),
+                if (widget.shipmentId != null &&
+                    widget.shipmentId!.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.28),
+                      ),
+                    ),
+                    child: Text(
+                      'Trip / Delivery ID: ${widget.shipmentId}',
+                      textAlign: TextAlign.center,
+                      style: typo.bodyBold.copyWith(
+                        color: Colors.white,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 14),
                 Text(
                   body,
@@ -1520,13 +1563,16 @@ class _NfcConfirmSuccessScreenState extends State<NfcConfirmSuccessScreen> {
         : '/shipment/$shipmentId';
     final listRoute = widget.isTraveler ? '/traveler-deliveries' : '/track';
     final otherParty = widget.isTraveler ? 'sender' : 'traveler';
+    final waiting = widget.waitingForPeer;
 
-    final title = widget.waitingForPeer
+    final title = waiting
         ? 'Waiting for $otherParty'
-        : 'NFC Checkpoint 1 complete';
-    final body = widget.waitingForPeer
+        : 'NFC Checkpoint Traveler & Sender complete';
+    final body = waiting
         ? 'Your NFC tap for $shipmentId is recorded. Ask the $otherParty to complete their NFC tap. When both match, the parcel becomes Collected.'
-        : 'NFC matching complete for $shipmentId. Parcel is now Collected. Traveler can mark In Transit when ready.';
+        : widget.isTraveler
+            ? 'You and the Sender successfully verified the same trip/delivery. You are connected to the correct Sender, and this parcel belongs to this exact trip/delivery.'
+            : 'You and the Traveler successfully verified the same trip/delivery. The Traveler is connected to you (the correct Sender), and this parcel belongs to this exact trip/delivery.';
 
     return Scaffold(
       backgroundColor: AppColors.surface,
@@ -1540,25 +1586,74 @@ class _NfcConfirmSuccessScreenState extends State<NfcConfirmSuccessScreen> {
                 width: 80,
                 height: 80,
                 decoration: BoxDecoration(
-                  color: (widget.waitingForPeer ? AppColors.primary : AppColors.success)
+                  color: (waiting ? AppColors.primary : AppColors.success)
                       .withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                 ),
                 alignment: Alignment.center,
                 child: Icon(
-                  widget.waitingForPeer ? Icons.hourglass_top_rounded : Icons.nfc,
+                  waiting ? Icons.hourglass_top_rounded : Icons.check_circle_rounded,
                   size: 40,
-                  color: widget.waitingForPeer ? AppColors.primary : AppColors.success,
+                  color: waiting ? AppColors.primary : AppColors.success,
                 ),
               ),
               const SizedBox(height: 20),
               Text(title, style: typo.h1, textAlign: TextAlign.center),
-              const SizedBox(height: 8),
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: BoxDecoration(
+                  color: AppColors.success.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: AppColors.success.withValues(alpha: 0.28),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      'Trip / Delivery ID',
+                      textAlign: TextAlign.center,
+                      style: typo.sm.copyWith(
+                        color: AppColors.success,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      shipmentId,
+                      textAlign: TextAlign.center,
+                      style: typo.h2.copyWith(color: AppColors.success),
+                    ),
+                    if (!waiting) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        'Sender ↔ Traveler verified this exact ID',
+                        textAlign: TextAlign.center,
+                        style: typo.sm.copyWith(
+                          color: AppColors.success,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
               Text(
                 body,
                 textAlign: TextAlign.center,
                 style: typo.sm.copyWith(height: 1.5),
               ),
+              if (!waiting) ...[
+                const SizedBox(height: 12),
+                Text(
+                  'Parcel status is now Collected. Traveler can mark In Transit when ready.',
+                  textAlign: TextAlign.center,
+                  style: typo.sm.copyWith(height: 1.5),
+                ),
+              ],
               const SizedBox(height: 32),
               AppButton(
                 label: 'View shipment',
@@ -1593,19 +1688,20 @@ class TravelerNfcDeliverySuccessScreen extends StatelessWidget {
     final typo = context.typo;
     final title = waitingForPeer
         ? 'Waiting for receiver'
-        : 'NFC Checkpoint 2 complete';
+        : 'NFC Checkpoint Traveler & Receiver complete';
     final body = waitingForPeer
-        ? 'Your NFC tap for $shipmentId is recorded. Ask the receiver to complete their NFC Checkpoint 2 tap to confirm delivery and release escrow.'
-        : 'Final delivery confirmed for $shipmentId. Parcel marked Delivered. Escrow released to your wallet. You can leave reviews for the receiver and sender.';
+        ? 'Your NFC tap for $shipmentId is recorded. Ask the receiver to complete their NFC Checkpoint Traveler & Receiver tap to confirm delivery and release escrow.'
+        : 'You and the Receiver successfully verified the same trip/delivery. You are handing over the parcel to the correct Receiver, and this parcel belongs to this exact trip/delivery.';
 
     return Scaffold(
       backgroundColor: AppColors.surface,
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(32),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              const SizedBox(height: 24),
               Container(
                 width: 80,
                 height: 80,
@@ -1616,20 +1712,69 @@ class TravelerNfcDeliverySuccessScreen extends StatelessWidget {
                 ),
                 alignment: Alignment.center,
                 child: Icon(
-                  waitingForPeer ? Icons.hourglass_top_rounded : Icons.nfc,
+                  waitingForPeer
+                      ? Icons.hourglass_top_rounded
+                      : Icons.check_circle_rounded,
                   size: 40,
                   color: waitingForPeer ? AppColors.primary : AppColors.success,
                 ),
               ),
               const SizedBox(height: 20),
               Text(title, style: typo.h1, textAlign: TextAlign.center),
-              const SizedBox(height: 8),
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: BoxDecoration(
+                  color: AppColors.success.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: AppColors.success.withValues(alpha: 0.28),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      'Trip / Delivery ID',
+                      textAlign: TextAlign.center,
+                      style: typo.sm.copyWith(
+                        color: AppColors.success,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      shipmentId,
+                      textAlign: TextAlign.center,
+                      style: typo.h2.copyWith(color: AppColors.success),
+                    ),
+                    if (!waitingForPeer) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        'Traveler ↔ Receiver verified this exact ID',
+                        textAlign: TextAlign.center,
+                        style: typo.sm.copyWith(
+                          color: AppColors.success,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
               Text(
                 body,
                 textAlign: TextAlign.center,
                 style: typo.sm.copyWith(height: 1.5),
               ),
               if (!waitingForPeer) ...[
+                const SizedBox(height: 12),
+                Text(
+                  'Parcel status is now Delivered. Escrow has been released to your wallet.',
+                  textAlign: TextAlign.center,
+                  style: typo.sm.copyWith(height: 1.5),
+                ),
                 const SizedBox(height: 24),
                 AppCard(
                   margin: EdgeInsets.zero,
@@ -1675,6 +1820,7 @@ class TravelerNfcDeliverySuccessScreen extends StatelessWidget {
                   ),
                 ),
               ],
+              const SizedBox(height: 24),
             ],
           ),
         ),

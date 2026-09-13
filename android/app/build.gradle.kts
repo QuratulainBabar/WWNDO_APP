@@ -62,12 +62,18 @@ flutter {
 // kill the app on launch (UnsatisfiedLinkError is not caught by plugin init).
 tasks.register<Copy>("copyLibCppShared") {
     val ndkRoot = android.ndkDirectory
-    from(
-        ndkRoot.resolve(
-            "toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so",
-        ),
+    val osName = System.getProperty("os.name").lowercase()
+    val hostPrebuilt = when {
+        osName.contains("windows") -> "windows-x86_64"
+        osName.contains("mac") -> "darwin-x86_64"
+        else -> "linux-x86_64"
+    }
+    val soFile = ndkRoot.resolve(
+        "toolchains/llvm/prebuilt/$hostPrebuilt/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so",
     )
+    from(soFile)
     into(layout.projectDirectory.dir("src/main/jniLibs/arm64-v8a"))
+    onlyIf { soFile.isFile }
 }
 
 tasks.named("preBuild").configure {

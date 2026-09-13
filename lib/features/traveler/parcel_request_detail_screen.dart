@@ -154,15 +154,8 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
         StaticData.travelerBidForRequest(widget.requestId);
     if (bid == null) return _ParcelOfferAction.none;
 
-    // Accept Offer creates a pending counter-offer row at the sender max budget.
-    // A revised offer is marked "updated" and is always a counter-offer path.
-    if (bid.status == TravelerBidStatus.updated) {
-      return _ParcelOfferAction.countered;
-    }
-    final acceptedAtMaxBudget =
-        (bid.amount - request.maxBudget).abs() < 0.005 &&
-            bid.status == TravelerBidStatus.pending;
-    if (acceptedAtMaxBudget) {
+    // Accept Offer (original / max budget) is the traveler's final action.
+    if (bid.isExactMaxBudgetAcceptance) {
       return _ParcelOfferAction.accepted;
     }
     return _ParcelOfferAction.countered;
@@ -409,15 +402,13 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
                         context,
                         'Sender meetup location',
                         request.displayMeetupLocation,
-                        multiline: request.meetupLocations.length > 1 ||
-                            request.displayMeetupLocation.length > 40,
+                        multiline: true,
                       ),
                       _detailRow(
                         context,
                         'Receiver meetup location',
                         request.displayReceiverHandoffLocation,
-                        multiline:
-                            request.displayReceiverHandoffLocation.length > 40,
+                        multiline: true,
                       ),
                       const SizedBox(height: 8),
                       ParcelPhotoViewer(

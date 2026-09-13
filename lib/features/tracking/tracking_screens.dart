@@ -613,41 +613,6 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
                       onPressed: () => _updateStatus(selectedStatus),
                     ),
                   ],
-                  // Show pay CTA only while booking is still unpaid (posted).
-                  // After escrow payment, status is bid_accepted — hide this card.
-                  if (!widget.isTravelerView &&
-                      snap.status == 'posted' &&
-                      !isDisputed) ...[
-                    const SizedBox(height: 16),
-                    AppCard(
-                      margin: EdgeInsets.zero,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Counter offer ready',
-                            style: typo.h3.copyWith(fontWeight: FontWeight.w700),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Review the traveler counter offer and complete payment to confirm booking.',
-                            style: typo.sm.copyWith(
-                              color: AppColors.textSecondary,
-                              height: 1.4,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          AppButton(
-                            label: 'Review & pay',
-                            onPressed: () => _openBidAcceptancePayment(
-                              context,
-                              shipment.id,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
                   if (_showNfcCheckpoint1()) ...[
                     const SizedBox(height: 24),
                     AppCard(
@@ -740,6 +705,21 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
       );
     }
 
+    void addSenderReceiverChatButton() {
+      if (snap?.isReceiverAccepted != true) return;
+      addAction(
+        AppButton(
+          label: 'Chat with Receiver',
+          onPressed: () => openDeliveryChat(
+            context,
+            chatBasePath: '/sender-chats',
+            threadType: 'sender_receiver',
+            deliveryKey: shipment.id,
+          ),
+        ),
+      );
+    }
+
     void addTravelerReviewButton({
       required String label,
       required WalletRole revieweeRole,
@@ -765,9 +745,10 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
 
     // Sender detail (non-traveler route): same bottom actions across lifecycle stages.
     if (!widget.isTravelerView) {
-      // Open: Chat with Traveler + Dispute + Cancel.
+      // Open: Chat with Receiver (after they accept) + Chat with Traveler + Cancel.
       // Matching travelers CTA is in the status row / My Posted Deliveries.
       if (status == ShipmentStatus.open) {
+        addSenderReceiverChatButton();
         addSenderChatButton();
         addAction(
           AppButton(
@@ -782,6 +763,7 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
       }
 
       if (snap?.disputed ?? false) {
+        addSenderReceiverChatButton();
         addSenderChatButton();
         addSenderDisputeButton();
         return actions;
@@ -789,9 +771,10 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
 
       final showDisputeAndChat = DeliveryLifecycle.isDisputable(snap?.status);
 
-      // Bid Accepted / In Transit / Delivered (+ mid stages): Chat with Traveler then Dispute.
-      // Dispute opens the existing form, or the existing open-dispute screen if already filed.
+      // Bid Accepted / In Transit / Delivered (+ mid stages):
+      // Chat with Receiver, Chat with Traveler, then Dispute.
       if (showDisputeAndChat) {
+        addSenderReceiverChatButton();
         addSenderChatButton();
         addSenderDisputeButton();
       }

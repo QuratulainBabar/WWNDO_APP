@@ -10,6 +10,7 @@ import 'providers/chat_realtime_provider.dart';
 import 'providers/kyc_provider.dart';
 import 'providers/notification_realtime_provider.dart';
 import 'providers/sender_deliveries_provider.dart';
+import 'providers/sender_offer_flow_lock.dart';
 import 'providers/wallet_provider.dart';
 
 Future<void> main() async {
@@ -99,6 +100,9 @@ Future<void> main() async {
         ),
         ChangeNotifierProvider<SenderDeliveriesProvider>.value(
           value: senderDeliveriesProvider,
+        ),
+        ChangeNotifierProvider<SenderOfferFlowLock>.value(
+          value: SenderOfferFlowLock.instance,
         ),
       ],
       child: const WwngoApp(),

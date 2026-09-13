@@ -114,6 +114,12 @@ class BidAcceptedScreen extends StatelessWidget {
                     ? () => context.go('/sender-chats')
                     : null,
               ),
+              const SizedBox(height: AppButton.stackGap),
+              AppButton(
+                label: 'Back to Home',
+                variant: AppButtonVariant.outline,
+                onPressed: () => context.go('/home'),
+              ),
             ],
           ),
         ),

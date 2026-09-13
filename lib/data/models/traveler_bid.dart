@@ -116,9 +116,11 @@ class TravelerBid {
           status == TravelerBidStatus.updated);
 
   /// Counter Offers Sent: traveler-submitted counters still awaiting sender
-  /// decision. Once the sender accepts, the delivery leaves this list.
+  /// decision. Once the sender accepts or rejects, the delivery leaves this list.
   bool get isCounterOfferSent =>
-      !isExactMaxBudgetAcceptance && status != TravelerBidStatus.accepted;
+      !isExactMaxBudgetAcceptance &&
+      (status == TravelerBidStatus.pending ||
+          status == TravelerBidStatus.updated);
 
   /// Full sender-selected map / airport place for C2C (no country-only label).
   String get displayFrom => exactRouteEndpoint(

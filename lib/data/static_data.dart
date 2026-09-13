@@ -4028,7 +4028,7 @@ abstract final class StaticData {
   }
 
   /// Upserts an API-backed counter offer into the local traveler bids list.
-  /// Acceptances and sender-accepted counters are excluded from Counter Offers Sent.
+  /// Acceptances and sender-accepted/rejected counters are excluded from Counter Offers Sent.
   static void upsertTravelerBid(TravelerBid offer) {
     if (!offer.isCounterOfferSent) {
       // Drop any prior counter row for this request if the traveler later accepted.

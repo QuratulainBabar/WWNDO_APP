@@ -22,7 +22,7 @@ import '../../providers/notification_realtime_provider.dart';
 /// Counter offers / accepted max-budget offers for the traveler — loaded from API.
 ///
 /// Default (Counter Offers Sent): traveler-submitted counters still awaiting
-/// the sender. Once the sender accepts, that delivery is removed from this list.
+/// the sender. Once the sender accepts or rejects, that delivery is removed.
 ///
 /// When [showAcceptedOffers] is true, lists only deliveries where the traveler
 /// accepted the sender's exact maximum budget and the sender has not finalized

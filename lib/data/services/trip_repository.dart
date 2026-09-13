@@ -208,6 +208,34 @@ class TripRepository {
 
   bool get _isDemoMode => _demoMode?.enabled ?? false;
 
+  /// Sender Requests inbox: drop already-accepted / declined / cancelled rows
+  /// and any request the traveler already responded to (Accept Offer or counter).
+  List<SenderTripRequest> _openSenderRequestInbox(
+    List<SenderTripRequest> requests,
+  ) {
+    return requests.where((request) => request.isOpenInboxItem).toList();
+  }
+
+  Future<List<SenderTripRequest>> _excludeRespondedSenderRequests(
+    List<SenderTripRequest> requests,
+  ) async {
+    if (requests.isEmpty) return requests;
+    try {
+      final results = await Future.wait([
+        listCounterOffers(),
+        listCounterOffers(acceptancesOnly: true),
+      ]);
+      final respondedIds = <String>{
+        for (final offer in [...results[0], ...results[1]])
+          if (offer.requestId.isNotEmpty) offer.requestId,
+      };
+      if (respondedIds.isEmpty) return requests;
+      return requests.where((r) => !respondedIds.contains(r.id)).toList();
+    } catch (_) {
+      return requests;
+    }
+  }
+
   /// POST /api/v1/trips
   Future<TravelerTrip> createTrip(CreateTripRequest request) async {
     if (_isDemoMode) {
@@ -267,10 +295,17 @@ class TripRepository {
     );
     final list = data['requests'];
     if (list is! List) return const <SenderTripRequest>[];
-    return list
-        .whereType<Map>()
-        .map((item) => SenderTripRequest.fromJson(Map<String, dynamic>.from(item)))
-        .toList();
+    return _excludeRespondedSenderRequests(
+      _openSenderRequestInbox(
+        list
+            .whereType<Map>()
+            .map(
+              (item) =>
+                  SenderTripRequest.fromJson(Map<String, dynamic>.from(item)),
+            )
+            .toList(),
+      ),
+    );
   }
 
   /// GET /api/v1/trips/sender-request-trips
@@ -303,10 +338,17 @@ class TripRepository {
     );
     final list = data['requests'];
     if (list is! List) return const <SenderTripRequest>[];
-    return list
-        .whereType<Map>()
-        .map((item) => SenderTripRequest.fromJson(Map<String, dynamic>.from(item)))
-        .toList();
+    return _excludeRespondedSenderRequests(
+      _openSenderRequestInbox(
+        list
+            .whereType<Map>()
+            .map(
+              (item) =>
+                  SenderTripRequest.fromJson(Map<String, dynamic>.from(item)),
+            )
+            .toList(),
+      ),
+    );
   }
 
   /// GET /api/v1/trips/sender-requests/:requestId

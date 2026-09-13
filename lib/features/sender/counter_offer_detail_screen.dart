@@ -24,6 +24,7 @@ import '../../data/services/delivery_repository.dart';
 import '../../data/services/trip_repository.dart';
 import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/sender_offer_flow_lock.dart';
 import 'bid_acceptance_payment_screen.dart';
 
 /// Sender reviews a traveler counter offer and can Accept or Reject.
@@ -51,7 +52,18 @@ class _CounterOfferDetailScreenState extends State<CounterOfferDetailScreen> {
   @override
   void initState() {
     super.initState();
+    SenderOfferFlowLock.instance.addListener(_onFlowLockChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  @override
+  void dispose() {
+    SenderOfferFlowLock.instance.removeListener(_onFlowLockChanged);
+    super.dispose();
+  }
+
+  void _onFlowLockChanged() {
+    if (mounted) setState(() {});
   }
 
   TripRepository _repo() {
@@ -142,10 +154,24 @@ class _CounterOfferDetailScreenState extends State<CounterOfferDetailScreen> {
     if (offer == null || _acting) return;
     if (!offer.isOpen && !offer.awaitsPayment) return;
 
+    final lock = SenderOfferFlowLock.instance;
+    if (lock.isPayCompleted(
+          offerId: offer.id,
+          shipmentId: offer.deliveryPublicId,
+        ) ||
+        (offer.isOpen && lock.isAcceptConsumed(offer.id))) {
+      return;
+    }
+
     final shipmentId = (offer.deliveryPublicId ?? '').trim();
     if (shipmentId.isEmpty) {
       AppToast.error(context, 'Shipment details are missing for this offer.');
       return;
+    }
+
+    setState(() => _acting = true);
+    if (offer.isOpen) {
+      lock.markAcceptConsumed(offer.id);
     }
 
     final demo = context.read<DemoModeProvider>().enabled;
@@ -177,7 +203,7 @@ class _CounterOfferDetailScreenState extends State<CounterOfferDetailScreen> {
 
     if (!mounted) return;
     final bid = _bidFromOffer(offer);
-    context.push(
+    await context.push(
       '/bid-acceptance-payment',
       extra: BidAcceptanceContext(
         bid: bid,
@@ -187,6 +213,9 @@ class _CounterOfferDetailScreenState extends State<CounterOfferDetailScreen> {
         paysReceiverFee: paysReceiverFee,
       ),
     );
+    if (!mounted) return;
+    setState(() => _acting = false);
+    await _load();
   }
 
   Future<void> _reject() async {
@@ -314,6 +343,19 @@ class _CounterOfferDetailScreenState extends State<CounterOfferDetailScreen> {
       );
     }
 
+    final lock = SenderOfferFlowLock.instance;
+    final acceptConsumed = lock.isAcceptConsumed(offer.id);
+    final payCompleted = lock.isPayCompleted(
+      offerId: offer.id,
+      shipmentId: offer.deliveryPublicId,
+    );
+    final payLocked = lock.isPayConsumed(
+      offerId: offer.id,
+      shipmentId: offer.deliveryPublicId,
+    );
+    final acceptLocked = _acting || acceptConsumed || payLocked;
+    final showAccepted = offer.isAccepted || payCompleted;
+
     final travelDate = DateFormat('MMM d, yyyy').format(offer.travelDate);
     final ratingLabel = offer.travelerRating != null
         ? '⭐ ${offer.travelerRating!.toStringAsFixed(1)}'
@@ -338,8 +380,11 @@ class _CounterOfferDetailScreenState extends State<CounterOfferDetailScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _StatusBadge(
-                        status: offer.status,
-                        paymentPending: offer.awaitsPayment,
+                        status: showAccepted
+                            ? TravelerBidStatus.accepted
+                            : offer.status,
+                        paymentPending:
+                            offer.awaitsPayment && !payCompleted,
                       ),
                       const SizedBox(height: 16),
                       AppCard(
@@ -449,7 +494,12 @@ class _CounterOfferDetailScreenState extends State<CounterOfferDetailScreen> {
                 ),
               ),
             ),
-            if (offer.isOpen)
+            if (showAccepted)
+              Padding(
+                padding: context.pagePadding.copyWith(top: 8, bottom: 16),
+                child: AppBadge.success('Counter offer accepted'),
+              )
+            else if (offer.isOpen)
               Padding(
                 padding: context.pagePadding.copyWith(top: 8, bottom: 16),
                 child: Row(
@@ -458,14 +508,14 @@ class _CounterOfferDetailScreenState extends State<CounterOfferDetailScreen> {
                       child: AppButton(
                         label: _acting ? 'Please wait…' : 'Reject',
                         variant: AppButtonVariant.danger,
-                        onPressed: _acting ? null : _reject,
+                        onPressed: _acting || payLocked ? null : _reject,
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: AppButton(
                         label: _acting ? 'Please wait…' : 'Accept',
-                        onPressed: _acting ? null : _accept,
+                        onPressed: acceptLocked ? null : _accept,
                       ),
                     ),
                   ],
@@ -495,16 +545,15 @@ class _CounterOfferDetailScreenState extends State<CounterOfferDetailScreen> {
                     ),
                     const SizedBox(height: 12),
                     AppButton(
-                      label: _acting ? 'Please wait…' : 'Complete Payment',
-                      onPressed: _acting ? null : _accept,
+                      label: payLocked
+                          ? (payCompleted ? 'Paid' : 'Processing…')
+                          : _acting
+                              ? 'Please wait…'
+                              : 'Complete Payment',
+                      onPressed: _acting || payLocked ? null : _accept,
                     ),
                   ],
                 ),
-              )
-            else if (offer.isAccepted)
-              Padding(
-                padding: context.pagePadding.copyWith(top: 8, bottom: 16),
-                child: AppBadge.success('Counter offer accepted'),
               )
             else if (offer.isRejected)
               Padding(

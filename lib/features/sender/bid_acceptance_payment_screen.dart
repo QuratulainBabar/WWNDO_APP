@@ -23,6 +23,7 @@ import '../../data/services/trip_repository.dart';
 import '../../data/services/wallet_repository.dart';
 import '../../data/wallet_gate.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/sender_offer_flow_lock.dart';
 import '../../providers/wallet_provider.dart';
 
 enum _BidPaymentMethod { wallet, stripe }
@@ -80,10 +81,43 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
   @override
   void initState() {
     super.initState();
+    SenderOfferFlowLock.instance.addListener(_onFlowLockChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _hydrateFromLock();
       _loadDelivery();
       _loadWalletAndPayments();
     });
+  }
+
+  @override
+  void dispose() {
+    SenderOfferFlowLock.instance.removeListener(_onFlowLockChanged);
+    super.dispose();
+  }
+
+  void _onFlowLockChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _hydrateFromLock() {
+    final lock = SenderOfferFlowLock.instance;
+    final offerId = widget.acceptance.offerId;
+    final shipmentId = widget.acceptance.shipmentId;
+    if (lock.isPayCompleted(offerId: offerId, shipmentId: shipmentId)) {
+      if (mounted) setState(() => _paid = true);
+    } else if (lock.isPayConsumed(offerId: offerId, shipmentId: shipmentId)) {
+      if (mounted) setState(() => _paying = true);
+    }
+  }
+
+  SenderOfferFlowLock _lock() => SenderOfferFlowLock.instance;
+
+  bool _isDeliveryBooked(CreatedDelivery? delivery) {
+    final status = (delivery?.status ?? '').trim().toLowerCase();
+    if (status.isEmpty) return false;
+    return status != 'posted' &&
+        status != 'waiting_receiver' &&
+        status != 'cancelled';
   }
 
   Future<void> _loadWalletAndPayments() async {
@@ -196,7 +230,16 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
       setState(() {
         _delivery = delivery;
         _loading = false;
+        if (_isDeliveryBooked(delivery)) {
+          _paid = true;
+        }
       });
+      if (_isDeliveryBooked(delivery)) {
+        _lock().markPayCompleted(
+          offerId: widget.acceptance.offerId,
+          shipmentId: widget.acceptance.shipmentId,
+        );
+      }
       _applyDefaultPaymentMethod();
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -322,9 +365,29 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
   Future<void> _payNow() async {
     if (_paying || _paid || _paymentMethod == null) return;
     final acceptance = widget.acceptance;
+    final lock = _lock();
+    if (lock.isPayCompleted(
+      offerId: acceptance.offerId,
+      shipmentId: acceptance.shipmentId,
+    )) {
+      setState(() => _paid = true);
+      return;
+    }
+    if (lock.isPayConsumed(
+      offerId: acceptance.offerId,
+      shipmentId: acceptance.shipmentId,
+    )) {
+      setState(() => _paying = true);
+      return;
+    }
     final paymentMethod = _paymentMethod!;
 
     setState(() => _paying = true);
+    lock.markPayStarted(
+      offerId: acceptance.offerId,
+      shipmentId: acceptance.shipmentId,
+    );
+    var completed = false;
     try {
       final auth = context.read<AuthProvider>();
       final walletRepo = WalletRepository(
@@ -421,15 +484,21 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
         );
       }
 
-      if (!mounted) return;
-      setState(() => _paid = true);
+      lock.markPayCompleted(
+        offerId: offerId,
+        shipmentId: acceptance.shipmentId,
+      );
+      completed = true;
+      if (mounted) setState(() => _paid = true);
       // Force a post-payment wallet sync so sender available balance matches
       // platform-fee / escrow ledger rows (avoid stale Home WalletCard fetches).
-      await context.read<WalletProvider>().refresh(
-            WalletRole.sender,
-            silent: true,
-            includeFullHistory: true,
-          );
+      if (mounted) {
+        await context.read<WalletProvider>().refresh(
+              WalletRole.sender,
+              silent: true,
+              includeFullHistory: true,
+            );
+      }
       if (!mounted) return;
       await WalletGate.refreshRoles(
         context,
@@ -437,7 +506,7 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
       );
 
       if (!mounted) return;
-      context.push(
+      await context.push(
         '/bid-payment-success',
         extra: BidAcceptanceContext(
           bid: acceptance.bid,
@@ -448,9 +517,9 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
         ),
       );
     } on ApiException catch (e) {
-      if (!mounted) return;
-      if (e.code == 'PAYMENT_CANCELLED') return;
-      AppToast.error(context, e.message);
+      if (mounted && e.code != 'PAYMENT_CANCELLED') {
+        AppToast.error(context, e.message);
+      }
     } catch (e) {
       if (!mounted) return;
       final detail = e.toString().trim();
@@ -461,6 +530,12 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
             : 'Payment failed. Booking was not created. $detail',
       );
     } finally {
+      if (!completed) {
+        lock.clearPayStarted(
+          offerId: acceptance.offerId,
+          shipmentId: acceptance.shipmentId,
+        );
+      }
       if (mounted) setState(() => _paying = false);
     }
   }
@@ -504,6 +579,20 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
     final walletUsd = _walletAvailableCents / 100;
     final walletCoversTotal = _walletAvailableCents >= totalCents;
     final selectedMethod = _paymentMethod;
+    final lock = SenderOfferFlowLock.instance;
+    final payCompleted = _paid ||
+        lock.isPayCompleted(
+          offerId: acceptance.offerId,
+          shipmentId: acceptance.shipmentId,
+        );
+    final payBusy = _paying ||
+        (!payCompleted &&
+            lock.isPayConsumed(
+              offerId: acceptance.offerId,
+              shipmentId: acceptance.shipmentId,
+            ));
+    final actionLocked = payCompleted || payBusy;
+    final payDisabled = actionLocked || selectedMethod == null;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -563,7 +652,7 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
                     ? 'Available balance: \$${walletUsd.toStringAsFixed(2)}'
                     : 'Available \$${walletUsd.toStringAsFixed(2)} — need \$${total.toStringAsFixed(2)}',
                 selected: selectedMethod == _BidPaymentMethod.wallet,
-                enabled: !_paying && !_paid,
+                enabled: !actionLocked,
                 onTap: _selectWallet,
               ),
               const SizedBox(height: 8),
@@ -574,7 +663,7 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
                     ? 'Card selected — tap Pay Now to complete'
                     : 'Charge full \$${total.toStringAsFixed(2)} to your card',
                 selected: selectedMethod == _BidPaymentMethod.stripe,
-                enabled: !_paying && !_paid && _stripeEnabled,
+                enabled: !actionLocked && _stripeEnabled,
                 onTap: _stripeEnabled ? _selectStripe : null,
               ),
               if (!_stripeEnabled)
@@ -597,11 +686,13 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
             ),
             const SizedBox(height: 8),
             Text(
-              selectedMethod == _BidPaymentMethod.wallet
-                  ? 'The total is deducted from your sender wallet. Booking is not created if balance is insufficient.'
-                  : 'Tap Pay Now to open Stripe and charge the full amount to your card. '
-                      'Your wallet balance is not used or changed. '
-                      'Your sender platform fee is collected now.',
+              payCompleted
+                  ? 'Payment already completed. This booking is locked.'
+                  : selectedMethod == _BidPaymentMethod.wallet
+                      ? 'The total is deducted from your sender wallet. Booking is not created if balance is insufficient.'
+                      : 'Tap Pay Now to open Stripe and charge the full amount to your card. '
+                          'Your wallet balance is not used or changed. '
+                          'Your sender platform fee is collected now.',
               style: context.typo.sm.copyWith(
                 color: AppColors.textSecondary,
                 height: 1.4,
@@ -609,13 +700,12 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
             ),
             const SizedBox(height: 24),
             AppButton(
-              label: _paid
+              label: payCompleted
                   ? 'Paid'
-                  : _paying
+                  : payBusy
                       ? 'Processing…'
                       : 'Pay Now',
-              onPressed:
-                  _paid || _paying || selectedMethod == null ? null : _payNow,
+              onPressed: payDisabled ? null : _payNow,
             ),
           ],
         ),

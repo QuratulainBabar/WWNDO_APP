@@ -1367,7 +1367,9 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen>
                       const SizedBox(height: 8),
                       Text(
                         'Accept the parcel request to unlock tracking, NFC, and chat.',
-                        style: typo.sm.copyWith(color: AppColors.textSecondary),
+                        style: typo.sm.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                     ],
                   ],
@@ -1382,12 +1384,18 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen>
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.nfc, size: 20, color: AppColors.primary),
+                          const Icon(
+                            Icons.nfc,
+                            size: 20,
+                            color: AppColors.primary,
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               'NFC Checkpoint Traveler & Receiver',
-                              style: typo.h3.copyWith(fontWeight: FontWeight.w700),
+                              style: typo.h3.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           ),
                         ],
@@ -1421,11 +1429,6 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen>
                 if (hasTraveler)
                   AppButton(
                     label: 'Chat with traveler',
-                    variant: AppButtonVariant.ghost,
-                    textStyle: typo.button.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.primary,
-                    ),
                     onPressed: () => openDeliveryChat(
                       context,
                       chatBasePath: '/receiver-chats',
@@ -1447,6 +1450,16 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen>
                     ),
                     onPressed: null,
                   ),
+                const SizedBox(height: AppButton.stackGap),
+                AppButton(
+                  label: 'Chat with Sender',
+                  onPressed: () => openDeliveryChat(
+                    context,
+                    chatBasePath: '/receiver-chats',
+                    threadType: 'sender_receiver',
+                    deliveryKey: delivery.displayId,
+                  ),
+                ),
                 if (delivery.disputed || status == 'disputed') ...[
                   const SizedBox(height: AppButton.stackGap),
                   AppButton(
@@ -1456,13 +1469,18 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen>
                       disputeRoute(delivery.displayId, role: 'receiver'),
                     ),
                   ),
-                ] else if (DeliveryLifecycle.isReceiverDisputable(status)) ...[
+                ] else if (DeliveryLifecycle.isReceiverDisputable(
+                  status,
+                )) ...[
                   const SizedBox(height: AppButton.stackGap),
                   AppButton(
                     label: 'Dispute',
                     variant: AppButtonVariant.danger,
                     onPressed: () => appNavigatePush(
-                      disputeFormRoute(delivery.displayId, role: 'receiver'),
+                      disputeFormRoute(
+                        delivery.displayId,
+                        role: 'receiver',
+                      ),
                     ),
                   ),
                 ],

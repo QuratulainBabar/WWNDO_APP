@@ -61,6 +61,12 @@ class SenderTripRequest {
   final String originAirport;
   final String destinationAirport;
 
+  /// True while this request still belongs on Traveler → Sender Requests.
+  bool get isOpenInboxItem {
+    final normalized = status.trim().toLowerCase();
+    return normalized.isEmpty || normalized == 'pending';
+  }
+
   String get categoryTypeLabel {
     final normalized = parcelCategory.trim().toLowerCase();
     if (normalized == 'documents' ||

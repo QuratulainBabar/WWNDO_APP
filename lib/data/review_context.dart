@@ -1,5 +1,4 @@
-import 'package:intl/intl.dart';
-
+import '../core/currency/app_currency.dart';
 import 'models/created_delivery.dart';
 import 'models/wallet_role.dart';
 
@@ -18,8 +17,10 @@ class ReviewContext {
 }
 
 String formatReviewPayout(double? amount) {
-  if (amount == null || amount <= 0) return '\$—';
-  return NumberFormat.currency(symbol: '\$', decimalDigits: 0).format(amount);
+  if (amount == null || amount <= 0) {
+    return '${AppCurrencies.active.symbol.trim()}—';
+  }
+  return AppCurrencies.active.formatMajor(amount.round());
 }
 
 ReviewContext? resolveReviewContext({

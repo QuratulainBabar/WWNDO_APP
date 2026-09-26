@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../l10n/app_localizations.dart';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -13,7 +14,6 @@ import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_badge.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_svg_icon.dart';
-import '../../core/widgets/back_link.dart';
 import '../../core/widgets/screen_body.dart';
 import '../../core/widgets/stacked_route_endpoints.dart';
 import '../../core/widgets/wallet_card.dart';
@@ -211,8 +211,6 @@ class _ReceiverHomeScreenState extends State<ReceiverHomeScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            BackLink(onTap: () => context.go('/role-selection')),
-            const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -315,7 +313,7 @@ class _ReceiverHomeScreenState extends State<ReceiverHomeScreen>
           children: [
             Text(_error!, style: typo.sm.copyWith(color: AppColors.textSecondary)),
             const SizedBox(height: 8),
-            TextButton(onPressed: () => _load(), child: const Text('Retry')),
+            TextButton(onPressed: () => _load(), child: Text(context.tr('Retry'))),
           ],
         ),
       );

@@ -16,13 +16,18 @@ typedef TokenRefresher = Future<bool> Function();
 class MultipartFilePart {
   const MultipartFilePart({
     required this.field,
-    required this.filePath,
+    this.filePath = '',
+    this.bytes,
     this.filename,
     this.contentType,
-  });
+  }) : assert(
+          filePath != '' || bytes != null,
+          'Provide filePath or bytes',
+        );
 
   final String field;
   final String filePath;
+  final List<int>? bytes;
   final String? filename;
   final String? contentType;
 }
@@ -63,6 +68,13 @@ class ApiClient {
     bool authenticated = false,
   }) {
     return _request('PATCH', path, body: body, authenticated: authenticated);
+  }
+
+  Future<Map<String, dynamic>> delete(
+    String path, {
+    bool authenticated = false,
+  }) {
+    return _request('DELETE', path, authenticated: authenticated);
   }
 
   Future<Map<String, dynamic>> patchMultipart(
@@ -237,6 +249,8 @@ class ApiClient {
           headers: headers,
           body: body == null ? null : jsonEncode(body),
         );
+      case 'DELETE':
+        return _http.delete(uri, headers: headers);
       default:
         throw ApiException(message: 'Unsupported HTTP method: $method');
     }
@@ -255,15 +269,19 @@ class ApiClient {
     request.fields.addAll(fields);
 
     for (final part in files) {
-      final xfile = XFile(part.filePath);
       late final List<int> bytes;
-      try {
-        bytes = await xfile.readAsBytes();
-      } catch (_) {
-        throw const ApiException(
-          message: 'Could not read parcel photo. Please re-add the photo and try again.',
-          code: 'VALIDATION_ERROR',
-        );
+      if (part.bytes != null && part.bytes!.isNotEmpty) {
+        bytes = part.bytes!;
+      } else {
+        final xfile = XFile(part.filePath);
+        try {
+          bytes = await xfile.readAsBytes();
+        } catch (_) {
+          throw const ApiException(
+            message: 'Could not read parcel photo. Please re-add the photo and try again.',
+            code: 'VALIDATION_ERROR',
+          );
+        }
       }
       if (bytes.isEmpty) {
         throw const ApiException(

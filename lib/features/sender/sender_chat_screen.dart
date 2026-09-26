@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../l10n/app_localizations.dart';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -284,7 +285,7 @@ class _SenderChatScreenState extends State<SenderChatScreen>
                               ),
                               TextButton(
                                 onPressed: _load,
-                                child: const Text('Retry'),
+                                child: Text(context.tr('Retry')),
                               ),
                             ],
                           ),

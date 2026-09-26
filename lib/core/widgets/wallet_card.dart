@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../data/models/wallet_role.dart';
 import '../../data/wallet_service.dart';
+import '../../providers/currency_provider.dart';
 import '../../providers/wallet_provider.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
@@ -43,6 +44,7 @@ class _WalletCardState extends State<WalletCard> {
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
+    context.watch<CurrencyProvider>();
 
     return Consumer<WalletProvider>(
       builder: (context, wallet, _) {
@@ -70,12 +72,12 @@ class _WalletCardState extends State<WalletCard> {
                     children: [
                       Text('Wallet', style: typo.walletLabel),
                       Text(
-                        '\$${available.toStringAsFixed(2)}',
+                        WalletService.formatMajor(available),
                         style: typo.walletAmount,
                       ),
                       if (escrow > 0)
                         Text(
-                          'Escrow \$${escrow.toStringAsFixed(2)}',
+                          'Escrow ${WalletService.formatMajor(escrow)}',
                           style: typo.sm.copyWith(
                             color: AppColors.primary,
                             fontWeight: FontWeight.w600,

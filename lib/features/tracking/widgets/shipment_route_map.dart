@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:math' as math;
+import '../../../l10n/app_localizations.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -406,7 +407,7 @@ class _RouteEndpointsBar extends StatelessWidget {
         if (fromLabel.trim().isNotEmpty)
           _RouteEndpoint(
             markerColor: AppColors.primary,
-            title: 'From',
+            title: context.tr('From'),
             place: fromLabel,
             subtitle: fromSub,
             onTap: onOpenFrom,
@@ -416,7 +417,7 @@ class _RouteEndpointsBar extends StatelessWidget {
         if (toLabel.trim().isNotEmpty)
           _RouteEndpoint(
             markerColor: AppColors.success,
-            title: 'To',
+            title: context.tr('To'),
             place: toLabel,
             subtitle: toSub,
             onTap: onOpenTo,
@@ -617,7 +618,7 @@ class _MapPlaceholder extends StatelessWidget {
                               visualDensity: VisualDensity.compact,
                               padding: const EdgeInsets.symmetric(horizontal: 8),
                             ),
-                            child: const Text('Retry'),
+                            child: Text(context.tr('Retry')),
                           ),
                         if (onOpenExternal != null)
                           TextButton(

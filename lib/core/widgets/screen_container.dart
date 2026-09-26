@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../layout/responsive.dart';
+import '../../providers/locale_provider.dart';
 
 /// Centers content and constrains width on tablets / wide screens.
 class ScreenContainer extends StatelessWidget {
@@ -14,6 +16,9 @@ class ScreenContainer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Rebuild shared chrome when theme or language changes.
+    Theme.of(context);
+    context.watch<LocaleProvider>();
     if (!constrainWidth || !context.isTablet) {
       return child;
     }

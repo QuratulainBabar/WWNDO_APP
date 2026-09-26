@@ -81,7 +81,7 @@ class _CapturedImagePreviewState extends State<CapturedImagePreview> {
           image = Container(
             color: AppColors.background,
             alignment: Alignment.center,
-            child: const Icon(Icons.broken_image_outlined, color: AppColors.textSecondary),
+            child: Icon(Icons.broken_image_outlined, color: AppColors.textSecondary),
           );
         }
 

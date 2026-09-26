@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import '../../l10n/app_localizations.dart';
 
 import '../../core/config/demo_mode.dart';
 import '../../core/layout/responsive.dart';
@@ -15,6 +16,7 @@ import '../../core/widgets/back_header.dart';
 import '../../core/widgets/stacked_route_endpoints.dart';
 import '../../data/models/sender_trip_request.dart';
 import '../../data/services/trip_repository.dart';
+import '../../data/wallet_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_realtime_provider.dart';
 
@@ -150,7 +152,7 @@ class _MatchingRequestsTripsScreenState
                             ),
                             TextButton(
                               onPressed: _load,
-                              child: const Text('Retry'),
+                              child: Text(context.tr('Retry')),
                             ),
                           ],
                         ),
@@ -269,7 +271,7 @@ class _SenderRequestSummaryCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            '\$${request.maxBudget.toStringAsFixed(0)} USD',
+            WalletService.formatMajor(request.maxBudget),
             style: typo.priceSmall,
           ),
           const SizedBox(height: 14),

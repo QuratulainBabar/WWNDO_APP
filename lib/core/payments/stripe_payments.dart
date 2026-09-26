@@ -163,17 +163,21 @@ class StripePayments {
   static Future<void> collectPaymentMethod({
     required int amountCents,
     String? clientSecret,
+    String currencyCode = 'usd',
     String merchantDisplayName = 'WWNGO',
   }) async {
     _assertReady();
     final amount = amountCents < 50 ? 50 : amountCents;
     final secret = clientSecret?.trim();
     final hasSecret = secret != null && secret.isNotEmpty;
+    final currency = currencyCode.trim().isEmpty
+        ? 'usd'
+        : currencyCode.trim().toLowerCase();
 
     if (kDebugMode) {
       debugPrint(
         'Stripe: collecting payment method'
-        '${hasSecret ? '' : ' (deferred)'}',
+        '${hasSecret ? '' : ' (deferred)'} [$currency]',
       );
     }
 
@@ -191,7 +195,7 @@ class StripePayments {
                 ? null
                 : IntentConfiguration(
                     mode: IntentMode.paymentMode(
-                      currencyCode: 'usd',
+                      currencyCode: currency,
                       amount: amount,
                     ),
                     paymentMethodTypes: const ['card'],

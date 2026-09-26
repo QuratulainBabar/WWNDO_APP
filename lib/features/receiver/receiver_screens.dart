@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../l10n/app_localizations.dart';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -164,7 +165,7 @@ class _ReceiverProfileScreenState extends State<ReceiverProfileScreen> {
               role: WalletRole.receiver,
               name: user.name,
               initial: user.initial,
-              subtitle: 'Receiver',
+              subtitle: context.tr('Receiver'),
               memberSince: user.memberSince,
               bio: user.bio,
               rating: user.rating,
@@ -255,7 +256,7 @@ class _ReceiverProfileScreenState extends State<ReceiverProfileScreen> {
             const RecentReviewsSection(role: WalletRole.receiver),
             const SizedBox(height: 16),
             AppButton(
-              label: 'Log out',
+              label: context.tr('Log out'),
               variant: AppButtonVariant.danger,
               onPressed: () => logoutToLoginScreen(context),
             ),
@@ -523,7 +524,7 @@ class _ReceiverShipmentsScreenState extends State<ReceiverShipmentsScreen>
             Container(
               width: double.infinity,
               padding: EdgeInsets.symmetric(horizontal: horizontal),
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 border: Border(bottom: BorderSide(color: AppColors.border, width: 1)),
               ),
               child: Row(
@@ -568,7 +569,7 @@ class _ReceiverShipmentsScreenState extends State<ReceiverShipmentsScreen>
                 style: context.typo.sm.copyWith(color: AppColors.textSecondary),
               ),
               const SizedBox(height: 12),
-              TextButton(onPressed: () => _load(), child: const Text('Retry')),
+              TextButton(onPressed: () => _load(), child: Text(context.tr('Retry'))),
             ],
           ),
         ),
@@ -968,7 +969,7 @@ class _ReceiverChatScreenState extends State<ReceiverChatScreen>
                               ),
                               TextButton(
                                 onPressed: _load,
-                                child: const Text('Retry'),
+                                child: Text(context.tr('Retry')),
                               ),
                             ],
                           ),
@@ -1275,7 +1276,7 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen>
                   textAlign: TextAlign.center,
                   style: context.typo.sm.copyWith(color: AppColors.textSecondary),
                 ),
-                TextButton(onPressed: _load, child: const Text('Retry')),
+                TextButton(onPressed: _load, child: Text(context.tr('Retry'))),
               ],
             ),
           ),
@@ -1440,7 +1441,7 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen>
                   AppButton(
                     label: 'Waiting for traveler to chat',
                     variant: AppButtonVariant.ghost,
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.hourglass_empty,
                       size: 18,
                       color: AppColors.textDisabled,

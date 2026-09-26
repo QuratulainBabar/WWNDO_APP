@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../l10n/app_localizations.dart';
 
 import '../../../core/platform/keyboard_utils.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_labeled_field.dart';
+import '../../../data/wallet_service.dart';
 
 /// Maximum budget input for the post delivery form.
 class MaximumBudgetField extends StatefulWidget {
@@ -66,7 +68,7 @@ class _MaximumBudgetFieldState extends State<MaximumBudgetField> {
     final hasValue = _controller.text.isNotEmpty;
 
     return AppLabeledField(
-      label: 'Maximum Budget',
+      label: context.tr('Maximum Budget'),
       labelStyle: typo.inputLabel.copyWith(fontWeight: FontWeight.w600),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -83,7 +85,7 @@ class _MaximumBudgetFieldState extends State<MaximumBudgetField> {
             onChanged: _handleChanged,
             decoration: InputDecoration(
               // Only show `$` once typing so the empty hint has no leading gap.
-              prefixText: hasValue ? '\$ ' : null,
+              prefixText: hasValue ? WalletService.currencyPrefix : null,
               hintText: _placeholder,
               errorText: widget.errorText,
             ),

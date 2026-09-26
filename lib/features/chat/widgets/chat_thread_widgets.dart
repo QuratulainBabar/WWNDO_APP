@@ -274,7 +274,7 @@ class ChatReceiptTicks extends StatelessWidget {
     if (!message.isMine) return const SizedBox.shrink();
 
     if (message.pending) {
-      return const Icon(
+      return Icon(
         Icons.schedule_rounded,
         size: 14,
         color: AppColors.textSecondary,

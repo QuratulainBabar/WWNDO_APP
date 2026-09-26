@@ -4,22 +4,31 @@ import 'package:image_picker/image_picker.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
 
+/// Returned when the user taps Cancel on [ImageSourceSheet].
+class ImageSourceSheetCancel {
+  const ImageSourceSheetCancel();
+}
+
 class ImageSourceSheet extends StatelessWidget {
   const ImageSourceSheet({
     super.key,
     required this.title,
     this.subtitle,
+    this.showCancel = true,
   });
 
   final String title;
   final String? subtitle;
+
+  /// When true, shows a Cancel button that pops [ImageSourceSheetCancel].
+  final bool showCancel;
 
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
 
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -56,6 +65,33 @@ class ImageSourceSheet extends StatelessWidget {
             label: 'Choose from gallery',
             onTap: () => Navigator.pop(context, ImageSource.gallery),
           ),
+          if (showCancel) ...[
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: Material(
+                color: AppColors.background,
+                borderRadius: BorderRadius.circular(28),
+                child: InkWell(
+                  onTap: () =>
+                      Navigator.pop(context, const ImageSourceSheetCancel()),
+                  borderRadius: BorderRadius.circular(28),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    child: Text(
+                      'Cancel',
+                      textAlign: TextAlign.center,
+                      style: typo.body.copyWith(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

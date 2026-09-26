@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../l10n/app_localizations.dart';
 
 import '../../../core/platform/keyboard_utils.dart';
 import '../../../core/theme/app_colors.dart';
@@ -8,6 +9,7 @@ import '../../../core/widgets/app_labeled_field.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/stacked_route_endpoints.dart';
 import '../../../data/models/delivery_request.dart';
+import '../../../data/wallet_service.dart';
 
 /// Bottom sheet for placing a traveler bid on a parcel request.
 class PlaceBidSheet extends StatefulWidget {
@@ -69,7 +71,7 @@ class _PlaceBidSheetState extends State<PlaceBidSheet> {
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
       child: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: AppColors.surface,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
@@ -103,12 +105,12 @@ class _PlaceBidSheetState extends State<PlaceBidSheet> {
               ),
               const SizedBox(height: 4),
               Text(
-                'Max budget: \$${request.maxBudget.toStringAsFixed(2)}',
+                'Max budget: ${WalletService.formatMajor(request.maxBudget)}',
                 style: typo.sm.copyWith(color: AppColors.textSecondary),
               ),
               const SizedBox(height: 8),
               AppLabeledField(
-                label: 'Your price (USD)',
+                label: WalletService.fieldLabel('Your price'),
                 labelStyle:
                     typo.inputLabel.copyWith(fontWeight: FontWeight.w600),
                 child: TextField(
@@ -123,7 +125,7 @@ class _PlaceBidSheetState extends State<PlaceBidSheet> {
                 ),
               ),
               AppLabeledField(
-                label: 'Message to sender (optional)',
+                label: context.tr('Message to sender (optional)'),
                 labelStyle:
                     typo.inputLabel.copyWith(fontWeight: FontWeight.w600),
                 child: TextField(
@@ -147,7 +149,7 @@ class _PlaceBidSheetState extends State<PlaceBidSheet> {
                 children: [
                   Expanded(
                     child: AppButton(
-                      label: 'Cancel',
+                      label: context.tr('Cancel'),
                       variant: AppButtonVariant.outline,
                       textStyle: typo.button.copyWith(
                         color: AppColors.textSecondary,

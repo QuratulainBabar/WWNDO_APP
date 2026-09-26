@@ -6,6 +6,7 @@ import '../models/sender_trip_request.dart';
 import '../models/traveler_bid.dart';
 import '../models/traveler_trip.dart';
 import '../route_display.dart';
+import '../trip_date_window.dart';
 
 enum TripType {
   cityToCity,
@@ -34,6 +35,8 @@ class CreateTripRequest {
     this.destinationCountryCode,
     this.originAirport,
     this.destinationAirport,
+    this.departureTime,
+    this.travelMethod,
     this.flightNumber,
   });
 
@@ -50,6 +53,8 @@ class CreateTripRequest {
   final String? destinationCountryCode;
   final String? originAirport;
   final String? destinationAirport;
+  final String? departureTime;
+  final String? travelMethod;
   final String? flightNumber;
 
   Map<String, dynamic> toJson() => _tripBodyJson(
@@ -66,6 +71,8 @@ class CreateTripRequest {
         destinationCountryCode: destinationCountryCode,
         originAirport: originAirport,
         destinationAirport: destinationAirport,
+        departureTime: departureTime,
+        travelMethod: travelMethod,
         flightNumber: flightNumber,
       );
 }
@@ -86,6 +93,8 @@ class UpdateTripRequest {
     this.destinationCountryCode,
     this.originAirport,
     this.destinationAirport,
+    this.departureTime,
+    this.travelMethod,
     this.flightNumber,
   });
 
@@ -102,6 +111,8 @@ class UpdateTripRequest {
   final String? destinationCountryCode;
   final String? originAirport;
   final String? destinationAirport;
+  final String? departureTime;
+  final String? travelMethod;
   final String? flightNumber;
 
   factory UpdateTripRequest.fromCreateRequest(CreateTripRequest request) {
@@ -119,6 +130,8 @@ class UpdateTripRequest {
       destinationCountryCode: request.destinationCountryCode,
       originAirport: request.originAirport,
       destinationAirport: request.destinationAirport,
+      departureTime: request.departureTime,
+      travelMethod: request.travelMethod,
       flightNumber: request.flightNumber,
     );
   }
@@ -137,8 +150,11 @@ class UpdateTripRequest {
         destinationCountryCode: destinationCountryCode,
         originAirport: originAirport,
         destinationAirport: destinationAirport,
+        departureTime: departureTime,
+        travelMethod: travelMethod,
         flightNumber: flightNumber,
         includeEmptyFlightNumber: true,
+        includeEmptyEndpointFields: true,
       );
 }
 
@@ -156,8 +172,11 @@ Map<String, dynamic> _tripBodyJson({
   String? destinationCountryCode,
   String? originAirport,
   String? destinationAirport,
+  String? departureTime,
+  String? travelMethod,
   String? flightNumber,
   bool includeEmptyFlightNumber = false,
+  bool includeEmptyEndpointFields = false,
 }) {
   final date =
       '${travelDate.year.toString().padLeft(4, '0')}-${travelDate.month.toString().padLeft(2, '0')}-${travelDate.day.toString().padLeft(2, '0')}';
@@ -170,6 +189,16 @@ Map<String, dynamic> _tripBodyJson({
     body['flightNumber'] = flightNumber.trim();
   } else if (includeEmptyFlightNumber) {
     body['flightNumber'] = '';
+  }
+  final departure = departureTime?.trim() ?? '';
+  if (departure.isNotEmpty) {
+    body['departureTime'] = departure;
+  }
+  final method = travelMethod?.trim().toLowerCase() ?? '';
+  if (method == 'air' || method == 'land') {
+    body['travelMethod'] = method;
+  } else if (includeEmptyEndpointFields) {
+    body['travelMethod'] = '';
   }
   if (tripType == TripType.cityToCity) {
     body['fromCity'] = fromCity;
@@ -185,11 +214,21 @@ Map<String, dynamic> _tripBodyJson({
     if (destinationCountryCode != null && destinationCountryCode.isNotEmpty) {
       body['destinationCountryCode'] = destinationCountryCode;
     }
-    if (originAirport != null && originAirport.isNotEmpty) {
-      body['originAirport'] = originAirport;
+    final originAirportValue = originAirport?.trim() ?? '';
+    final destinationAirportValue = destinationAirport?.trim() ?? '';
+    final fromCityValue = fromCity?.trim() ?? '';
+    final toCityValue = toCity?.trim() ?? '';
+    if (originAirportValue.isNotEmpty || includeEmptyEndpointFields) {
+      body['originAirport'] = originAirportValue;
     }
-    if (destinationAirport != null && destinationAirport.isNotEmpty) {
-      body['destinationAirport'] = destinationAirport;
+    if (destinationAirportValue.isNotEmpty || includeEmptyEndpointFields) {
+      body['destinationAirport'] = destinationAirportValue;
+    }
+    if (fromCityValue.isNotEmpty || includeEmptyEndpointFields) {
+      body['fromCity'] = fromCityValue;
+    }
+    if (toCityValue.isNotEmpty || includeEmptyEndpointFields) {
+      body['toCity'] = toCityValue;
     }
   }
   return body;
@@ -254,6 +293,8 @@ class TripRepository {
   }
 
   /// GET /api/v1/trips/discover
+  /// Returns open trips in the active travel-date window
+  /// (previous 5 days + today + next 7 days).
   Future<List<TravelerTrip>> listDiscoverableTrips({
     TripType? tripType,
     int limit = 50,
@@ -270,10 +311,11 @@ class TripRepository {
     );
     final list = data['trips'];
     if (list is! List) return const <TravelerTrip>[];
-    return list
+    final trips = list
         .whereType<Map>()
         .map((item) => _mapTrip(Map<String, dynamic>.from(item)))
         .toList();
+    return TripDateWindow.filterByTravelDate(trips, (t) => t.travelDate);
   }
 
   /// GET /api/v1/trips/sender-requests/count
@@ -642,16 +684,18 @@ class TripRepository {
         : DateTime.now();
     final originAirport = json['originAirport'] as String?;
     final destinationAirport = json['destinationAirport'] as String?;
+    final fromCity = json['fromCity'] as String?;
+    final toCity = json['toCity'] as String?;
     final origin = firstNonEmpty([
       originAirport,
+      fromCity,
       json['origin'] as String?,
-      json['fromCity'] as String?,
       json['originCountry'] as String?,
     ]);
     final destination = firstNonEmpty([
       destinationAirport,
+      toCity,
       json['destination'] as String?,
-      json['toCity'] as String?,
       json['destinationCountry'] as String?,
     ]);
     return TravelerTrip(
@@ -667,6 +711,8 @@ class TripRepository {
       travelerRating: (json['travelerRating'] as num?)?.toDouble(),
       travelerReviewCount: (json['travelerReviewCount'] as num?)?.toInt(),
       flightNumber: json['flightNumber'] as String?,
+      fromCity: fromCity,
+      toCity: toCity,
       fromCode: json['fromCode'] as String?,
       toCode: json['toCode'] as String?,
       originCountry: json['originCountry'] as String?,
@@ -675,6 +721,8 @@ class TripRepository {
       destinationCountryCode: json['destinationCountryCode'] as String?,
       originAirport: originAirport,
       destinationAirport: destinationAirport,
+      departureTime: json['departureTime'] as String?,
+      travelMethod: json['travelMethod'] as String?,
       linkedDeliveryPublicId: json['linkedDeliveryPublicId'] as String?,
     );
   }

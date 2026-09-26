@@ -2,13 +2,16 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../../core/api/api_exception.dart';
+import '../../core/auth/post_auth_navigation.dart';
 import '../../core/config/api_config.dart';
 import '../../core/layout/responsive.dart';
 import '../../core/platform/keyboard_utils.dart';
 import '../../core/platform/biometric_auth_service.dart';
 import '../../core/platform/platform_ui.dart';
+import '../../core/platform/temp_image_file.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/phone/phone_countries.dart';
@@ -16,14 +19,17 @@ import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_labeled_field.dart';
 import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/back_link.dart';
+import '../../core/widgets/image_source_sheet.dart';
 import '../../core/widgets/international_phone_field.dart';
 import '../../core/widgets/legal_document_dialog.dart';
 import '../../core/widgets/scrollable_form_screen.dart';
 import '../../data/legal_documents.dart';
+import '../../data/profile_demo_store.dart';
 import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
 import '../sender/widgets/route_country_dropdown.dart';
 import 'login_otp_verification_screen.dart';
+import 'profile_photo_crop_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -37,11 +43,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _imagePicker = ImagePicker();
   /// Country below Email — drives phone flag / dial code and account country.
   String? _countryIso;
   late PhoneCountry _phoneCountry =
       PhoneCountries.byIso(StaticData.currentUser.countryCode);
   bool _acceptedTerms = false;
+  Uint8List? _profilePhotoBytes;
 
   @override
   void dispose() {
@@ -50,6 +58,72 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _phoneController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickProfilePhoto() async {
+    final result = await showModalBottomSheet<Object>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const ImageSourceSheet(
+        title: 'Profile photo',
+        subtitle: 'Choose how you want to add your photo',
+      ),
+    );
+    if (!mounted) return;
+
+    // Cancel → continue with no profile photo (clear any existing selection).
+    if (result is ImageSourceSheetCancel) {
+      setState(() => _profilePhotoBytes = null);
+      return;
+    }
+    if (result is! ImageSource) return;
+
+    try {
+      final image = await _imagePicker.pickImage(
+        source: result,
+        imageQuality: 92,
+        maxWidth: 2048,
+      );
+      if (!mounted || image == null) return;
+
+      final bytes = await image.readAsBytes();
+      if (!mounted || bytes.isEmpty) return;
+
+      final cropResult = await Navigator.of(context).push<ProfilePhotoCropResult>(
+        MaterialPageRoute(
+          fullscreenDialog: true,
+          builder: (_) => ProfilePhotoCropScreen(imageBytes: bytes),
+        ),
+      );
+      if (!mounted || cropResult == null) return;
+
+      setState(() => _profilePhotoBytes = cropResult.bytes);
+    } catch (_) {
+      if (mounted) {
+        AppToast.error(context, 'Could not load that photo. Try another one.');
+      }
+    }
+  }
+
+  Future<void> _persistProfilePhoto(AuthProvider auth) async {
+    final bytes = _profilePhotoBytes;
+    if (bytes == null || bytes.isEmpty) return;
+
+    // Always keep in-memory bytes first so Profile can show immediately,
+    // even if temp-file write or upload fails.
+    ProfileDemoStore.setPhotoForAllRoles(bytes: bytes);
+    try {
+      final path = await writeTempImageFile(bytes);
+      if (path != null && path.isNotEmpty) {
+        ProfileDemoStore.setPhotoForAllRoles(path: path, bytes: bytes);
+      }
+    } catch (_) {}
+
+    try {
+      await auth.uploadAvatarBytes(bytes);
+    } catch (_) {
+      // Non-fatal — account is already created; local preview still shows on Profile.
+    }
   }
 
   Future<void> _createAccount() async {
@@ -79,6 +153,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
         acceptedTerms: _acceptedTerms,
       );
 
+      if (!mounted) return;
+
+      await _persistProfilePhoto(auth);
       if (!mounted) return;
 
       if (user.accountStatus == 'suspended') {
@@ -123,6 +200,77 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
   }
 
+  Widget _profilePhotoPicker() {
+    const size = 96.0;
+    final hasPhoto = _profilePhotoBytes != null;
+
+    final Widget photo;
+    if (hasPhoto) {
+      photo = Image.memory(
+        _profilePhotoBytes!,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
+      );
+    } else {
+      photo = ColoredBox(
+        color: AppColors.kycBackground,
+        child: Center(
+          child: Icon(
+            Icons.add_a_photo_outlined,
+            size: 36,
+            color: AppColors.primary,
+          ),
+        ),
+      );
+    }
+
+    return Center(
+      child: Column(
+        children: [
+          GestureDetector(
+            onTap: _pickProfilePhoto,
+            child: Stack(
+              alignment: Alignment.bottomRight,
+              children: [
+                Container(
+                  width: size,
+                  height: size,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppColors.border, width: 1.5),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: photo,
+                ),
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppColors.surface, width: 2),
+                  ),
+                  child: const Icon(
+                    Icons.camera_alt_outlined,
+                    size: 16,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            hasPhoto ? 'Tap to change photo' : 'Add profile photo',
+            style: context.typo.sm.copyWith(color: AppColors.textSecondary),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
@@ -158,6 +306,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
               'Join WWNGO to send, carry, or receive parcels',
               style: subtitleStyle,
             ),
+            const SizedBox(height: 20),
+            _profilePhotoPicker(),
+            const SizedBox(height: 8),
             _field(
               'Full name',
               _nameController,
@@ -409,17 +560,48 @@ class _LoginScreenState extends State<LoginScreen> {
       debugPrint('LOGIN → ${ApiConfig.authBase} (password len=${password.length})');
     }
 
-    // Navigate immediately — OTP screen sends email in the background so the
-    // user is not stuck waiting on SMTP latency.
-    if (!mounted) return;
-    context.push(
-      '/login/verify-otp',
-      extra: PasswordLoginOtpFlowData(
-        email: email,
-        password: password,
-        alreadySent: false,
-      ),
-    );
+    final auth = context.read<AuthProvider>();
+    try {
+      final result = await auth.login(email: email, password: password);
+      if (!mounted) return;
+
+      // Within the 7-day window: tokens issued, no OTP step.
+      if (!result.requiresLoginOtp) {
+        final user = result.user;
+        if (user == null) {
+          AppToast.error(context, 'Could not complete login. Please try again.');
+          return;
+        }
+        if (user.accountStatus == 'suspended') {
+          context.go('/account-suspended');
+          return;
+        }
+        await PostAuthNavigation.continueAfterAuth(
+          context,
+          offerBiometricSetup: true,
+          requireVerification: false,
+        );
+        return;
+      }
+
+      // 7+ days since last OTP (or never verified): require emailed OTP.
+      context.push(
+        '/login/verify-otp',
+        extra: PasswordLoginOtpFlowData(
+          email: result.email?.trim().isNotEmpty == true
+              ? result.email!.trim()
+              : email,
+          password: password,
+          alreadySent: false,
+        ),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      AppToast.error(context, e.message);
+    } catch (_) {
+      if (!mounted) return;
+      AppToast.error(context, 'Could not sign in. Please try again.');
+    }
   }
 
   @override

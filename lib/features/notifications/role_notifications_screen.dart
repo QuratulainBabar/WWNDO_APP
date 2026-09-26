@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import '../../l10n/app_localizations.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/config/demo_mode.dart';
@@ -232,7 +233,7 @@ class _RoleNotificationsScreenState extends State<RoleNotificationsScreen>
       backgroundColor: AppColors.background,
       appBar: widget.useBackLink
           ? null
-          : BackHeader(title: 'Notifications', fallbackRoute: backRoute),
+          : BackHeader(title: context.tr('Notifications'), fallbackRoute: backRoute),
       body: SafeArea(
         child: Padding(
           padding: context.pagePadding,
@@ -918,7 +919,7 @@ class _NotificationTile extends StatelessWidget {
                 ),
                 if (hasRoute) ...[
                   const SizedBox(width: 4),
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.only(top: 10),
                     child: Icon(
                       Icons.chevron_right_rounded,

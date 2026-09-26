@@ -10,6 +10,7 @@ import '../../core/widgets/app_svg_icon.dart';
 import '../../core/widgets/back_link.dart';
 import '../../core/widgets/screen_body.dart';
 import 'delivery_posting_actions.dart';
+import '../../l10n/app_localizations.dart';
 
 enum _DeliveryType { cityToCity, countryToCountry }
 
@@ -80,7 +81,7 @@ class _DeliveryTypeSelectionScreenState
             ),
             const SizedBox(height: 8),
             AppButton(
-              label: 'Continue',
+              label: context.tr('Continue'),
               onPressed: _selectedType == null ? null : _continue,
             ),
           ],

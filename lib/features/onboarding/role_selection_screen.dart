@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import '../../l10n/app_localizations.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/auth/selected_role.dart';
@@ -97,21 +98,21 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
             const SizedBox(height: 24),
             _RoleCard(
               iconAsset: AppIcons.roleSender,
-              title: 'Sender',
+              title: context.tr('Sender'),
               description: 'Create parcel requests and choose matching travelers.',
               selected: _selectedRole == WalletRole.sender,
               onTap: () => setState(() => _selectedRole = WalletRole.sender),
             ),
             _RoleCard(
               iconAsset: AppIcons.roleTraveler,
-              title: 'Traveler',
+              title: context.tr('Traveler'),
               description: 'Create trips and carry parcels\non your route.',
               selected: _selectedRole == WalletRole.traveler,
               onTap: () => setState(() => _selectedRole = WalletRole.traveler),
             ),
             _RoleCard(
               iconAsset: AppIcons.roleReceiver,
-              title: 'Receiver',
+              title: context.tr('Receiver'),
               description: 'Accept parcel requests and receive your parcel securely.',
               selected: _selectedRole == WalletRole.receiver,
               onTap: () => setState(() => _selectedRole = WalletRole.receiver),

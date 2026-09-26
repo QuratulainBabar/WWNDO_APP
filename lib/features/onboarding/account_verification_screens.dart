@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import '../../l10n/app_localizations.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/auth/post_auth_navigation.dart';
@@ -73,7 +74,7 @@ class AccountVerificationScreen extends StatelessWidget {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancel'),
+              child: Text(context.tr('Cancel')),
             ),
             TextButton(
               onPressed: () {
@@ -87,7 +88,7 @@ class AccountVerificationScreen extends StatelessWidget {
                   PhoneCountries.formatFull(country, controller.text),
                 );
               },
-              child: const Text('Continue'),
+              child: Text(context.tr('Continue')),
             ),
           ],
         ),
@@ -128,7 +129,7 @@ class AccountVerificationScreen extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             _VerificationCard(
-              title: 'Email',
+              title: context.tr('Email'),
               value: user.email,
               verified: user.emailVerified,
               unverifiedIcon: Icons.mark_email_unread_outlined,
@@ -136,7 +137,7 @@ class AccountVerificationScreen extends StatelessWidget {
               margin: const EdgeInsets.only(bottom: 14),
             ),
             _VerificationCard(
-              title: 'Phone',
+              title: context.tr('Phone'),
               value: user.phone.isEmpty ? 'Not linked yet' : user.phone,
               verified: user.phoneVerified,
               unverifiedIcon: Icons.phone_android_outlined,
@@ -147,7 +148,7 @@ class AccountVerificationScreen extends StatelessWidget {
         actions: [
           if (user.isFullyCrossVerified)
             AppButton(
-              label: 'Continue',
+              label: context.tr('Continue'),
               onPressed: () => PostAuthNavigation.continueAfterAuth(
                 context,
                 offerBiometricSetup: true,
@@ -156,7 +157,7 @@ class AccountVerificationScreen extends StatelessWidget {
             )
           else
             AppButton(
-              label: 'Sign up',
+              label: context.tr('Sign up'),
               onPressed: () => context.push('/register'),
             ),
         ],

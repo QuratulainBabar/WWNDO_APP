@@ -106,6 +106,24 @@ extension CreatedDeliveryFormX on CreatedDelivery {
     return meetupFromLabel(label, countryCode: toCode);
   }
 
+  /// Airport or city place selected for country-to-country From.
+  MeetupLocation? get fromRoutePlace {
+    final airport = fromAirportPlace;
+    if (airport != null) return airport;
+    final city = fromCity?.trim();
+    if (city == null || city.isEmpty) return null;
+    return meetupFromLabel(city, countryCode: fromCode);
+  }
+
+  /// Airport or city place selected for country-to-country To.
+  MeetupLocation? get toRoutePlace {
+    final airport = toAirportPlace;
+    if (airport != null) return airport;
+    final city = toCity?.trim();
+    if (city == null || city.isEmpty) return null;
+    return meetupFromLabel(city, countryCode: toCode);
+  }
+
   List<MeetupLocation> get preferredMeetupLocationModels =>
       preferredMeetupLocations
           .map((label) => meetupFromLabel(label))

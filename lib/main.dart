@@ -1,32 +1,51 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'app.dart';
+import 'core/config/api_config.dart';
 import 'core/config/demo_mode.dart';
 import 'core/push/push_notification_service.dart';
 import 'data/models/wallet_role.dart';
 import 'providers/auth_provider.dart';
 import 'providers/chat_realtime_provider.dart';
+import 'providers/currency_provider.dart';
 import 'providers/kyc_provider.dart';
+import 'providers/locale_provider.dart';
 import 'providers/notification_realtime_provider.dart';
 import 'providers/sender_deliveries_provider.dart';
 import 'providers/sender_offer_flow_lock.dart';
+import 'providers/session_inactivity_lock.dart';
+import 'providers/theme_provider.dart';
 import 'providers/wallet_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  debugPrint('API CONFIG → baseUrl=${ApiConfig.baseUrl}');
+  debugPrint('API CONFIG → apiV1=${ApiConfig.apiV1}');
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
 
   final demoMode = DemoModeProvider();
-  final authProvider = AuthProvider(demoMode: demoMode);
+  final themeProvider = ThemeProvider();
+  final currencyProvider = CurrencyProvider();
+  final localeProvider = LocaleProvider();
+  final inactivityLock = SessionInactivityLock();
+  final authProvider = AuthProvider(
+    demoMode: demoMode,
+    inactivityLock: inactivityLock,
+  );
   await Future.wait([
     demoMode.init(),
+    themeProvider.init(),
+    currencyProvider.init(),
+    localeProvider.init(),
     authProvider.init(),
     PushNotificationService.initialize(),
   ]);
+  await inactivityLock.init(isAuthenticated: authProvider.isAuthenticated);
 
   if (authProvider.isAuthenticated) {
     await PushNotificationService.registerIfAuthenticated(
@@ -89,6 +108,12 @@ Future<void> main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider<DemoModeProvider>.value(value: demoMode),
+        ChangeNotifierProvider<ThemeProvider>.value(value: themeProvider),
+        ChangeNotifierProvider<CurrencyProvider>.value(value: currencyProvider),
+        ChangeNotifierProvider<LocaleProvider>.value(value: localeProvider),
+        ChangeNotifierProvider<SessionInactivityLock>.value(
+          value: inactivityLock,
+        ),
         ChangeNotifierProvider<AuthProvider>.value(value: authProvider),
         ChangeNotifierProvider<KycProvider>.value(value: kycProvider),
         ChangeNotifierProvider<WalletProvider>.value(value: walletProvider),

@@ -43,7 +43,7 @@ class BackHeader extends StatelessWidget implements PreferredSizeWidget {
       toolbarHeight: preferredSize.height,
       titleSpacing: context.horizontalPadding,
       bottom: showBottomBorder
-          ? const PreferredSize(
+          ? PreferredSize(
               preferredSize: Size.fromHeight(1),
               child: Divider(height: 1, thickness: 1, color: AppColors.border),
             )
@@ -96,7 +96,7 @@ class SimpleHeader extends StatelessWidget implements PreferredSizeWidget {
     return Container(
       width: double.infinity,
       padding: EdgeInsets.fromLTRB(context.horizontalPadding, 14, context.horizontalPadding, 14),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.surface,
         border: Border(bottom: BorderSide(color: AppColors.border)),
       ),

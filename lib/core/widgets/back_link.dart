@@ -3,6 +3,7 @@ import '../layout/responsive.dart';
 import '../navigation/app_navigation.dart';
 import '../platform/platform_ui.dart';
 import '../theme/app_typography.dart';
+import '../../l10n/app_localizations.dart';
 
 /// Shared ← Back label with a slightly larger arrow.
 class BackLinkLabel extends StatelessWidget {
@@ -20,7 +21,7 @@ class BackLinkLabel extends StatelessWidget {
             text: PlatformUi.backArrow,
             style: style.copyWith(fontSize: arrowSize, height: 1.1),
           ),
-          TextSpan(text: ' Back', style: style),
+          TextSpan(text: ' ${context.l10n.back}', style: style),
         ],
       ),
     );

@@ -43,16 +43,17 @@ class _ParcelPhotosSectionState extends State<ParcelPhotosSection> {
     if (remaining <= 0) return;
 
     FocusScope.of(context).unfocus();
-    final source = await PlatformUi.showAppBottomSheet<ImageSource>(
+    final result = await PlatformUi.showAppBottomSheet<Object>(
       context,
       child: const ImageSourceSheet(
         title: 'Add parcel photo',
         subtitle: 'Upload 1–3 photos of your parcel.',
+        showCancel: false,
       ),
     );
-    if (!mounted || source == null) return;
+    if (!mounted || result is! ImageSource) return;
 
-    if (source == ImageSource.gallery) {
+    if (result == ImageSource.gallery) {
       await _pickFromGallery(remaining);
     } else {
       await _pickFromCamera();
@@ -229,7 +230,7 @@ class _EmptyPhotosPlaceholder extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.image_outlined, size: 20, color: AppColors.textSecondary),
+          Icon(Icons.image_outlined, size: 20, color: AppColors.textSecondary),
           const SizedBox(width: 8),
           Text(
             'No photos selected yet',
@@ -268,7 +269,7 @@ class _RemotePhotoThumbnail extends StatelessWidget {
               height: 88,
               color: AppColors.background,
               alignment: Alignment.center,
-              child: const Icon(Icons.image_outlined, color: AppColors.textSecondary),
+              child: Icon(Icons.image_outlined, color: AppColors.textSecondary),
             ),
           ),
         ),
@@ -278,11 +279,11 @@ class _RemotePhotoThumbnail extends StatelessWidget {
             right: -6,
             child: Material(
               color: AppColors.surface,
-              shape: const CircleBorder(side: BorderSide(color: AppColors.border)),
+              shape: CircleBorder(side: BorderSide(color: AppColors.border)),
               child: InkWell(
                 onTap: onRemove,
                 customBorder: const CircleBorder(),
-                child: const Padding(
+                child: Padding(
                   padding: EdgeInsets.all(4),
                   child: Icon(Icons.close, size: 16, color: AppColors.textSecondary),
                 ),
@@ -322,11 +323,11 @@ class _PhotoThumbnail extends StatelessWidget {
           right: -6,
           child: Material(
             color: AppColors.surface,
-            shape: const CircleBorder(side: BorderSide(color: AppColors.border)),
+            shape: CircleBorder(side: BorderSide(color: AppColors.border)),
             child: InkWell(
               onTap: onRemove,
               customBorder: const CircleBorder(),
-              child: const Padding(
+              child: Padding(
                 padding: EdgeInsets.all(4),
                 child: Icon(Icons.close, size: 16, color: AppColors.textSecondary),
               ),

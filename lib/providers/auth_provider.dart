@@ -6,18 +6,23 @@ import '../core/config/demo_mode.dart';
 import '../core/platform/biometric_prefs.dart';
 import '../data/models/auth_user.dart';
 import '../data/models/otp_channel.dart';
+import '../data/models/password_login_result.dart';
 import '../data/services/auth_repository.dart';
+import 'session_inactivity_lock.dart';
 
 class AuthProvider extends ChangeNotifier {
   AuthProvider({
     AuthRepository? repository,
     DemoModeProvider? demoMode,
+    SessionInactivityLock? inactivityLock,
   })  : _demoMode = demoMode,
+        _inactivityLock = inactivityLock,
         _repository = repository ??
             AuthRepository(demoMode: demoMode);
 
   final AuthRepository _repository;
   final DemoModeProvider? _demoMode;
+  final SessionInactivityLock? _inactivityLock;
 
   AuthUser? get user => _repository.currentUser;
   bool get isAuthenticated => user != null;
@@ -61,7 +66,7 @@ class AuthProvider extends ChangeNotifier {
         ));
   }
 
-  Future<AuthUser> login({
+  Future<PasswordLoginResult> login({
     required String email,
     required String password,
   }) {
@@ -97,7 +102,30 @@ class AuthProvider extends ChangeNotifier {
         ));
   }
 
+  Future<bool> isWeeklyLoginOtpRequired() {
+    return _repository.isWeeklyLoginOtpRequired();
+  }
+
+  Future<WeeklyLoginOtpStatus> getWeeklyLoginOtpStatus() {
+    return _repository.getWeeklyLoginOtpStatus();
+  }
+
+  Future<void> sendAuthenticatedLoginOtp({bool trackLoading = false}) {
+    if (!trackLoading) {
+      return _repository.sendAuthenticatedLoginOtp();
+    }
+    return _run(_repository.sendAuthenticatedLoginOtp);
+  }
+
+  Future<AuthUser> verifyAuthenticatedLoginOtp({required String code}) {
+    return _run(() => _repository.verifyAuthenticatedLoginOtp(code: code));
+  }
+
   Future<void> logout() => _run(_repository.logout);
+
+  /// Clears the session completely (no biometric soft-lock). Used when the user
+  /// chooses password login from the inactivity Face ID gate.
+  Future<void> logoutFully() => _run(() => _repository.logout(forceFull: true));
 
   Future<void> sendPasswordResetOtp({
     required String contact,
@@ -226,6 +254,28 @@ class AuthProvider extends ChangeNotifier {
     return _run(_repository.fetchProfile);
   }
 
+  /// Upload profile photo and refresh listeners so Profile avatars update.
+  Future<String?> uploadAvatarBytes(
+    List<int> bytes, {
+    String filename = 'avatar.png',
+  }) async {
+    final url = await _repository.uploadAvatarBytes(bytes, filename: filename);
+    notifyListeners();
+    return url;
+  }
+
+  Future<String?> uploadAvatar(String filePath) async {
+    final url = await _repository.uploadAvatar(filePath);
+    notifyListeners();
+    return url;
+  }
+
+  /// Remove profile photo and refresh listeners so Profile avatars update.
+  Future<void> deleteAvatar() async {
+    await _repository.deleteAvatar();
+    notifyListeners();
+  }
+
   /// Refreshes `/auth/me` without flipping the global [loading] flag.
   /// Safe for home/header widgets that should stay interactive while syncing.
   Future<AuthUser?> refreshUser() async {
@@ -247,6 +297,7 @@ class AuthProvider extends ChangeNotifier {
       final restored = await _repository.refreshSession();
       if (restored) {
         await BiometricPrefs.setSessionSoftLocked(false);
+        await _inactivityLock?.onAuthenticated();
         notifyListeners();
         PushNotificationService.registerIfAuthenticated(_repository).ignore();
       }
@@ -255,6 +306,7 @@ class AuthProvider extends ChangeNotifier {
       await BiometricPrefs.setLoginEnabled(false);
       await BiometricPrefs.setSessionSoftLocked(false);
       await _repository.logout(forceFull: true);
+      await _inactivityLock?.onLoggedOut();
       notifyListeners();
       return false;
     }
@@ -268,10 +320,13 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
     try {
       final result = await action();
-      notifyListeners();
       if (isAuthenticated) {
+        await _inactivityLock?.onAuthenticated();
         PushNotificationService.registerIfAuthenticated(_repository).ignore();
+      } else {
+        await _inactivityLock?.onLoggedOut();
       }
+      notifyListeners();
       return result;
     } on ApiException {
       rethrow;

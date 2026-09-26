@@ -1,10 +1,14 @@
+import '../core/currency/app_currency.dart';
 import 'models/created_delivery.dart';
 
-/// Platform fee rules aligned with backend `fees.js` (USD).
+/// Platform fee rules aligned with backend `fees.js`.
 abstract final class PlatformFees {
   static const double minWalletSenderUsd = 2.0;
   static const double minWalletReceiverUsd = 2.0;
   static const double minWalletTravelerUsd = 3.0;
+
+  /// Traveler platform fee — always $3 for Document and Object.
+  static const double travelerPlatformFeeAmountUsd = 3.0;
   static const int maxTravelerRequestsPerDelivery = 2;
 
   static String get travelerRequestLimitMessage =>
@@ -44,9 +48,9 @@ abstract final class PlatformFees {
     required String category,
     required bool paysReceiverFee,
   }) {
-    final doc = isDocumentCategory(category);
-    if (paysReceiverFee) return doc ? 3.0 : 6.0;
-    return doc ? 2.0 : 4.0;
+    // Same for Document and Object: $2, or $3 when sender covers receiver fee.
+    if (paysReceiverFee) return 3.0;
+    return 2.0;
   }
 
   static double receiverPlatformFeeUsd({
@@ -54,19 +58,21 @@ abstract final class PlatformFees {
     required bool paysReceiverFee,
   }) {
     if (paysReceiverFee) return 0;
-    return isDocumentCategory(category) ? 2.0 : 3.0;
+    // Same for Document and Object.
+    return 2.0;
   }
 
   /// Traveler platform fee — charged at sender Pay Now (wallet first, then card).
+  /// Always $3 for Document and Object.
   static double travelerPlatformFeeUsd(String category) =>
-      isDocumentCategory(category) ? 2.0 : 4.0;
+      travelerPlatformFeeAmountUsd;
 
   static String travelerPlatformFeeLabel({required String category}) {
     final fee = travelerPlatformFeeUsd(category);
-    return '\$${fee.toStringAsFixed(2)} (charged at Pay Now)';
+    return '${AppCurrencies.active.formatMajor(fee)} (charged at Pay Now)';
   }
 
-  /// Generic $2 reserve to post. Must not return senderPlatformFeeUsd ($2/$4/$3/$6).
+  /// Generic $2 reserve to post. Must not return senderPlatformFeeUsd ($2/$3).
   static double minWalletForSenderCreate({
     required String category,
     required bool paysReceiverFee,
@@ -102,9 +108,9 @@ abstract final class PlatformFees {
       paysReceiverFee: paysReceiverFee,
     );
     if (paysReceiverFee) {
-      return '\$${fee.toStringAsFixed(2)} (includes receiver fee)';
+      return '${AppCurrencies.active.formatMajor(fee)} (includes receiver fee)';
     }
-    return '\$${fee.toStringAsFixed(2)}';
+    return AppCurrencies.active.formatMajor(fee);
   }
 
   static double receiverPlatformFeeForDelivery(CreatedDelivery delivery) {

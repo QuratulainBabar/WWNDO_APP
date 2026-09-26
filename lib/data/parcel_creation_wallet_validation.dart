@@ -1,3 +1,4 @@
+import '../core/currency/app_currency.dart';
 import 'models/wallet_role.dart';
 import 'wallet_service.dart';
 
@@ -5,11 +6,11 @@ import 'wallet_service.dart';
 abstract final class ParcelCreationWalletValidation {
   static const double minimumBalanceUsd = 2.0;
 
-  static const String insufficientBalanceMessage =
-      'Minimum \$2 wallet balance is required to create a delivery.';
+  static String get insufficientBalanceMessage =>
+      'Minimum ${AppCurrencies.active.formatMajor(minimumBalanceUsd)} wallet balance is required to create a delivery.';
 
-  static const String helperLabel =
-      'Minimum wallet balance: \$2 (platform fees apply when you pay)';
+  static String get helperLabel =>
+      'Minimum wallet balance: ${AppCurrencies.active.formatMajor(minimumBalanceUsd)} (platform fees apply when you pay)';
 
   static double currentBalanceUsd() =>
       WalletService.availableUsd(WalletRole.sender);

@@ -12,6 +12,7 @@ import '../../data/models/wallet_role.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/chat_realtime_provider.dart';
 import '../../providers/notification_realtime_provider.dart';
+import '../../l10n/app_localizations.dart';
 
 class ReceiverShell extends StatefulWidget {
   const ReceiverShell({super.key, required this.navigationShell});
@@ -122,10 +123,11 @@ class _ReceiverShellState extends State<ReceiverShell>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
       body: widget.navigationShell,
       bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: AppColors.surface,
           border: Border(top: BorderSide(color: AppColors.border)),
         ),
@@ -139,21 +141,21 @@ class _ReceiverShellState extends State<ReceiverShell>
                   navigationShell: widget.navigationShell,
                   index: 0,
                   icon: _TabIcon.svg(AppIcons.home),
-                  label: 'Home',
+                  label: l10n.home,
                   onTap: () => _onTabTap(0),
                 ),
                 _Tab(
                   navigationShell: widget.navigationShell,
                   index: 1,
                   icon: _TabIcon.svg(AppIcons.parcel),
-                  label: 'Shipments',
+                  label: l10n.shipments,
                   onTap: () => _onTabTap(1),
                 ),
                 _Tab(
                   navigationShell: widget.navigationShell,
                   index: 2,
                   icon: const _TabIcon.material(Icons.notifications_outlined),
-                  label: 'Alert',
+                  label: l10n.alert,
                   badge: _unreadAlerts,
                   onTap: () => _onTabTap(2),
                 ),
@@ -161,7 +163,7 @@ class _ReceiverShellState extends State<ReceiverShell>
                   navigationShell: widget.navigationShell,
                   index: 3,
                   icon: _TabIcon.svg(AppIcons.chat),
-                  label: 'Chat',
+                  label: l10n.chat,
                   badge: _unreadChats,
                   onTap: () => _onTabTap(3),
                 ),
@@ -169,7 +171,7 @@ class _ReceiverShellState extends State<ReceiverShell>
                   navigationShell: widget.navigationShell,
                   index: 4,
                   icon: _TabIcon.svg(AppIcons.profile),
-                  label: 'Profile',
+                  label: l10n.profile,
                   onTap: () => _onTabTap(4),
                 ),
               ],

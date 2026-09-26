@@ -183,7 +183,7 @@ class _RouteCountryPickerSheetState extends State<_RouteCountryPickerSheet> {
                 decoration: InputDecoration(
                   hintText: 'Search country name or code',
                   hintStyle: typo.input.copyWith(color: AppColors.textDisabled),
-                  prefixIcon: const Icon(
+                  prefixIcon: Icon(
                     Icons.search_rounded,
                     color: AppColors.textSecondary,
                   ),
@@ -201,7 +201,7 @@ class _RouteCountryPickerSheetState extends State<_RouteCountryPickerSheet> {
                     )
                   : ListView.separated(
                       itemCount: _results.length,
-                      separatorBuilder: (_, _) => const Divider(
+                      separatorBuilder: (_, _) => Divider(
                         height: 1,
                         color: AppColors.border,
                       ),

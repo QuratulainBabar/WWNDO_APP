@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import '../../l10n/app_localizations.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/config/demo_mode.dart';
@@ -22,6 +23,7 @@ import '../../data/models/traveler_bid.dart';
 import '../../data/platform_fees.dart';
 import '../../data/services/delivery_repository.dart';
 import '../../data/services/trip_repository.dart';
+import '../../data/wallet_service.dart';
 import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/sender_offer_flow_lock.dart';
@@ -228,17 +230,17 @@ class _CounterOfferDetailScreenState extends State<CounterOfferDetailScreen> {
         title: const Text('Reject counter offer?'),
         content: Text(
           'Reject ${offer.travelerName}\'s offer of '
-          '\$${offer.amount.toStringAsFixed(2)}?',
+          '${WalletService.formatMajor(offer.amount)}?',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: Text(context.tr('Cancel')),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: TextButton.styleFrom(foregroundColor: AppColors.danger),
-            child: const Text('Reject'),
+            child: Text(context.tr('Reject')),
           ),
         ],
       ),
@@ -306,7 +308,7 @@ class _CounterOfferDetailScreenState extends State<CounterOfferDetailScreen> {
     final typo = context.typo;
 
     if (_loading && _offer == null) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: AppColors.background,
         appBar: BackHeader(title: 'Counter Offer Details'),
         body: Center(
@@ -336,7 +338,7 @@ class _CounterOfferDetailScreenState extends State<CounterOfferDetailScreen> {
                 style: typo.sm.copyWith(color: AppColors.textSecondary),
                 textAlign: TextAlign.center,
               ),
-              TextButton(onPressed: _load, child: const Text('Retry')),
+              TextButton(onPressed: _load, child: Text(context.tr('Retry'))),
             ],
           ),
         ),
@@ -414,7 +416,7 @@ class _CounterOfferDetailScreenState extends State<CounterOfferDetailScreen> {
                                       const SizedBox(height: 4),
                                       Text(ratingLabel, style: typo.sm),
                                       const SizedBox(height: 8),
-                                      AppBadge.verified(label: 'Traveler'),
+                                      AppBadge.verified(label: context.tr('Traveler')),
                                     ],
                                   ),
                                 ),
@@ -440,7 +442,7 @@ class _CounterOfferDetailScreenState extends State<CounterOfferDetailScreen> {
                             _detailRow(
                               context,
                               'Offer amount',
-                              '\$${offer.amount.toStringAsFixed(2)}',
+                              WalletService.formatMajor(offer.amount),
                               valueStyle:
                                   typo.priceSmall.copyWith(fontSize: 18),
                             ),
@@ -448,7 +450,7 @@ class _CounterOfferDetailScreenState extends State<CounterOfferDetailScreen> {
                               _detailRow(
                                 context,
                                 'Your original budget',
-                                '\$${offer.maxBudget.toStringAsFixed(2)}',
+                                WalletService.formatMajor(offer.maxBudget),
                               ),
                             _detailRow(
                               context,

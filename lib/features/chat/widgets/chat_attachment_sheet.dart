@@ -12,7 +12,7 @@ class ChatAttachmentSheet extends StatelessWidget {
     final typo = context.typo;
 
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),

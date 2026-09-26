@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../l10n/app_localizations.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
@@ -16,7 +17,7 @@ class KycDisabledScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.surface,
-      appBar: AppBar(title: const Text('Identity verification')),
+      appBar: AppBar(title: Text(context.tr('Identity verification'))),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -42,7 +43,7 @@ class KycDisabledScreen extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               AppButton(
-                label: 'Continue',
+                label: context.tr('Continue'),
                 onPressed: () => context.canPop()
                     ? context.pop()
                     : context.go('/role-selection'),

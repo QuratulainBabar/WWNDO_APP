@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import '../../l10n/app_localizations.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../../core/platform/keyboard_utils.dart';
 import '../../core/api/api_exception.dart';
+import '../../core/config/api_config.dart';
 import '../../core/navigation/app_navigation.dart';
 import '../../core/phone/phone_countries.dart';
 import '../../core/theme/app_colors.dart';
@@ -14,10 +16,12 @@ import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_avatar.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_labeled_field.dart';
+import '../../core/platform/temp_image_file.dart';
 import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/back_header.dart';
 import '../../core/widgets/back_link.dart';
 import '../../core/widgets/captured_image_preview.dart';
+import '../../core/widgets/image_source_sheet.dart';
 import '../../core/widgets/international_phone_field.dart';
 import '../../core/widgets/legal_document_dialog.dart';
 import '../../core/widgets/scrollable_form_screen.dart';
@@ -26,6 +30,7 @@ import '../../data/legal_documents.dart';
 import '../../data/models/wallet_role.dart';
 import '../../data/profile_demo_store.dart';
 import '../../data/static_data.dart';
+import '../../data/wallet_service.dart';
 import '../../core/auth/kyc_verification_guard.dart';
 import '../../core/config/demo_mode.dart';
 import '../../core/widgets/kyc_status_badge.dart';
@@ -33,6 +38,7 @@ import '../../data/models/kyc_models.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/kyc_provider.dart';
 import '../onboarding/kyc_flow_actions.dart';
+import '../onboarding/profile_photo_crop_screen.dart';
 import '../sender/widgets/route_country_dropdown.dart';
 
 enum EditProfileRole { sender, receiver, traveler }
@@ -77,6 +83,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   /// In-memory preview so the circle updates immediately after pick / re-pick
   /// (Android may reuse the same cache path, which would not remount a path-based widget).
   Uint8List? _photoPreviewBytes;
+  /// Cropped bytes from this session. Uploaded only when the user adjusts a new photo.
+  Uint8List? _croppedPhotoBytes;
+  /// User chose to continue without a profile photo (clears existing on save).
+  bool _removeProfilePhoto = false;
   bool _saving = false;
 
   final ImagePicker _imagePicker = ImagePicker();
@@ -121,6 +131,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           : PhoneCountries.formatNationalAsYouType(nationalRaw, _phoneCountry),
     );
     _photoPath = ProfileDemoStore.photoPathFor(_walletRole);
+    _photoPreviewBytes = ProfileDemoStore.photoBytesFor(_walletRole);
   }
 
   WalletRole get _walletRole => switch (widget.role) {
@@ -145,26 +156,78 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _pickPhoto() async {
+    final result = await showModalBottomSheet<Object>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const ImageSourceSheet(
+        title: 'Profile photo',
+        subtitle: 'Choose how you want to add your photo',
+      ),
+    );
+    if (!mounted) return;
+
+    // Cancel → do not add a photo; clear any newly selected photo.
+    if (result is ImageSourceSheetCancel) {
+      setState(() {
+        _croppedPhotoBytes = null;
+        _photoPreviewBytes = null;
+        _photoPath = null;
+        _removeProfilePhoto = true;
+      });
+      return;
+    }
+    if (result is! ImageSource) return;
+
     try {
       final image = await _imagePicker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 85,
-        maxWidth: 1024,
+        source: result,
+        imageQuality: 92,
+        maxWidth: 2048,
       );
       if (!mounted || image == null) return;
+
       final bytes = await image.readAsBytes();
       if (!mounted || bytes.isEmpty) return;
+
+      final cropResult =
+          await Navigator.of(context).push<ProfilePhotoCropResult>(
+        MaterialPageRoute(
+          fullscreenDialog: true,
+          builder: (_) => ProfilePhotoCropScreen(imageBytes: bytes),
+        ),
+      );
+      if (!mounted || cropResult == null) return;
+
       setState(() {
-        _photoPath = image.path;
-        _photoPreviewBytes = bytes;
+        _croppedPhotoBytes = cropResult.bytes;
+        _photoPreviewBytes = cropResult.bytes;
+        _photoPath = null;
+        _removeProfilePhoto = false;
       });
-    } catch (_) {}
+    } catch (_) {
+      if (mounted) {
+        AppToast.error(context, 'Could not load that photo. Try another one.');
+      }
+    }
   }
 
-  Widget _buildProfilePhotoCircle(String avatarInitial) {
+  bool _hasExistingRemotePhoto(AuthProvider auth) {
+    return (auth.user?.avatarUrl ?? '').trim().isNotEmpty;
+  }
+
+  bool _hasVisiblePhoto(AuthProvider auth) {
+    if (_removeProfilePhoto) return false;
+    if (_photoPreviewBytes != null && _photoPreviewBytes!.isNotEmpty) {
+      return true;
+    }
+    if (_photoPath != null && _photoPath!.trim().isNotEmpty) return true;
+    return _hasExistingRemotePhoto(auth);
+  }
+
+  Widget _buildProfilePhotoCircle(String avatarInitial, AuthProvider auth) {
     const size = 96.0;
     final Widget photo;
-    if (_photoPreviewBytes != null) {
+    if (!_removeProfilePhoto && _photoPreviewBytes != null) {
       photo = ClipOval(
         child: Image.memory(
           _photoPreviewBytes!,
@@ -174,13 +237,25 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           gaplessPlayback: true,
         ),
       );
-    } else if (_photoPath != null) {
+    } else if (!_removeProfilePhoto && _photoPath != null) {
       photo = CapturedImagePreview(
         key: ValueKey(_photoPath),
         path: _photoPath!,
         width: size,
         height: size,
         clipOval: true,
+      );
+    } else if (!_removeProfilePhoto && _hasExistingRemotePhoto(auth)) {
+      photo = ClipOval(
+        child: Image.network(
+          ApiConfig.resolveUploadUrl(auth.user!.avatarUrl!.trim()),
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+          errorBuilder: (_, __, ___) =>
+              AppAvatar(initial: avatarInitial, size: AvatarSize.large),
+        ),
       );
     } else {
       photo = AppAvatar(initial: avatarInitial, size: AvatarSize.large);
@@ -200,7 +275,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               shape: BoxShape.circle,
               border: Border.all(color: AppColors.surface, width: 2),
             ),
-            child: const Icon(Icons.camera_alt_outlined, size: 16, color: Colors.white),
+            child: const Icon(
+              Icons.camera_alt_outlined,
+              size: 16,
+              color: Colors.white,
+            ),
           ),
         ],
       ),
@@ -244,10 +323,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         phone: PhoneCountries.formatFull(_phoneCountry, _phoneController.text),
         countryCode: _countryIso!,
       );
-      if (_photoPath != null) {
-        ProfileDemoStore.setPhotoPath(_walletRole, _photoPath);
+      final cropped = _croppedPhotoBytes;
+      if (_removeProfilePhoto) {
+        ProfileDemoStore.clearPhotoForAllRoles();
         try {
-          await auth.repository.uploadAvatar(_photoPath!);
+          await auth.deleteAvatar();
+        } catch (_) {
+          // Non-fatal — profile fields still saved.
+        }
+      } else if (cropped != null && cropped.isNotEmpty) {
+        final path = await writeTempImageFile(cropped);
+        ProfileDemoStore.setPhotoForAllRoles(path: path, bytes: cropped);
+        try {
+          await auth.uploadAvatarBytes(cropped);
         } catch (_) {
           // Non-fatal — profile fields still saved.
         }
@@ -280,7 +368,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         backgroundColor: AppColors.surface,
         resizeToAvoidBottomInset: true,
         appBar: BackHeader(
-          title: 'Edit profile',
+          title: context.tr('Edit profile'),
           fallbackRoute: settingsRouteForProfileRole(widget.role),
         ),
         body: ColoredBox(
@@ -295,18 +383,21 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             child: switch (widget.role) {
               EditProfileRole.sender => _buildExtendedProfileForm(
                   typo,
+                  auth: auth,
                   subtitle:
                       'This information is shown on your public profile when you send parcels.',
                   avatarInitial: avatarInitial,
                 ),
               EditProfileRole.receiver => _buildExtendedProfileForm(
                   typo,
+                  auth: auth,
                   subtitle:
                       'This information is shown on your public profile when you receive parcels.',
                   avatarInitial: avatarInitial,
                 ),
               EditProfileRole.traveler => _buildExtendedProfileForm(
                   typo,
+                  auth: auth,
                   subtitle:
                       'This information is shown on your public profile when you carry parcels.',
                   avatarInitial: avatarInitial,
@@ -320,9 +411,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   Widget _buildExtendedProfileForm(
     AppTypography typo, {
+    required AuthProvider auth,
     required String subtitle,
     required String avatarInitial,
   }) {
+    final hasPhoto = _hasVisiblePhoto(auth);
+    final caption =
+        hasPhoto ? 'Tap to change photo' : 'Tap to upload a photo';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -335,10 +431,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           labelStyle: typo.inputLabel.copyWith(fontWeight: FontWeight.w700),
           child: Column(
             children: [
-              _buildProfilePhotoCircle(avatarInitial),
+              _buildProfilePhotoCircle(avatarInitial, auth),
               const SizedBox(height: 8),
               Text(
-                'Tap to upload a photo',
+                caption,
                 style: typo.sm.copyWith(color: AppColors.textSecondary),
               ),
             ],
@@ -359,7 +455,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           ),
         ),
         AppLabeledField(
-          label: 'Email',
+          label: context.tr('Email'),
           labelStyle: typo.inputLabel.copyWith(fontWeight: FontWeight.w700),
           child: TextField(
             controller: _emailController,
@@ -753,7 +849,7 @@ class WalletWithdrawalSuccessScreen extends StatelessWidget {
               Text('Withdrawal initiated', style: typo.h1, textAlign: TextAlign.center),
               const SizedBox(height: 8),
               Text(
-                '\$${amount.toStringAsFixed(2)} is being transferred via Stripe Connect to your linked bank account. Arrives in 2–5 business days.',
+                '${WalletService.formatMajor(amount)} is being transferred via Stripe Connect to your linked bank account. Arrives in 2–5 business days.',
                 textAlign: TextAlign.center,
                 style: typo.sm.copyWith(height: 1.5),
               ),
@@ -852,7 +948,7 @@ class _KycStatusScreenState extends State<KycStatusScreen> {
       child: Scaffold(
         backgroundColor: AppColors.surface,
         appBar: BackHeader(
-          title: 'Identity verification',
+          title: context.tr('Identity verification'),
           fallbackRoute: settingsRoute,
         ),
         body: ScrollableFormScreen(

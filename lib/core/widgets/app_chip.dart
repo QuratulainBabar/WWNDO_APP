@@ -49,11 +49,13 @@ class AppChipRow extends StatelessWidget {
     required this.options,
     required this.selected,
     required this.onSelected,
+    this.labelOf,
   });
 
   final List<String> options;
   final String selected;
   final ValueChanged<String> onSelected;
+  final String Function(String option)? labelOf;
 
   @override
   Widget build(BuildContext context) {
@@ -61,7 +63,7 @@ class AppChipRow extends StatelessWidget {
       children: options
           .map(
             (o) => AppChip(
-              label: o,
+              label: labelOf?.call(o) ?? o,
               selected: o == selected,
               onTap: () => onSelected(o),
             ),

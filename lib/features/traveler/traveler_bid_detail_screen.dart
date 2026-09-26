@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import '../../l10n/app_localizations.dart';
 
 import '../../core/config/demo_mode.dart';
 import '../../core/layout/responsive.dart';
@@ -16,6 +17,7 @@ import '../../core/widgets/stacked_route_endpoints.dart';
 import '../../data/models/traveler_bid.dart';
 import '../../data/services/trip_repository.dart';
 import '../../data/static_data.dart';
+import '../../data/wallet_service.dart';
 import '../../providers/auth_provider.dart';
 import '../chat/open_delivery_chat.dart';
 import '../tracking/widgets/parcel_photo_viewer.dart';
@@ -104,7 +106,7 @@ class _TravelerBidDetailScreenState extends State<TravelerBidDetailScreen> {
     final typo = context.typo;
 
     if (_loading && _bid == null) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: AppColors.background,
         appBar: BackHeader(title: 'Bid Details'),
         body: Center(
@@ -133,7 +135,7 @@ class _TravelerBidDetailScreenState extends State<TravelerBidDetailScreen> {
                 _error ?? 'Bid not found.',
                 style: typo.sm.copyWith(color: AppColors.textSecondary),
               ),
-              TextButton(onPressed: _load, child: const Text('Retry')),
+              TextButton(onPressed: _load, child: Text(context.tr('Retry'))),
             ],
           ),
         ),
@@ -218,7 +220,7 @@ class _TravelerBidDetailScreenState extends State<TravelerBidDetailScreen> {
                       _detailRow(
                         context,
                         amountLabel,
-                        '\$${bid.amount.toStringAsFixed(2)}',
+                        WalletService.formatMajor(bid.amount),
                         valueStyle: typo.priceSmall.copyWith(
                           fontSize: 16,
                           fontWeight: FontWeight.w500,

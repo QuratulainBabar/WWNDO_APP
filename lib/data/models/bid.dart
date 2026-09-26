@@ -23,6 +23,13 @@ class Bid {
     this.bio,
     this.completedDeliveries = 0,
     this.luggageCapacityKg,
+    this.route,
+    this.origin,
+    this.destination,
+    this.departureTime,
+    this.travelMethod,
+    this.fromEndpointType,
+    this.toEndpointType,
   });
 
   final String id;
@@ -41,8 +48,26 @@ class Bid {
   final int completedDeliveries;
   /// Traveler trip luggage capacity in kg (when known from matching API).
   final double? luggageCapacityKg;
+  final String? route;
+  final String? origin;
+  final String? destination;
+  final String? departureTime;
+  final String? travelMethod;
+  final String? fromEndpointType;
+  final String? toEndpointType;
 
   String get routeMatchLabel => '$routeMatchConfidence% Match';
+
+  String? get travelMethodLabel {
+    switch (travelMethod?.trim().toLowerCase()) {
+      case 'air':
+        return 'By Air';
+      case 'land':
+        return 'By Land';
+      default:
+        return null;
+    }
+  }
 
   bool canCarryWeightKg(double parcelWeightKg) {
     final capacity = luggageCapacityKg;
@@ -65,6 +90,13 @@ class Bid {
     String? bio,
     int? completedDeliveries,
     double? luggageCapacityKg,
+    String? route,
+    String? origin,
+    String? destination,
+    String? departureTime,
+    String? travelMethod,
+    String? fromEndpointType,
+    String? toEndpointType,
   }) {
     return Bid(
       id: id ?? this.id,
@@ -81,6 +113,13 @@ class Bid {
       bio: bio ?? this.bio,
       completedDeliveries: completedDeliveries ?? this.completedDeliveries,
       luggageCapacityKg: luggageCapacityKg ?? this.luggageCapacityKg,
+      route: route ?? this.route,
+      origin: origin ?? this.origin,
+      destination: destination ?? this.destination,
+      departureTime: departureTime ?? this.departureTime,
+      travelMethod: travelMethod ?? this.travelMethod,
+      fromEndpointType: fromEndpointType ?? this.fromEndpointType,
+      toEndpointType: toEndpointType ?? this.toEndpointType,
     );
   }
 }

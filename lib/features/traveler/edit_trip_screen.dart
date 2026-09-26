@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import '../../l10n/app_localizations.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/config/demo_mode.dart';
@@ -116,16 +117,22 @@ class _EditTripScreenState extends State<EditTripScreen> {
           origin: preview.origin,
           destination: preview.destination,
           travelDate: preview.travelDate,
+          departureTime: preview.departureTime,
           luggageCapacityKg: preview.luggageCapacityKg,
           status: trip.status,
           tripType: trip.tripType,
           flightNumber: request.flightNumber,
+          fromCity: request.fromCity,
+          toCity: request.toCity,
           fromCode: request.fromCode,
           toCode: request.toCode,
           originCountry: request.originCountry,
           destinationCountry: request.destinationCountry,
           originCountryCode: request.originCountryCode,
           destinationCountryCode: request.destinationCountryCode,
+          originAirport: request.originAirport,
+          destinationAirport: request.destinationAirport,
+          travelMethod: request.travelMethod,
         ),
       );
       if (!mounted) return;
@@ -187,7 +194,7 @@ class _EditTripScreenState extends State<EditTripScreen> {
                   style: typo.sm.copyWith(color: AppColors.textSecondary),
                 ),
                 const SizedBox(height: 16),
-                TextButton(onPressed: _load, child: const Text('Retry')),
+                TextButton(onPressed: _load, child: Text(context.tr('Retry'))),
               ],
             ),
           ),

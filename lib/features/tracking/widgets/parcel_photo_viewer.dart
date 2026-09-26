@@ -49,7 +49,7 @@ class ParcelPhotoViewer extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.image_outlined, size: 20, color: AppColors.textSecondary),
+                Icon(Icons.image_outlined, size: 20, color: AppColors.textSecondary),
                 const SizedBox(width: 8),
                 Text(
                   'No photos uploaded yet',
@@ -118,7 +118,7 @@ class _NetworkThumbnail extends StatelessWidget {
               errorBuilder: (context, error, stackTrace) => Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.broken_image_outlined, size: 28, color: AppColors.textSecondary),
+                  Icon(Icons.broken_image_outlined, size: 28, color: AppColors.textSecondary),
                   const SizedBox(height: 4),
                   Text(
                     'Photo $index',

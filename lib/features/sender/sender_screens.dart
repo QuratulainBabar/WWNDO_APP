@@ -27,6 +27,7 @@ import '../../data/delivery_status_mapper.dart';
 import '../../data/route_display.dart';
 import '../../data/services/delivery_repository.dart';
 import '../../data/static_data.dart';
+import '../../data/wallet_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_realtime_provider.dart';
 import '../../providers/sender_deliveries_provider.dart';
@@ -194,7 +195,7 @@ class _BidCard extends StatelessWidget {
                   ],
                 ),
               ),
-              Text('\$${bid.price.toInt()}', style: typo.priceLarge),
+              Text(WalletService.formatMajor(bid.price), style: typo.priceLarge),
             ],
           ),
           const SizedBox(height: 8),
@@ -386,7 +387,7 @@ class EscrowPaymentScreen extends StatelessWidget {
                 children: [
                   Text('Funds held in escrow until delivery confirmed', style: typo.captionOnDarkSoft),
                   const SizedBox(height: 8),
-                  Text('\$${total.toStringAsFixed(2)}', style: typo.priceHero),
+                  Text(WalletService.formatMajor(total), style: typo.priceHero),
                   Text('🔒 Secured by Stripe', style: typo.captionOnDark),
                 ],
               ),
@@ -396,10 +397,10 @@ class EscrowPaymentScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _row(context, 'Traveler payout (${bid.travelerName})', '\$${bid.price.toStringAsFixed(2)}'),
+                  _row(context, 'Traveler payout (${bid.travelerName})', WalletService.formatMajor(bid.price)),
                   const Divider(),
-                  _row(context, 'Your platform fee', '\$${platformFee.toStringAsFixed(2)}'),
-                  _row(context, 'Total charged today', '\$${total.toStringAsFixed(2)}', bold: true, primary: true),
+                  _row(context, 'Your platform fee', WalletService.formatMajor(platformFee)),
+                  _row(context, 'Total charged today', WalletService.formatMajor(total), bold: true, primary: true),
                 ],
               ),
             ),
@@ -493,7 +494,7 @@ class PaymentConfirmedScreen extends StatelessWidget {
               const SizedBox(height: 16),
               Text('Funds secured!', style: typo.h1),
               const SizedBox(height: 8),
-              Text('\$${total.toStringAsFixed(2)} is held in escrow.', style: typo.sm),
+              Text('${WalletService.formatMajor(total)} is held in escrow.', style: typo.sm),
               const SizedBox(height: 8),
               Text(
                 'Selected bid locked · Receiver notified',

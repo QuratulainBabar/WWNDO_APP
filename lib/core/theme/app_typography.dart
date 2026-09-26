@@ -5,11 +5,15 @@ import 'app_colors.dart';
 /// Segoe UI is bundled in assets/fonts so it renders on every platform.
 @immutable
 class AppTypography extends ThemeExtension<AppTypography> {
-  const AppTypography();
+  const AppTypography({this.colors = AppColorPalette.light});
+
+  final AppColorPalette colors;
 
   static const String fontFamilyName = 'Segoe UI';
 
-  static AppTypography light() => const AppTypography();
+  static AppTypography light() => const AppTypography(colors: AppColorPalette.light);
+
+  static AppTypography dark() => const AppTypography(colors: AppColorPalette.dark);
 
   TextStyle _style({
     required double fontSize,
@@ -31,36 +35,36 @@ class AppTypography extends ThemeExtension<AppTypography> {
   }
 
   // ── Core scale (mobile-readable minimums: body 15, sm 15, labels 12+) ──
-  TextStyle get h1 => _style(fontSize: 26, fontWeight: FontWeight.w900, color: AppColors.textPrimary, height: 1.25);
-  TextStyle get h2 => _style(fontSize: 22, fontWeight: FontWeight.w900, color: AppColors.textPrimary, height: 1.3);
-  TextStyle get h3 => _style(fontSize: 19, fontWeight: FontWeight.w900, color: AppColors.textPrimary, height: 1.35);
-  TextStyle get subheading => _style(fontSize: 16, fontWeight: FontWeight.w400, color: AppColors.textSecondary, height: 1.5);
-  TextStyle get body => _style(fontSize: 15, fontWeight: FontWeight.w400, color: AppColors.textPrimary, height: 1.5);
-  TextStyle get bodyBold => _style(fontSize: 17, fontWeight: FontWeight.w900, color: AppColors.textPrimary, height: 1.5);
-  TextStyle get sm => _style(fontSize: 15, fontWeight: FontWeight.w400, color: AppColors.textSecondary, height: 1.5);
-  TextStyle get smPrimary => _style(fontSize: 15, fontWeight: FontWeight.w400, color: AppColors.textPrimary, height: 1.5);
+  TextStyle get h1 => _style(fontSize: 26, fontWeight: FontWeight.w900, color: colors.textPrimary, height: 1.25);
+  TextStyle get h2 => _style(fontSize: 22, fontWeight: FontWeight.w900, color: colors.textPrimary, height: 1.3);
+  TextStyle get h3 => _style(fontSize: 19, fontWeight: FontWeight.w900, color: colors.textPrimary, height: 1.35);
+  TextStyle get subheading => _style(fontSize: 16, fontWeight: FontWeight.w400, color: colors.textSecondary, height: 1.5);
+  TextStyle get body => _style(fontSize: 15, fontWeight: FontWeight.w400, color: colors.textPrimary, height: 1.5);
+  TextStyle get bodyBold => _style(fontSize: 17, fontWeight: FontWeight.w900, color: colors.textPrimary, height: 1.5);
+  TextStyle get sm => _style(fontSize: 15, fontWeight: FontWeight.w400, color: colors.textSecondary, height: 1.5);
+  TextStyle get smPrimary => _style(fontSize: 15, fontWeight: FontWeight.w400, color: colors.textPrimary, height: 1.5);
   TextStyle get label => _style(
         fontSize: 15,
         fontWeight: FontWeight.w900,
-        color: AppColors.textSecondary,
+        color: colors.textSecondary,
         letterSpacing: 0.5,
         height: 1.4,
       );
 
   // ── UI components ──
-  TextStyle get input => _style(fontSize: 16, fontWeight: FontWeight.w400, color: AppColors.textPrimary);
-  TextStyle get inputLabel => _style(fontSize: 14, fontWeight: FontWeight.w900, color: AppColors.textPrimary, height: 1.4);
+  TextStyle get input => _style(fontSize: 16, fontWeight: FontWeight.w400, color: colors.textPrimary);
+  TextStyle get inputLabel => _style(fontSize: 14, fontWeight: FontWeight.w900, color: colors.textPrimary, height: 1.4);
   TextStyle get button => _style(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white, height: 1.3);
   TextStyle get buttonSm => _style(fontSize: 14, fontWeight: FontWeight.w700);
   TextStyle get buttonDanger => _style(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.danger);
   TextStyle get badge => _style(fontSize: 13, fontWeight: FontWeight.w600);
   TextStyle get badgeSm => _style(fontSize: 12, fontWeight: FontWeight.w600);
-  TextStyle get chip => _style(fontSize: 15, fontWeight: FontWeight.w400, color: AppColors.textSecondary);
+  TextStyle get chip => _style(fontSize: 15, fontWeight: FontWeight.w400, color: colors.textSecondary);
   TextStyle get backLink => _style(fontSize: 15, fontWeight: FontWeight.w400, color: AppColors.primary);
   TextStyle get link => _style(fontSize: 14, fontWeight: FontWeight.w400, color: AppColors.primary);
   TextStyle get linkBold => _style(fontSize: 14, fontWeight: FontWeight.w900, color: AppColors.primary);
-  TextStyle get headerTitle => _style(fontSize: 19, fontWeight: FontWeight.w700, color: AppColors.textPrimary, height: 1.25);
-  TextStyle get tabLabel => _style(fontSize: 14, fontWeight: FontWeight.w400, color: AppColors.textSecondary);
+  TextStyle get headerTitle => _style(fontSize: 19, fontWeight: FontWeight.w700, color: colors.textPrimary, height: 1.25);
+  TextStyle get tabLabel => _style(fontSize: 14, fontWeight: FontWeight.w400, color: colors.textSecondary);
   TextStyle get tabIcon => _style(fontSize: 20);
 
   // ── Gradient / brand headers ──
@@ -114,8 +118,8 @@ class AppTypography extends ThemeExtension<AppTypography> {
   // ── Home / wallet ──
   TextStyle get walletLabel => _style(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary);
   TextStyle get walletAmount => _style(fontSize: 19, fontWeight: FontWeight.w900, color: AppColors.primary);
-  TextStyle get searchHint => _style(fontSize: 16, fontWeight: FontWeight.w400, color: AppColors.textSecondary);
-  TextStyle get actionLabel => _style(fontSize: 14, fontWeight: FontWeight.w500, color: AppColors.textPrimary, height: 1.25);
+  TextStyle get searchHint => _style(fontSize: 16, fontWeight: FontWeight.w400, color: colors.textSecondary);
+  TextStyle get actionLabel => _style(fontSize: 14, fontWeight: FontWeight.w500, color: colors.textPrimary, height: 1.25);
   TextStyle get actionIcon => _style(fontSize: 22);
   TextStyle get routeArrow => _style(fontSize: 14, fontWeight: FontWeight.w400, color: AppColors.primary);
 
@@ -125,23 +129,23 @@ class AppTypography extends ThemeExtension<AppTypography> {
   TextStyle get priceLarge => _style(fontSize: 22, fontWeight: FontWeight.w900, color: AppColors.primary);
   TextStyle get priceMedium => _style(fontSize: 20, fontWeight: FontWeight.w900, color: AppColors.primary);
   TextStyle get priceSmall => _style(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.primary);
-  TextStyle get amountInput => _style(fontSize: 18, fontWeight: FontWeight.w400, color: AppColors.textPrimary);
+  TextStyle get amountInput => _style(fontSize: 18, fontWeight: FontWeight.w400, color: colors.textPrimary);
   TextStyle get trackingId => _style(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.primary);
 
   // ── Chat / steps ──
-  TextStyle get stepText => _style(fontSize: 15, fontWeight: FontWeight.w400, color: AppColors.textSecondary, height: 1.5);
+  TextStyle get stepText => _style(fontSize: 15, fontWeight: FontWeight.w400, color: colors.textSecondary, height: 1.5);
   TextStyle get stepTextCurrent => _style(fontSize: 15, fontWeight: FontWeight.w900, color: AppColors.primary, height: 1.5);
   TextStyle get bubbleText => _style(fontSize: 14, fontWeight: FontWeight.w400, height: 1.5);
   TextStyle get bubbleTextMine => _style(fontSize: 14, fontWeight: FontWeight.w400, color: Colors.white, height: 1.5);
-  TextStyle get bubbleTime => _style(fontSize: 14, fontWeight: FontWeight.w400, color: AppColors.textSecondary);
-  TextStyle get chatInput => _style(fontSize: 15, fontWeight: FontWeight.w400, color: AppColors.textSecondary);
-  TextStyle get datePill => _style(fontSize: 14, fontWeight: FontWeight.w400, color: AppColors.textSecondary);
+  TextStyle get bubbleTime => _style(fontSize: 14, fontWeight: FontWeight.w400, color: colors.textSecondary);
+  TextStyle get chatInput => _style(fontSize: 15, fontWeight: FontWeight.w400, color: colors.textSecondary);
+  TextStyle get datePill => _style(fontSize: 14, fontWeight: FontWeight.w400, color: colors.textSecondary);
 
   // ── Misc screen text ──
-  TextStyle get caption => _style(fontSize: 15, fontWeight: FontWeight.w400, color: AppColors.textSecondary, height: 1.5);
+  TextStyle get caption => _style(fontSize: 15, fontWeight: FontWeight.w400, color: colors.textSecondary, height: 1.5);
   TextStyle get captionOnDark => _style(fontSize: 14, fontWeight: FontWeight.w400, color: Colors.white.withValues(alpha: 0.7), height: 1.5);
   TextStyle get captionOnDarkSoft => _style(fontSize: 14, fontWeight: FontWeight.w400, color: Colors.white.withValues(alpha: 0.8), height: 1.5);
-  TextStyle get italicQuote => _style(fontSize: 14, fontWeight: FontWeight.w400, fontStyle: FontStyle.italic, color: AppColors.textPrimary, height: 1.5);
+  TextStyle get italicQuote => _style(fontSize: 14, fontWeight: FontWeight.w400, fontStyle: FontStyle.italic, color: colors.textPrimary, height: 1.5);
   TextStyle get bodyOnDark => _style(fontSize: 14, fontWeight: FontWeight.w400, color: Colors.white.withValues(alpha: 0.65), height: 1.5);
   TextStyle get screenTitleDark => _style(fontSize: 26, fontWeight: FontWeight.w900, color: Colors.white, height: 1.25);
   TextStyle get nfcTitle => _style(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.white, height: 1.25);
@@ -162,19 +166,25 @@ class AppTypography extends ThemeExtension<AppTypography> {
       );
 
   /// Base text theme for Material [ThemeData].
-  TextTheme get materialTextTheme => ThemeData.light().textTheme.apply(
-        fontFamily: fontFamilyName,
-      );
+  TextTheme get materialTextTheme => (colors == AppColorPalette.dark
+          ? ThemeData.dark()
+          : ThemeData.light())
+      .textTheme
+      .apply(fontFamily: fontFamilyName);
 
   static AppTypography of(BuildContext context) {
     return Theme.of(context).extension<AppTypography>() ?? light();
   }
 
   @override
-  AppTypography copyWith() => const AppTypography();
+  AppTypography copyWith({AppColorPalette? colors}) =>
+      AppTypography(colors: colors ?? this.colors);
 
   @override
-  AppTypography lerp(ThemeExtension<AppTypography>? other, double t) => this;
+  AppTypography lerp(ThemeExtension<AppTypography>? other, double t) {
+    if (other is! AppTypography) return this;
+    return t < 0.5 ? this : other;
+  }
 }
 
 extension AppTypographyContext on BuildContext {

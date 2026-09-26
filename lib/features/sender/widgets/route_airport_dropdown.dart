@@ -64,7 +64,7 @@ class RouteAirportDropdown extends StatelessWidget {
           child: InputDecorator(
             decoration: InputDecoration(
               hintText: hasCountry ? hintText : 'Select country first',
-              suffixIcon: const Icon(
+              suffixIcon: Icon(
                 Icons.keyboard_arrow_down_rounded,
                 color: AppColors.textSecondary,
               ),
@@ -171,7 +171,7 @@ class _RouteAirportPickerSheetState extends State<_RouteAirportPickerSheet> {
                 decoration: InputDecoration(
                   hintText: 'Search airport name or code',
                   hintStyle: typo.input.copyWith(color: AppColors.textDisabled),
-                  prefixIcon: const Icon(
+                  prefixIcon: Icon(
                     Icons.search_rounded,
                     color: AppColors.textSecondary,
                   ),
@@ -190,7 +190,7 @@ class _RouteAirportPickerSheetState extends State<_RouteAirportPickerSheet> {
                     )
                   : ListView.separated(
                       itemCount: _results.length,
-                      separatorBuilder: (_, _) => const Divider(
+                      separatorBuilder: (_, _) => Divider(
                         height: 1,
                         color: AppColors.border,
                       ),

@@ -38,6 +38,45 @@ abstract final class LocalTime {
   static String clock(DateTime value) =>
       DateFormat('h:mm a').format(value.toLocal());
 
+  /// Formats a stored departure time (`HH:mm`, `H:mm`, or already `h:mm a`)
+  /// for sender-facing display with AM/PM (e.g. `9:00 AM`).
+  static String formatDepartureTime(String? raw) {
+    final value = raw?.trim() ?? '';
+    if (value.isEmpty) return '';
+
+    final withPeriod = RegExp(
+      r'^(\d{1,2}):(\d{2})(?::\d{2})?\s*([AaPp][Mm])$',
+    ).firstMatch(value);
+    if (withPeriod != null) {
+      var hour = int.parse(withPeriod.group(1)!);
+      final minute = int.parse(withPeriod.group(2)!);
+      final period = withPeriod.group(3)!.toUpperCase();
+      if (period == 'AM') {
+        if (hour == 12) hour = 0;
+      } else if (hour != 12) {
+        hour += 12;
+      }
+      if (hour > 23 || minute > 59) return value;
+      return DateFormat('h:mm a').format(DateTime(2000, 1, 1, hour, minute));
+    }
+
+    final match = RegExp(r'^(\d{1,2}):(\d{2})(?::\d{2})?$').firstMatch(value);
+    if (match == null) return value;
+
+    final hour = int.tryParse(match.group(1)!);
+    final minute = int.tryParse(match.group(2)!);
+    if (hour == null ||
+        minute == null ||
+        hour < 0 ||
+        hour > 23 ||
+        minute < 0 ||
+        minute > 59) {
+      return value;
+    }
+
+    return DateFormat('h:mm a').format(DateTime(2000, 1, 1, hour, minute));
+  }
+
   /// Inbox row: clock for today, otherwise Yesterday / weekday / date.
   static String inbox(DateTime value) {
     final local = value.toLocal();

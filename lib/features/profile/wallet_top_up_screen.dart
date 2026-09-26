@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import '../../l10n/app_localizations.dart';
 
 import '../../core/platform/keyboard_utils.dart';
 import '../../core/api/api_exception.dart';
@@ -14,6 +15,7 @@ import '../../core/widgets/screen_body.dart';
 import '../../core/payments/stripe_connect_return.dart';
 import '../../data/models/wallet_role.dart';
 import '../../data/wallet_service.dart';
+import '../../providers/currency_provider.dart';
 import '../../providers/wallet_provider.dart';
 
 class WalletTopUpScreen extends StatefulWidget {
@@ -82,7 +84,7 @@ class _WalletTopUpScreenState extends State<WalletTopUpScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: BackHeader(title: 'Top up wallet', fallbackRoute: walletRoute),
+      appBar: BackHeader(title: context.tr('Top up wallet'), fallbackRoute: walletRoute),
       body: ScreenBody(
         padding: context.pagePadding,
         child: Column(
@@ -94,7 +96,7 @@ class _WalletTopUpScreenState extends State<WalletTopUpScreen> {
             ),
             const SizedBox(height: 20),
             AppLabeledField(
-              label: 'Amount (USD)',
+              label: context.watch<CurrencyProvider>().fieldLabel('Amount'),
               labelStyle: typo.inputLabel.copyWith(fontWeight: FontWeight.w600),
               child: TextField(
                 controller: _amountController,

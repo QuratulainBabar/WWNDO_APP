@@ -5,10 +5,11 @@ import 'package:flutter/material.dart';
 import '../../../core/platform/keyboard_utils.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/widgets/app_chip.dart';
 import '../../../data/models/meetup_location.dart';
 import '../../../data/services/places_search_service.dart';
 
-/// From / To airport search for country-to-country posting (Google Places API).
+/// From / To airport or city search for country-to-country posting.
 class AirportRouteSearchFields extends StatefulWidget {
   const AirportRouteSearchFields({
     super.key,
@@ -18,6 +19,10 @@ class AirportRouteSearchFields extends StatefulWidget {
     this.toErrorText,
     this.fromFieldKey,
     this.toFieldKey,
+    this.fromSearchAirports = true,
+    this.toSearchAirports = true,
+    this.onFromSearchModeChanged,
+    this.onToSearchModeChanged,
     required this.onFromChanged,
     required this.onToChanged,
   });
@@ -28,6 +33,12 @@ class AirportRouteSearchFields extends StatefulWidget {
   final String? toErrorText;
   final Key? fromFieldKey;
   final Key? toFieldKey;
+  /// When false, From searches cities instead of airports.
+  final bool fromSearchAirports;
+  /// When false, To searches cities instead of airports.
+  final bool toSearchAirports;
+  final ValueChanged<bool>? onFromSearchModeChanged;
+  final ValueChanged<bool>? onToSearchModeChanged;
   final ValueChanged<MeetupLocation?> onFromChanged;
   final ValueChanged<MeetupLocation?> onToChanged;
 
@@ -82,6 +93,16 @@ class _AirportRouteSearchFieldsState extends State<AirportRouteSearchFields> {
         !_applyingSelection &&
         oldWidget.toAirport?.placeId != widget.toAirport?.placeId) {
       _toController.text = widget.toAirport?.displayLabel ?? '';
+    }
+    if (oldWidget.fromSearchAirports != widget.fromSearchAirports ||
+        oldWidget.toSearchAirports != widget.toSearchAirports) {
+      setState(() {
+        _suggestions = const [];
+        _totalMatches = 0;
+        _query = '';
+        _searchError = null;
+        _showAll = false;
+      });
     }
   }
 
@@ -175,7 +196,12 @@ class _AirportRouteSearchFieldsState extends State<AirportRouteSearchFields> {
 
     _debounce = Timer(const Duration(milliseconds: 350), () async {
       try {
-        final results = await _places.searchAirports(q);
+        final searchAirports = _active == _ActiveField.from
+            ? widget.fromSearchAirports
+            : widget.toSearchAirports;
+        final results = searchAirports
+            ? await _places.searchAirports(q)
+            : await _places.searchCities(q);
         if (!mounted) return;
         setState(() {
           _totalMatches = results.length;
@@ -186,11 +212,16 @@ class _AirportRouteSearchFieldsState extends State<AirportRouteSearchFields> {
         });
       } catch (_) {
         if (!mounted) return;
+        final searchAirports = _active == _ActiveField.from
+            ? widget.fromSearchAirports
+            : widget.toSearchAirports;
         setState(() {
           _suggestions = const [];
           _totalMatches = 0;
           _searching = false;
-          _searchError = 'Could not search airports. Try again.';
+          _searchError = searchAirports
+              ? 'Could not search airports. Try again.'
+              : 'Could not search locations. Try again.';
         });
       }
     });
@@ -270,7 +301,12 @@ class _AirportRouteSearchFieldsState extends State<AirportRouteSearchFields> {
     setState(() => _showAll = true);
     if (_query.trim().length >= 2) {
       try {
-        final results = await _places.searchAirports(_query);
+        final searchAirports = _active == _ActiveField.from
+            ? widget.fromSearchAirports
+            : widget.toSearchAirports;
+        final results = searchAirports
+            ? await _places.searchAirports(_query)
+            : await _places.searchCities(_query);
         if (!mounted) return;
         setState(() {
           _totalMatches = results.length;
@@ -280,6 +316,18 @@ class _AirportRouteSearchFieldsState extends State<AirportRouteSearchFields> {
         // Keep current preview list.
       }
     }
+  }
+
+  String get _helperText {
+    final fromAirport = widget.fromSearchAirports;
+    final toAirport = widget.toSearchAirports;
+    if (fromAirport && toAirport) {
+      return 'Start typing an airport name';
+    }
+    if (!fromAirport && !toAirport) {
+      return 'Start typing a city name';
+    }
+    return 'Start typing an airport or city name';
   }
 
   @override
@@ -295,6 +343,15 @@ class _AirportRouteSearchFieldsState extends State<AirportRouteSearchFields> {
           'From',
           style: typo.inputLabel.copyWith(fontWeight: FontWeight.w600),
         ),
+        if (widget.onFromSearchModeChanged != null) ...[
+          const SizedBox(height: 8),
+          AppChipRow(
+            options: const ['Airport', 'City'],
+            selected: widget.fromSearchAirports ? 'Airport' : 'City',
+            onSelected: (value) =>
+                widget.onFromSearchModeChanged!(value == 'Airport'),
+          ),
+        ],
         const SizedBox(height: 8),
         IntrinsicHeight(
           child: Row(
@@ -342,6 +399,9 @@ class _AirportRouteSearchFieldsState extends State<AirportRouteSearchFields> {
                         focusNode: _fromFocus,
                         hasValue: widget.fromAirport != null,
                         errorText: widget.fromErrorText,
+                        hintText: widget.fromSearchAirports
+                            ? 'Search Airport'
+                            : 'Search Location',
                         onChanged: (v) => _onQueryChanged(v, isFrom: true),
                         onClear: () => _clearField(isFrom: true),
                       ),
@@ -367,6 +427,19 @@ class _AirportRouteSearchFieldsState extends State<AirportRouteSearchFields> {
                             .copyWith(fontWeight: FontWeight.w600),
                       ),
                     ),
+                    if (widget.onToSearchModeChanged != null) ...[
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: AppChipRow(
+                          options: const ['Airport', 'City'],
+                          selected:
+                              widget.toSearchAirports ? 'Airport' : 'City',
+                          onSelected: (value) =>
+                              widget.onToSearchModeChanged!(value == 'Airport'),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 8),
                     KeyedSubtree(
                       key: widget.toFieldKey,
@@ -375,6 +448,9 @@ class _AirportRouteSearchFieldsState extends State<AirportRouteSearchFields> {
                         focusNode: _toFocus,
                         hasValue: widget.toAirport != null,
                         errorText: widget.toErrorText,
+                        hintText: widget.toSearchAirports
+                            ? 'Search Airport'
+                            : 'Search Location',
                         onChanged: (v) => _onQueryChanged(v, isFrom: false),
                         onClear: () => _clearField(isFrom: false),
                       ),
@@ -400,7 +476,7 @@ class _AirportRouteSearchFieldsState extends State<AirportRouteSearchFields> {
         if (!showSuggestions) ...[
           const SizedBox(height: 6),
           Text(
-            'Start typing an airport name',
+            _helperText,
             style: typo.sm.copyWith(color: AppColors.textSecondary),
           ),
         ],
@@ -417,6 +493,7 @@ class _AirportSearchField extends StatelessWidget {
     required this.onChanged,
     required this.onClear,
     this.errorText,
+    this.hintText = 'Search Airport',
   });
 
   final TextEditingController controller;
@@ -425,6 +502,7 @@ class _AirportSearchField extends StatelessWidget {
   final ValueChanged<String> onChanged;
   final VoidCallback onClear;
   final String? errorText;
+  final String hintText;
 
   @override
   Widget build(BuildContext context) {
@@ -445,7 +523,7 @@ class _AirportSearchField extends StatelessWidget {
           onChanged: onChanged,
           textInputAction: TextInputAction.search,
           decoration: InputDecoration(
-            hintText: 'Search Airport',
+            hintText: hintText,
             hintStyle: typo.input.copyWith(color: AppColors.textDisabled),
             prefixIcon: const Icon(
               Icons.location_on,
@@ -458,7 +536,7 @@ class _AirportSearchField extends StatelessWidget {
                 if (controller.text.isEmpty) return const SizedBox.shrink();
                 return IconButton(
                   onPressed: onClear,
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.close_rounded,
                     size: 18,
                     color: AppColors.textSecondary,

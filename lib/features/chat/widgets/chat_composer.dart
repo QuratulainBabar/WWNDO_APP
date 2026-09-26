@@ -31,7 +31,7 @@ class ChatComposer extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.surface,
         border: Border(top: BorderSide(color: AppColors.border)),
       ),
@@ -70,11 +70,11 @@ class ChatComposer extends StatelessWidget {
                   contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   border: OutlineInputBorder(
                     borderRadius: radius,
-                    borderSide: const BorderSide(color: AppColors.border, width: 1.5),
+                    borderSide: BorderSide(color: AppColors.border, width: 1.5),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: radius,
-                    borderSide: const BorderSide(color: AppColors.border, width: 1.5),
+                    borderSide: BorderSide(color: AppColors.border, width: 1.5),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: radius,

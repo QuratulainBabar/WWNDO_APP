@@ -5,6 +5,7 @@ import '../../core/config/demo_mode.dart';
 import '../../core/platform/biometric_prefs.dart';
 import '../models/auth_user.dart';
 import '../models/otp_channel.dart';
+import '../models/password_login_result.dart';
 import '../static_data.dart';
 import 'demo_auth_service.dart';
 import 'delivery_repository.dart';
@@ -35,6 +36,15 @@ class AuthRepository {
   TokenStorage get tokenStorage => _tokenStorage;
 
   bool get _isDemoMode => _demoMode?.enabled ?? false;
+
+  /// Keep role when a subsequent `/auth/*` payload omits it.
+  AuthUser _preserveLocalUserFields(AuthUser user) {
+    var next = user;
+    if (!next.hasRole && _currentUser != null && _currentUser!.hasRole) {
+      next = next.copyWith(role: _currentUser!.role);
+    }
+    return next;
+  }
 
   Future<void> init() async {
     _currentUser = await _tokenStorage.getUser();
@@ -150,7 +160,7 @@ class AuthRepository {
     return _persistAuthResponse(data);
   }
 
-  Future<AuthUser> login({
+  Future<PasswordLoginResult> login({
     required String email,
     required String password,
   }) async {
@@ -160,7 +170,7 @@ class AuthRepository {
         email: email,
         password: password,
       );
-      return _currentUser!;
+      return PasswordLoginResult.authenticated(_currentUser!);
     }
 
     final data = await _apiClient.post(
@@ -171,7 +181,16 @@ class AuthRepository {
       },
     );
 
-    return _persistAuthResponse(data);
+    if (data['requiresLoginOtp'] == true) {
+      return PasswordLoginResult.needsOtp(
+        email: (data['email'] as String?)?.trim().isNotEmpty == true
+            ? (data['email'] as String).trim()
+            : email.trim(),
+      );
+    }
+
+    final user = await _persistAuthResponse(data);
+    return PasswordLoginResult.authenticated(user);
   }
 
   /// Always hits the real backend so Gmail SMTP runs (same as signup / forgot-password).
@@ -207,6 +226,68 @@ class AuthRepository {
     return _persistAuthResponse(data);
   }
 
+  /// Whether the current session must complete the weekly login email OTP.
+  /// Fails closed (returns required=true) when the status call fails so biometric
+  /// unlock cannot bypass the 7-day gate.
+  Future<WeeklyLoginOtpStatus> getWeeklyLoginOtpStatus() async {
+    if (_isDemoMode) {
+      return const WeeklyLoginOtpStatus(required: false);
+    }
+    if (_currentUser == null) {
+      return const WeeklyLoginOtpStatus(required: true);
+    }
+    try {
+      final data = await _apiClient.get(
+        '/auth/login-otp/status',
+        authenticated: true,
+      );
+      final email = (data['email'] as String?)?.trim();
+      return WeeklyLoginOtpStatus(
+        required: data['required'] == true,
+        email: (email != null && email.isNotEmpty)
+            ? email
+            : _currentUser?.email,
+      );
+    } catch (_) {
+      return WeeklyLoginOtpStatus(
+        required: true,
+        email: _currentUser?.email,
+      );
+    }
+  }
+
+  /// Convenience: true when weekly email OTP is required for this session.
+  Future<bool> isWeeklyLoginOtpRequired() async {
+    final status = await getWeeklyLoginOtpStatus();
+    return status.required;
+  }
+
+  /// Sends weekly login OTP for an already-authenticated session (biometric path).
+  Future<void> sendAuthenticatedLoginOtp() async {
+    await _apiClient.post(
+      '/auth/login-otp/send',
+      authenticated: true,
+    );
+  }
+
+  /// Verifies weekly login OTP for an already-authenticated session.
+  Future<AuthUser> verifyAuthenticatedLoginOtp({required String code}) async {
+    final data = await _apiClient.post(
+      '/auth/login-otp/verify',
+      body: {'code': code.trim()},
+      authenticated: true,
+    );
+    final userJson = data['user'] as Map<String, dynamic>?;
+    if (userJson != null) {
+      var user = AuthUser.fromJson(userJson);
+      user = _preserveLocalUserFields(user);
+      _currentUser = user;
+      await _tokenStorage.saveUser(user);
+      return user;
+    }
+    return _currentUser!;
+  }
+
   Future<AuthUser> _persistAuthResponse(Map<String, dynamic> data) async {
     var user = AuthUser.fromJson(data['user'] as Map<String, dynamic>);
     final accessToken = data['accessToken'] as String;
@@ -232,6 +313,7 @@ class AuthRepository {
       }
     }
 
+    user = _preserveLocalUserFields(user);
     await _tokenStorage.saveSession(
       accessToken: accessToken,
       refreshToken: refreshToken,
@@ -328,7 +410,9 @@ class AuthRepository {
     }
 
     final data = await _apiClient.get('/auth/me', authenticated: true);
-    final user = AuthUser.fromJson(data['user'] as Map<String, dynamic>);
+    final user = _preserveLocalUserFields(
+      AuthUser.fromJson(data['user'] as Map<String, dynamic>),
+    );
     _currentUser = user;
     try {
       await _tokenStorage.saveUser(user);
@@ -379,7 +463,9 @@ class AuthRepository {
       },
     );
 
-    final updated = AuthUser.fromJson(data['user'] as Map<String, dynamic>);
+    final updated = _preserveLocalUserFields(
+      AuthUser.fromJson(data['user'] as Map<String, dynamic>),
+    );
     _currentUser = updated;
     try {
       await _tokenStorage.saveUser(updated);
@@ -535,7 +621,9 @@ class AuthRepository {
             },
           );
 
-    final updated = AuthUser.fromJson(data['user'] as Map<String, dynamic>);
+    final updated = _preserveLocalUserFields(
+      AuthUser.fromJson(data['user'] as Map<String, dynamic>),
+    );
     _currentUser = updated;
     await _tokenStorage.saveUser(updated);
     return updated;
@@ -562,7 +650,9 @@ class AuthRepository {
       body: {'role': role},
     );
 
-    final updated = AuthUser.fromJson(data['user'] as Map<String, dynamic>);
+    final updated = _preserveLocalUserFields(
+      AuthUser.fromJson(data['user'] as Map<String, dynamic>),
+    );
     _currentUser = updated;
     try {
       await _tokenStorage.saveUser(updated);
@@ -707,6 +797,60 @@ class AuthRepository {
       files: [MultipartFilePart(field: 'avatar', filePath: filePath)],
       authenticated: true,
     );
-    return data['avatarUrl'] as String? ?? data['user']?['avatarUrl'] as String?;
+    return _applyAvatarResponse(data);
+  }
+
+  Future<String?> uploadAvatarBytes(
+    List<int> bytes, {
+    String filename = 'avatar.png',
+  }) async {
+    if (_isDemoMode) {
+      // Keep local preview for demo; no remote URL.
+      return null;
+    }
+    final data = await _apiClient.postMultipart(
+      '/auth/profile/avatar',
+      files: [
+        MultipartFilePart(
+          field: 'avatar',
+          bytes: bytes,
+          filename: filename,
+        ),
+      ],
+      authenticated: true,
+    );
+    return _applyAvatarResponse(data);
+  }
+
+  Future<String?> _applyAvatarResponse(Map<String, dynamic> data) async {
+    final url = (data['avatarUrl'] as String?)?.trim().isNotEmpty == true
+        ? (data['avatarUrl'] as String).trim()
+        : ((data['user'] is Map)
+            ? ((data['user'] as Map)['avatarUrl'] as String?)?.trim()
+            : null);
+    if (url == null || url.isEmpty || _currentUser == null) return url;
+
+    final updated = _currentUser!.copyWith(avatarUrl: url);
+    _currentUser = updated;
+    await _tokenStorage.saveUser(updated);
+    return url;
+  }
+
+  Future<void> deleteAvatar() async {
+    if (_isDemoMode) {
+      if (_currentUser != null) {
+        final updated = _currentUser!.copyWith(clearAvatarUrl: true);
+        _currentUser = updated;
+        await _tokenStorage.saveUser(updated);
+      }
+      return;
+    }
+
+    await _apiClient.delete('/auth/profile/avatar', authenticated: true);
+    if (_currentUser == null) return;
+
+    final updated = _currentUser!.copyWith(clearAvatarUrl: true);
+    _currentUser = updated;
+    await _tokenStorage.saveUser(updated);
   }
 }

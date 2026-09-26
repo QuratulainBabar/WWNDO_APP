@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import '../../l10n/app_localizations.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/config/demo_mode.dart';
@@ -22,6 +23,7 @@ import '../../data/models/receiver_delivery_status.dart';
 import '../../data/services/delivery_repository.dart';
 import '../../data/platform_fees.dart';
 import '../../data/wallet_gate.dart';
+import '../../data/wallet_service.dart';
 import '../../data/wallet_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/wallet_provider.dart';
@@ -207,7 +209,7 @@ class _IncomingParcelRequestScreenState
                 ),
                 const SizedBox(height: 24),
                 AppButton(
-                  label: 'OK',
+                  label: context.tr('OK'),
                   onPressed: () {
                     Navigator.of(dialogContext).pop();
                     context.go('/receiver-tracking?shipmentId=$id');
@@ -252,7 +254,7 @@ class _IncomingParcelRequestScreenState
                           style: typo.sm.copyWith(color: AppColors.textSecondary),
                         ),
                         const SizedBox(height: 12),
-                        TextButton(onPressed: _load, child: const Text('Retry')),
+                        TextButton(onPressed: _load, child: Text(context.tr('Retry'))),
                       ],
                     ),
                   ),
@@ -353,15 +355,15 @@ class _IncomingParcelRequestScreenState
                                   context,
                                   'Platform fee',
                                   platformFee > 0
-                                      ? '\$${platformFee.toStringAsFixed(2)}'
-                                      : '\$0.00 (covered by sender)',
+                                      ? WalletService.formatMajor(platformFee)
+                                      : '${WalletService.formatMajor(0)} (covered by sender)',
                                   bold: true,
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
                                   platformFee > 0
                                       ? 'Charged from your wallet (or card if needed) when the sender taps Pay Now '
-                                          '(\$${platformFee.toStringAsFixed(2)}). Nothing is deducted when you Accept.'
+                                          '(${WalletService.formatMajor(platformFee)}). Nothing is deducted when you Accept.'
                                       : 'The sender chose to pay 100% of the platform fee. '
                                           'No charge when you accept.',
                                   style: typo.sm.copyWith(
@@ -386,7 +388,7 @@ class _IncomingParcelRequestScreenState
                                 _detailRow(
                                   context,
                                   'Wallet balance',
-                                  '\$${walletBalance.toStringAsFixed(2)}',
+                                  WalletService.formatMajor(walletBalance),
                                   bold: true,
                                   valueColor: AppColors.success,
                                 ),
@@ -400,7 +402,7 @@ class _IncomingParcelRequestScreenState
                               children: [
                                 Expanded(
                                   child: AppButton(
-                                    label: 'Reject',
+                                    label: context.tr('Reject'),
                                     variant: AppButtonVariant.danger,
                                     onPressed: _acting ? null : _reject,
                                   ),

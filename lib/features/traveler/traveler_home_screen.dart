@@ -13,7 +13,6 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_svg_icon.dart';
-import '../../core/widgets/back_link.dart';
 import '../../core/widgets/delivery_status_badge.dart';
 import '../../core/widgets/screen_body.dart';
 import '../../core/widgets/stacked_route_endpoints.dart';
@@ -171,8 +170,6 @@ class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            BackLink(onTap: () => context.go('/role-selection')),
-            const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -513,7 +510,7 @@ class _MyTripsSectionState extends State<_MyTripsSection> {
         child: Text('View', style: itemStyle),
       ),
       if (canEditOrCancel) ...[
-        const PopupMenuItem<String>(
+        PopupMenuItem<String>(
           enabled: false,
           height: 1,
           padding: EdgeInsets.zero,
@@ -528,7 +525,7 @@ class _MyTripsSectionState extends State<_MyTripsSection> {
           height: 42,
           child: Text('Edit', style: itemStyle),
         ),
-        const PopupMenuItem<String>(
+        PopupMenuItem<String>(
           enabled: false,
           height: 1,
           padding: EdgeInsets.zero,
@@ -637,7 +634,7 @@ class _TripCard extends StatelessWidget {
                 ),
               ),
               PopupMenuButton<String>(
-                icon: const Icon(
+                icon: Icon(
                   Icons.more_vert,
                   color: AppColors.textSecondary,
                   size: 22,

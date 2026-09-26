@@ -62,6 +62,8 @@ class TravelerTrip {
     this.travelerRating,
     this.travelerReviewCount,
     this.flightNumber,
+    this.fromCity,
+    this.toCity,
     this.fromCode,
     this.toCode,
     this.originCountry,
@@ -70,6 +72,8 @@ class TravelerTrip {
     this.destinationCountryCode,
     this.originAirport,
     this.destinationAirport,
+    this.departureTime,
+    this.travelMethod,
     this.linkedDeliveryPublicId,
   });
 
@@ -85,6 +89,8 @@ class TravelerTrip {
   final double? travelerRating;
   final int? travelerReviewCount;
   final String? flightNumber;
+  final String? fromCity;
+  final String? toCity;
   final String? fromCode;
   final String? toCode;
   final String? originCountry;
@@ -93,19 +99,23 @@ class TravelerTrip {
   final String? destinationCountryCode;
   final String? originAirport;
   final String? destinationAirport;
+  /// Local departure / leaving time as `HH:mm` when set.
+  final String? departureTime;
+  /// `air` or `land` when the country-to-country route uses city endpoints.
+  final String? travelMethod;
   /// Linked WW-… shipment for traveler View → tracking screen.
   final String? linkedDeliveryPublicId;
 
   /// Full map / airport place as chosen (no City, Country compaction).
   String get displayOrigin => exactRouteEndpoint(
         airport: originAirport,
-        city: origin,
+        city: fromCity ?? origin,
         country: originCountry,
       );
 
   String get displayDestination => exactRouteEndpoint(
         airport: destinationAirport,
-        city: destination,
+        city: toCity ?? destination,
         country: destinationCountry,
       );
 

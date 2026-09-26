@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../l10n/app_localizations.dart';
 
 import '../../core/layout/responsive.dart';
 import '../../core/platform/platform_ui.dart';
@@ -7,6 +8,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/back_header.dart';
+import '../../data/wallet_service.dart';
 
 class ReceiverPaymentResult {
   const ReceiverPaymentResult({
@@ -65,7 +67,7 @@ class ReceiverPaymentSuccessScreen extends StatelessWidget {
               Text(
                 feeAmount == 0
                     ? 'Your platform fee share has been waived for $shipmentId.'
-                    : '\$${feeAmount.toStringAsFixed(2)} platform fee share paid for $shipmentId.',
+                    : '${WalletService.formatMajor(feeAmount)} platform fee share paid for $shipmentId.',
                 textAlign: TextAlign.center,
                 style: typo.sm.copyWith(height: 1.5),
               ),
@@ -77,7 +79,7 @@ class ReceiverPaymentSuccessScreen extends StatelessWidget {
               ),
               const SizedBox(height: 32),
               AppButton(
-                label: 'Continue',
+                label: context.tr('Continue'),
                 onPressed: () => context.go('/receiver-tracking'),
               ),
             ],

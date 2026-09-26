@@ -1,4 +1,5 @@
 import '../models/bid.dart';
+import '../route_display.dart';
 
 /// Traveler returned by GET /deliveries/:id/matching-travelers.
 class MatchingTraveler {
@@ -21,6 +22,12 @@ class MatchingTraveler {
     this.flightNumber,
     this.tripType,
     this.message,
+    this.departureTime,
+    this.travelMethod,
+    this.originAirport,
+    this.destinationAirport,
+    this.fromCity,
+    this.toCity,
   });
 
   final String tripId;
@@ -41,6 +48,51 @@ class MatchingTraveler {
   final String? flightNumber;
   final String? tripType;
   final String? message;
+  final String? departureTime;
+  final String? travelMethod;
+  final String? originAirport;
+  final String? destinationAirport;
+  final String? fromCity;
+  final String? toCity;
+
+  String get displayFrom => exactRouteEndpoint(
+        airport: originAirport,
+        city: fromCity ?? origin,
+      );
+
+  String get displayTo => exactRouteEndpoint(
+        airport: destinationAirport,
+        city: toCity ?? destination,
+      );
+
+  String get displayRoute {
+    final exact = formatRouteArrow(displayFrom, displayTo);
+    if (exact.isNotEmpty) return exact;
+    return route;
+  }
+
+  String? get fromEndpointType {
+    if (originAirport?.trim().isNotEmpty == true) return 'Airport';
+    if (fromCity?.trim().isNotEmpty == true) return 'City';
+    return null;
+  }
+
+  String? get toEndpointType {
+    if (destinationAirport?.trim().isNotEmpty == true) return 'Airport';
+    if (toCity?.trim().isNotEmpty == true) return 'City';
+    return null;
+  }
+
+  String? get travelMethodLabel {
+    switch (travelMethod?.trim().toLowerCase()) {
+      case 'air':
+        return 'By Air';
+      case 'land':
+        return 'By Land';
+      default:
+        return null;
+    }
+  }
 
   factory MatchingTraveler.fromJson(Map<String, dynamic> json) {
     final travelRaw = json['travelDate'];
@@ -77,6 +129,12 @@ class MatchingTraveler {
       flightNumber: json['flightNumber'] as String?,
       tripType: json['tripType'] as String?,
       message: json['message'] as String?,
+      departureTime: json['departureTime'] as String?,
+      travelMethod: json['travelMethod'] as String?,
+      originAirport: json['originAirport'] as String?,
+      destinationAirport: json['destinationAirport'] as String?,
+      fromCity: json['fromCity'] as String?,
+      toCity: json['toCity'] as String?,
     );
   }
 
@@ -96,6 +154,13 @@ class MatchingTraveler {
       bio: bio,
       completedDeliveries: reviewCount,
       luggageCapacityKg: luggageCapacityKg,
+      route: displayRoute,
+      origin: displayFrom,
+      destination: displayTo,
+      departureTime: departureTime,
+      travelMethod: travelMethod,
+      fromEndpointType: fromEndpointType,
+      toEndpointType: toEndpointType,
     );
   }
 

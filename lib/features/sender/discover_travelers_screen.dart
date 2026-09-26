@@ -12,10 +12,12 @@ import '../../core/widgets/app_badge.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/back_header.dart';
 import '../../core/widgets/stacked_route_endpoints.dart';
+import '../../core/time/local_time.dart';
 import '../../data/models/traveler_trip.dart';
 import '../../data/services/delivery_repository.dart';
 import '../../data/services/trip_repository.dart';
 import '../../data/static_data.dart';
+import '../../data/trip_date_window.dart';
 import '../../providers/auth_provider.dart';
 
 /// Sender-facing list of published traveler trips, ranked by route similarity.
@@ -75,9 +77,17 @@ class _DiscoverTravelersScreenState extends State<DiscoverTravelersScreen> {
                     origin: t.origin,
                     destination: t.destination,
                     travelDate: t.travelDate,
+                    departureTime: t.departureTime,
+                    travelMethod: t.travelMethod,
                     luggageCapacityKg: t.luggageCapacityKg ?? 0,
                     travelerName: t.travelerName,
                     travelerRating: t.rating,
+                    originAirport: t.originAirport,
+                    destinationAirport: t.destinationAirport,
+                    fromCity: t.fromCity,
+                    toCity: t.toCity,
+                    flightNumber: t.flightNumber,
+                    tripType: t.tripType,
                   ),
                   matchScore: t.matchScore,
                 ),
@@ -146,8 +156,8 @@ class _DiscoverTravelersScreenState extends State<DiscoverTravelersScreen> {
         children: [
           Text(
             shipment == null
-                ? 'Posted traveler trips are discoverable here and ranked by route similarity when matched to a parcel.'
-                : 'Travelers matched to ${shipment.route} by route similarity.',
+                ? '${TripDateWindow.senderVisibleRangeHint} Ranked by route similarity when matched to a parcel.'
+                : '${TripDateWindow.senderVisibleRangeHint} Travelers matched to ${shipment.route} by route similarity.',
             style: typo.sm.copyWith(color: AppColors.textSecondary),
           ),
           const SizedBox(height: 16),
@@ -222,9 +232,27 @@ class _DiscoverTripCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Travel date: ${DateFormat('MMM d, yyyy').format(trip.travelDate)}',
+              [
+                'Travel date: ${DateFormat('MMM d, yyyy').format(trip.travelDate)}',
+                if (trip.departureTime?.trim().isNotEmpty == true)
+                  'Departs: ${LocalTime.formatDepartureTime(trip.departureTime)}',
+              ].join(' · '),
               style: typo.sm,
             ),
+            if (trip.travelMethod?.trim().isNotEmpty == true) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Travel method: ${trip.travelMethod == 'land' ? 'By Land' : 'By Air'}',
+                style: typo.sm.copyWith(color: AppColors.textSecondary),
+              ),
+            ],
+            if (trip.flightNumber?.trim().isNotEmpty == true) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Flight: ${trip.flightNumber}',
+                style: typo.sm.copyWith(color: AppColors.textSecondary),
+              ),
+            ],
             const SizedBox(height: 4),
             Text(
               'Luggage capacity: ${trip.luggageCapacityKg.toStringAsFixed(0)} kg',

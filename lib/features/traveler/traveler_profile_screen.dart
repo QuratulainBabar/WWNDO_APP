@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import '../../l10n/app_localizations.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/config/demo_mode.dart';
@@ -284,7 +285,7 @@ class _TravelerProfileScreenState extends State<TravelerProfileScreen> {
               role: WalletRole.traveler,
               name: _displayOrDash(authUser.name),
               initial: authUser.initial,
-              subtitle: 'Traveler',
+              subtitle: context.tr('Traveler'),
               memberSince: _displayOrDash(authUser.memberSince),
               bio: authUser.bio,
               rating: rating,
@@ -389,7 +390,7 @@ class _TravelerProfileScreenState extends State<TravelerProfileScreen> {
             const RecentReviewsSection(role: WalletRole.traveler),
             const SizedBox(height: 16),
             AppButton(
-              label: 'Log out',
+              label: context.tr('Log out'),
               variant: AppButtonVariant.danger,
               onPressed: () => logoutToLoginScreen(context),
             ),

@@ -20,6 +20,7 @@ class AuthUser {
     this.emailVerified = false,
     this.phoneVerified = false,
     this.role,
+    this.avatarUrl,
   });
 
   final String id;
@@ -44,6 +45,9 @@ class AuthUser {
 
   /// App role: sender | traveler | receiver
   final String? role;
+
+  /// Public profile photo URL from `/auth/profile/avatar`.
+  final String? avatarUrl;
 
   /// Section I — both email and phone verified and linked.
   bool get isFullyCrossVerified => emailVerified && phoneVerified;
@@ -85,6 +89,9 @@ class AuthUser {
       emailVerified: json['emailVerified'] as bool? ?? false,
       phoneVerified: json['phoneVerified'] as bool? ?? false,
       role: json['role']?.toString(),
+      avatarUrl: (json['avatarUrl'] as String?)?.trim().isNotEmpty == true
+          ? (json['avatarUrl'] as String).trim()
+          : null,
     );
   }
 
@@ -107,6 +114,7 @@ class AuthUser {
         'emailVerified': emailVerified,
         'phoneVerified': phoneVerified,
         'role': role,
+        'avatarUrl': avatarUrl,
       };
 
   UserProfile toUserProfile() {
@@ -138,7 +146,9 @@ class AuthUser {
     String? kycStatus,
     String? accountStatus,
     String? role,
+    String? avatarUrl,
     bool clearRole = false,
+    bool clearAvatarUrl = false,
   }) {
     final nextEmailVerified = emailVerified ?? this.emailVerified;
     final nextPhoneVerified = phoneVerified ?? this.phoneVerified;
@@ -162,6 +172,7 @@ class AuthUser {
       emailVerified: nextEmailVerified,
       phoneVerified: nextPhoneVerified,
       role: clearRole ? null : (role ?? this.role),
+      avatarUrl: clearAvatarUrl ? null : (avatarUrl ?? this.avatarUrl),
     );
   }
 }

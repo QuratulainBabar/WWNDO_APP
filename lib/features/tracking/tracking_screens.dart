@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../l10n/app_localizations.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -373,7 +374,7 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 16),
-                TextButton(onPressed: _loadSnapshot, child: const Text('Retry')),
+                TextButton(onPressed: _loadSnapshot, child: Text(context.tr('Retry'))),
               ],
             ),
           ),
@@ -752,7 +753,7 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
         addSenderChatButton();
         addAction(
           AppButton(
-            label: 'Cancel',
+            label: context.tr('Cancel'),
             variant: AppButtonVariant.danger,
             onPressed: () => appNavigatePush(
               '/cancel-posted-delivery/${shipment.id}',
@@ -2221,7 +2222,7 @@ class _ContactSupportScreenState extends State<ContactSupportScreen> {
       appBar: const BackHeader(title: 'Contact support'),
       body: ScrollableFormScreen(
         actions: [
-          AppButton(label: 'Send message', onPressed: _send),
+          AppButton(label: context.tr('Send message'), onPressed: _send),
         ],
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2687,7 +2688,7 @@ class _DeliveryReviewScreenState extends State<DeliveryReviewScreen> {
                   style: typo.sm.copyWith(color: AppColors.textSecondary, height: 1.5),
                 ),
                 const SizedBox(height: 16),
-                AppButton(label: 'Retry', onPressed: _load),
+                AppButton(label: context.tr('Retry'), onPressed: _load),
               ],
             ),
           ),

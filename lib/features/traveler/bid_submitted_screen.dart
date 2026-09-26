@@ -4,6 +4,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/back_link.dart';
+import '../../data/wallet_service.dart';
 
 class BidSubmittedScreen extends StatelessWidget {
   const BidSubmittedScreen({
@@ -72,7 +73,7 @@ class BidSubmittedScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'You accepted the \$${price.toStringAsFixed(2)} offer on $route. '
+                      'You accepted the ${WalletService.formatMajor(price)} offer on $route. '
                       'The sender can now see your acceptance.',
                       textAlign: TextAlign.center,
                       style: typo.sm.copyWith(height: 1.5),

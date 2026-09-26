@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../l10n/app_localizations.dart';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -227,7 +228,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
               decoration: InputDecoration(
                 hintText: 'Search chats',
                 hintStyle: typo.searchHint,
-                prefixIcon: const Icon(
+                prefixIcon: Icon(
                   Icons.search_rounded,
                   color: AppColors.textSecondary,
                 ),
@@ -269,7 +270,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
                       ),
                       TextButton(
                         onPressed: () => _load(),
-                        child: const Text('Retry'),
+                        child: Text(context.tr('Retry')),
                       ),
                     ],
                   ),
@@ -489,7 +490,7 @@ class _ChatListTile extends StatelessWidget {
             ),
           ),
         ),
-        const Padding(
+        Padding(
           padding: EdgeInsets.only(left: 62),
           child: Divider(height: 1, thickness: 1, color: AppColors.border),
         ),
@@ -522,7 +523,7 @@ class _Avatar extends StatelessWidget {
               shape: BoxShape.circle,
               border: Border.all(color: AppColors.border),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.lock_rounded,
               size: 11,
               color: AppColors.textSecondary,

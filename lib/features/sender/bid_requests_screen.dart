@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import '../../l10n/app_localizations.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/config/demo_mode.dart';
@@ -23,8 +24,11 @@ import '../../data/platform_fees.dart';
 import '../../data/services/delivery_repository.dart';
 import '../../data/services/trip_repository.dart';
 import '../../data/static_data.dart';
+import '../../data/trip_date_window.dart';
+import '../../data/wallet_service.dart';
 import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/stacked_route_endpoints.dart';
+import '../../core/time/local_time.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_realtime_provider.dart';
 import 'bid_acceptance_payment_screen.dart';
@@ -135,8 +139,8 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
         repo.listTravelerRequests(widget.shipmentId),
       ]);
       final delivery = results[0] as CreatedDelivery;
-      // Backend already filters by destination route + luggage capacity.
-      // Show every returned match so the count is dynamic (1/2/3…).
+      // Backend filters by destination + luggage + active travel-date window
+      // (prev 5 days + today + next 7 days). Client also enforces the window.
       final travelers = results[1] as List<MatchingTraveler>;
       final bids = travelers.map((t) => t.toBid()).toList();
       if (bids.isNotEmpty) {
@@ -380,7 +384,7 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
                   style: typo.sm.copyWith(color: AppColors.textSecondary),
                 ),
                 const SizedBox(height: 16),
-                TextButton(onPressed: _load, child: const Text('Retry')),
+                TextButton(onPressed: _load, child: Text(context.tr('Retry'))),
               ],
             ),
           ),
@@ -434,6 +438,13 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
                     'Sort by',
                     style: context.typo.sm.copyWith(
                       fontWeight: FontWeight.w600,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    TripDateWindow.senderVisibleRangeHint,
+                    style: context.typo.sm.copyWith(
                       color: AppColors.textSecondary,
                     ),
                   ),
@@ -728,15 +739,31 @@ class _MatchingTravelerCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              '\$${bid.price.toStringAsFixed(2)} proposed',
+              '${WalletService.formatMajor(bid.price)} proposed',
               style: typo.sm.copyWith(color: AppColors.textSecondary),
             ),
             const SizedBox(height: 4),
             Text(
-              'Travel date: ${DateFormat('MMM d, yyyy').format(bid.travelDate)}'
-              ' · Match ${bid.routeMatchConfidence}%',
+              [
+                'Travel date: ${DateFormat('MMM d, yyyy').format(bid.travelDate)}',
+                'Match ${bid.routeMatchConfidence}%',
+              ].join(' · '),
               style: typo.sm.copyWith(color: AppColors.textSecondary),
             ),
+            if (bid.departureTime?.trim().isNotEmpty == true) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Departure time: ${LocalTime.formatDepartureTime(bid.departureTime)}',
+                style: typo.sm.copyWith(color: AppColors.textSecondary),
+              ),
+            ],
+            if (bid.travelMethodLabel != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Travel method: ${bid.travelMethodLabel}',
+                style: typo.sm.copyWith(color: AppColors.textSecondary),
+              ),
+            ],
             const SizedBox(height: 12),
             Row(
               children: [
@@ -787,7 +814,7 @@ class _MatchingTravelerCard extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             minimumSize: Size.zero,
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            side: const BorderSide(color: AppColors.border, width: 1.5),
+            side: BorderSide(color: AppColors.border, width: 1.5),
             foregroundColor: AppColors.textPrimary,
             disabledForegroundColor: AppColors.textDisabled,
             shape: RoundedRectangleBorder(

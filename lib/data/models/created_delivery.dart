@@ -48,6 +48,9 @@ class CreateDeliveryRequest {
     this.destinationCountry,
     this.destinationAirport,
     this.destinationCity,
+    this.departureTime,
+    this.travelMethod,
+    this.flightNumber,
     this.platformFee,
     this.platformFeeShare,
     this.paysReceiverFee = false,
@@ -80,6 +83,9 @@ class CreateDeliveryRequest {
   final String? destinationAirport;
   /// Airport city used to validate receiver meetup (country-to-country).
   final String? destinationCity;
+  final String? departureTime;
+  final String? travelMethod;
+  final String? flightNumber;
 
   final double? platformFee;
   final double? platformFeeShare;
@@ -90,10 +96,12 @@ class CreateDeliveryRequest {
       return formatRouteArrow(
         displayRouteEndpoint(
           airport: originAirport,
+          city: fromCity,
           country: originCountry,
         ),
         displayRouteEndpoint(
           airport: destinationAirport,
+          city: toCity,
           country: destinationCountry,
         ),
       );
@@ -139,6 +147,8 @@ class CreateDeliveryRequest {
     } else {
       fields['originCountry'] = originCountry ?? '';
       fields['originAirport'] = originAirport ?? '';
+      fields['fromCity'] = fromCity ?? '';
+      fields['toCity'] = toCity ?? '';
       if (originCity != null && originCity!.trim().isNotEmpty) {
         fields['originCity'] = originCity!.trim();
       }
@@ -153,6 +163,14 @@ class CreateDeliveryRequest {
       if (toCode != null && toCode!.trim().isNotEmpty) {
         fields['toCode'] = toCode!.trim().toUpperCase();
       }
+      final departure = departureTime?.trim() ?? '';
+      if (departure.isNotEmpty) fields['departureTime'] = departure;
+      final method = travelMethod?.trim().toLowerCase() ?? '';
+      if (method == 'air' || method == 'land') {
+        fields['travelMethod'] = method;
+      }
+      final flight = flightNumber?.trim() ?? '';
+      if (flight.isNotEmpty) fields['flightNumber'] = flight;
     }
 
     return fields;
@@ -184,6 +202,9 @@ class UpdateDeliveryRequest {
     this.destinationCountry,
     this.destinationAirport,
     this.destinationCity,
+    this.departureTime,
+    this.travelMethod,
+    this.flightNumber,
     this.platformFee,
     this.platformFeeShare,
     this.paysReceiverFee = false,
@@ -213,6 +234,9 @@ class UpdateDeliveryRequest {
   final String? destinationCountry;
   final String? destinationAirport;
   final String? destinationCity;
+  final String? departureTime;
+  final String? travelMethod;
+  final String? flightNumber;
   final double? platformFee;
   final double? platformFeeShare;
   final bool paysReceiverFee;
@@ -247,6 +271,9 @@ class UpdateDeliveryRequest {
       destinationCountry: request.destinationCountry,
       destinationAirport: request.destinationAirport,
       destinationCity: request.destinationCity,
+      departureTime: request.departureTime,
+      travelMethod: request.travelMethod,
+      flightNumber: request.flightNumber,
       platformFee: request.platformFee,
       platformFeeShare: request.platformFeeShare,
       paysReceiverFee: request.paysReceiverFee,
@@ -280,6 +307,9 @@ class UpdateDeliveryRequest {
       destinationCountry: destinationCountry,
       destinationAirport: destinationAirport,
       destinationCity: destinationCity,
+      departureTime: departureTime,
+      travelMethod: travelMethod,
+      flightNumber: flightNumber,
       platformFee: platformFee,
       platformFeeShare: platformFeeShare,
       paysReceiverFee: paysReceiverFee,
@@ -348,6 +378,9 @@ class CreatedDelivery {
     this.originAirport,
     this.destinationCountry,
     this.destinationAirport,
+    this.departureTime,
+    this.travelMethod,
+    this.flightNumber,
     this.platformFee,
     this.platformFeeShare,
     this.paysReceiverFee = false,
@@ -389,6 +422,9 @@ class CreatedDelivery {
   final String? originAirport;
   final String? destinationCountry;
   final String? destinationAirport;
+  final String? departureTime;
+  final String? travelMethod;
+  final String? flightNumber;
   final double? platformFee;
   final double? platformFeeShare;
   final bool paysReceiverFee;
@@ -494,6 +530,9 @@ class CreatedDelivery {
       originAirport: json['originAirport'] as String?,
       destinationCountry: json['destinationCountry'] as String?,
       destinationAirport: json['destinationAirport'] as String?,
+      departureTime: json['departureTime'] as String?,
+      travelMethod: json['travelMethod'] as String?,
+      flightNumber: json['flightNumber'] as String?,
       platformFee: (json['platformFee'] as num?)?.toDouble(),
       platformFeeShare: (json['platformFeeShare'] as num?)?.toDouble(),
       paysReceiverFee: json['paysReceiverFee'] == true ||

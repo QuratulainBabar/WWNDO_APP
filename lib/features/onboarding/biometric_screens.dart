@@ -16,6 +16,8 @@ import '../../core/widgets/back_link.dart';
 import '../../core/widgets/screen_body.dart';
 import '../../core/auth/post_auth_navigation.dart';
 import '../../providers/auth_provider.dart';
+import '../../l10n/app_localizations.dart';
+import 'login_otp_verification_screen.dart';
 
 class BiometricSetupScreen extends StatefulWidget {
   const BiometricSetupScreen({super.key});
@@ -139,7 +141,7 @@ class _BiometricSetupScreenState extends State<BiometricSetupScreen> {
             ),
             const SizedBox(height: 24),
             AppLabeledField(
-              label: 'Password',
+              label: context.tr('Password'),
               padding: const EdgeInsets.only(top: AppFieldSpacing.top),
               child: TextField(
                 controller: _passwordController,
@@ -281,7 +283,7 @@ class _BiometricLoginScreenState extends State<BiometricLoginScreen>
           }
         }
         if (!mounted) return;
-        context.pushReplacement('/biometric/success', extra: false);
+        await _continueAfterBiometricUnlock(auth);
       case BiometricAuthStatus.notAvailable:
       case BiometricAuthStatus.notEnrolled:
       case BiometricAuthStatus.lockedOut:
@@ -296,6 +298,49 @@ class _BiometricLoginScreenState extends State<BiometricLoginScreen>
           _authenticating = false;
           _statusMessage = result.message ?? 'Authentication failed.';
         });
+    }
+  }
+
+  /// After Face ID / fingerprint succeeds, enforce the same 7-day email OTP gate.
+  Future<void> _continueAfterBiometricUnlock(AuthProvider auth) async {
+    try {
+      final status = await auth.getWeeklyLoginOtpStatus();
+      if (!mounted) return;
+
+      if (status.required) {
+        final email = (status.email ?? auth.user?.email ?? '').trim();
+        if (email.isEmpty) {
+          AppToast.error(
+            context,
+            'Email verification is required, but no email is linked. Log in with password.',
+          );
+          context.go('/login');
+          return;
+        }
+        context.pushReplacement(
+          '/login/verify-otp',
+          extra: PasswordLoginOtpFlowData.session(email: email),
+        );
+        return;
+      }
+
+      context.pushReplacement('/biometric/success', extra: false);
+    } catch (_) {
+      if (!mounted) return;
+      // Fail closed: require OTP rather than letting biometric bypass the gate.
+      final email = (auth.user?.email ?? '').trim();
+      if (email.isEmpty) {
+        AppToast.error(
+          context,
+          'Could not verify login status. Please log in with password.',
+        );
+        context.go('/login');
+        return;
+      }
+      context.pushReplacement(
+        '/login/verify-otp',
+        extra: PasswordLoginOtpFlowData.session(email: email),
+      );
     }
   }
 
@@ -384,7 +429,7 @@ class _BiometricLoginScreenState extends State<BiometricLoginScreen>
             ),
             if (!_authenticating)
               AppButton(
-                label: 'Try again',
+                label: context.tr('Try again'),
                 onPressed: _authenticate,
               ),
             const SizedBox(height: AppButton.stackGap),
@@ -458,7 +503,7 @@ class _BiometricSuccessScreenState extends State<BiometricSuccessScreen> {
               ),
               const SizedBox(height: 32),
               AppButton(
-                label: 'Continue',
+                label: context.tr('Continue'),
                 onPressed: () => context.go('/role-selection'),
               ),
             ],
@@ -508,12 +553,12 @@ class BiometricUnavailableScreen extends StatelessWidget {
               ),
               const SizedBox(height: 32),
               AppButton(
-                label: 'Log in with password',
+                label: context.tr('Log in with password'),
                 onPressed: () => context.go('/login'),
               ),
               const SizedBox(height: AppButton.stackGap),
               AppButton(
-                label: 'Try again',
+                label: context.tr('Try again'),
                 variant: AppButtonVariant.outline,
                 onPressed: () => context.go('/biometric/login'),
               ),

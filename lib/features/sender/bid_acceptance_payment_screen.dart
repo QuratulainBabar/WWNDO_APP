@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import '../../l10n/app_localizations.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/config/demo_mode.dart';
@@ -22,7 +23,9 @@ import '../../data/services/delivery_repository.dart';
 import '../../data/services/trip_repository.dart';
 import '../../data/services/wallet_repository.dart';
 import '../../data/wallet_gate.dart';
+import '../../data/wallet_service.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/currency_provider.dart';
 import '../../providers/sender_offer_flow_lock.dart';
 import '../../providers/wallet_provider.dart';
 
@@ -396,6 +399,9 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
       );
 
       String? paymentIntentId;
+      // Secrets already completed in Payment Sheet this session — never re-open
+      // the same (or any already-paid) sheet when accept retries.
+      final presentedSecrets = <String>{};
 
       // Card path: open Stripe sheet first (same as wallet top-up). Do not wait
       // on offer resolution / setState before present — that blocked the sheet.
@@ -418,6 +424,7 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
         _stripePaymentIntentId = intent.paymentIntentId;
 
         await _presentStripeSheet(intent.clientSecret);
+        presentedSecrets.add(intent.clientSecret);
 
         await walletRepo.confirmTopUp(
           paymentIntentId: intent.paymentIntentId,
@@ -462,7 +469,19 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
           }
           if (!e.requiresPayment || e.clientSecret == null) rethrow;
 
-          await _presentStripeSheet(e.clientSecret!);
+          final secret = e.clientSecret!;
+          // Card was already collected for this secret (or a prior Pay Now
+          // sheet). Re-opening causes the "sheet opens again" loop.
+          if (presentedSecrets.contains(secret)) {
+            throw const ApiException(
+              message:
+                  'Card payment was already completed but booking could not finish. Please try Pay Now again.',
+              code: 'PAYMENT_INCOMPLETE',
+            );
+          }
+
+          await _presentStripeSheet(secret);
+          presentedSecrets.add(secret);
           paymentIntentId = e.paymentIntentId;
           if (paymentIntentId == null || paymentIntentId.isEmpty) {
             throw const ApiException(
@@ -542,10 +561,12 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
 
   @override
   Widget build(BuildContext context) {
+    context.watch<CurrencyProvider>();
+
     if (_loading) {
       return Scaffold(
         backgroundColor: AppColors.background,
-        appBar: const BackHeader(title: 'Payment Summary'),
+        appBar: BackHeader(title: context.tr('Payment Summary')),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
@@ -553,7 +574,7 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
     if (_error != null) {
       return Scaffold(
         backgroundColor: AppColors.background,
-        appBar: const BackHeader(title: 'Payment Summary'),
+        appBar: BackHeader(title: context.tr('Payment Summary')),
         body: Center(
           child: Padding(
             padding: context.pagePadding,
@@ -576,7 +597,7 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
     );
     final total = bid.price + platformFee;
     final totalCents = (total * 100).round();
-    final walletUsd = _walletAvailableCents / 100;
+    final walletAvailable = _walletAvailableCents / 100;
     final walletCoversTotal = _walletAvailableCents >= totalCents;
     final selectedMethod = _paymentMethod;
     final lock = SenderOfferFlowLock.instance;
@@ -596,7 +617,7 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: const BackHeader(title: 'Payment Summary'),
+      appBar: BackHeader(title: context.tr('Payment Summary')),
       body: SingleChildScrollView(
         physics: PlatformUi.scrollPhysics,
         padding: context.pagePadding,
@@ -612,7 +633,7 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
                   _detailRow(
                     context,
                     'Accepted bid amount',
-                    '\$${bid.price.toStringAsFixed(2)}',
+                    WalletService.formatMajor(bid.price),
                   ),
                   const Divider(height: 24),
                   _detailRow(
@@ -628,7 +649,7 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
                   _detailRow(
                     context,
                     'Total due now',
-                    '\$${total.toStringAsFixed(2)}',
+                    WalletService.formatMajor(total),
                     primary: true,
                   ),
                 ],
@@ -647,21 +668,21 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
               )
             else ...[
               _PaymentMethodTile(
-                title: 'Pay from wallet',
+                title: context.tr('Pay from wallet'),
                 subtitle: walletCoversTotal
-                    ? 'Available balance: \$${walletUsd.toStringAsFixed(2)}'
-                    : 'Available \$${walletUsd.toStringAsFixed(2)} — need \$${total.toStringAsFixed(2)}',
+                    ? 'Available balance: ${WalletService.formatMajor(walletAvailable)}'
+                    : 'Available ${WalletService.formatMajor(walletAvailable)} — need ${WalletService.formatMajor(total)}',
                 selected: selectedMethod == _BidPaymentMethod.wallet,
                 enabled: !actionLocked,
                 onTap: _selectWallet,
               ),
               const SizedBox(height: 8),
               _PaymentMethodTile(
-                title: 'Pay with card (Stripe)',
+                title: context.tr('Pay with card (Stripe)'),
                 subtitle: _stripeMethodCollected &&
                         selectedMethod == _BidPaymentMethod.stripe
                     ? 'Card selected — tap Pay Now to complete'
-                    : 'Charge full \$${total.toStringAsFixed(2)} to your card',
+                    : 'Charge full ${WalletService.formatMajor(total)} to your card',
                 selected: selectedMethod == _BidPaymentMethod.stripe,
                 enabled: !actionLocked && _stripeEnabled,
                 onTap: _stripeEnabled ? _selectStripe : null,

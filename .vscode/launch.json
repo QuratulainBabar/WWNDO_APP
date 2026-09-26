@@ -2,7 +2,17 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "wwngo_app",
+      "name": "wwngo_app (local API)",
+      "request": "launch",
+      "type": "dart",
+      "args": [],
+      "toolArgs": [
+        "--dart-define=API_BASE_URL=http://192.168.100.16:3000",
+        "--dart-define=WEBSITE_URL=https://wango.toolkitpro.cloud"
+      ]
+    },
+    {
+      "name": "wwngo_app (live API)",
       "request": "launch",
       "type": "dart",
       "toolArgs": [

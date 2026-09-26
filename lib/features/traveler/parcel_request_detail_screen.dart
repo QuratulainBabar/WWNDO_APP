@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import '../../l10n/app_localizations.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/config/demo_mode.dart';
@@ -24,6 +25,7 @@ import '../../data/models/sender_trip_request.dart';
 import '../../data/models/traveler_bid.dart';
 import '../../data/services/trip_repository.dart';
 import '../../data/static_data.dart';
+import '../../data/wallet_service.dart';
 import '../../providers/auth_provider.dart';
 import '../tracking/widgets/parcel_photo_viewer.dart';
 
@@ -274,7 +276,7 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
     final typo = context.typo;
 
     if (_loading) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: AppColors.background,
         appBar: BackHeader(title: 'Parcel Request Details'),
         body: Center(
@@ -302,7 +304,7 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
                 _error ?? 'Request not found.',
                 style: typo.sm.copyWith(color: AppColors.textSecondary),
               ),
-              TextButton(onPressed: _load, child: const Text('Retry')),
+              TextButton(onPressed: _load, child: Text(context.tr('Retry'))),
             ],
           ),
         ),
@@ -426,12 +428,12 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
                       _detailRow(
                         context,
                         'Sender maximum budget',
-                        '\$${request.maxBudget.toStringAsFixed(2)} USD',
+                        WalletService.formatMajor(request.maxBudget),
                         valueStyle: typo.priceSmall.copyWith(fontSize: 16),
                       ),
                       const SizedBox(height: 16),
                       AppLabeledField(
-                        label: 'Message to sender (optional)',
+                        label: context.tr('Message to sender (optional)'),
                         labelStyle: typo.inputLabel.copyWith(
                           fontWeight: FontWeight.w600,
                           color: AppColors.textPrimary,

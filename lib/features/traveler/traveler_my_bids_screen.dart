@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import '../../l10n/app_localizations.dart';
 
 import '../../core/config/demo_mode.dart';
 import '../../core/layout/responsive.dart';
@@ -16,6 +17,7 @@ import '../../core/widgets/stacked_route_endpoints.dart';
 import '../../data/models/traveler_bid.dart';
 import '../../data/services/trip_repository.dart';
 import '../../data/static_data.dart';
+import '../../data/wallet_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_realtime_provider.dart';
 
@@ -183,7 +185,7 @@ class _TravelerMyBidsScreenState extends State<TravelerMyBidsScreen> {
                               _error!,
                               style: typo.sm.copyWith(color: AppColors.textSecondary),
                             ),
-                            TextButton(onPressed: _load, child: const Text('Retry')),
+                            TextButton(onPressed: _load, child: Text(context.tr('Retry'))),
                           ],
                         ),
                       )
@@ -279,7 +281,7 @@ class _CounterOfferCard extends StatelessWidget {
           const SizedBox(height: 14),
           _DetailRow(
             label: 'Offer amount',
-            value: '\$${bid.amount.toInt()}',
+            value: WalletService.formatMajor(bid.amount),
             valueStyle: typo.bodyBold.copyWith(
               fontWeight: FontWeight.w800,
               color: AppColors.transit,

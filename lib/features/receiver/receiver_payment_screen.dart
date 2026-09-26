@@ -19,6 +19,7 @@ import '../../data/models/wallet_role.dart';
 import '../../data/services/platform_repository.dart';
 import '../../data/platform_fees.dart';
 import '../../data/static_data.dart';
+import '../../data/wallet_service.dart';
 import '../../providers/auth_provider.dart';
 import 'receiver_payment_success_screen.dart';
 
@@ -164,17 +165,17 @@ class _ReceiverPaymentScreenState extends State<ReceiverPaymentScreen> {
                   _detailRow(
                     context,
                     'Total platform fee',
-                    '\$${totalFee.toStringAsFixed(2)}',
+                    WalletService.formatMajor(totalFee),
                   ),
                   _detailRow(
                     context,
                     'Receiver pays 50%',
-                    '\$${receiverShare.toStringAsFixed(2)}',
+                    WalletService.formatMajor(receiverShare),
                   ),
                   _detailRow(
                     context,
                     'Sender pays 50%',
-                    '\$${senderShare.toStringAsFixed(2)}',
+                    WalletService.formatMajor(senderShare),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -185,7 +186,7 @@ class _ReceiverPaymentScreenState extends State<ReceiverPaymentScreen> {
                   _detailRow(
                     context,
                     'Amount to Pay',
-                    '\$${receiverShare.toStringAsFixed(2)}',
+                    WalletService.formatMajor(receiverShare),
                     bold: true,
                     primary: true,
                   ),

@@ -12,6 +12,7 @@ import '../../data/models/wallet_role.dart';
 import '../../data/platform_fees.dart';
 import '../../data/wallet_gate.dart';
 import '../../data/wallet_service.dart';
+import '../../l10n/app_localizations.dart';
 
 enum _TripType { cityToCity, countryToCountry }
 
@@ -86,7 +87,7 @@ class _TripTypeSelectionScreenState extends State<TripTypeSelectionScreen> {
             ),
             const SizedBox(height: 8),
             AppButton(
-              label: 'Continue',
+              label: context.tr('Continue'),
               onPressed: _selectedType == null ? null : _continue,
             ),
           ],

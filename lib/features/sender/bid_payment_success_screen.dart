@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import '../../l10n/app_localizations.dart';
 
 import '../../core/layout/responsive.dart';
 import '../../core/platform/platform_ui.dart';
@@ -10,6 +11,7 @@ import '../../core/widgets/app_button.dart';
 import '../../core/widgets/back_header.dart';
 import '../../data/models/wallet_role.dart';
 import '../../data/static_data.dart';
+import '../../data/wallet_service.dart';
 import '../../providers/wallet_provider.dart';
 import 'bid_acceptance_payment_screen.dart';
 
@@ -98,7 +100,7 @@ class _BidPaymentSuccessScreenState extends State<BidPaymentSuccessScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      '\$${total.toStringAsFixed(2)} deposited securely in escrow.',
+                      '${WalletService.formatMajor(total)} deposited securely in escrow.',
                       textAlign: TextAlign.center,
                       style: typo.sm.copyWith(height: 1.5),
                     ),
@@ -110,7 +112,7 @@ class _BidPaymentSuccessScreenState extends State<BidPaymentSuccessScreen> {
                     ),
                     const SizedBox(height: 32),
                     AppButton(
-                      label: 'Continue',
+                      label: context.tr('Continue'),
                       onPressed: () async {
                         if (mounted) {
                           await context.read<WalletProvider>().refresh(

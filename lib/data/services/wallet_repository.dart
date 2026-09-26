@@ -115,6 +115,7 @@ class WalletRepository {
   Future<Map<String, dynamic>> topUpRaw({
     required WalletRole role,
     required int amountCents,
+    String? currency,
   }) async {
     if (_isDemoMode) {
       throw const ApiException(
@@ -128,6 +129,7 @@ class WalletRepository {
       body: {
         'role': role.queryParam,
         'amountCents': amountCents,
+        if (currency != null && currency.isNotEmpty) 'currency': currency,
       },
       authenticated: true,
     );
@@ -156,6 +158,7 @@ class WalletRepository {
   Future<WalletSummary> topUp({
     required WalletRole role,
     required int amountCents,
+    String? currency,
   }) async {
     if (_isDemoMode) {
       throw const ApiException(
@@ -164,7 +167,11 @@ class WalletRepository {
       );
     }
 
-    final data = await topUpRaw(role: role, amountCents: amountCents);
+    final data = await topUpRaw(
+      role: role,
+      amountCents: amountCents,
+      currency: currency,
+    );
     if (data['mock'] == true && data['requiresPayment'] != true) {
       throw const ApiException(
         message:
@@ -199,6 +206,7 @@ class WalletRepository {
   Future<WalletSummary> withdraw({
     required WalletRole role,
     required int amountCents,
+    String? currency,
   }) async {
     if (_isDemoMode) {
       throw const ApiException(
@@ -212,6 +220,7 @@ class WalletRepository {
       body: {
         'role': role.queryParam,
         'amountCents': amountCents,
+        if (currency != null && currency.isNotEmpty) 'currency': currency,
       },
       authenticated: true,
     );

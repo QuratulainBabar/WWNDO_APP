@@ -79,7 +79,7 @@ class _MatchingRequestsScreenState extends State<MatchingRequestsScreen> {
       );
     }
 
-    return const Scaffold(
+    return Scaffold(
       backgroundColor: AppColors.background,
       appBar: BackHeader(title: 'Sender Requests'),
       body: Center(

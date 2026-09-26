@@ -16,6 +16,8 @@ import '../features/onboarding/login_otp_verification_screen.dart';
 import '../features/onboarding/account_verification_screens.dart';
 import '../features/onboarding/role_selection_screen.dart';
 import '../features/onboarding/splash_welcome_screens.dart';
+import '../features/profile/currency_settings_screen.dart';
+import '../features/profile/language_settings_screen.dart';
 import '../features/profile/legal_screens.dart';
 import '../features/profile/profile_screens.dart';
 import '../features/profile/security_logs_screen.dart';
@@ -1003,6 +1005,28 @@ final appRouter = GoRouter(
       },
     ),
     GoRoute(path: '/settings', parentNavigatorKey: rootNavigatorKey, builder: (_, __) => const SettingsScreen()),
+    GoRoute(
+      path: '/settings/currency',
+      parentNavigatorKey: rootNavigatorKey,
+      builder: (context, state) {
+        final role = state.uri.queryParameters['role'];
+        final fallback = (role == null || role.isEmpty)
+            ? '/settings'
+            : '/settings?role=$role';
+        return CurrencySettingsScreen(fallbackRoute: fallback);
+      },
+    ),
+    GoRoute(
+      path: '/settings/language',
+      parentNavigatorKey: rootNavigatorKey,
+      builder: (context, state) {
+        final role = state.uri.queryParameters['role'];
+        final fallback = (role == null || role.isEmpty)
+            ? '/settings'
+            : '/settings?role=$role';
+        return LanguageSettingsScreen(fallbackRoute: fallback);
+      },
+    ),
     GoRoute(path: '/wallet', parentNavigatorKey: rootNavigatorKey, builder: (_, __) => const WalletScreen()),
     GoRoute(
       path: '/wallet/top-up',

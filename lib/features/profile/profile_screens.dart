@@ -10,6 +10,9 @@ import '../../core/config/demo_mode.dart';
 import '../../core/layout/responsive.dart';
 import '../../core/widgets/kyc_status_badge.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/currency_provider.dart';
+import '../../providers/locale_provider.dart';
+import '../../providers/theme_provider.dart';
 import '../../providers/wallet_provider.dart';
 import '../../core/navigation/app_navigation.dart';
 import '../../core/platform/biometric_auth_service.dart';
@@ -17,6 +20,7 @@ import '../../core/platform/biometric_prefs.dart';
 import '../../core/platform/platform_ui.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
+import '../../l10n/app_localizations.dart';
 import '../../core/widgets/app_avatar.dart';
 import '../../core/widgets/app_badge.dart';
 import '../../core/widgets/app_button.dart';
@@ -299,7 +303,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const RecentReviewsSection(role: WalletRole.sender),
               const SizedBox(height: 8),
               AppButton(
-                label: 'Log out',
+                label: context.tr('Log out'),
                 variant: AppButtonVariant.danger,
                 onPressed: () => logoutToLoginScreen(context),
               ),
@@ -580,7 +584,7 @@ class _ShipmentHistoryScreenState extends State<ShipmentHistoryScreen> {
                     ),
                     TextButton(
                       onPressed: () => _load(),
-                      child: const Text('Retry'),
+                      child: Text(context.tr('Retry')),
                     ),
                   ],
                 )
@@ -910,15 +914,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final roleParam = GoRouterState.of(context).uri.queryParameters['role'];
     final isReceiver = roleParam == 'receiver';
     final isTraveler = roleParam == 'traveler';
     final isSender = roleParam == 'sender' || roleParam == null;
-    final user = isReceiver
-        ? StaticData.receiverUser
-        : isTraveler
-            ? StaticData.travelerUser
-            : StaticData.currentUser;
     final editProfileRole = isReceiver
         ? EditProfileRole.receiver
         : isTraveler
@@ -927,18 +927,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
     // Demo app mode toggle commented out — live API only.
     // final demoMode = context.watch<DemoModeProvider>();
     final authUser = context.watch<AuthProvider>().user;
+    final themeProvider = context.watch<ThemeProvider>();
+    final localeProvider = context.watch<LocaleProvider>();
+    final currencyProvider = context.watch<CurrencyProvider>();
+    final settingsFallback = isReceiver
+        ? '/receiver-profile'
+        : isTraveler
+            ? '/traveler-profile'
+            : isSender
+                ? '/profile'
+                : null;
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: BackHeader(
-        title: 'Settings',
-        fallbackRoute: isReceiver
-            ? '/receiver-profile'
-            : isTraveler
-                ? '/traveler-profile'
-                : isSender
-                    ? '/profile'
-                    : null,
+        title: l10n.settings,
+        fallbackRoute: settingsFallback,
       ),
       body: ScreenBody(
         padding: context.pagePadding.copyWith(top: 16),
@@ -958,14 +962,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
             //   ),
             // ]),
             if (authUser != null && !authUser.isFullyCrossVerified) ...[
-              _sectionLabel('Account verification'),
+              _sectionLabel(l10n.accountVerification),
               AppCard(
                 margin: const EdgeInsets.only(bottom: 16),
                 child: ListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: Text('Verify email & phone', style: context.typo.bodyBold),
+                  title: Text(l10n.verifyEmailPhone, style: context.typo.bodyBold),
                   subtitle: Text(
-                    'Required before posting, bidding, or paying on WWNGO.',
+                    l10n.verifyEmailPhoneSubtitle,
                     style: context.typo.sm,
                   ),
                   trailing: const Icon(Icons.chevron_right_rounded),
@@ -973,14 +977,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
             ],
-            _sectionLabel('Profile'),
+            _sectionLabel(l10n.appearance),
             _settingsGroup([
               _tile(
-                'Edit profile',
+                l10n.theme,
+                subtitle:
+                    themeProvider.isDark ? l10n.darkMode : l10n.lightMode,
+                onTap: () => themeProvider.setDarkMode(!themeProvider.isDark),
+              ),
+              _tile(
+                l10n.currency,
+                subtitle:
+                    '${currencyProvider.currency.code} · ${currencyProvider.currency.symbol}',
+                onTap: () => context.push(
+                  _routeWithRole('/settings/currency', roleParam),
+                ),
+              ),
+              _tile(
+                l10n.language,
+                subtitle:
+                    '${localeProvider.language.nativeName} · ${localeProvider.language.name}',
+                onTap: () => context.push(
+                  _routeWithRole('/settings/language', roleParam),
+                ),
+              ),
+            ]),
+            _sectionLabel(l10n.profile),
+            _settingsGroup([
+              _tile(
+                l10n.editProfile,
                 onTap: () => context.push('/edit-profile', extra: editProfileRole),
               ),
             ]),
-            _sectionLabel('Wallet & Payments'),
+            _sectionLabel(l10n.walletAndPayments),
             _settingsGroup([
               SizedBox(
                 width: double.infinity,
@@ -993,7 +1022,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Available balance', style: context.typo.sm),
+                          Text(l10n.availableBalance, style: context.typo.sm),
                           Text(
                             WalletService.formatCents(
                               WalletService.availableCents(role),
@@ -1001,7 +1030,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             style: context.typo.priceLarge,
                           ),
                           const SizedBox(height: 8),
-                          Text('Escrow balance', style: context.typo.sm),
+                          Text(l10n.escrowBalance, style: context.typo.sm),
                           Text(
                             WalletService.formatCents(
                               WalletService.escrowCents(role),
@@ -1017,7 +1046,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
               _tile(
-                'Top up via Stripe',
+                l10n.topUpWallet,
                 onTap: () {
                   FocusManager.instance.primaryFocus?.unfocus();
                   context.push(
@@ -1043,58 +1072,58 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     : null,
               ),
               _tile(
-                'Withdraw via Stripe Connect',
+                l10n.withdraw,
                 onTap: () => context.push(_routeWithRole('/wallet', roleParam)),
               ),
               _tile(
-                'Transaction history',
+                l10n.transactionHistory,
                 onTap: () => context.push(
                   _routeWithRole('/transaction-history', roleParam),
                 ),
               ),
             ]),
-            _sectionLabel('Security'),
+            _sectionLabel(l10n.security),
             _settingsGroup([
               _tile(
-                'Change password',
+                context.tr('Change password'),
                 onTap: () => context.push(_routeWithRole('/change-password', roleParam)),
               ),
               _tile(
-                'Identity verification',
+                l10n.kycVerification,
                 onTap: () => context.push(_routeWithRole('/kyc-status', roleParam)),
                 trailing: KycStatusBadge(user: authUser),
               ),
               _toggle(
-                '${PlatformUi.biometricShortLabel} login',
+                l10n.biometricLogin(PlatformUi.biometricShortLabel),
                 _biometricEnabled,
                 kIsWeb || _biometricBusy ? null : _onBiometricToggled,
                 subtitle: kIsWeb
-                    ? 'Not available in the browser'
-                    : 'Sign in faster with ${PlatformUi.biometricShortLabel}',
+                    ? l10n.biometricLoginWebSubtitle
+                    : l10n.biometricLoginSubtitle(PlatformUi.biometricShortLabel),
               ),
             ]),
-            _sectionLabel('Help & legal'),
+            _sectionLabel(l10n.legal),
             _settingsGroup([
               _tile(
-                'Help & support',
-                subtitle: 'FAQ, safety, contact',
+                context.tr('Help & support'),
+                subtitle: context.tr('FAQ, safety, contact'),
                 onTap: () => context.push(_routeWithRole('/help', roleParam)),
               ),
               _tile(
-                'Legal & policies',
-                subtitle: 'Privacy, terms, cookies',
+                context.tr('Legal & policies'),
+                subtitle: context.tr('Privacy, terms, cookies'),
                 onTap: () => context.push(_routeWithRole('/legal', roleParam)),
               ),
             ]),
-            _sectionLabel('Account'),
+            _sectionLabel(context.tr('Account')),
             AppButton(
-              label: 'Sign out',
+              label: l10n.logout,
               variant: AppButtonVariant.danger,
               onPressed: () => logoutToLoginScreen(context),
             ),
             const SizedBox(height: 12),
             AppButton(
-              label: 'Delete account',
+              label: context.tr('Delete account'),
               variant: AppButtonVariant.danger,
               onPressed: () => context.go('/account-suspended'),
             ),
@@ -1381,7 +1410,7 @@ class _WalletScreenState extends State<WalletScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: BackHeader(
-        title: 'Wallet',
+        title: context.tr('Wallet'),
         fallbackRoute: walletFallback,
       ),
       body: Consumer<WalletProvider>(
@@ -1482,7 +1511,7 @@ class _WalletScreenState extends State<WalletScreen> {
                       ),
                       const SizedBox(height: 8),
                       AppLabeledField(
-                        label: 'Amount (USD)',
+                        label: WalletService.fieldLabel('Amount'),
                         labelStyle:
                             typo.inputLabel.copyWith(fontWeight: FontWeight.w600),
                         padding: const EdgeInsets.only(top: AppFieldSpacing.top),
@@ -1516,7 +1545,7 @@ class _WalletScreenState extends State<WalletScreen> {
                             ),
                             disabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(
+                              borderSide: BorderSide(
                                 color: AppColors.border,
                                 width: 1.5,
                               ),
@@ -1550,7 +1579,7 @@ class _WalletScreenState extends State<WalletScreen> {
                           children: [
                             _SummaryRow(
                               label: "You'll receive",
-                              value: '\$${displayAmount.toStringAsFixed(2)}',
+                              value: WalletService.formatMajor(displayAmount),
                             ),
                             const _SummaryRow(
                               label: 'Payout rail',

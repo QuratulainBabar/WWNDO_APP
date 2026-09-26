@@ -6,10 +6,13 @@ import '../../../core/geo/meetup_destination_validation.dart';
 import '../../../core/geo/meetup_origin_validation.dart';
 import '../../../core/geo/world_countries.dart';
 import '../../../data/platform_fees.dart';
+import '../../../core/platform/keyboard_utils.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/validation/receiver_contact_validation.dart';
 import '../../../core/widgets/app_chip.dart';
+import '../../../core/widgets/app_labeled_field.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../../../data/models/created_delivery.dart';
 import '../../../data/models/meetup_location.dart';
 import '../../../data/models/traveler_trip.dart';
@@ -117,8 +120,8 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
       _receiverPhone = delivery.receiverPhone ?? '';
       _fromLocation = delivery.fromMeetupLocation;
       _toLocation = delivery.toMeetupLocation;
-      _fromAirport = delivery.fromAirportPlace;
-      _toAirport = delivery.toAirportPlace;
+      _fromAirport = delivery.fromRoutePlace;
+      _toAirport = delivery.toRoutePlace;
       for (final photo in delivery.existingPhotoItems) {
         _existingPhotos[photo.id] = photo;
       }
@@ -163,28 +166,32 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
                   .map((c) => c.iso)
                   .firstOrNull;
 
-      _fromAirport = trip.originAirport?.trim().isNotEmpty == true
-          ? meetupFromLabel(
-              trip.originAirport!.trim(),
-              countryCode: originIso,
-            )
-          : (originIso != null
-              ? meetupFromLabel(
-                  WorldCountries.byIso(originIso).name,
-                  countryCode: originIso,
-                )
-              : null);
-      _toAirport = trip.destinationAirport?.trim().isNotEmpty == true
-          ? meetupFromLabel(
-              trip.destinationAirport!.trim(),
-              countryCode: destinationIso,
-            )
-          : (destinationIso != null
-              ? meetupFromLabel(
-                  WorldCountries.byIso(destinationIso).name,
-                  countryCode: destinationIso,
-                )
-              : null);
+      final fromAirport = trip.originAirport?.trim() ?? '';
+      final fromCity = trip.fromCity?.trim() ?? '';
+      final toAirport = trip.destinationAirport?.trim() ?? '';
+      final toCity = trip.toCity?.trim() ?? '';
+
+      if (fromAirport.isNotEmpty) {
+        _fromAirport = meetupFromLabel(fromAirport, countryCode: originIso);
+      } else if (fromCity.isNotEmpty) {
+        _fromAirport = meetupFromLabel(fromCity, countryCode: originIso);
+      } else if (originIso != null) {
+        _fromAirport = meetupFromLabel(
+          WorldCountries.byIso(originIso).name,
+          countryCode: originIso,
+        );
+      }
+
+      if (toAirport.isNotEmpty) {
+        _toAirport = meetupFromLabel(toAirport, countryCode: destinationIso);
+      } else if (toCity.isNotEmpty) {
+        _toAirport = meetupFromLabel(toCity, countryCode: destinationIso);
+      } else if (destinationIso != null) {
+        _toAirport = meetupFromLabel(
+          WorldCountries.byIso(destinationIso).name,
+          countryCode: destinationIso,
+        );
+      }
     } else {
       _fromLocation = MeetupLocation(
         name: trip.origin,
@@ -451,7 +458,7 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
       _toAirportError = _toAirport == null
           ? 'Select a destination airport.'
           : (_sameAirportSelected()
-              ? 'Origin and destination airports must be different.'
+              ? 'Origin and destination must be different.'
               : (_sameCountryAirports()
                   ? 'Origin and destination countries must be different.'
                   : null));
@@ -485,6 +492,7 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
       return CreateDeliveryRequest(
         deliveryType: DeliveryType.countryToCountry,
         travelDate: common.travelDate,
+        travelMethod: 'air',
         parcelCategory: common.parcelCategory,
         parcelSize: common.parcelSize,
         weightKg: common.weightKg,
@@ -500,6 +508,8 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
         originAirport: from.displayLabel,
         destinationCountry: deliveryCountryName(to),
         destinationAirport: to.displayLabel,
+        fromCity: null,
+        toCity: null,
         originCity: deliveryAirportCity(from),
         destinationCity: deliveryAirportCity(to),
         fromCode: deliveryCodeFromPlace(from),
@@ -637,6 +647,8 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
             toErrorText: _toAirportError,
             fromFieldKey: _routeFromKey,
             toFieldKey: _routeToKey,
+            fromSearchAirports: true,
+            toSearchAirports: true,
             onFromChanged: (airport) => setState(() {
               _fromAirport = airport;
               _fromAirportError = null;
@@ -706,6 +718,7 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
           options: StaticData.parcelCategories,
           selected: _category,
           onSelected: (v) => setState(() => _category = v),
+          labelOf: (o) => o.isEmpty ? o : '${o[0].toUpperCase()}${o.substring(1)}',
         ),
         KeyedSubtree(
           key: _weightKey,

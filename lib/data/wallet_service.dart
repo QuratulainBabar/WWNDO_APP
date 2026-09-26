@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../core/currency/app_currency.dart';
 import 'models/ledger_entry.dart';
 import 'models/shipment_escrow.dart';
 import 'models/wallet_role.dart';
@@ -210,7 +211,20 @@ abstract final class WalletService {
   static double displayEscrowUsd(WalletRole role) =>
       displayEscrowCents(role) / 100;
 
-  static String formatCents(int cents) => '\$${(cents / 100).toStringAsFixed(2)}';
+  static String formatCents(int cents) => AppCurrencies.active.formatCents(cents);
+
+  static String formatMajor(num amount) => AppCurrencies.active.formatMajor(amount);
+
+  static String fieldLabel([String base = 'Amount']) =>
+      AppCurrencies.active.fieldLabel(base);
+
+  static String amountFieldLabel([String base = 'Amount']) => fieldLabel(base);
+
+  static String get currencyCode => AppCurrencies.active.code;
+
+  static String get currencySymbol => AppCurrencies.active.symbol;
+
+  static String get currencyPrefix => AppCurrencies.active.prefixText;
 
   static String? validateWithdrawal(WalletRole role, int amountCents) {
     if (amountCents < minimumWithdrawalCents) {

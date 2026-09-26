@@ -17,6 +17,7 @@ import '../../core/widgets/stacked_route_endpoints.dart';
 import '../../data/models/parcel_creation_result.dart';
 import '../../data/models/traveler_trip.dart';
 import '../../data/static_data.dart';
+import '../../data/wallet_service.dart';
 import '../../providers/auth_provider.dart';
 import 'delivery_posting_actions.dart';
 import 'parcel_creation_flow_data.dart';
@@ -249,6 +250,7 @@ class _ParcelCreationWizardScreenState extends State<ParcelCreationWizardScreen>
             _flow.category = value;
             _error = null;
           }),
+          labelOf: (o) => o.isEmpty ? o : '${o[0].toUpperCase()}${o.substring(1)}',
         ),
       ],
     );
@@ -338,16 +340,16 @@ class _ParcelCreationWizardScreenState extends State<ParcelCreationWizardScreen>
   Widget _buildPaymentStep(AppTypography typo) {
     return ListView(
       children: [
-        Text('Proposed payment amount (USD).', style: typo.sm),
+        Text('Proposed payment amount (${WalletService.currencyCode}).', style: typo.sm),
         const SizedBox(height: 16),
         AppLabeledField(
-          label: 'Budget (USD)',
+          label: WalletService.fieldLabel('Budget'),
           child: TextField(
             onTap: ensureSoftKeyboardVisible,
             onTapOutside: dismissKeyboardOnTapOutside,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}'))],
-            decoration: const InputDecoration(prefixText: '\$ '),
+            decoration: InputDecoration(prefixText: WalletService.currencyPrefix),
             controller: _budgetController,
             onChanged: (value) {
               _flow.proposedBudgetUsd = double.tryParse(value) ?? 0;
@@ -357,7 +359,7 @@ class _ParcelCreationWizardScreenState extends State<ParcelCreationWizardScreen>
         ),
         const SizedBox(height: 8),
         Text(
-          'Maximum suggested: \$${StaticData.postDeliveryMaximumBudget.toStringAsFixed(0)}',
+          'Maximum suggested: ${WalletService.formatMajor(StaticData.postDeliveryMaximumBudget)}',
           style: typo.sm.copyWith(color: AppColors.textSecondary),
         ),
       ],
@@ -415,7 +417,7 @@ class _ParcelCreationWizardScreenState extends State<ParcelCreationWizardScreen>
               Text('Weight: ${_flow.weightKg.toStringAsFixed(1)} kg', style: typo.sm),
               Text('Volume: ${_flow.volume}', style: typo.sm),
               if (recipient != null) Text('Recipient: ${recipient.name}', style: typo.sm),
-              Text('Budget: \$${_flow.proposedBudgetUsd.toStringAsFixed(2)}', style: typo.sm),
+              Text('Budget: ${WalletService.formatMajor(_flow.proposedBudgetUsd)}', style: typo.sm),
             ],
           ),
         ),

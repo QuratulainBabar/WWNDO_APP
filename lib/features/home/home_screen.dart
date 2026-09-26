@@ -10,7 +10,6 @@ import '../../core/layout/responsive.dart';
 import '../../core/widgets/app_badge.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_svg_icon.dart';
-import '../../core/widgets/back_link.dart';
 import '../../core/widgets/screen_body.dart';
 import '../../core/widgets/stacked_route_endpoints.dart';
 import '../../core/widgets/wallet_card.dart';
@@ -25,6 +24,7 @@ import '../../providers/chat_realtime_provider.dart';
 import '../../providers/notification_realtime_provider.dart';
 import '../../providers/sender_deliveries_provider.dart';
 import '../../providers/wallet_provider.dart';
+import '../../l10n/app_localizations.dart';
 import '../sender/sender_delivery_status.dart';
 
 class MainShell extends StatefulWidget {
@@ -74,6 +74,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final unreadChats =
         context.watch<NotificationRealtimeProvider>().chatUnreadCount;
     final unreadAlerts =
@@ -81,7 +82,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     return Scaffold(
       body: widget.navigationShell,
       bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: AppColors.surface,
           border: Border(top: BorderSide(color: AppColors.border)),
         ),
@@ -91,11 +92,11 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
             height: 72,
             child: Row(
               children: [
-                _Tab(navigationShell: widget.navigationShell, index: 0, iconAsset: AppIcons.home, label: 'Home'),
-                _Tab(navigationShell: widget.navigationShell, index: 1, iconAsset: AppIcons.track, label: 'Track'),
-                _Tab(navigationShell: widget.navigationShell, index: 2, iconAsset: AppIcons.notification, label: 'Alert', badge: unreadAlerts),
-                _Tab(navigationShell: widget.navigationShell, index: 3, iconAsset: AppIcons.chat, label: 'Chat', badge: unreadChats),
-                _Tab(navigationShell: widget.navigationShell, index: 4, iconAsset: AppIcons.profile, label: 'Profile'),
+                _Tab(navigationShell: widget.navigationShell, index: 0, iconAsset: AppIcons.home, label: l10n.home),
+                _Tab(navigationShell: widget.navigationShell, index: 1, iconAsset: AppIcons.track, label: l10n.track),
+                _Tab(navigationShell: widget.navigationShell, index: 2, iconAsset: AppIcons.notification, label: l10n.alert, badge: unreadAlerts),
+                _Tab(navigationShell: widget.navigationShell, index: 3, iconAsset: AppIcons.chat, label: l10n.chat, badge: unreadChats),
+                _Tab(navigationShell: widget.navigationShell, index: 4, iconAsset: AppIcons.profile, label: l10n.profile),
               ],
             ),
           ),
@@ -362,7 +363,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             const SizedBox(height: 8),
             TextButton(
               onPressed: () => _loadActiveDeliveries(),
-              child: const Text('Retry'),
+              child: Text(context.tr('Retry')),
             ),
           ],
         ),
@@ -493,8 +494,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            BackLink(onTap: () => context.go('/role-selection')),
-            const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -570,7 +569,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             _menuLink(
               context,
               iconAsset: AppIcons.notification,
-              title: 'Notifications',
+              title: context.tr('Notifications'),
               subtitle: 'View delivery updates and important alerts.',
               route: '/sender-notifications',
               badge: unreadNotifications,
@@ -633,7 +632,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(14),
-          side: const BorderSide(color: AppColors.border),
+          side: BorderSide(color: AppColors.border),
         ),
         child: InkWell(
           onTap: () async {
@@ -689,7 +688,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   ),
                   const SizedBox(width: 8),
                 ],
-                const Icon(Icons.chevron_right_rounded, size: 22, color: AppColors.textSecondary),
+                Icon(Icons.chevron_right_rounded, size: 22, color: AppColors.textSecondary),
               ],
             ),
           ),

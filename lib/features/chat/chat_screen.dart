@@ -136,7 +136,7 @@ class _ChatScreenState extends State<ChatScreen> with ChatConversationMixin {
 
           ),
 
-          const Divider(height: 1, thickness: 1, color: AppColors.border),
+          Divider(height: 1, thickness: 1, color: AppColors.border),
 
           Expanded(
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import '../../l10n/app_localizations.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/config/demo_mode.dart';
@@ -15,6 +16,7 @@ import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/back_header.dart';
 import '../../core/widgets/app_toast.dart';
+import '../../core/time/local_time.dart';
 import '../../data/models/bid.dart';
 import '../../data/models/traveler_request_summary.dart';
 import '../../data/platform_fees.dart';
@@ -320,7 +322,7 @@ class _BidTravelerProfileScreenState extends State<BidTravelerProfileScreen> {
                                 style: typo.sm,
                               ),
                               const SizedBox(height: 8),
-                              AppBadge.verified(label: 'Verified'),
+                              AppBadge.verified(label: context.tr('Verified')),
                             ],
                           ),
                         ),
@@ -350,6 +352,18 @@ class _BidTravelerProfileScreenState extends State<BidTravelerProfileScreen> {
                           '${bid.completedDeliveries}',
                         ),
                         _row(context, 'Travel date', travelDate),
+                        if (bid.departureTime?.trim().isNotEmpty == true)
+                          _row(
+                            context,
+                            'Departure time',
+                            LocalTime.formatDepartureTime(bid.departureTime),
+                          ),
+                        if (bid.travelMethodLabel != null)
+                          _row(
+                            context,
+                            'Travel method',
+                            bid.travelMethodLabel!,
+                          ),
                         if (bid.flightNumber != null)
                           _row(context, 'Flight', bid.flightNumber!),
                         const SizedBox(height: 8),
@@ -384,7 +398,19 @@ class _BidTravelerProfileScreenState extends State<BidTravelerProfileScreen> {
                             'To',
                             '${shipment.toCity} (${shipment.toCode})',
                           ),
-                          _row(context, 'Departure', travelDate),
+                          _row(context, 'Travel date', travelDate),
+                          if (bid.departureTime?.trim().isNotEmpty == true)
+                            _row(
+                              context,
+                              'Departure time',
+                              LocalTime.formatDepartureTime(bid.departureTime),
+                            ),
+                          if (bid.travelMethodLabel != null)
+                            _row(
+                              context,
+                              'Travel method',
+                              bid.travelMethodLabel!,
+                            ),
                         ],
                       ),
                     ),

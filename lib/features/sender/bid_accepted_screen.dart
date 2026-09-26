@@ -14,6 +14,7 @@ import '../../core/widgets/back_header.dart';
 import '../../core/widgets/stacked_route_endpoints.dart';
 import '../../data/models/bid.dart';
 import '../../data/static_data.dart';
+import '../../data/wallet_service.dart';
 
 class BidAcceptedScreen extends StatelessWidget {
   const BidAcceptedScreen({
@@ -87,7 +88,7 @@ class BidAcceptedScreen extends StatelessWidget {
                     _detailRow(
                       context,
                       'Accepted bid amount',
-                      '\$${bid.price.toInt()}',
+                      WalletService.formatMajor(bid.price),
                       valueStyle: typo.priceSmall.copyWith(fontSize: 16),
                     ),
                     if (bid.message != null) ...[

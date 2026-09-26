@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import '../../l10n/app_localizations.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/config/demo_mode.dart';
@@ -17,6 +18,7 @@ import '../../data/models/delivery_request.dart';
 import '../../data/models/matching_request.dart';
 import '../../data/services/trip_repository.dart';
 import '../../data/static_data.dart';
+import '../../data/wallet_service.dart';
 import '../../providers/auth_provider.dart';
 
 class SendCounterOfferScreen extends StatefulWidget {
@@ -190,7 +192,7 @@ class _SendCounterOfferScreenState extends State<SendCounterOfferScreen> {
     final typo = context.typo;
 
     if (_loading) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: AppColors.background,
         appBar: BackHeader(title: 'Send Counter Offer'),
         body: Center(
@@ -218,7 +220,7 @@ class _SendCounterOfferScreenState extends State<SendCounterOfferScreen> {
                 _error ?? 'Request not found.',
                 style: typo.sm.copyWith(color: AppColors.textSecondary),
               ),
-              TextButton(onPressed: _load, child: const Text('Retry')),
+              TextButton(onPressed: _load, child: Text(context.tr('Retry'))),
             ],
           ),
         ),
@@ -246,12 +248,12 @@ class _SendCounterOfferScreenState extends State<SendCounterOfferScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Sender maximum budget: \$${_request!.maxBudget.toStringAsFixed(2)} USD',
+                'Sender maximum budget: ${WalletService.formatMajor(_request!.maxBudget)}',
                 style: typo.sm.copyWith(fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 16),
               AppLabeledField(
-                label: 'Your counter offer (USD)',
+                label: WalletService.fieldLabel('Your counter offer'),
                 child: TextField(
                   controller: _budgetController,
                   onTap: ensureSoftKeyboardVisible,

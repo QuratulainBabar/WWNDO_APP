@@ -53,7 +53,7 @@ abstract final class WalletGate {
         context,
         WalletRole.traveler,
         PlatformFees.minWalletTravelerUsd,
-        'Minimum \$3 wallet balance is required to create a trip.',
+        'Minimum ${WalletService.formatMajor(PlatformFees.minWalletTravelerUsd)} wallet balance is required to create a trip.',
       );
 
   static Future<bool> ensureReceiverAccept(
@@ -68,7 +68,7 @@ abstract final class WalletGate {
       context,
       WalletRole.receiver,
       minimum,
-      'You need at least \$${minimum.toStringAsFixed(2)} in your wallet to accept (includes platform fee).',
+      'You need at least ${WalletService.formatMajor(minimum)} in your wallet to accept (includes platform fee).',
     );
   }
 

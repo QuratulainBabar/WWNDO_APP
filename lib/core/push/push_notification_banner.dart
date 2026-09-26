@@ -150,6 +150,13 @@ class _PushBannerState extends State<_WhatsAppStyleBanner>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final background = isDark ? AppColors.surface : const Color(0xFFF4F4F5);
+    final borderColor = isDark ? AppColors.border : Colors.white;
+    final titleColor = AppColors.textPrimary;
+    final subtitleColor = AppColors.textSecondary;
+    final shadowColor = Colors.black.withValues(alpha: isDark ? 0.45 : 0.22);
+
     return SlideTransition(
       position: _slide,
       child: FadeTransition(
@@ -159,7 +166,7 @@ class _PushBannerState extends State<_WhatsAppStyleBanner>
           child: Material(
             color: Colors.transparent,
             elevation: 12,
-            shadowColor: Colors.black.withValues(alpha: 0.22),
+            shadowColor: shadowColor,
             borderRadius: BorderRadius.circular(16),
             child: GestureDetector(
               onTap: widget.onTap,
@@ -178,9 +185,16 @@ class _PushBannerState extends State<_WhatsAppStyleBanner>
               child: Container(
                 padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF4F4F5),
+                  color: background,
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white, width: 1.2),
+                  border: Border.all(color: borderColor, width: 1.2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: shadowColor,
+                      blurRadius: isDark ? 18 : 12,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -202,10 +216,10 @@ class _PushBannerState extends State<_WhatsAppStyleBanner>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             'WWNGO',
                             style: TextStyle(
-                              color: AppColors.textSecondary,
+                              color: subtitleColor,
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
                               letterSpacing: 0.2,
@@ -216,8 +230,8 @@ class _PushBannerState extends State<_WhatsAppStyleBanner>
                             widget.title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: AppColors.textPrimary,
+                            style: TextStyle(
+                              color: titleColor,
                               fontSize: 15,
                               fontWeight: FontWeight.w700,
                               height: 1.2,
@@ -229,8 +243,8 @@ class _PushBannerState extends State<_WhatsAppStyleBanner>
                               widget.body!,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: AppColors.textSecondary,
+                              style: TextStyle(
+                                color: subtitleColor,
                                 fontSize: 14,
                                 height: 1.35,
                               ),
@@ -246,7 +260,7 @@ class _PushBannerState extends State<_WhatsAppStyleBanner>
                       onPressed: widget.onDismiss,
                       icon: Icon(
                         Icons.keyboard_arrow_up_rounded,
-                        color: AppColors.textSecondary.withValues(alpha: 0.8),
+                        color: subtitleColor.withValues(alpha: 0.85),
                       ),
                     ),
                   ],

@@ -167,7 +167,7 @@ class _PhoneInputRowState extends State<_PhoneInputRow> {
                       ),
                     ),
                     const SizedBox(width: 2),
-                    const Icon(
+                    Icon(
                       Icons.keyboard_arrow_down_rounded,
                       size: 20,
                       color: AppColors.textSecondary,
@@ -286,7 +286,7 @@ class _CountryPickerSheetState extends State<_CountryPickerSheet> {
                 decoration: InputDecoration(
                   hintText: 'Search country or dial code',
                   hintStyle: typo.input.copyWith(color: AppColors.textDisabled),
-                  prefixIcon: const Icon(
+                  prefixIcon: Icon(
                     Icons.search_rounded,
                     color: AppColors.textSecondary,
                   ),
@@ -304,7 +304,7 @@ class _CountryPickerSheetState extends State<_CountryPickerSheet> {
                     )
                   : ListView.separated(
                       itemCount: _results.length,
-                      separatorBuilder: (_, _) => const Divider(
+                      separatorBuilder: (_, _) => Divider(
                         height: 1,
                         color: AppColors.border,
                       ),

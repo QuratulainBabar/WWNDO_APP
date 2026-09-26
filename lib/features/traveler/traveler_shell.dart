@@ -12,6 +12,7 @@ import '../../data/models/wallet_role.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/chat_realtime_provider.dart';
 import '../../providers/notification_realtime_provider.dart';
+import '../../l10n/app_localizations.dart';
 
 class TravelerShell extends StatefulWidget {
   const TravelerShell({super.key, required this.navigationShell});
@@ -114,10 +115,11 @@ class _TravelerShellState extends State<TravelerShell>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
       body: widget.navigationShell,
       bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: AppColors.surface,
           border: Border(top: BorderSide(color: AppColors.border)),
         ),
@@ -131,33 +133,33 @@ class _TravelerShellState extends State<TravelerShell>
                   navigationShell: widget.navigationShell,
                   index: 0,
                   icon: _TabIcon.svg(AppIcons.home),
-                  label: 'Home',
+                  label: l10n.home,
                 ),
                 _Tab(
                   navigationShell: widget.navigationShell,
                   index: 1,
                   icon: _TabIcon.svg(AppIcons.trips),
-                  label: 'Trip',
+                  label: l10n.trip,
                 ),
                 _Tab(
                   navigationShell: widget.navigationShell,
                   index: 2,
                   icon: const _TabIcon.material(Icons.notifications_outlined),
-                  label: 'Alert',
+                  label: l10n.alert,
                   badge: _unreadAlerts,
                 ),
                 _Tab(
                   navigationShell: widget.navigationShell,
                   index: 3,
                   icon: _TabIcon.svg(AppIcons.chat),
-                  label: 'Chat',
+                  label: l10n.chat,
                   badge: _unreadChats,
                 ),
                 _Tab(
                   navigationShell: widget.navigationShell,
                   index: 4,
                   icon: _TabIcon.svg(AppIcons.profile),
-                  label: 'Profile',
+                  label: l10n.profile,
                 ),
               ],
             ),

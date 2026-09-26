@@ -27,6 +27,7 @@ import 'models/parcel_creation_result.dart';
 import 'models/profile_trust_metrics.dart';
 import 'models/security_log_entry.dart';
 import 'platform_fees.dart';
+import 'trip_date_window.dart';
 
 /// Static data repository — replace with API layer later.
 abstract final class StaticData {
@@ -346,12 +347,12 @@ abstract final class StaticData {
   }) {
     if (amount <= 0) return 'Enter a valid budget amount.';
     if (!allowAboveMaxBudget && amount > request.maxBudget) {
-      return 'Bid cannot exceed sender max budget (\$${request.maxBudget.toStringAsFixed(2)}).';
+      return 'Bid cannot exceed sender max budget (${WalletService.formatMajor(request.maxBudget)}).';
     }
 
     final balance = WalletService.availableUsd(WalletRole.traveler);
     if (balance < travelerBidMinBalanceUsd) {
-      return 'Wallet must have at least \$${travelerBidMinBalanceUsd.toStringAsFixed(0)} to send a final budget.';
+      return 'Wallet must have at least ${WalletService.formatMajor(travelerBidMinBalanceUsd)} to send a final budget.';
     }
 
     if (tripId.isNotEmpty) {
@@ -482,15 +483,15 @@ abstract final class StaticData {
     if (isAccept && !isUpdate) {
       notifTitle = 'Offer accepted';
       notifBody =
-          '$travelerName accepted your offer of \$${amount.toStringAsFixed(2)} for $shipmentId ($routeLabel).';
+          '$travelerName accepted your offer of ${WalletService.formatMajor(amount)} for $shipmentId ($routeLabel).';
     } else if (isUpdate) {
       notifTitle = 'Counter offer updated';
       notifBody =
-          '$travelerName updated their counter offer to \$${amount.toStringAsFixed(2)} for $shipmentId ($routeLabel).';
+          '$travelerName updated their counter offer to ${WalletService.formatMajor(amount)} for $shipmentId ($routeLabel).';
     } else {
       notifTitle = 'New counter offer';
       notifBody =
-          '$travelerName sent a counter offer of \$${amount.toStringAsFixed(2)} for $shipmentId ($routeLabel).';
+          '$travelerName sent a counter offer of ${WalletService.formatMajor(amount)} for $shipmentId ($routeLabel).';
     }
     NotificationService.push(
       AppNotification(
@@ -610,7 +611,7 @@ abstract final class StaticData {
         type: AppNotificationType.bidAccepted,
         title: 'Counter offer accepted',
         body:
-            'A sender accepted your counter offer of \$${amount.toStringAsFixed(2)} for $shipmentId ($routeLabel).',
+            'A sender accepted your counter offer of ${WalletService.formatMajor(amount)} for $shipmentId ($routeLabel).',
         time: 'Just now',
         route: '/traveler-bid-detail/${current.bidId}',
       ),
@@ -1416,7 +1417,7 @@ abstract final class StaticData {
         type: AppNotificationType.receiverPayment,
         title: 'Platform fee paid',
         body:
-            'Your \$${platformFeeShare.toStringAsFixed(2)} platform fee share for $shipmentId was collected.',
+            'Your ${WalletService.formatMajor(platformFeeShare)} platform fee share for $shipmentId was collected.',
         time: 'Just now',
         route: '/receiver-tracking',
       ),
@@ -1428,7 +1429,7 @@ abstract final class StaticData {
         type: AppNotificationType.bid,
         title: 'Platform fee paid',
         body:
-            'Your \$${platformFeeShare.toStringAsFixed(2)} platform fee for $shipmentId was collected.',
+            'Your ${WalletService.formatMajor(platformFeeShare)} platform fee for $shipmentId was collected.',
         time: 'Just now',
         route: '/shipment/$shipmentId?traveler=true',
       ),
@@ -1610,7 +1611,7 @@ abstract final class StaticData {
         title: 'Payment successful',
         body: feeAmount == 0
             ? 'Platform fee waived for ${shipment.id}.'
-            : '\$${feeAmount.toStringAsFixed(2)} platform fee paid for ${shipment.id}.',
+            : '${WalletService.formatMajor(feeAmount)} platform fee paid for ${shipment.id}.',
         time: 'Just now',
         route: '/receiver-tracking',
       ),
@@ -2087,17 +2088,17 @@ abstract final class StaticData {
   static const platformFeeInternational = 5.0;
   static const platformFeeShare = 2.50;
 
-  /// Document platform fees (USD).
+  /// Document platform fees (USD) — same rates as Object.
   static const platformFeeDocumentSenderUsd = 2.0;
-  static const platformFeeDocumentTravelerUsd = 2.0;
+  static const platformFeeDocumentTravelerUsd = 3.0;
   static const platformFeeDocumentReceiverUsd = 2.0;
   static const platformFeeDocumentSenderPaysReceiverUsd = 3.0;
 
-  /// Object platform fees (USD).
-  static const platformFeeObjectSenderUsd = 4.0;
-  static const platformFeeObjectTravelerUsd = 4.0;
-  static const platformFeeObjectReceiverUsd = 3.0;
-  static const platformFeeObjectSenderPaysReceiverUsd = 6.0;
+  /// Object platform fees (USD) — same rates as Document.
+  static const platformFeeObjectSenderUsd = 2.0;
+  static const platformFeeObjectTravelerUsd = 3.0;
+  static const platformFeeObjectReceiverUsd = 2.0;
+  static const platformFeeObjectSenderPaysReceiverUsd = 3.0;
 
   /// Whether the sender elected to cover the receiver's platform fee at post time.
   static final paysReceiverFeeByShipmentId = <String, bool>{};
@@ -2130,11 +2131,10 @@ abstract final class StaticData {
         : platformFeeObjectSenderUsd;
   }
 
-  /// Traveler platform fee for a parcel category.
+  /// Traveler platform fee for a parcel category — always $3.
   static double travelerPlatformFeeUsd(String category) {
-    return isDocumentParcelCategory(category)
-        ? platformFeeDocumentTravelerUsd
-        : platformFeeObjectTravelerUsd;
+    // Keep Document/Object constants in sync; prefer PlatformFees as source of truth.
+    return PlatformFees.travelerPlatformFeeUsd(category);
   }
 
   /// Receiver platform fee. Zero when the sender covers the receiver share.
@@ -2758,11 +2758,13 @@ abstract final class StaticData {
 
   /// Posted trips discoverable by senders, optionally ranked for a parcel route.
   /// Excludes trips whose luggage capacity is below the parcel weight.
+  /// Only trips within the active rolling travel-date window are shown.
   static List<({TravelerTrip trip, int matchScore})> discoverableTripsForShipment(
     Shipment shipment,
   ) {
     final parcelWeight = shipment.parcelWeightKg;
     final ranked = travelerPostedTrips
+        .where((trip) => TripDateWindow.contains(trip.travelDate))
         .where((trip) => trip.luggageCapacityKg >= parcelWeight)
         .map(
           (trip) => (
@@ -2778,6 +2780,7 @@ abstract final class StaticData {
 
   static List<({TravelerTrip trip, int matchScore})> get allDiscoverableTrips {
     return travelerPostedTrips
+        .where((trip) => TripDateWindow.contains(trip.travelDate))
         .map((trip) => (trip: trip, matchScore: 100))
         .toList();
   }
@@ -2786,6 +2789,7 @@ abstract final class StaticData {
   static List<HotRoute> get discoverableHotRoutes {
     final grouped = <String, List<TravelerTrip>>{};
     for (final trip in travelerPostedTrips) {
+      if (!TripDateWindow.contains(trip.travelDate)) continue;
       grouped.putIfAbsent(trip.route, () => []).add(trip);
     }
     if (grouped.isEmpty) return hotRoutes;
@@ -2947,8 +2951,8 @@ abstract final class StaticData {
         platformFee > 0 ? platformFee : receiverAcceptMinBalanceUsd;
     if (WalletService.availableUsd(WalletRole.receiver) < requiredBalance) {
       return platformFee > 0
-          ? 'You need at least \$${requiredBalance.toStringAsFixed(2)} in your wallet to accept (includes platform fee).'
-          : 'You need at least \$${requiredBalance.toStringAsFixed(0)} in your wallet to accept this request.';
+          ? 'You need at least ${WalletService.formatMajor(requiredBalance)} in your wallet to accept (includes platform fee).'
+          : 'You need at least ${WalletService.formatMajor(requiredBalance)} in your wallet to accept this request.';
     }
     return null;
   }
@@ -3954,11 +3958,11 @@ abstract final class StaticData {
       return 'Enter a valid bid amount.';
     }
     if (amount > request.maxBudget) {
-      return 'Bid cannot exceed sender max budget (\$${request.maxBudget.toStringAsFixed(2)}).';
+      return 'Bid cannot exceed sender max budget (${WalletService.formatMajor(request.maxBudget)}).';
     }
     final balance = WalletService.availableUsd(WalletRole.traveler);
     if (balance < travelerBidMinBalanceUsd) {
-      return 'Wallet must have at least \$${travelerBidMinBalanceUsd.toStringAsFixed(0)} to place a bid.';
+      return 'Wallet must have at least ${WalletService.formatMajor(travelerBidMinBalanceUsd)} to place a bid.';
     }
 
     if (tripId != null) {
@@ -4132,7 +4136,7 @@ abstract final class StaticData {
     ),
   ];
 
-  static const receiverPaymentOptions = [0.0, 2.0, 3.0];
+  static const receiverPaymentOptions = [0.0, 2.0];
 
   static final chatThreadsVersion = ValueNotifier(0);
   static final List<ChatMessage> liveSenderTravelerChatMessages =

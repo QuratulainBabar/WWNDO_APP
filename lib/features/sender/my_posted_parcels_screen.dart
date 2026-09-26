@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import '../../l10n/app_localizations.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/config/demo_mode.dart';
@@ -196,7 +197,7 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen>
         height: 42,
         child: Text('Edit', style: itemStyle),
       ),
-      const PopupMenuItem<String>(
+      PopupMenuItem<String>(
         enabled: false,
         height: 1,
         padding: EdgeInsets.zero,
@@ -285,7 +286,7 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen>
             Center(
               child: TextButton(
                 onPressed: () => _load(),
-                child: const Text('Retry'),
+                child: Text(context.tr('Retry')),
               ),
             ),
           ],
@@ -394,7 +395,7 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen>
                     ),
                     if (showMenu)
                       PopupMenuButton<String>(
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.more_vert,
                           color: AppColors.textSecondary,
                           size: 22,
@@ -453,7 +454,7 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen>
           Container(
             width: double.infinity,
             padding: EdgeInsets.symmetric(horizontal: horizontal),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               border: Border(
                 bottom: BorderSide(color: AppColors.border, width: 1),
               ),

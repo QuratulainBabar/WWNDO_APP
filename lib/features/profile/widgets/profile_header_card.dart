@@ -53,7 +53,11 @@ class ProfileHeaderCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ProfileAvatar(initial: displayInitial, role: role),
+          ProfileAvatar(
+            initial: displayInitial,
+            role: role,
+            avatarUrl: authUser?.avatarUrl,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(

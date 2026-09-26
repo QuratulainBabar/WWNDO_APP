@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../l10n/app_localizations.dart';
 
 import '../../data/legal_documents.dart';
 import '../theme/app_colors.dart';
@@ -84,7 +85,7 @@ Future<void> showLegalDocumentDialog({
                   ),
                 ),
                 AppButton(
-                  label: 'Close',
+                  label: context.tr('Close'),
                   small: true,
                   onPressed: () => Navigator.of(dialogContext).pop(),
                 ),

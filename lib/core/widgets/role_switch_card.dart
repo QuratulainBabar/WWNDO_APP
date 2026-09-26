@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import '../../l10n/app_localizations.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/auth/selected_role.dart';
@@ -124,7 +125,7 @@ class _RoleSwitchCardState extends State<RoleSwitchCard> {
                 if (i > 0) const Divider(height: 1),
                 _RoleRow(
                   iconAsset: _roles[i].iconAsset,
-                  title: _roles[i].title,
+                  title: context.tr(_roles[i].title),
                   description: _roles[i].description,
                   selected: currentRole == _roles[i].role,
                   enabled: !switching,
@@ -223,7 +224,7 @@ class _RoleRow extends StatelessWidget {
                   backgroundColor: AppColors.primary.withValues(alpha: 0.1),
                 )
               else
-                const Icon(
+                Icon(
                   Icons.arrow_forward_ios_rounded,
                   size: 14,
                   color: AppColors.textSecondary,

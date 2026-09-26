@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../core/api/api_exception.dart';
 import '../core/config/demo_mode.dart';
+import '../core/currency/app_currency.dart';
 import '../core/payments/stripe_payments.dart';
 import '../data/models/ledger_entry.dart';
 import '../data/models/shipment_escrow.dart';
@@ -153,6 +154,7 @@ class WalletProvider extends ChangeNotifier {
   Future<void> topUp({
     required WalletRole role,
     required int amountCents,
+    String? currency,
   }) async {
     _loading = true;
     _error = null;
@@ -165,9 +167,15 @@ class WalletProvider extends ChangeNotifier {
       }
 
       await StripePayments.ensureConfigured(_walletRepository);
+      final currencyCode =
+          (currency ?? AppCurrencies.active.code).trim().toUpperCase();
 
       try {
-        await _walletRepository.topUp(role: role, amountCents: amountCents);
+        await _walletRepository.topUp(
+          role: role,
+          amountCents: amountCents,
+          currency: currencyCode,
+        );
       } on ApiException catch (e) {
         if (!e.requiresPayment || e.clientSecret == null) rethrow;
         await StripePayments.presentPaymentSheet(clientSecret: e.clientSecret!);
@@ -248,6 +256,7 @@ class WalletProvider extends ChangeNotifier {
   Future<void> withdraw({
     required WalletRole role,
     required int amountCents,
+    String? currency,
   }) async {
     _loading = true;
     _error = null;
@@ -268,7 +277,11 @@ class WalletProvider extends ChangeNotifier {
         await refresh(role, silent: true);
         return;
       }
-      await _walletRepository.withdraw(role: role, amountCents: amountCents);
+      await _walletRepository.withdraw(
+        role: role,
+        amountCents: amountCents,
+        currency: (currency ?? AppCurrencies.active.code).trim().toUpperCase(),
+      );
       await refresh(role, silent: true, includeFullHistory: true);
     } on ApiException catch (e) {
       _error = e.message;

@@ -15,6 +15,8 @@ import '../../core/widgets/back_link.dart';
 import '../../core/widgets/stacked_route_endpoints.dart';
 import '../../data/models/delivery_request.dart';
 import '../../data/static_data.dart';
+import '../../data/wallet_service.dart';
+import '../../l10n/app_localizations.dart';
 
 class BrowseRequestsScreen extends StatefulWidget {
   const BrowseRequestsScreen({super.key});
@@ -123,7 +125,7 @@ class _RequestCard extends StatelessWidget {
                       children: [
                         Text('max budget', style: typo.sm),
                         Text(
-                          '\$${request.maxBudget.toInt()}',
+                          WalletService.formatMajor(request.maxBudget),
                           style: typo.priceSmall,
                         ),
                       ],
@@ -176,7 +178,7 @@ class _RequestCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 AppButton(
-                  label: 'View details',
+                  label: context.tr('View details'),
                   small: true,
                   onPressed: onViewDetails,
                 ),

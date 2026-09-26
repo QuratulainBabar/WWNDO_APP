@@ -24,6 +24,10 @@ abstract final class PlatformUi {
   static String get biometricSetupReason =>
       isIOS ? 'Confirm Face ID to enable quick login' : 'Confirm your fingerprint to enable quick login';
 
+  static String get biometricInactivityReason => isIOS
+      ? 'Unlock WWNGO with Face ID after time away'
+      : 'Unlock WWNGO with your fingerprint after time away';
+
   static ScrollPhysics get scrollPhysics =>
       isIOS ? const BouncingScrollPhysics() : const ClampingScrollPhysics();
 

@@ -273,7 +273,7 @@ class _AddMeetupLocationsScreenState extends State<AddMeetupLocationsScreen> {
                   children: [
                     IconButton(
                       onPressed: _handleBack,
-                      icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+                      icon: Icon(Icons.arrow_back, color: AppColors.textPrimary),
                     ),
                     const Icon(Icons.place, color: AppColors.primary, size: 22),
                     const SizedBox(width: 8),
@@ -322,7 +322,7 @@ class _AddMeetupLocationsScreenState extends State<AddMeetupLocationsScreen> {
                   children: [
                     IconButton(
                       onPressed: _handleBack,
-                      icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+                      icon: Icon(Icons.arrow_back, color: AppColors.textPrimary),
                     ),
                     Expanded(
                       child: Text(
@@ -369,12 +369,12 @@ class _AddMeetupLocationsScreenState extends State<AddMeetupLocationsScreen> {
                   showConnector: _stops.isNotEmpty,
                   onTap: () => _openSearch(),
                 ),
-              const Divider(height: 1, color: AppColors.border),
+              Divider(height: 1, color: AppColors.border),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 child: Row(
                   children: [
-                    const Icon(Icons.schedule, size: 18, color: AppColors.textSecondary),
+                    Icon(Icons.schedule, size: 18, color: AppColors.textSecondary),
                     const SizedBox(width: 8),
                     Text(
                       '${_stops.length} of ${widget.maxLocations} locations',
@@ -403,7 +403,7 @@ class _AddMeetupLocationsScreenState extends State<AddMeetupLocationsScreen> {
                   children: [
                     IconButton(
                       onPressed: _closeSearch,
-                      icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+                      icon: Icon(Icons.arrow_back, color: AppColors.textPrimary),
                     ),
                     Expanded(
                       child: Container(
@@ -447,7 +447,7 @@ class _AddMeetupLocationsScreenState extends State<AddMeetupLocationsScreen> {
                   ],
                 ),
               ),
-              const Divider(height: 1, color: AppColors.border),
+              Divider(height: 1, color: AppColors.border),
               Expanded(child: _buildSuggestions(typo)),
             ],
           ),
@@ -495,14 +495,14 @@ class _AddMeetupLocationsScreenState extends State<AddMeetupLocationsScreen> {
 
     return ListView.separated(
       itemCount: _suggestions.length,
-      separatorBuilder: (_, _) => const Divider(height: 1, color: AppColors.border),
+      separatorBuilder: (_, _) => Divider(height: 1, color: AppColors.border),
       itemBuilder: (context, index) {
         final place = _suggestions[index];
         return ListTile(
           leading: Container(
             width: 40,
             height: 40,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: AppColors.kycBackground,
               shape: BoxShape.circle,
             ),
@@ -512,7 +512,7 @@ class _AddMeetupLocationsScreenState extends State<AddMeetupLocationsScreen> {
           subtitle: place.address != place.name
               ? Text(place.address, style: typo.sm, maxLines: 2, overflow: TextOverflow.ellipsis)
               : null,
-          trailing: const Icon(Icons.north_west, size: 16, color: AppColors.textSecondary),
+          trailing: Icon(Icons.north_west, size: 16, color: AppColors.textSecondary),
           onTap: () => _selectPlace(place),
         );
       },
@@ -594,14 +594,14 @@ class _StopTile extends StatelessWidget {
               ),
               ReorderableDragStartListener(
                 index: index,
-                child: const Padding(
+                child: Padding(
                   padding: EdgeInsets.all(8),
                   child: Icon(Icons.drag_handle, color: AppColors.textSecondary),
                 ),
               ),
               IconButton(
                 onPressed: onRemove,
-                icon: const Icon(Icons.close, size: 18, color: AppColors.textSecondary),
+                icon: Icon(Icons.close, size: 18, color: AppColors.textSecondary),
               ),
             ],
           ),

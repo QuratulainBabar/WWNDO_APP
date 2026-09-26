@@ -7,6 +7,7 @@ import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/gradient_background.dart';
 import '../../providers/auth_provider.dart';
+import '../../l10n/app_localizations.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -184,7 +185,7 @@ class WelcomeScreen extends StatelessWidget {
                                 //   const SizedBox(height: AppButton.stackGap),
                                 // ],
                                 AppButton(
-                                  label: 'Sign up',
+                                  label: context.tr('Sign up'),
                                   variant: AppButtonVariant.primary,
                                   // variant: demoMode.enabled
                                   //     ? AppButtonVariant.outlineWhite
@@ -194,7 +195,7 @@ class WelcomeScreen extends StatelessWidget {
                                 ),
                                 const SizedBox(height: AppButton.stackGap),
                                 AppButton(
-                                  label: 'Log in',
+                                  label: context.tr('Log in'),
                                   variant: AppButtonVariant.outlineWhite,
                                   textStyle: typo.welcomeButton,
                                   onPressed: () => context.push('/login'),

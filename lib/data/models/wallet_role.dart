@@ -15,7 +15,9 @@ enum WalletRole {
   String? get chatInboxThreadType => switch (this) {
         // Traveler needs both sender↔traveler and traveler↔receiver threads.
         WalletRole.traveler => null,
-        WalletRole.receiver => 'traveler_receiver',
+        // Receiver needs both traveler↔receiver and sender↔receiver threads
+        // so Sender→Receiver unread shows on the Chat tab badge and inbox.
+        WalletRole.receiver => null,
         WalletRole.sender => null,
       };
 }

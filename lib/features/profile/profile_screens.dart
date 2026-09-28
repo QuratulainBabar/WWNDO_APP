@@ -7,6 +7,7 @@ import '../../core/platform/keyboard_utils.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/auth/selected_role.dart';
 import '../../core/config/demo_mode.dart';
+import '../../core/currency/fx_rate_service.dart';
 import '../../core/layout/responsive.dart';
 import '../../core/widgets/kyc_status_badge.dart';
 import '../../providers/auth_provider.dart';
@@ -1018,6 +1019,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   child: ValueListenableBuilder<int>(
                     valueListenable: WalletService.walletVersion,
                     builder: (context, _, __) {
+                      return ValueListenableBuilder<int>(
+                        valueListenable: FxRateService.version,
+                        builder: (context, _, __) {
                       final role = WalletRole.fromQuery(roleParam);
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1040,6 +1044,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             ),
                           ),
                         ],
+                      );
+                        },
                       );
                     },
                   ),
@@ -1363,22 +1369,39 @@ class _WalletScreenState extends State<WalletScreen> {
       return;
     }
 
-    final cents = (parsedAmount * 100).round();
-    final validation = WalletService.validateWithdrawal(role, cents);
-    if (validation != null) {
-      setState(() => _error = validation);
-      return;
-    }
-
+    final currency = context.read<CurrencyProvider>();
+    final wallet = context.read<WalletProvider>();
     setState(() {
       _withdrawing = true;
       _error = null;
     });
     try {
-      await context.read<WalletProvider>().withdraw(
-            role: role,
-            amountCents: cents,
-          );
+      // Wallet ledger is USD. Convert the entered display amount via Stripe FX.
+      int usdCents;
+      if (currency.code == 'USD') {
+        usdCents = (parsedAmount * 100).round();
+      } else {
+        final displayMinor = currency.currency.toMinorUnits(parsedAmount);
+        final quote = await currency.convert(
+          fromCurrency: currency.code,
+          toCurrency: 'USD',
+          amountCents: displayMinor,
+        );
+        usdCents = quote.convertedAmountCents;
+      }
+
+      final validation = WalletService.validateWithdrawal(role, usdCents);
+      if (validation != null) {
+        if (mounted) setState(() => _error = validation);
+        return;
+      }
+
+      // Debit USD from the ledger (backend treats amountCents as USD cents).
+      await wallet.withdraw(
+        role: role,
+        amountCents: usdCents,
+        currency: 'USD',
+      );
       if (!mounted) return;
       context.push(
         _routeWithRole('/wallet/withdrawal-success', role),
@@ -1406,6 +1429,7 @@ class _WalletScreenState extends State<WalletScreen> {
       WalletRole.sender => '/settings?role=sender',
     };
     final typo = context.typo;
+    final currencyProvider = context.watch<CurrencyProvider>();
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -1418,6 +1442,9 @@ class _WalletScreenState extends State<WalletScreen> {
           return ValueListenableBuilder<int>(
             valueListenable: WalletService.walletVersion,
             builder: (context, _, __) {
+              return ValueListenableBuilder<int>(
+                valueListenable: FxRateService.version,
+                builder: (context, _, __) {
               final available = WalletService.availableCents(role);
               final escrow = WalletService.escrowCents(role);
               final entries = wallet.historyFor();
@@ -1579,7 +1606,8 @@ class _WalletScreenState extends State<WalletScreen> {
                           children: [
                             _SummaryRow(
                               label: "You'll receive",
-                              value: WalletService.formatMajor(displayAmount),
+                              value: currencyProvider.currency
+                                  .formatMajor(displayAmount),
                             ),
                             const _SummaryRow(
                               label: 'Payout rail',
@@ -1668,6 +1696,8 @@ class _WalletScreenState extends State<WalletScreen> {
                     ],
                   ],
                 ),
+              );
+                },
               );
             },
           );

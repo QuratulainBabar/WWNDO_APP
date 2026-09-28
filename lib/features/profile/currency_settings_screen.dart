@@ -12,10 +12,24 @@ import '../../l10n/app_localizations.dart';
 import '../../providers/currency_provider.dart';
 
 /// Settings sub-screen: pick preferred currency for prices and Pay Now.
-class CurrencySettingsScreen extends StatelessWidget {
+class CurrencySettingsScreen extends StatefulWidget {
   const CurrencySettingsScreen({super.key, this.fallbackRoute});
 
   final String? fallbackRoute;
+
+  @override
+  State<CurrencySettingsScreen> createState() => _CurrencySettingsScreenState();
+}
+
+class _CurrencySettingsScreenState extends State<CurrencySettingsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<CurrencyProvider>().refreshFxRate();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +46,7 @@ class CurrencySettingsScreen extends StatelessWidget {
         backgroundColor: AppColors.background,
         appBar: BackHeader(
           title: l10n.currency,
-          fallbackRoute: fallbackRoute ?? '/settings',
+          fallbackRoute: widget.fallbackRoute ?? '/settings',
         ),
         body: ScreenBody(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
@@ -48,6 +62,24 @@ class CurrencySettingsScreen extends StatelessWidget {
                 l10n.currencyDescription,
                 style: typo.sm.copyWith(color: AppColors.textSecondary),
               ),
+              if (currencyProvider.fxLoading) ...[
+                const SizedBox(height: 12),
+                const LinearProgressIndicator(minHeight: 2),
+              ] else if (selected.code != 'USD' &&
+                  currencyProvider.usdToDisplayRate > 0) ...[
+                const SizedBox(height: 12),
+                Text(
+                  '1 USD ≈ ${currencyProvider.usdToDisplayRate.toStringAsFixed(4)} ${selected.code} (Stripe live)',
+                  style: typo.sm.copyWith(color: AppColors.primary),
+                ),
+              ],
+              if (currencyProvider.fxError != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  currencyProvider.fxError!,
+                  style: typo.sm.copyWith(color: AppColors.danger),
+                ),
+              ],
               const SizedBox(height: 20),
               Container(
                 decoration: BoxDecoration(

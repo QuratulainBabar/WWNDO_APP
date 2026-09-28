@@ -130,16 +130,47 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen>
       final list = await _repository().listDeliveries(role: 'sender');
       if (!mounted) return;
       final deliveries = List<CreatedDelivery>.from(list);
+      final previousCounts = Map<String, int>.from(_matchingTravelerCounts);
+      final previousRequests =
+          Map<String, List<TravelerRequestSummary>>.from(
+        _travelerRequestsByDelivery,
+      );
       final secondary = await Future.wait([
         _repository().fetchMatchingTravelerCounts(deliveries),
         _repository().fetchTravelerRequestsForDeliveries(deliveries),
       ]);
       if (!mounted) return;
+      final fetchedCounts = secondary[0] as Map<String, int>;
+      final fetchedRequests =
+          secondary[1] as Map<String, List<TravelerRequestSummary>>;
+      final mergedCounts = <String, int>{};
+      final mergedRequests = <String, List<TravelerRequestSummary>>{};
+      for (final d in deliveries) {
+        if (SenderDeliveryStatus.needsMatchingTravelerCount(d)) {
+          final count = fetchedCounts[d.displayId] ??
+              fetchedCounts[d.id] ??
+              previousCounts[d.displayId] ??
+              previousCounts[d.id];
+          if (count != null) {
+            mergedCounts[d.displayId] = count;
+            if (d.id.isNotEmpty) mergedCounts[d.id] = count;
+          }
+        }
+        if (d.status == 'posted' && d.isReceiverAccepted) {
+          final requests = fetchedRequests[d.displayId] ??
+              fetchedRequests[d.id] ??
+              previousRequests[d.displayId] ??
+              previousRequests[d.id];
+          if (requests != null) {
+            mergedRequests[d.displayId] = requests;
+            if (d.id.isNotEmpty) mergedRequests[d.id] = requests;
+          }
+        }
+      }
       setState(() {
         _deliveries = deliveries;
-        _matchingTravelerCounts = secondary[0] as Map<String, int>;
-        _travelerRequestsByDelivery =
-            secondary[1] as Map<String, List<TravelerRequestSummary>>;
+        _matchingTravelerCounts = mergedCounts;
+        _travelerRequestsByDelivery = mergedRequests;
         _loading = false;
         _error = null;
       });

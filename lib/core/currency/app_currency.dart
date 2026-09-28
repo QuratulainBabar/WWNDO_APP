@@ -125,4 +125,9 @@ abstract final class AppCurrencies {
     _active = currency;
     version.value++;
   }
+
+  /// Notify listeners when FX rate changes (same currency, new rate).
+  static void notifyChanged() {
+    version.value++;
+  }
 }

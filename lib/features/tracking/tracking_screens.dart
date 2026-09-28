@@ -1537,6 +1537,51 @@ class NfcConfirmSuccessScreen extends StatefulWidget {
   State<NfcConfirmSuccessScreen> createState() => _NfcConfirmSuccessScreenState();
 }
 
+class _NfcSuccessBulletList extends StatelessWidget {
+  const _NfcSuccessBulletList({required this.items});
+
+  final List<String> items;
+
+  @override
+  Widget build(BuildContext context) {
+    final typo = context.typo;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var i = 0; i < items.length; i++) ...[
+          if (i > 0) const SizedBox(height: 10),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Container(
+                  width: 6,
+                  height: 6,
+                  decoration: const BoxDecoration(
+                    color: AppColors.primary,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  items[i],
+                  style: typo.sm.copyWith(
+                    height: 1.45,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 class _NfcConfirmSuccessScreenState extends State<NfcConfirmSuccessScreen> {
   @override
   Widget build(BuildContext context) {
@@ -1552,11 +1597,8 @@ class _NfcConfirmSuccessScreenState extends State<NfcConfirmSuccessScreen> {
     final title = waiting
         ? 'Waiting for $otherParty'
         : 'NFC Checkpoint Traveler & Sender complete';
-    final body = waiting
-        ? 'Your NFC tap for $shipmentId is recorded. Ask the $otherParty to complete their NFC tap. When both match, the parcel becomes Collected.'
-        : widget.isTraveler
-            ? 'You and the Sender successfully verified the same trip/delivery. You are connected to the correct Sender, and this parcel belongs to this exact trip/delivery.'
-            : 'You and the Traveler successfully verified the same trip/delivery. The Traveler is connected to you (the correct Sender), and this parcel belongs to this exact trip/delivery.';
+    final waitingBody =
+        'Your NFC tap for $shipmentId is recorded. Ask the $otherParty to complete their NFC tap. When both match, the parcel becomes Collected.';
 
     return Scaffold(
       backgroundColor: AppColors.surface,
@@ -1625,19 +1667,26 @@ class _NfcConfirmSuccessScreenState extends State<NfcConfirmSuccessScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              Text(
-                body,
-                textAlign: TextAlign.center,
-                style: typo.sm.copyWith(height: 1.5),
-              ),
-              if (!waiting) ...[
-                const SizedBox(height: 12),
+              if (waiting)
                 Text(
-                  'Parcel status is now Collected. Traveler can mark In Transit when ready.',
+                  waitingBody,
                   textAlign: TextAlign.center,
                   style: typo.sm.copyWith(height: 1.5),
+                )
+              else
+                _NfcSuccessBulletList(
+                  items: [
+                    widget.isTraveler
+                        ? 'You and the Sender verified the same trip/delivery'
+                        : 'You and the Traveler verified the same trip/delivery',
+                    widget.isTraveler
+                        ? 'You are connected to the correct Sender'
+                        : 'The Traveler is connected to you (the correct Sender)',
+                    'This parcel belongs to this exact trip/delivery',
+                    'Parcel status is now Collected',
+                    'Traveler can mark In Transit when ready',
+                  ],
                 ),
-              ],
               const SizedBox(height: 32),
               AppButton(
                 label: 'View shipment',
@@ -1673,9 +1722,8 @@ class TravelerNfcDeliverySuccessScreen extends StatelessWidget {
     final title = waitingForPeer
         ? 'Waiting for receiver'
         : 'NFC Checkpoint Traveler & Receiver complete';
-    final body = waitingForPeer
-        ? 'Your NFC tap for $shipmentId is recorded. Ask the receiver to complete their NFC Checkpoint Traveler & Receiver tap to confirm delivery and release escrow.'
-        : 'You and the Receiver successfully verified the same trip/delivery. You are handing over the parcel to the correct Receiver, and this parcel belongs to this exact trip/delivery.';
+    final waitingBody =
+        'Your NFC tap for $shipmentId is recorded. Ask the receiver to complete their NFC Checkpoint Traveler & Receiver tap to confirm delivery and release escrow.';
 
     return Scaffold(
       backgroundColor: AppColors.surface,
@@ -1747,18 +1795,23 @@ class TravelerNfcDeliverySuccessScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              Text(
-                body,
-                textAlign: TextAlign.center,
-                style: typo.sm.copyWith(height: 1.5),
-              ),
-              if (!waitingForPeer) ...[
-                const SizedBox(height: 12),
+              if (waitingForPeer)
                 Text(
-                  'Parcel status is now Delivered. Escrow has been released to your wallet.',
+                  waitingBody,
                   textAlign: TextAlign.center,
                   style: typo.sm.copyWith(height: 1.5),
+                )
+              else
+                const _NfcSuccessBulletList(
+                  items: [
+                    'You and the Receiver verified the same trip/delivery',
+                    'You are handing over the parcel to the correct Receiver',
+                    'This parcel belongs to this exact trip/delivery',
+                    'Parcel status is now Delivered',
+                    'Escrow has been released to your wallet',
+                  ],
                 ),
+              if (!waitingForPeer) ...[
                 const SizedBox(height: 24),
                 AppCard(
                   margin: EdgeInsets.zero,

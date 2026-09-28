@@ -56,6 +56,7 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
   NotificationRealtimeProvider? _realtimeProvider;
   VoidCallback? _realtimeListener;
   int _lastDeliveryUpdateTick = 0;
+  int _loadGeneration = 0;
 
   TravelerRequestSummary? _requestFor(Bid bid) {
     for (final r in _travelerRequests) {
@@ -126,10 +127,18 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
       return;
     }
 
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    final generation = ++_loadGeneration;
+    // Soft refresh: keep the last good list visible so realtime reloads cannot
+    // flash / stick on an empty state while a newer request is in flight.
+    final hasCachedList = _apiBids != null && _delivery != null;
+    if (!hasCachedList) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    } else if (_error != null) {
+      setState(() => _error = null);
+    }
 
     try {
       final repo = _repository();
@@ -138,9 +147,10 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
         repo.listMatchingTravelers(widget.shipmentId),
         repo.listTravelerRequests(widget.shipmentId),
       ]);
+      if (!mounted || generation != _loadGeneration) return;
+
       final delivery = results[0] as CreatedDelivery;
-      // Backend filters by destination + luggage + active travel-date window
-      // (prev 5 days + today + next 7 days). Client also enforces the window.
+      // Same source as home matching badge counts: destination + luggage.
       final travelers = results[1] as List<MatchingTraveler>;
       final bids = travelers.map((t) => t.toBid()).toList();
       if (bids.isNotEmpty) {
@@ -166,21 +176,31 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
           bids: bids,
         );
       }
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _delivery = delivery;
         _apiBids = bids;
         _travelerRequests = results[2] as List<TravelerRequestSummary>;
         _loading = false;
+        _error = null;
       });
     } on ApiException catch (e) {
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
+      // Keep last good list on transient/realtime failures.
+      if (hasCachedList) {
+        setState(() => _loading = false);
+        return;
+      }
       setState(() {
         _loading = false;
         _error = e.message;
       });
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
+      if (hasCachedList) {
+        setState(() => _loading = false);
+        return;
+      }
       setState(() {
         _loading = false;
         _error = 'Unable to load matching travelers.';
@@ -443,7 +463,7 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    TripDateWindow.senderVisibleRangeHint,
+                    TripDateWindow.matchingListHint,
                     style: context.typo.sm.copyWith(
                       color: AppColors.textSecondary,
                     ),

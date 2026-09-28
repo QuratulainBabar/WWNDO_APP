@@ -4,6 +4,7 @@ import '../core/api/api_exception.dart';
 import '../core/config/demo_mode.dart';
 import '../core/currency/app_currency.dart';
 import '../core/payments/stripe_payments.dart';
+import '../data/models/fx_quote.dart';
 import '../data/models/ledger_entry.dart';
 import '../data/models/shipment_escrow.dart';
 import '../data/models/wallet_role.dart';
@@ -149,6 +150,21 @@ class WalletProvider extends ChangeNotifier {
         notifyListeners();
       }
     }
+  }
+
+  /// Live Stripe FX quote (any supported currency pair).
+  Future<FxQuote> fetchFxQuote({
+    required String fromCurrency,
+    required String toCurrency,
+    required int amountCents,
+    bool useBaseRate = false,
+  }) {
+    return _walletRepository.fetchFxQuote(
+      fromCurrency: fromCurrency,
+      toCurrency: toCurrency,
+      amountCents: amountCents,
+      useBaseRate: useBaseRate,
+    );
   }
 
   Future<void> topUp({

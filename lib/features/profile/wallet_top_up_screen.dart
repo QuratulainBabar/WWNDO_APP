@@ -14,7 +14,6 @@ import '../../core/widgets/back_header.dart';
 import '../../core/widgets/screen_body.dart';
 import '../../core/payments/stripe_connect_return.dart';
 import '../../data/models/wallet_role.dart';
-import '../../data/wallet_service.dart';
 import '../../providers/currency_provider.dart';
 import '../../providers/wallet_provider.dart';
 
@@ -29,6 +28,17 @@ class _WalletTopUpScreenState extends State<WalletTopUpScreen> {
   final _amountController = TextEditingController();
   String? _error;
   bool _busy = false;
+  String? _fxPreview;
+  int? _lastPreviewMinor;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<CurrencyProvider>().refreshFxRate();
+    });
+  }
 
   @override
   void dispose() {
@@ -36,14 +46,46 @@ class _WalletTopUpScreenState extends State<WalletTopUpScreen> {
     super.dispose();
   }
 
-  int _parseAmountCents() {
-    final dollars = double.tryParse(_amountController.text) ?? 0;
-    return (dollars * 100).round();
+  Future<void> _updateFxPreview() async {
+    final currency = context.read<CurrencyProvider>();
+    final minor = currency.parseMajorToMinor(_amountController.text);
+    if (minor <= 0) {
+      if (mounted) setState(() => _fxPreview = null);
+      return;
+    }
+    if (currency.code == 'USD') {
+      if (mounted) {
+        setState(() {
+          _fxPreview = 'Wallet will be credited \$${(minor / 100).toStringAsFixed(2)} USD';
+        });
+      }
+      return;
+    }
+    if (_lastPreviewMinor == minor && _fxPreview != null) return;
+    _lastPreviewMinor = minor;
+    try {
+      final quote = await currency.convert(
+        fromCurrency: currency.code,
+        toCurrency: 'USD',
+        amountCents: minor,
+      );
+      if (!mounted) return;
+      setState(() {
+        _fxPreview =
+            '≈ \$${(quote.convertedAmountCents / 100).toStringAsFixed(2)} USD charged & credited (Stripe FX)';
+      });
+    } on ApiException catch (e) {
+      if (mounted) setState(() => _fxPreview = 'FX preview unavailable: ${e.message}');
+    } catch (_) {
+      if (mounted) setState(() => _fxPreview = null);
+    }
   }
 
   Future<void> _pay(WalletRole role) async {
     FocusManager.instance.primaryFocus?.unfocus();
-    final cents = _parseAmountCents();
+    final currency = context.read<CurrencyProvider>();
+    final wallet = context.read<WalletProvider>();
+    final cents = currency.parseMajorToMinor(_amountController.text);
     if (cents <= 0) {
       setState(() => _error = 'Enter a valid amount');
       return;
@@ -54,10 +96,12 @@ class _WalletTopUpScreenState extends State<WalletTopUpScreen> {
       _error = null;
     });
     try {
-      await context.read<WalletProvider>().topUp(
-            role: role,
-            amountCents: cents,
-          );
+      // Backend converts display currency → USD via FX, then opens Stripe in USD.
+      await wallet.topUp(
+        role: role,
+        amountCents: cents,
+        currency: currency.code,
+      );
       if (!mounted) return;
       context.pushReplacement(
         '/wallet/top-up/success?role=${role.queryParam}',
@@ -81,6 +125,7 @@ class _WalletTopUpScreenState extends State<WalletTopUpScreen> {
       GoRouterState.of(context).uri.queryParameters['role'],
     );
     final walletRoute = '/wallet?role=${role.queryParam}';
+    final currency = context.watch<CurrencyProvider>();
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -91,12 +136,19 @@ class _WalletTopUpScreenState extends State<WalletTopUpScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Add funds securely with Stripe. Tap Pay with Stripe to open the card payment sheet, choose a payment option, and complete the top-up.',
+              'Enter an amount in ${currency.code}. Stripe charges the USD equivalent (live FX) and credits your wallet in USD. Your balance is shown in ${currency.code}.',
               style: typo.sm.copyWith(height: 1.5),
             ),
+            if (currency.fxError != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                currency.fxError!,
+                style: typo.sm.copyWith(color: AppColors.danger),
+              ),
+            ],
             const SizedBox(height: 20),
             AppLabeledField(
-              label: context.watch<CurrencyProvider>().fieldLabel('Amount'),
+              label: currency.fieldLabel('Amount'),
               labelStyle: typo.inputLabel.copyWith(fontWeight: FontWeight.w600),
               child: TextField(
                 controller: _amountController,
@@ -111,10 +163,21 @@ class _WalletTopUpScreenState extends State<WalletTopUpScreen> {
                     fontWeight: FontWeight.w400,
                     color: AppColors.textSecondary,
                   ),
+                  prefixText: currency.symbol,
                 ),
-                onChanged: (_) => setState(() => _error = null),
+                onChanged: (_) {
+                  setState(() => _error = null);
+                  _updateFxPreview();
+                },
               ),
             ),
+            if (_fxPreview != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                _fxPreview!,
+                style: typo.sm.copyWith(color: AppColors.textSecondary),
+              ),
+            ],
             if (_error != null) ...[
               const SizedBox(height: 8),
               Text(_error!, style: typo.sm.copyWith(color: AppColors.danger)),
@@ -128,7 +191,7 @@ class _WalletTopUpScreenState extends State<WalletTopUpScreen> {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                'Secured by Stripe · Card details are never stored by WWNGO',
+                'Secured by Stripe · Live FX Quotes · Card details are never stored by WWNGO',
                 style: typo.sm,
               ),
             ),
@@ -155,6 +218,7 @@ class WalletTopUpSuccessScreen extends StatelessWidget {
     final role = WalletRole.fromQuery(
       GoRouterState.of(context).uri.queryParameters['role'],
     );
+    final currency = context.watch<CurrencyProvider>().currency;
 
     return Scaffold(
       backgroundColor: AppColors.surface,
@@ -178,7 +242,7 @@ class WalletTopUpSuccessScreen extends StatelessWidget {
               Text('Top-up successful', style: typo.h1, textAlign: TextAlign.center),
               const SizedBox(height: 8),
               Text(
-                '${WalletService.formatCents(amountCents)} added to your available balance via Stripe.',
+                '${currency.formatCents(amountCents)} topped up. Your wallet was credited the USD equivalent via Stripe FX.',
                 textAlign: TextAlign.center,
                 style: typo.sm.copyWith(height: 1.5),
               ),

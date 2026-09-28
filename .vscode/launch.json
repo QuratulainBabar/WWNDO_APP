@@ -7,7 +7,7 @@
       "type": "dart",
       "args": [],
       "toolArgs": [
-        "--dart-define=API_BASE_URL=http://192.168.100.16:3000",
+        "--dart-define=API_BASE_URL=http://172.16.11.21:3000",
         "--dart-define=WEBSITE_URL=https://wango.toolkitpro.cloud"
       ]
     },

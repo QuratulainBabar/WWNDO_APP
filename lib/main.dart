@@ -18,6 +18,7 @@ import 'providers/sender_offer_flow_lock.dart';
 import 'providers/session_inactivity_lock.dart';
 import 'providers/theme_provider.dart';
 import 'providers/wallet_provider.dart';
+import 'data/services/wallet_repository.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -61,6 +62,16 @@ Future<void> main() async {
     authRepository: authProvider.repository,
     demoMode: demoMode,
   );
+  currencyProvider.attachFxSource(
+    walletRepository: WalletRepository(
+      apiClient: authProvider.repository.apiClient,
+      demoMode: demoMode,
+    ),
+    demoMode: demoMode,
+  );
+  if (authProvider.isAuthenticated) {
+    await currencyProvider.refreshFxRate(force: true);
+  }
   final notificationRealtimeProvider = NotificationRealtimeProvider();
   final chatRealtimeProvider = ChatRealtimeProvider();
   final senderDeliveriesProvider = SenderDeliveriesProvider();

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../core/currency/app_currency.dart';
+import '../core/currency/fx_rate_service.dart';
 import 'models/ledger_entry.dart';
 import 'models/shipment_escrow.dart';
 import 'models/wallet_role.dart';
@@ -211,9 +212,9 @@ abstract final class WalletService {
   static double displayEscrowUsd(WalletRole role) =>
       displayEscrowCents(role) / 100;
 
-  static String formatCents(int cents) => AppCurrencies.active.formatCents(cents);
+  static String formatCents(int cents) => FxRateService.formatUsdCents(cents);
 
-  static String formatMajor(num amount) => AppCurrencies.active.formatMajor(amount);
+  static String formatMajor(num amount) => FxRateService.formatUsdMajor(amount);
 
   static String fieldLabel([String base = 'Amount']) =>
       AppCurrencies.active.fieldLabel(base);

@@ -40,4 +40,9 @@ abstract final class TripDateWindow {
 
   static String get senderVisibleRangeHint =>
       'Showing active traveler trips from the previous $pastDays days through today and the next $futureDays days.';
+
+  /// Hint on the sender Matching Travelers screen (list is not capped to the
+  /// browse window — matches use destination + luggage on open trips).
+  static String get matchingListHint =>
+      'Matched by destination and luggage capacity on open traveler trips.';
 }

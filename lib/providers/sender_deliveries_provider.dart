@@ -123,15 +123,31 @@ class SenderDeliveriesProvider extends ChangeNotifier {
       notifyListeners();
 
       // Counts are secondary — never block showing the list.
+      // Preserve last-known counts when a per-delivery fetch fails so realtime
+      // refreshes cannot randomly wipe badges back to "Matching Travelers".
       final active = activeDeliveries;
+      final previousCounts = Map<String, int>.from(_matchingTravelerCounts);
+      final previousRequests = Map<String, List<TravelerRequestSummary>>.from(
+        _travelerRequestsByDelivery,
+      );
       final secondary = await Future.wait([
         repo.fetchMatchingTravelerCounts(active),
         repo.fetchTravelerRequestsForDeliveries(active),
       ]);
       if (generation != _loadGeneration) return;
-      _matchingTravelerCounts = secondary[0] as Map<String, int>;
-      _travelerRequestsByDelivery =
+      final fetchedCounts = secondary[0] as Map<String, int>;
+      final fetchedRequests =
           secondary[1] as Map<String, List<TravelerRequestSummary>>;
+      _matchingTravelerCounts = _mergeMatchingCounts(
+        deliveries: active,
+        previous: previousCounts,
+        fetched: fetchedCounts,
+      );
+      _travelerRequestsByDelivery = _mergeTravelerRequests(
+        deliveries: active,
+        previous: previousRequests,
+        fetched: fetchedRequests,
+      );
       notifyListeners();
     } on ApiException catch (e) {
       if (generation != _loadGeneration) return;
@@ -147,5 +163,44 @@ class SenderDeliveriesProvider extends ChangeNotifier {
       _error = 'Unable to load active deliveries.';
       notifyListeners();
     }
+  }
+
+  /// Prefer freshly fetched counts; keep previous when a delivery fetch failed.
+  static Map<String, int> _mergeMatchingCounts({
+    required List<CreatedDelivery> deliveries,
+    required Map<String, int> previous,
+    required Map<String, int> fetched,
+  }) {
+    final next = <String, int>{};
+    for (final d in deliveries) {
+      if (!SenderDeliveryStatus.needsMatchingTravelerCount(d)) continue;
+      final count = fetched[d.displayId] ??
+          fetched[d.id] ??
+          previous[d.displayId] ??
+          previous[d.id];
+      if (count == null) continue;
+      next[d.displayId] = count;
+      if (d.id.isNotEmpty) next[d.id] = count;
+    }
+    return next;
+  }
+
+  static Map<String, List<TravelerRequestSummary>> _mergeTravelerRequests({
+    required List<CreatedDelivery> deliveries,
+    required Map<String, List<TravelerRequestSummary>> previous,
+    required Map<String, List<TravelerRequestSummary>> fetched,
+  }) {
+    final next = <String, List<TravelerRequestSummary>>{};
+    for (final d in deliveries) {
+      if (d.status != 'posted' || !d.isReceiverAccepted) continue;
+      final requests = fetched[d.displayId] ??
+          fetched[d.id] ??
+          previous[d.displayId] ??
+          previous[d.id];
+      if (requests == null) continue;
+      next[d.displayId] = requests;
+      if (d.id.isNotEmpty) next[d.id] = requests;
+    }
+    return next;
   }
 }

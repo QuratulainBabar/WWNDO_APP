@@ -6,6 +6,7 @@ import '../../data/models/wallet_role.dart';
 import '../../data/wallet_service.dart';
 import '../../providers/currency_provider.dart';
 import '../../providers/wallet_provider.dart';
+import '../currency/fx_rate_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
 
@@ -30,6 +31,7 @@ class _WalletCardState extends State<WalletCard> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       context.read<WalletProvider>().refresh(widget.role, silent: true).ignore();
+      context.read<CurrencyProvider>().refreshFxRate(force: true);
     });
   }
 
@@ -51,42 +53,48 @@ class _WalletCardState extends State<WalletCard> {
         return ValueListenableBuilder<int>(
           valueListenable: WalletService.walletVersion,
           builder: (context, _, __) {
-            final available = WalletService.availableUsd(widget.role);
-            // Traveler: show related held escrow (sender-funded). Sender: own escrow.
-            final escrow = WalletService.displayEscrowUsd(widget.role);
+            return ValueListenableBuilder<int>(
+              valueListenable: FxRateService.version,
+              builder: (context, _, __) {
+                final available = WalletService.availableUsd(widget.role);
+                // Traveler: show related held escrow (sender-funded). Sender: own escrow.
+                final escrow = WalletService.displayEscrowUsd(widget.role);
 
-            return Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: GestureDetector(
-                onTap: widget.onTap ??
-                    () => context.push('/wallet?role=${widget.role.queryParam}'),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text('Wallet', style: typo.walletLabel),
-                      Text(
-                        WalletService.formatMajor(available),
-                        style: typo.walletAmount,
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: GestureDetector(
+                    onTap: widget.onTap ??
+                        () => context
+                            .push('/wallet?role=${widget.role.queryParam}'),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      if (escrow > 0)
-                        Text(
-                          'Escrow ${WalletService.formatMajor(escrow)}',
-                          style: typo.sm.copyWith(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.w600,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text('Wallet', style: typo.walletLabel),
+                          Text(
+                            WalletService.formatMajor(available),
+                            style: typo.walletAmount,
                           ),
-                        ),
-                    ],
+                          if (escrow > 0)
+                            Text(
+                              'Escrow ${WalletService.formatMajor(escrow)}',
+                              style: typo.sm.copyWith(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-              ),
+                );
+              },
             );
           },
         );

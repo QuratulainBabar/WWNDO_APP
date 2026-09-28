@@ -1597,9 +1597,8 @@ class _ReceiverNfcDeliverySuccessScreenState
     final title = waitingForPeer
         ? 'Waiting for traveler'
         : 'NFC Checkpoint Traveler & Receiver complete';
-    final body = waitingForPeer
-        ? 'Your NFC tap for $shipmentId is recorded. Ask the traveler to complete their NFC Checkpoint Traveler & Receiver tap to confirm delivery and release escrow.'
-        : 'You and the Traveler successfully verified the same trip/delivery. The Traveler is handing over the parcel to you (the correct Receiver), and this parcel belongs to this exact trip/delivery.';
+    final waitingBody =
+        'Your NFC tap for $shipmentId is recorded. Ask the traveler to complete their NFC Checkpoint Traveler & Receiver tap to confirm delivery and release escrow.';
 
     return Scaffold(
       backgroundColor: AppColors.surface,
@@ -1671,18 +1670,24 @@ class _ReceiverNfcDeliverySuccessScreenState
                 ),
               ),
               const SizedBox(height: 16),
-              Text(
-                body,
-                textAlign: TextAlign.center,
-                style: typo.sm.copyWith(height: 1.5),
-              ),
-              if (!waitingForPeer) ...[
-                const SizedBox(height: 12),
+              if (waitingForPeer)
                 Text(
-                  'Parcel status is now Delivered. Escrow has been released to the traveler. You can leave a review.',
+                  waitingBody,
                   textAlign: TextAlign.center,
                   style: typo.sm.copyWith(height: 1.5),
+                )
+              else
+                const _ReceiverNfcSuccessBulletList(
+                  items: [
+                    'You and the Traveler verified the same trip/delivery',
+                    'The Traveler is handing over the parcel to you (the correct Receiver)',
+                    'This parcel belongs to this exact trip/delivery',
+                    'Parcel status is now Delivered',
+                    'Escrow has been released to the traveler',
+                    'You can leave a review',
+                  ],
                 ),
+              if (!waitingForPeer) ...[
                 const SizedBox(height: 24),
                 AppCard(
                   margin: EdgeInsets.zero,
@@ -1745,6 +1750,51 @@ class _ReceiverNfcDeliverySuccessScreenState
         ),
         const SizedBox(width: 12),
         Text(label, style: typo.bodyBold.copyWith(fontWeight: FontWeight.w700)),
+      ],
+    );
+  }
+}
+
+class _ReceiverNfcSuccessBulletList extends StatelessWidget {
+  const _ReceiverNfcSuccessBulletList({required this.items});
+
+  final List<String> items;
+
+  @override
+  Widget build(BuildContext context) {
+    final typo = context.typo;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var i = 0; i < items.length; i++) ...[
+          if (i > 0) const SizedBox(height: 10),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Container(
+                  width: 6,
+                  height: 6,
+                  decoration: const BoxDecoration(
+                    color: AppColors.primary,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  items[i],
+                  style: typo.sm.copyWith(
+                    height: 1.45,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ],
     );
   }

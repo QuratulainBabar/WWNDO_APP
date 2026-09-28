@@ -156,8 +156,8 @@ class _DiscoverTravelersScreenState extends State<DiscoverTravelersScreen> {
         children: [
           Text(
             shipment == null
-                ? '${TripDateWindow.senderVisibleRangeHint} Ranked by route similarity when matched to a parcel.'
-                : '${TripDateWindow.senderVisibleRangeHint} Travelers matched to ${shipment.route} by route similarity.',
+                ? '${TripDateWindow.matchingListHint} Ranked by route similarity when matched to a parcel.'
+                : '${TripDateWindow.matchingListHint} Travelers matched to ${shipment.route} by route similarity.',
             style: typo.sm.copyWith(color: AppColors.textSecondary),
           ),
           const SizedBox(height: 16),

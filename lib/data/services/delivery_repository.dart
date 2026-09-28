@@ -8,7 +8,6 @@ import '../../core/geo/meetup_origin_validation.dart';
 import '../models/created_delivery.dart';
 import '../models/matching_traveler.dart';
 import '../models/traveler_request_summary.dart';
-import '../trip_date_window.dart';
 
 /// Result of POST /api/v1/deliveries/:id/cancel
 class CancelDeliveryResult {
@@ -262,8 +261,9 @@ class DeliveryRepository {
   }
 
   /// GET /api/v1/deliveries/:id/matching-travelers
-  /// Backend filters to travelers whose trip To matches the delivery To,
-  /// within the active travel-date window (prev 5 days + today + next 7 days).
+  /// Backend is the single source of truth (destination + luggage on open
+  /// trips). Home badge counts call this same method — do not re-filter with
+  /// the browse TripDateWindow or counts diverge from the list / notifies.
   Future<List<MatchingTraveler>> listMatchingTravelers(String deliveryId) async {
     if (_isDemoMode) return const [];
 
@@ -273,17 +273,12 @@ class DeliveryRepository {
     );
     final list = data['travelers'];
     if (list is! List) return const <MatchingTraveler>[];
-    final travelers = list
+    return list
         .whereType<Map>()
         .map(
           (item) => MatchingTraveler.fromJson(Map<String, dynamic>.from(item)),
         )
         .toList();
-    // Defense-in-depth: keep only trips inside the rolling sender-visible window.
-    return TripDateWindow.filterByTravelDate(
-      travelers,
-      (t) => t.travelDate,
-    );
   }
 
   /// GET /api/v1/deliveries/:id/traveler-requests

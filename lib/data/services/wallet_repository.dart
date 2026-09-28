@@ -1,6 +1,7 @@
 import '../../core/api/api_client.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/config/demo_mode.dart';
+import '../models/fx_quote.dart';
 import '../models/ledger_entry.dart';
 import '../models/shipment_escrow.dart';
 import '../models/wallet_role.dart';
@@ -231,6 +232,43 @@ class WalletRepository {
       },
       contextRole: role,
     );
+  }
+
+  /// POST /api/v1/wallet/fx/quote — live Stripe FX conversion.
+  ///
+  /// [amountCents] is in [fromCurrency] minor units. Secret key stays on the
+  /// server; the app only receives rates + converted amounts.
+  Future<FxQuote> fetchFxQuote({
+    required String fromCurrency,
+    required String toCurrency,
+    required int amountCents,
+    bool useBaseRate = false,
+  }) async {
+    if (_isDemoMode) {
+      final same =
+          fromCurrency.trim().toUpperCase() == toCurrency.trim().toUpperCase();
+      return FxQuote(
+        fromCurrency: fromCurrency.trim().toUpperCase(),
+        toCurrency: toCurrency.trim().toUpperCase(),
+        amountCents: amountCents,
+        convertedAmountCents: same ? amountCents : amountCents,
+        exchangeRate: 1,
+        baseRate: 1,
+        lockDuration: 'none',
+      );
+    }
+
+    final data = await _apiClient.post(
+      '/wallet/fx/quote',
+      body: {
+        'fromCurrency': fromCurrency.trim().toUpperCase(),
+        'toCurrency': toCurrency.trim().toUpperCase(),
+        'amountCents': amountCents,
+        if (useBaseRate) 'useBaseRate': true,
+      },
+      authenticated: true,
+    );
+    return FxQuote.fromJson(data);
   }
 
   /// GET /api/v1/wallet/connect/status

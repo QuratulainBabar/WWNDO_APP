@@ -20,6 +20,7 @@ import '../../core/widgets/otp_countdown_timer.dart';
 import '../../core/widgets/screen_body.dart';
 import '../../data/models/otp_channel.dart';
 import '../../providers/auth_provider.dart';
+import '../../l10n/app_localizations.dart';
 
 class OtpLoginContactScreen extends StatefulWidget {
   const OtpLoginContactScreen({super.key});
@@ -52,8 +53,8 @@ class _OtpLoginContactScreenState extends State<OtpLoginContactScreen> {
       AppToast.error(
         context,
         _channel == OtpChannel.email
-            ? 'Enter a valid email address'
-            : 'Enter a valid phone number',
+            ? context.tr('Enter a valid email address')
+            : context.tr('Enter a valid phone number'),
       );
       return;
     }
@@ -85,14 +86,14 @@ class _OtpLoginContactScreenState extends State<OtpLoginContactScreen> {
           children: [
             const BackLink(fallbackRoute: '/login'),
             const SizedBox(height: 12),
-            Text('Log in with OTP', style: typo.h1),
+            Text(context.tr('Log in with OTP'), style: typo.h1),
             const SizedBox(height: 8),
             Text(
-              'Choose SMS, WhatsApp, or Email. Codes expire in 5 minutes.',
+              context.tr('Choose SMS, WhatsApp, or Email. Codes expire in 5 minutes.'),
               style: typo.sm.copyWith(height: 1.5),
             ),
             const SizedBox(height: 20),
-            Text('DELIVERY CHANNEL', style: typo.label.copyWith(fontWeight: FontWeight.w700)),
+            Text(context.tr('DELIVERY CHANNEL'), style: typo.label.copyWith(fontWeight: FontWeight.w700)),
             const SizedBox(height: 8),
             OtpChannelPicker(
               selected: _channel,
@@ -105,7 +106,7 @@ class _OtpLoginContactScreenState extends State<OtpLoginContactScreen> {
             OtpChannelLegend(channel: _channel),
             const SizedBox(height: 16),
             AppLabeledField(
-              label: _channel == OtpChannel.email ? 'Email' : 'Phone number',
+              label: _channel == OtpChannel.email ? context.tr('Email') : context.tr('Phone number'),
               padding: const EdgeInsets.only(top: AppFieldSpacing.top),
               child: TextField(
                 controller: _contactController,
@@ -128,7 +129,7 @@ class _OtpLoginContactScreenState extends State<OtpLoginContactScreen> {
             ),
             const SizedBox(height: 24),
             AppButton(
-              label: auth.loading ? 'Sending…' : 'Send verification code',
+              label: auth.loading ? context.tr('Sending…') : context.tr('Send verification code'),
               onPressed: auth.loading ? null : _sendCode,
             ),
           ],
@@ -181,7 +182,7 @@ class _OtpLoginVerifyScreenState extends State<OtpLoginVerifyScreen> {
   Future<void> _verify() async {
     final code = _otpController.text.trim();
     if (code.length != 6) {
-      AppToast.error(context, 'Enter the 6-digit code');
+      AppToast.error(context, context.tr('Enter the 6-digit code'));
       return;
     }
 
@@ -213,7 +214,7 @@ class _OtpLoginVerifyScreenState extends State<OtpLoginVerifyScreen> {
     try {
       await auth.sendLoginOtp(contact: widget.flow.contact, channel: widget.flow.channel);
       if (mounted) {
-        AppToast.success(context, 'A new code was sent');
+        AppToast.success(context, context.tr('A new code was sent'));
         _timerKey.currentState?.restart();
       }
     } on ApiException catch (e) {
@@ -234,17 +235,20 @@ class _OtpLoginVerifyScreenState extends State<OtpLoginVerifyScreen> {
           children: [
             const BackLink(fallbackRoute: '/login/otp-contact'),
             const SizedBox(height: 12),
-            Text('Enter OTP', style: typo.h1),
+            Text(context.tr('Enter OTP'), style: typo.h1),
             const SizedBox(height: 8),
             Text(
-              'Code sent via ${widget.flow.channel.label} to ${widget.flow.maskedContact}',
+              context.l10n.codeSentVia(
+                context.tr(widget.flow.channel.label),
+                widget.flow.maskedContact,
+              ),
               style: typo.sm.copyWith(height: 1.5),
             ),
             const SizedBox(height: 16),
             OtpCountdownTimer(key: _timerKey),
             const SizedBox(height: 20),
             AppLabeledField(
-              label: 'Verification code',
+              label: context.tr('Verification code'),
               padding: const EdgeInsets.only(top: AppFieldSpacing.top),
               child: OtpCodeField(
                 controller: _otpController,
@@ -256,14 +260,14 @@ class _OtpLoginVerifyScreenState extends State<OtpLoginVerifyScreen> {
             ),
             const SizedBox(height: 24),
             AppButton(
-              label: auth.loading ? 'Verifying…' : 'Verify & log in',
+              label: auth.loading ? context.tr('Verifying…') : context.tr('Verify & log in'),
               onPressed: auth.loading ? null : _verify,
             ),
             const SizedBox(height: 12),
             Center(
               child: TextButton(
                 onPressed: _resend,
-                child: Text('Resend code', style: typo.linkBold),
+                child: Text(context.tr('Resend code'), style: typo.linkBold),
               ),
             ),
           ],

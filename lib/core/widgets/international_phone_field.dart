@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../platform/keyboard_utils.dart';
 import '../phone/phone_countries.dart';
 import '../phone/phone_input_formatters.dart';
+import '../../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
 import 'app_labeled_field.dart';
@@ -56,7 +57,7 @@ class InternationalPhoneField extends StatelessWidget {
     final fieldInputStyle = inputStyle ?? typo.input;
 
     return AppLabeledField(
-      label: label,
+      label: context.tr(label),
       labelStyle: labelStyle,
       padding: padding ??
           const EdgeInsets.only(top: AppFieldSpacing.top, bottom: 12),
@@ -272,7 +273,7 @@ class _CountryPickerSheetState extends State<_CountryPickerSheet> {
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-              child: Text('Select country', style: typo.h3),
+              child: Text(context.tr('Select country'), style: typo.h3),
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -284,7 +285,7 @@ class _CountryPickerSheetState extends State<_CountryPickerSheet> {
                 autofocus: true,
                 style: typo.input,
                 decoration: InputDecoration(
-                  hintText: 'Search country or dial code',
+                  hintText: context.tr('Search country or dial code'),
                   hintStyle: typo.input.copyWith(color: AppColors.textDisabled),
                   prefixIcon: Icon(
                     Icons.search_rounded,
@@ -298,7 +299,7 @@ class _CountryPickerSheetState extends State<_CountryPickerSheet> {
               child: _results.isEmpty
                   ? Center(
                       child: Text(
-                        'No countries found',
+                        context.tr('No countries found'),
                         style: typo.subheading,
                       ),
                     )

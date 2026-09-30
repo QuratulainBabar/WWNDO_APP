@@ -18,6 +18,7 @@ import '../../core/widgets/otp_code_field.dart';
 import '../../core/widgets/otp_countdown_timer.dart';
 import '../../data/models/otp_channel.dart';
 import '../../providers/auth_provider.dart';
+import '../../l10n/app_localizations.dart';
 
 /// Passed between forgot-password flow screens.
 class ForgotPasswordFlowData {
@@ -85,8 +86,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       AppToast.error(
         context,
         _channel == OtpChannel.email
-            ? 'Enter a valid email address'
-            : 'Enter a valid phone number',
+            ? context.tr('Enter a valid email address')
+            : context.tr('Enter a valid phone number'),
       );
       return;
     }
@@ -102,8 +103,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       AppToast.success(
         context,
         _channel == OtpChannel.email
-            ? 'Code sent to your email'
-            : 'Code sent',
+            ? context.tr('Code sent to your email')
+            : context.tr('Code sent'),
       );
       context.push(
         '/forgot-password/otp',
@@ -128,15 +129,15 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           children: [
             const BackLink(),
             const SizedBox(height: 12),
-            Text('Forgot password?', style: typo.h1),
+            Text(context.tr('Forgot password?'), style: typo.h1),
             const SizedBox(height: 8),
             Text(
-              'Enter your email or phone number and we\'ll send you a verification code.',
+              context.tr('Enter your email or phone number and we\'ll send you a verification code.'),
               style: typo.sm.copyWith(height: 1.5),
             ),
             const SizedBox(height: 20),
             Text(
-              'RESET VIA',
+              context.tr('RESET VIA'),
               style: typo.label.copyWith(letterSpacing: 0.5, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
@@ -149,7 +150,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             ),
             const SizedBox(height: 16),
             AppLabeledField(
-              label: _channel == OtpChannel.email ? 'Email' : 'Phone number',
+              label: _channel == OtpChannel.email ? context.tr('Email') : context.tr('Phone number'),
               padding: const EdgeInsets.only(top: AppFieldSpacing.top),
               child: TextField(
                 controller: _contactController,
@@ -175,7 +176,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             ),
             const SizedBox(height: 24),
             AppButton(
-              label: auth.loading ? 'Sending…' : 'Send verification code',
+              label: auth.loading ? context.tr('Sending…') : context.tr('Send verification code'),
               onPressed: auth.loading ? null : _sendCode,
             ),
           ],
@@ -209,7 +210,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   Future<void> _verify() async {
     final code = _otpController.text.trim();
     if (code.length != 6) {
-      AppToast.error(context, 'Enter the 6-digit code');
+      AppToast.error(context, context.tr('Enter the 6-digit code'));
       return;
     }
 
@@ -224,7 +225,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
 
       if (!mounted) return;
 
-      AppToast.success(context, 'Code verified');
+      AppToast.success(context, context.tr('Code verified'));
       context.push(
         '/forgot-password/reset',
         extra: widget.flow.copyWith(resetToken: resetToken),
@@ -243,7 +244,10 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
         channel: widget.flow.channel,
       );
       if (mounted) {
-        AppToast.success(context, 'A new code was sent to ${widget.flow.maskedContact}');
+        AppToast.success(
+          context,
+          context.l10n.newCodeSentTo(widget.flow.maskedContact),
+        );
         _timerKey.currentState?.restart();
       }
     } on ApiException catch (e) {
@@ -265,17 +269,17 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
           children: [
             const BackLink(),
             const SizedBox(height: 12),
-            Text('Verify code', style: typo.h1),
+            Text(context.tr('Verify code'), style: typo.h1),
             const SizedBox(height: 8),
             Text(
-              'We sent a 6-digit code to ${widget.flow.maskedContact}',
+              context.l10n.weSentCodeTo(widget.flow.maskedContact),
               style: typo.sm.copyWith(height: 1.5),
             ),
             const SizedBox(height: 16),
             OtpCountdownTimer(key: _timerKey),
             const SizedBox(height: 20),
             AppLabeledField(
-              label: 'Verification code',
+              label: context.tr('Verification code'),
               padding: const EdgeInsets.only(top: AppFieldSpacing.top),
               child: OtpCodeField(
                 controller: _otpController,
@@ -287,14 +291,14 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
             ),
             const SizedBox(height: 24),
             AppButton(
-              label: auth.loading ? 'Verifying…' : 'Verify code',
+              label: auth.loading ? context.tr('Verifying…') : context.tr('Verify code'),
               onPressed: auth.loading ? null : _verify,
             ),
             const SizedBox(height: 12),
             Center(
               child: TextButton(
                 onPressed: auth.loading ? null : _resendCode,
-                child: Text('Resend code', style: typo.linkBold),
+                child: Text(context.tr('Resend code'), style: typo.linkBold),
               ),
             ),
           ],
@@ -331,17 +335,17 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     final confirm = _confirmController.text;
 
     if (password.length < 8) {
-      AppToast.error(context, 'Password must be at least 8 characters');
+      AppToast.error(context, context.tr('Password must be at least 8 characters'));
       return;
     }
     if (password != confirm) {
-      AppToast.error(context, 'Passwords do not match');
+      AppToast.error(context, context.tr('Passwords do not match'));
       return;
     }
 
     final resetToken = widget.flow.resetToken;
     if (resetToken == null) {
-      AppToast.error(context, 'Session expired. Please request a new code.');
+      AppToast.error(context, context.tr('Session expired. Please request a new code.'));
       return;
     }
 
@@ -350,7 +354,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     try {
       await auth.resetPassword(resetToken: resetToken, password: password);
       if (!mounted) return;
-      AppToast.success(context, 'Password reset successfully');
+      AppToast.success(context, context.tr('Password reset successfully'));
       context.pushReplacement('/forgot-password/success', extra: widget.flow);
     } on ApiException catch (e) {
       if (mounted) AppToast.error(context, e.message);
@@ -371,15 +375,15 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
           children: [
             const BackLink(),
             const SizedBox(height: 12),
-            Text('Reset password', style: typo.h1),
+            Text(context.tr('Reset password'), style: typo.h1),
             const SizedBox(height: 8),
             Text(
-              'Create a new password for ${widget.flow.maskedContact}',
+              context.l10n.createNewPasswordFor(widget.flow.maskedContact),
               style: typo.sm.copyWith(height: 1.5),
             ),
             const SizedBox(height: 20),
             AppLabeledField(
-              label: 'New password',
+              label: context.tr('New password'),
               padding: const EdgeInsets.only(top: AppFieldSpacing.top),
               child: TextField(
                 controller: _passwordController,
@@ -388,7 +392,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                 obscureText: _obscurePassword,
                 style: typo.input,
                 decoration: InputDecoration(
-                  hintText: 'At least 8 characters',
+                  hintText: context.tr('At least 8 characters'),
                   hintStyle: typo.input.copyWith(color: AppColors.textDisabled),
                   suffixIcon: IconButton(
                     icon: Icon(
@@ -401,7 +405,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
               ),
             ),
             AppLabeledField(
-              label: 'Confirm password',
+              label: context.tr('Confirm password'),
               child: TextField(
                 controller: _confirmController,
                 onTap: () => ensureSoftKeyboardVisible(retry: true),
@@ -411,7 +415,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                 onSubmitted: (_) => _resetPassword(),
                 style: typo.input,
                 decoration: InputDecoration(
-                  hintText: 'Re-enter your password',
+                  hintText: context.tr('Re-enter your password'),
                   hintStyle: typo.input.copyWith(color: AppColors.textDisabled),
                   suffixIcon: IconButton(
                     icon: Icon(
@@ -425,7 +429,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
             ),
             const SizedBox(height: 24),
             AppButton(
-              label: auth.loading ? 'Updating…' : 'Update password',
+              label: auth.loading ? context.tr('Updating…') : context.tr('Update password'),
               onPressed: auth.loading ? null : _resetPassword,
             ),
           ],
@@ -463,16 +467,16 @@ class PasswordResetSuccessScreen extends StatelessWidget {
                 child: const Icon(Icons.check, size: 40, color: AppColors.success),
               ),
               const SizedBox(height: 20),
-              Text('Password updated!', style: typo.h1, textAlign: TextAlign.center),
+              Text(context.tr('Password updated!'), style: typo.h1, textAlign: TextAlign.center),
               const SizedBox(height: 8),
               Text(
-                'Your password has been reset successfully. You can now log in with your new password.',
+                context.tr('Your password has been reset successfully. You can now log in with your new password.'),
                 textAlign: TextAlign.center,
                 style: typo.sm.copyWith(height: 1.5),
               ),
               const SizedBox(height: 32),
               AppButton(
-                label: 'Back to login',
+                label: context.tr('Back to login'),
                 onPressed: () => context.go('/login'),
               ),
             ],

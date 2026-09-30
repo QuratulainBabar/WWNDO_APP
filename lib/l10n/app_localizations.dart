@@ -206,6 +206,68 @@ class AppLocalizations {
       _tp('waitingForBiometric', {'label': label});
   String get settingsSaved => _t('settingsSaved');
   String get languageUpdated => _t('languageUpdated');
+  String get heyThere => _t('heyThere');
+  String get travelerMyTrips => _t('travelerMyTrips');
+  String get travelerCreateTrip => _t('travelerCreateTrip');
+  String get quickActions => _t('quickActions');
+  String get senderRequests => _t('senderRequests');
+  String get myDeliveries => _t('myDeliveries');
+  String get counterOffers => _t('counterOffers');
+  String get acceptedOffers => _t('acceptedOffers');
+  String get activeDeliveries => _t('activeDeliveries');
+  String get view => _t('view');
+  String get moreOptions => _t('moreOptions');
+  String get unableToLoadTrips => _t('unableToLoadTrips');
+  String get noTripsYet => _t('noTripsYet');
+  String luggageAvailableKg(String kg) =>
+      _tp('luggageAvailableKg', {'kg': kg});
+  String get unableToLoadDeliveries => _t('unableToLoadDeliveries');
+  String get noActiveDeliveriesYet => _t('noActiveDeliveriesYet');
+  String travelDateLabel(String date) =>
+      _tp('travelDateLabel', {'date': date});
+  String escrowAmount(String amount) =>
+      _tp('escrowAmount', {'amount': amount});
+  String get statusBidAccepted => _t('statusBidAccepted');
+  String get statusAwaitingReceiver => _t('statusAwaitingReceiver');
+  String get statusCollected => _t('statusCollected');
+  String get statusInTransit => _t('statusInTransit');
+  String get statusDelivered => _t('statusDelivered');
+  String get statusDisputed => _t('statusDisputed');
+  String get statusCancelled => _t('statusCancelled');
+  String get statusReadyForHandoff => _t('statusReadyForHandoff');
+  String get statusPosted => _t('statusPosted');
+  String get termsAgreePrefix => _t('termsAgreePrefix');
+  String get termsLink => _t('termsLink');
+  String get termsAnd => _t('termsAnd');
+  String get privacyPolicyLink => _t('privacyPolicyLink');
+  String get termsAgreeSuffix => _t('termsAgreeSuffix');
+  String biometricWebOnly(String label) =>
+      _tp('biometricWebOnly', {'label': label});
+  String biometricEnableFirst(String label) =>
+      _tp('biometricEnableFirst', {'label': label});
+  String biometricNotAvailable(String label) =>
+      _tp('biometricNotAvailable', {'label': label});
+  String biometricNotSetUp(String label) =>
+      _tp('biometricNotSetUp', {'label': label});
+  String newCodeSentTo(String contact) =>
+      _tp('newCodeSentTo', {'contact': contact});
+  String weSentCodeTo(String contact) =>
+      _tp('weSentCodeTo', {'contact': contact});
+  String createNewPasswordFor(String contact) =>
+      _tp('createNewPasswordFor', {'contact': contact});
+  String emailDelayedBackupCode(String code) =>
+      _tp('emailDelayedBackupCode', {'code': code});
+  String otpSubtitleFailed(String contact, String code) =>
+      _tp('otpSubtitleFailed', {'contact': contact, 'code': code});
+  String otpSubtitleSent(String contact, String code) =>
+      _tp('otpSubtitleSent', {'contact': contact, 'code': code});
+  String otpSubtitleSending(String contact, String code) =>
+      _tp('otpSubtitleSending', {'contact': contact, 'code': code});
+  String codeSentVia(String channel, String contact) =>
+      _tp('codeSentVia', {'channel': channel, 'contact': contact});
+  String get codeExpired => _t('codeExpired');
+  String codeExpiresIn(String time) => _tp('codeExpiresIn', {'time': time});
+  String selectLabel(String label) => _tp('selectLabel', {'label': label});
 }
 
 class _AppLocalizationsDelegate

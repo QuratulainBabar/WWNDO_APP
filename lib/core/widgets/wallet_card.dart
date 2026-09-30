@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../data/models/wallet_role.dart';
 import '../../data/wallet_service.dart';
+import '../../l10n/app_localizations.dart';
 import '../../providers/currency_provider.dart';
 import '../../providers/wallet_provider.dart';
 import '../theme/app_colors.dart';
@@ -70,14 +71,16 @@ class _WalletCardState extends State<WalletCard> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text('Wallet', style: typo.walletLabel),
+                      Text(context.l10n.wallet, style: typo.walletLabel),
                       Text(
                         WalletService.formatMajor(available),
                         style: typo.walletAmount,
                       ),
                       if (escrow > 0)
                         Text(
-                          'Escrow ${WalletService.formatMajor(escrow)}',
+                          context.l10n.escrowAmount(
+                            WalletService.formatMajor(escrow),
+                          ),
                           style: typo.sm.copyWith(
                             color: AppColors.primary,
                             fontWeight: FontWeight.w600,

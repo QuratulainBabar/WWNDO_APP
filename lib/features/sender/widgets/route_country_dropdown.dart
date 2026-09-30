@@ -5,6 +5,7 @@ import '../../../core/geo/world_countries.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_labeled_field.dart';
+import '../../../l10n/app_localizations.dart';
 
 /// Searchable full-country picker for From / To on Post Delivery.
 class RouteCountryDropdown extends StatelessWidget {
@@ -37,7 +38,9 @@ class RouteCountryDropdown extends StatelessWidget {
       ),
       builder: (context) => _RouteCountryPickerSheet(
         selectedIso: value?.toUpperCase(),
-        title: label.isEmpty ? 'Select country' : 'Select $label',
+        title: label.isEmpty
+            ? context.tr('Select country')
+            : context.l10n.selectLabel(context.tr(label)),
         allowedIsos: allowedIsos,
       ),
     );
@@ -58,7 +61,7 @@ class RouteCountryDropdown extends StatelessWidget {
             : '${country.flag}  ${country.name} (${country.iso})');
 
     return AppLabeledField(
-      label: label,
+      label: context.tr(label),
       labelStyle: typo.inputLabel.copyWith(fontWeight: FontWeight.w600),
       child: Material(
         color: Colors.transparent,
@@ -68,7 +71,7 @@ class RouteCountryDropdown extends StatelessWidget {
           child: InputDecorator(
             isEmpty: display == null,
             decoration: InputDecoration(
-              hintText: hintText,
+              hintText: context.tr(hintText),
               isDense: compact,
               contentPadding: compact
                   ? const EdgeInsets.fromLTRB(12, 0, 4, 0)
@@ -181,7 +184,7 @@ class _RouteCountryPickerSheetState extends State<_RouteCountryPickerSheet> {
                 autofocus: true,
                 style: typo.input,
                 decoration: InputDecoration(
-                  hintText: 'Search country name or code',
+                  hintText: context.tr('Search country name or code'),
                   hintStyle: typo.input.copyWith(color: AppColors.textDisabled),
                   prefixIcon: Icon(
                     Icons.search_rounded,
@@ -195,7 +198,7 @@ class _RouteCountryPickerSheetState extends State<_RouteCountryPickerSheet> {
               child: _results.isEmpty
                   ? Center(
                       child: Text(
-                        'No countries found',
+                        context.tr('No countries found'),
                         style: typo.subheading,
                       ),
                     )

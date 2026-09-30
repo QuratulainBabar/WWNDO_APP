@@ -23,10 +23,10 @@ import '../../core/widgets/image_source_sheet.dart';
 import '../../core/widgets/international_phone_field.dart';
 import '../../core/widgets/legal_document_dialog.dart';
 import '../../core/widgets/scrollable_form_screen.dart';
-import '../../data/legal_documents.dart';
 import '../../data/profile_demo_store.dart';
 import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
+import '../../l10n/app_localizations.dart';
 import '../sender/widgets/route_country_dropdown.dart';
 import 'login_otp_verification_screen.dart';
 import 'profile_photo_crop_screen.dart';
@@ -100,7 +100,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       setState(() => _profilePhotoBytes = cropResult.bytes);
     } catch (_) {
       if (mounted) {
-        AppToast.error(context, 'Could not load that photo. Try another one.');
+        AppToast.error(context, context.tr('Could not load that photo. Try another one.'));
       }
     }
   }
@@ -128,13 +128,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Future<void> _createAccount() async {
     if (!_acceptedTerms) {
-      AppToast.error(context, 'You must agree to the Terms and Privacy Policy');
+      AppToast.error(context, context.tr('You must agree to the Terms and Privacy Policy'));
       return;
     }
 
     final validationError = _validateForm();
     if (validationError != null) {
-      AppToast.error(context, validationError);
+      AppToast.error(context, context.tr(validationError));
       return;
     }
 
@@ -263,7 +263,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            hasPhoto ? 'Tap to change photo' : 'Add profile photo',
+            hasPhoto ? context.tr('Tap to change photo') : context.tr('Add profile photo'),
             style: context.typo.sm.copyWith(color: AppColors.textSecondary),
           ),
         ],
@@ -291,7 +291,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         padding: pagePadding.copyWith(bottom: 12),
         actions: [
           AppButton(
-            label: auth.loading ? 'Creating account…' : 'Create account →',
+            label: auth.loading ? context.tr('Creating account…') : context.tr('Create account →'),
             onPressed: _acceptedTerms && !auth.loading ? _createAccount : null,
           ),
         ],
@@ -300,24 +300,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
           children: [
             const BackLink(fallbackRoute: '/welcome'),
             const SizedBox(height: 16),
-            Text('Create account', style: context.typo.h1),
+            Text(context.tr('Create account'), style: context.typo.h1),
             const SizedBox(height: 8),
             Text(
-              'Join WWNGO to send, carry, or receive parcels',
+              context.tr('Join WWNGO to send, carry, or receive parcels'),
               style: subtitleStyle,
             ),
             const SizedBox(height: 20),
             _profilePhotoPicker(),
             const SizedBox(height: 8),
             _field(
-              'Full name',
+              context.tr('Full name'),
               _nameController,
               labelStyle: fieldLabelStyle,
               inputStyle: inputStyle,
-              hintText: 'Your full name',
+              hintText: context.tr('Your full name'),
             ),
             _field(
-              'Email',
+              context.tr('Email'),
               _emailController,
               labelStyle: fieldLabelStyle,
               inputStyle: inputStyle,
@@ -325,9 +325,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
               hintText: 'you@email.com',
             ),
             RouteCountryDropdown(
-              label: 'Country',
+              label: context.tr('Country'),
               value: _countryIso,
-              hintText: 'Select country',
+              hintText: context.tr('Select country'),
               onChanged: _onCountryChanged,
             ),
             InternationalPhoneField(
@@ -341,12 +341,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
               inputStyle: inputStyle,
             ),
             _field(
-              'Password',
+              context.tr('Password'),
               _passwordController,
               obscure: true,
               labelStyle: fieldLabelStyle,
               inputStyle: inputStyle,
-              hintText: 'At least 8 characters',
+              hintText: context.tr('At least 8 characters'),
             ),
             const SizedBox(height: 12),
             _termsRow(termsStyle),
@@ -363,6 +363,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       decoration: TextDecoration.underline,
       decorationColor: AppColors.primary,
     );
+
+    final l10n = context.l10n;
 
     Widget link(String label, VoidCallback onTap) {
       return GestureDetector(
@@ -398,28 +400,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
           child: Wrap(
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              GestureDetector(
-                onTap: () => setState(() => _acceptedTerms = !_acceptedTerms),
-                behavior: HitTestBehavior.opaque,
-                child: Text('I agree to the ', style: termsStyle),
-              ),
+              if (l10n.termsAgreePrefix.isNotEmpty)
+                GestureDetector(
+                  onTap: () => setState(() => _acceptedTerms = !_acceptedTerms),
+                  behavior: HitTestBehavior.opaque,
+                  child: Text(l10n.termsAgreePrefix, style: termsStyle),
+                ),
               link(
-                'Terms',
+                l10n.termsLink,
                 () => showLegalDocumentDialog(
                   context: context,
-                  title: LegalDocuments.termsTitle,
-                  sections: LegalDocuments.termsSections,
+                  title: l10n.legalTermsTitle,
+                  sections: l10n.localizedTermsSections(),
                 ),
               ),
-              Text(' and ', style: termsStyle),
+              Text(l10n.termsAnd, style: termsStyle),
               link(
-                'Privacy Policy',
+                l10n.privacyPolicyLink,
                 () => showLegalDocumentDialog(
                   context: context,
-                  title: LegalDocuments.privacyTitle,
-                  sections: LegalDocuments.privacySections,
+                  title: l10n.legalPrivacyTitle,
+                  sections: l10n.localizedPrivacySections(),
                 ),
               ),
+              if (l10n.termsAgreeSuffix.isNotEmpty)
+                Text(l10n.termsAgreeSuffix, style: termsStyle),
             ],
           ),
         ),
@@ -494,12 +499,11 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _openBiometricFlow() async {
+    final l10n = context.l10n;
+    final biometricLabel = context.tr(PlatformUi.biometricShortLabel);
     // Device Face ID / Fingerprint via local_auth.
     if (kIsWeb) {
-      AppToast.info(
-        context,
-        '${PlatformUi.biometricShortLabel} login works on the Android/iOS app, not in the browser.',
-      );
+      AppToast.info(context, l10n.biometricWebOnly(biometricLabel));
       return;
     }
 
@@ -508,10 +512,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
 
     if (!canUnlock) {
-      AppToast.info(
-        context,
-        'Log in with email and password first, then enable ${PlatformUi.biometricShortLabel} in Settings (or when prompted).',
-      );
+      AppToast.info(context, l10n.biometricEnableFirst(biometricLabel));
       return;
     }
 
@@ -524,8 +525,8 @@ class _LoginScreenState extends State<LoginScreen> {
       context.push(
         '/biometric/unavailable',
         extra: !supported
-            ? '${PlatformUi.biometricShortLabel} is not available on this device.'
-            : 'No ${PlatformUi.biometricShortLabel.toLowerCase()} is set up on this device. Add one in your device settings first.',
+            ? l10n.biometricNotAvailable(biometricLabel)
+            : l10n.biometricNotSetUp(biometricLabel),
       );
       return;
     }
@@ -547,12 +548,12 @@ class _LoginScreenState extends State<LoginScreen> {
     if (email.isEmpty || password.isEmpty) {
       AppToast.error(
         context,
-        'Enter your email and password. If the browser autofilled them, tap each field once, then try again.',
+        context.tr('Enter your email and password. If the browser autofilled them, tap each field once, then try again.'),
       );
       return;
     }
     if (!RegExp(r'^[^@]+@[^@]+\.[^@]+$').hasMatch(email)) {
-      AppToast.error(context, 'Enter a valid email address');
+      AppToast.error(context, context.tr('Enter a valid email address'));
       return;
     }
 
@@ -569,7 +570,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!result.requiresLoginOtp) {
         final user = result.user;
         if (user == null) {
-          AppToast.error(context, 'Could not complete login. Please try again.');
+          AppToast.error(context, context.tr('Could not complete login. Please try again.'));
           return;
         }
         if (user.accountStatus == 'suspended') {
@@ -600,7 +601,7 @@ class _LoginScreenState extends State<LoginScreen> {
       AppToast.error(context, e.message);
     } catch (_) {
       if (!mounted) return;
-      AppToast.error(context, 'Could not sign in. Please try again.');
+      AppToast.error(context, context.tr('Could not sign in. Please try again.'));
     }
   }
 
@@ -628,16 +629,16 @@ class _LoginScreenState extends State<LoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 16),
-                Text('Welcome back', style: typo.h1),
+                Text(context.tr('Welcome back'), style: typo.h1),
                 const SizedBox(height: 12),
                 Text(
-                  'Log in to your WWNGO account',
+                  context.tr('Log in to your WWNGO account'),
                   style: subtitleStyle,
                 ),
                 const SizedBox(height: 32),
                 _labeledField(
                   context,
-                  'Email',
+                  context.tr('Email'),
                   _emailController,
                   labelStyle: fieldLabelStyle,
                   inputStyle: inputStyle,
@@ -647,29 +648,29 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 _labeledField(
                   context,
-                  'Password',
+                  context.tr('Password'),
                   _passwordController,
                   obscure: true,
                   labelStyle: fieldLabelStyle,
                   inputStyle: inputStyle,
-                  hintText: 'Enter your password',
+                  hintText: context.tr('Enter your password'),
                   onChanged: (value) => _passwordTyped = value,
                 ),
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
                     onPressed: () => context.push('/forgot-password'),
-                    child: Text('Forgot password?', style: forgotPasswordStyle),
+                    child: Text(context.tr('Forgot password?'), style: forgotPasswordStyle),
                   ),
                 ),
                 const SizedBox(height: 12),
                 AppButton(
-                  label: auth.loading ? 'Logging in…' : 'Log in',
+                  label: auth.loading ? context.tr('Logging in…') : context.tr('Log in'),
                   onPressed: auth.loading ? null : _login,
                 ),
                 const SizedBox(height: AppButton.stackGap),
                 AppButton(
-                  label: PlatformUi.biometricLabel,
+                  label: context.tr(PlatformUi.biometricLabel),
                   variant: AppButtonVariant.outline,
                   onPressed: auth.loading ? null : _openBiometricFlow,
                 ),
@@ -681,8 +682,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       text: TextSpan(
                         style: footerStyle,
                         children: [
-                          const TextSpan(text: "Don't have an account? "),
-                          TextSpan(text: 'Sign up', style: footerLinkStyle),
+                          TextSpan(text: context.tr("Don't have an account? ")),
+                          TextSpan(
+                            text: context.tr('Sign up'),
+                            style: footerLinkStyle,
+                          ),
                         ],
                       ),
                     ),

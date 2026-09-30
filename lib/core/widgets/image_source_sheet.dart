@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
 
@@ -48,21 +49,21 @@ class ImageSourceSheet extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          Text(title, style: typo.headerTitle),
+          Text(context.tr(title), style: typo.headerTitle),
           if (subtitle != null) ...[
             const SizedBox(height: 4),
-            Text(subtitle!, style: typo.sm),
+            Text(context.tr(subtitle!), style: typo.sm),
           ],
           const SizedBox(height: 16),
           _ImageSourceOption(
             icon: Icons.photo_camera_outlined,
-            label: 'Take photo',
+            label: context.tr('Take photo'),
             onTap: () => Navigator.pop(context, ImageSource.camera),
           ),
           const SizedBox(height: 8),
           _ImageSourceOption(
             icon: Icons.photo_library_outlined,
-            label: 'Choose from gallery',
+            label: context.tr('Choose from gallery'),
             onTap: () => Navigator.pop(context, ImageSource.gallery),
           ),
           if (showCancel) ...[
@@ -79,7 +80,7 @@ class ImageSourceSheet extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     child: Text(
-                      'Cancel',
+                      context.tr('Cancel'),
                       textAlign: TextAlign.center,
                       style: typo.body.copyWith(
                         fontSize: 15,

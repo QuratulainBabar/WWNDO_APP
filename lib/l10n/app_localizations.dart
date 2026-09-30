@@ -1,8 +1,9 @@
-import 'package:flutter/foundation.dart';
+﻿import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:provider/provider.dart';
 
 import '../core/l10n/app_language.dart';
+import '../data/legal_documents.dart';
 import '../providers/locale_provider.dart';
 import 'string_tables.dart';
 
@@ -917,6 +918,193 @@ class AppLocalizations {
   String get termsOfServiceSubtitle => _t('termsOfServiceSubtitle');
   String get cookiePolicy => _t('cookiePolicy');
   String get cookiePolicySubtitle => _t('cookiePolicySubtitle');
+
+  // Localized Terms & Conditions / Privacy Policy / Cookie Policy content.
+  String get legalTermsTitle => _t('legalTermsTitle');
+  String get legalPrivacyTitle => _t('legalPrivacyTitle');
+  String get legalLastUpdatedDate => _t('legalLastUpdatedDate');
+  String get legalLastUpdatedLabel => lastUpdatedPrefix(legalLastUpdatedDate);
+
+  List<LegalSection> localizedTermsSections() => [
+        LegalSection(
+          heading: _t('legalTerms1Heading'),
+          body: _t('legalTerms1Body'),
+        ),
+        LegalSection(
+          heading: _t('legalTerms2Heading'),
+          body: _t('legalTerms2Body'),
+        ),
+        LegalSection(
+          heading: _t('legalTerms3Heading'),
+          bullets: [
+            _t('legalTerms3Bullet1'),
+            _t('legalTerms3Bullet2'),
+            _t('legalTerms3Bullet3'),
+            _t('legalTerms3Bullet4'),
+            _t('legalTerms3Bullet5'),
+          ],
+        ),
+        LegalSection(
+          heading: _t('legalTerms4Heading'),
+          body: _t('legalTerms4Body'),
+          bullets: [
+            _t('legalTerms4Bullet1'),
+            _t('legalTerms4Bullet2'),
+            _t('legalTerms4Bullet3'),
+            _t('legalTerms4Bullet4'),
+            _t('legalTerms4Bullet5'),
+            _t('legalTerms4Bullet6'),
+          ],
+        ),
+        LegalSection(
+          heading: _t('legalTerms5Heading'),
+          body: _t('legalTerms5Body'),
+          bullets: [
+            _t('legalTerms5Bullet1'),
+            _t('legalTerms5Bullet2'),
+            _t('legalTerms5Bullet3'),
+            _t('legalTerms5Bullet4'),
+            _t('legalTerms5Bullet5'),
+            _t('legalTerms5Bullet6'),
+          ],
+        ),
+        LegalSection(
+          heading: _t('legalTerms6Heading'),
+          body: _t('legalTerms6Body'),
+          bullets: [
+            _t('legalTerms6Bullet1'),
+            _t('legalTerms6Bullet2'),
+            _t('legalTerms6Bullet3'),
+            _t('legalTerms6Bullet4'),
+          ],
+        ),
+        LegalSection(
+          heading: _t('legalTerms7Heading'),
+          body: _t('legalTerms7Body'),
+        ),
+        LegalSection(
+          heading: _t('legalTerms8Heading'),
+          body: _t('legalTerms8Body'),
+        ),
+        LegalSection(
+          heading: _t('legalTerms9Heading'),
+          bullets: [
+            _t('legalTerms9Bullet1'),
+            _t('legalTerms9Bullet2'),
+            _t('legalTerms9Bullet3'),
+            _t('legalTerms9Bullet4'),
+          ],
+        ),
+        LegalSection(
+          heading: _t('legalTerms10Heading'),
+          body: _t('legalTerms10Body'),
+        ),
+        LegalSection(
+          heading: _t('legalTerms11Heading'),
+          bullets: [
+            _t('legalTerms11Bullet1'),
+            _t('legalTerms11Bullet2'),
+            _t('legalTerms11Bullet3'),
+            _t('legalTerms11Bullet4'),
+          ],
+        ),
+        LegalSection(
+          heading: _t('legalTerms12Heading'),
+          body: _t('legalTerms12Body'),
+        ),
+        LegalSection(
+          heading: _t('legalTerms13Heading'),
+          body: _t('legalTerms13Body'),
+        ),
+        LegalSection(
+          heading: _t('legalTerms14Heading'),
+          body: _t('legalTerms14Body'),
+        ),
+        LegalSection(
+          heading: _t('legalTerms15Heading'),
+          body: _t('legalTerms15Body'),
+        ),
+        LegalSection(
+          heading: _t('legalTerms16Heading'),
+          body: _t('legalTerms16Body'),
+        ),
+      ];
+
+  List<LegalSection> localizedPrivacySections() => [
+        LegalSection(
+          heading: _t('legalPrivacy1Heading'),
+          body: _t('legalPrivacy1Body'),
+        ),
+        LegalSection(
+          heading: _t('legalPrivacy2Heading'),
+          bullets: [
+            _t('legalPrivacy2Bullet1'),
+            _t('legalPrivacy2Bullet2'),
+            _t('legalPrivacy2Bullet3'),
+            _t('legalPrivacy2Bullet4'),
+            _t('legalPrivacy2Bullet5'),
+            _t('legalPrivacy2Bullet6'),
+          ],
+        ),
+        LegalSection(
+          heading: _t('legalPrivacy3Heading'),
+          bullets: [
+            _t('legalPrivacy3Bullet1'),
+            _t('legalPrivacy3Bullet2'),
+            _t('legalPrivacy3Bullet3'),
+            _t('legalPrivacy3Bullet4'),
+            _t('legalPrivacy3Bullet5'),
+            _t('legalPrivacy3Bullet6'),
+          ],
+        ),
+        LegalSection(
+          heading: _t('legalPrivacy4Heading'),
+          body: _t('legalPrivacy4Body'),
+        ),
+        LegalSection(
+          heading: _t('legalPrivacy5Heading'),
+          bullets: [
+            _t('legalPrivacy5Bullet1'),
+            _t('legalPrivacy5Bullet2'),
+            _t('legalPrivacy5Bullet3'),
+            _t('legalPrivacy5Bullet4'),
+            _t('legalPrivacy5Bullet5'),
+            _t('legalPrivacy5Bullet6'),
+          ],
+        ),
+        LegalSection(
+          heading: _t('legalPrivacy6Heading'),
+          body: _t('legalPrivacy6Body'),
+        ),
+        LegalSection(
+          heading: _t('legalPrivacy7Heading'),
+          body: _t('legalPrivacy7Body'),
+        ),
+        LegalSection(
+          heading: _t('legalPrivacy8Heading'),
+          body: _t('legalPrivacy8Body'),
+        ),
+      ];
+
+  List<LegalSection> localizedCookieSections() => [
+        LegalSection(
+          heading: _t('legalCookie1Heading'),
+          body: _t('legalCookie1Body'),
+        ),
+        LegalSection(
+          heading: _t('legalCookie2Heading'),
+          bullets: [
+            _t('legalCookie2Bullet1'),
+            _t('legalCookie2Bullet2'),
+            _t('legalCookie2Bullet3'),
+          ],
+        ),
+        LegalSection(
+          heading: _t('legalCookie3Heading'),
+          body: _t('legalCookie3Body'),
+        ),
+      ];
+
   String get fullDocumentsOnline => _t('fullDocumentsOnline');
   String get latestLegalOnWebsite => _t('latestLegalOnWebsite');
   String get openWebsite => _t('openWebsite');
@@ -1057,6 +1245,54 @@ class AppLocalizations {
     final prefix = description.substring(0, sepIndex);
     return '$prefix · ${_t(key)}';
   }
+
+  // Origin/main auth + traveler keys (merged).
+  String get heyThere => _t('heyThere');
+  String get travelerMyTrips => _t('travelerMyTrips');
+  String get travelerCreateTrip => _t('travelerCreateTrip');
+  String get unableToLoadTrips => _t('unableToLoadTrips');
+  String luggageAvailableKg(String kg) =>
+      _tp('luggageAvailableKg', {'kg': kg});
+  String get noActiveDeliveriesYet => _t('noActiveDeliveriesYet');
+  String travelDateLabel(String date) =>
+      _tp('travelDateLabel', {'date': date});
+  String escrowAmount(String amount) =>
+      _tp('escrowAmount', {'amount': amount});
+  String get statusBidAccepted => _t('statusBidAccepted');
+  String get statusAwaitingReceiver => _t('statusAwaitingReceiver');
+  String get statusCollected => _t('statusCollected');
+  String get statusInTransit => _t('statusInTransit');
+  String get statusDelivered => _t('statusDelivered');
+  String get statusDisputed => _t('statusDisputed');
+  String get statusCancelled => _t('statusCancelled');
+  String get statusReadyForHandoff => _t('statusReadyForHandoff');
+  String get statusPosted => _t('statusPosted');
+  String get termsAgreePrefix => _t('termsAgreePrefix');
+  String get termsLink => _t('termsLink');
+  String get termsAnd => _t('termsAnd');
+  String get privacyPolicyLink => _t('privacyPolicyLink');
+  String get termsAgreeSuffix => _t('termsAgreeSuffix');
+  String biometricWebOnly(String label) =>
+      _tp('biometricWebOnly', {'label': label});
+  String biometricEnableFirst(String label) =>
+      _tp('biometricEnableFirst', {'label': label});
+  String biometricNotAvailable(String label) =>
+      _tp('biometricNotAvailable', {'label': label});
+  String biometricNotSetUp(String label) =>
+      _tp('biometricNotSetUp', {'label': label});
+  String weSentCodeTo(String contact) =>
+      _tp('weSentCodeTo', {'contact': contact});
+  String createNewPasswordFor(String contact) =>
+      _tp('createNewPasswordFor', {'contact': contact});
+  String otpSubtitleFailed(String contact, String code) =>
+      _tp('otpSubtitleFailed', {'contact': contact, 'code': code});
+  String otpSubtitleSent(String contact, String code) =>
+      _tp('otpSubtitleSent', {'contact': contact, 'code': code});
+  String otpSubtitleSending(String contact, String code) =>
+      _tp('otpSubtitleSending', {'contact': contact, 'code': code});
+  String codeSentVia(String channel, String contact) =>
+      _tp('codeSentVia', {'channel': channel, 'contact': contact});
+  String selectLabel(String label) => _tp('selectLabel', {'label': label});
 }
 
 class _AppLocalizationsDelegate

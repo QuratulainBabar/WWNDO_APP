@@ -157,12 +157,13 @@ class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
+    final l10n = context.l10n;
     final authUser = context.watch<AuthProvider>().user;
     final senderRequestCount =
         context.watch<NotificationRealtimeProvider>().senderRequestUnreadCount;
-    final firstName = (authUser?.firstName.trim().isNotEmpty ?? false)
-        ? authUser!.firstName
-        : context.l10n.greetingFallbackName;
+    final greeting = (authUser?.firstName.trim().isNotEmpty ?? false)
+        ? l10n.heyUser(authUser!.firstName)
+        : l10n.heyThere;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -179,7 +180,7 @@ class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        context.l10n.heyUser(firstName),
+                        greeting,
                         style: typo.h1,
                       ),
                       Text(
@@ -202,10 +203,7 @@ class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Text(
-                  context.l10n.myTripsTitle,
-                  style: typo.h3.copyWith(fontWeight: FontWeight.w700),
-                ),
+                Text(l10n.travelerMyTrips, style: typo.h3.copyWith(fontWeight: FontWeight.w700)),
                 GestureDetector(
                   onTap: _onCreateTrip,
                   child: Container(
@@ -227,7 +225,7 @@ class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          context.l10n.createTripShort,
+                          l10n.travelerCreateTrip,
                           style: typo.buttonSm.copyWith(
                             color: Colors.white,
                             fontWeight: FontWeight.w600,
@@ -242,17 +240,14 @@ class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
             const SizedBox(height: 12),
             _MyTripsSection(key: _tripsKey),
             const SizedBox(height: 24),
-            Text(
-              context.l10n.quickActions,
-              style: typo.h3.copyWith(fontWeight: FontWeight.w700),
-            ),
+            Text(l10n.quickActions, style: typo.h3.copyWith(fontWeight: FontWeight.w700)),
             const SizedBox(height: 12),
             Row(
               children: [
                 _quickAction(
                   context,
                   AppIcons.roleSender,
-                  context.l10n.senderRequests,
+                  l10n.senderRequests,
                   () async {
                     await context.push('/matching-requests');
                     if (mounted) _refreshSenderRequestBadge();
@@ -263,7 +258,7 @@ class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
                 _quickAction(
                   context,
                   AppIcons.track,
-                  context.l10n.myDeliveries,
+                  l10n.myDeliveries,
                   () async {
                     await context.push('/traveler-deliveries');
                     if (mounted) {
@@ -279,14 +274,14 @@ class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
                 _quickAction(
                   context,
                   AppIcons.history,
-                  context.l10n.counterOffers,
+                  l10n.counterOffers,
                   () => context.push('/traveler-bids'),
                 ),
                 const SizedBox(width: 10),
                 _quickAction(
                   context,
                   AppIcons.match,
-                  context.l10n.acceptedOffers,
+                  l10n.acceptedOffers,
                   () => context.push('/traveler-bids?filter=acceptance'),
                 ),
               ],
@@ -296,13 +291,13 @@ class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  context.l10n.activeDeliveries,
+                  l10n.activeDeliveries,
                   style: typo.h3.copyWith(fontWeight: FontWeight.w700),
                 ),
                 GestureDetector(
                   onTap: () => context.push('/traveler-deliveries'),
                   child: Text(
-                    context.l10n.seeAll,
+                    l10n.seeAll,
                     style: typo.sm.copyWith(
                       color: AppColors.primary,
                       fontWeight: FontWeight.w600,
@@ -392,7 +387,7 @@ class _MyTripsSection extends StatefulWidget {
 class _MyTripsSectionState extends State<_MyTripsSection> {
   late List<TravelerTrip> _trips;
   late bool _loading;
-  String? _error;
+  bool _loadFailed = false;
 
   List<TravelerTrip> _homeTrips(List<TravelerTrip> trips) =>
       trips.where((t) => !t.status.isCompleted).toList();
@@ -423,7 +418,7 @@ class _MyTripsSectionState extends State<_MyTripsSection> {
         StaticData.travelerTripsForDisplay(demoMode: demoMode),
       );
       _loading = false;
-      _error = null;
+      _loadFailed = false;
     });
   }
 
@@ -446,7 +441,7 @@ class _MyTripsSectionState extends State<_MyTripsSection> {
           StaticData.travelerTripsForDisplay(demoMode: true),
         );
         _loading = false;
-        _error = null;
+        _loadFailed = false;
       });
       return;
     }
@@ -454,7 +449,7 @@ class _MyTripsSectionState extends State<_MyTripsSection> {
     if (!silent) {
       setState(() {
         _loading = true;
-        _error = null;
+        _loadFailed = false;
       });
     }
 
@@ -465,7 +460,7 @@ class _MyTripsSectionState extends State<_MyTripsSection> {
       setState(() {
         _trips = _homeTrips(trips);
         _loading = false;
-        _error = null;
+        _loadFailed = false;
       });
     } catch (_) {
       if (!mounted) return;
@@ -475,7 +470,7 @@ class _MyTripsSectionState extends State<_MyTripsSection> {
         );
         _loading = false;
         if (_trips.isEmpty) {
-          _error = 'Unable to load your trips. Tap to retry.';
+          _loadFailed = true;
         }
       });
     }
@@ -510,13 +505,14 @@ class _MyTripsSectionState extends State<_MyTripsSection> {
     required bool canEditOrCancel,
   }) {
     final typo = context.typo;
+    final l10n = context.l10n;
     final itemStyle = typo.body.copyWith(fontWeight: FontWeight.w400);
 
     return [
       PopupMenuItem(
         value: 'view',
         height: 42,
-        child: Text(context.l10n.view, style: itemStyle),
+        child: Text(l10n.view, style: itemStyle),
       ),
       if (canEditOrCancel) ...[
         PopupMenuItem<String>(
@@ -532,7 +528,7 @@ class _MyTripsSectionState extends State<_MyTripsSection> {
         PopupMenuItem(
           value: 'edit',
           height: 42,
-          child: Text(context.l10n.edit, style: itemStyle),
+          child: Text(l10n.edit, style: itemStyle),
         ),
         PopupMenuItem<String>(
           enabled: false,
@@ -547,7 +543,7 @@ class _MyTripsSectionState extends State<_MyTripsSection> {
         PopupMenuItem(
           value: 'cancel',
           height: 42,
-          child: Text(context.l10n.cancel, style: itemStyle),
+          child: Text(l10n.cancel, style: itemStyle),
         ),
       ],
     ];
@@ -575,12 +571,12 @@ class _MyTripsSectionState extends State<_MyTripsSection> {
 
     if (_trips.isEmpty) {
       return GestureDetector(
-        onTap: _error != null ? () => reload() : null,
+        onTap: _loadFailed ? () => reload() : null,
         child: AppCard(
           margin: EdgeInsets.zero,
           child: Text(
-            _error != null
-                ? context.l10n.unableToLoadDeliveries
+            _loadFailed
+                ? context.l10n.unableToLoadTrips
                 : context.l10n.noTripsYet,
             style: typo.sm.copyWith(color: AppColors.textSecondary, height: 1.4),
           ),
@@ -625,6 +621,8 @@ class _TripCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
+    final l10n = context.l10n;
+    final localeCode = Localizations.localeOf(context).languageCode;
 
     return AppCard(
       margin: EdgeInsets.zero,
@@ -654,7 +652,7 @@ class _TripCard extends StatelessWidget {
                   minWidth: 36,
                   minHeight: 36,
                 ),
-                tooltip: context.l10n.moreOptions,
+                tooltip: l10n.moreOptions,
                 onSelected: onMenuSelected,
                 itemBuilder: menuItems,
               ),
@@ -662,14 +660,12 @@ class _TripCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            DateFormat('MMM d, yyyy').format(trip.travelDate),
+            DateFormat('MMM d, yyyy', localeCode).format(trip.travelDate),
             style: typo.sm.copyWith(color: AppColors.textSecondary),
           ),
           const SizedBox(height: 4),
           Text(
-            context.l10n.luggageAvailable(
-              trip.luggageCapacityKg.toStringAsFixed(0),
-            ),
+            l10n.luggageAvailableKg(trip.luggageCapacityKg.toStringAsFixed(0)),
             style: typo.sm.copyWith(
               color: AppColors.primary,
               fontWeight: FontWeight.w600,
@@ -691,7 +687,7 @@ class _MyDeliveriesSection extends StatefulWidget {
 class _MyDeliveriesSectionState extends State<_MyDeliveriesSection> {
   List<CreatedDelivery> _deliveries = const [];
   bool _loading = true;
-  String? _error;
+  bool _loadFailed = false;
 
   @override
   void initState() {
@@ -721,7 +717,7 @@ class _MyDeliveriesSectionState extends State<_MyDeliveriesSection> {
     if (!silent) {
       setState(() {
         _loading = true;
-        _error = null;
+        _loadFailed = false;
       });
     }
 
@@ -731,14 +727,14 @@ class _MyDeliveriesSectionState extends State<_MyDeliveriesSection> {
       setState(() {
         _deliveries = _activeOnly(list);
         _loading = false;
-        _error = null;
+        _loadFailed = false;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _loading = false;
         if (_deliveries.isEmpty) {
-          _error = 'Unable to load deliveries. Tap to retry.';
+          _loadFailed = true;
         }
       });
     }
@@ -753,7 +749,8 @@ class _MyDeliveriesSectionState extends State<_MyDeliveriesSection> {
   String _formatTravelDate(String raw) {
     final parsed = DateTime.tryParse(raw);
     if (parsed == null) return raw.isEmpty ? '—' : raw;
-    return DateFormat('MMM d, yyyy').format(parsed);
+    final localeCode = Localizations.localeOf(context).languageCode;
+    return DateFormat('MMM d, yyyy', localeCode).format(parsed);
   }
 
   @override
@@ -778,13 +775,13 @@ class _MyDeliveriesSectionState extends State<_MyDeliveriesSection> {
 
     if (_deliveries.isEmpty) {
       return GestureDetector(
-        onTap: _error != null ? () => reload() : null,
+        onTap: _loadFailed ? () => reload() : null,
         child: AppCard(
           margin: EdgeInsets.zero,
           child: Text(
-            _error != null
+            _loadFailed
                 ? context.l10n.unableToLoadDeliveries
-                : context.l10n.noActiveDeliveries,
+                : context.l10n.noActiveDeliveriesYet,
             style: typo.sm.copyWith(color: AppColors.textSecondary, height: 1.4),
           ),
         ),
@@ -854,7 +851,7 @@ class _HomeDeliveryCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            '${context.l10n.travelDateColon(formatTravelDate(delivery.travelDate))}'
+            '${context.l10n.travelDateLabel(formatTravelDate(delivery.travelDate))}'
             '${delivery.senderName != null && delivery.senderName!.isNotEmpty ? ' · ${delivery.senderName}' : ''}',
             style: typo.sm.copyWith(color: AppColors.textSecondary),
           ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../data/route_display.dart';
+import '../../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
 
@@ -84,7 +85,7 @@ class StackedRouteEndpoints extends StatelessWidget {
           ],
           if (fromPlace.isNotEmpty) ...[
             Text(
-              'FROM',
+              context.l10n.fromUpper,
               style: labelStyle.copyWith(color: AppColors.primary),
             ),
             const SizedBox(height: 3),
@@ -94,7 +95,7 @@ class StackedRouteEndpoints extends StatelessWidget {
             const SizedBox(height: 10),
           if (toPlace.isNotEmpty) ...[
             Text(
-              'TO',
+              context.l10n.toUpper,
               style: labelStyle.copyWith(color: AppColors.success),
             ),
             const SizedBox(height: 3),

@@ -26,10 +26,6 @@ class MaximumBudgetField extends StatefulWidget {
 }
 
 class _MaximumBudgetFieldState extends State<MaximumBudgetField> {
-  static const _placeholder = 'Enter maximum budget amount';
-  static const _helperText =
-      'Travelers will see this budget when submitting their bids.';
-
   late final TextEditingController _controller;
 
   @override
@@ -65,6 +61,7 @@ class _MaximumBudgetFieldState extends State<MaximumBudgetField> {
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
+    final l10n = context.l10n;
     final hasValue = _controller.text.isNotEmpty;
 
     return AppLabeledField(
@@ -86,13 +83,13 @@ class _MaximumBudgetFieldState extends State<MaximumBudgetField> {
             decoration: InputDecoration(
               // Only show `$` once typing so the empty hint has no leading gap.
               prefixText: hasValue ? WalletService.currencyPrefix : null,
-              hintText: _placeholder,
+              hintText: l10n.enterMaxBudgetAmount,
               errorText: widget.errorText,
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            _helperText,
+            l10n.travelersSeeBudgetHint,
             style: typo.sm.copyWith(color: AppColors.textSecondary),
           ),
         ],

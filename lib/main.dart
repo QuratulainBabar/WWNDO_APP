@@ -1,10 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 import 'app.dart';
 import 'core/config/api_config.dart';
 import 'core/config/demo_mode.dart';
+import 'core/l10n/app_language.dart';
 import 'core/push/push_notification_service.dart';
 import 'data/models/wallet_role.dart';
 import 'providers/auth_provider.dart';
@@ -28,6 +30,10 @@ Future<void> main() async {
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
+
+  await Future.wait(
+    AppLanguage.supported.map((lang) => initializeDateFormatting(lang.code)),
+  );
 
   final demoMode = DemoModeProvider();
   final themeProvider = ThemeProvider();

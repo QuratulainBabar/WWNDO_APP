@@ -62,7 +62,7 @@ class _SplashScreenState extends State<SplashScreen> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 48),
                 child: Text(
-                  'Ship it with someone already going',
+                  context.l10n.shipTagline,
                   textAlign: TextAlign.center,
                   style: typo.splashTagline,
                 ),
@@ -143,7 +143,7 @@ class WelcomeScreen extends StatelessWidget {
                                   Text('WWNGO', style: typo.brandWelcome),
                                   const SizedBox(height: 32),
                                   Text(
-                                    'Ship it with\nsomeone\nalready going.',
+                                    context.l10n.shipTaglineWelcome,
                                     textAlign: TextAlign.center,
                                     style: typo.welcomeHeadline.copyWith(
                                       fontSize: 40,
@@ -153,7 +153,7 @@ class WelcomeScreen extends StatelessWidget {
                                   ),
                                   const SizedBox(height: 24),
                                   Text(
-                                    'Peer-to-peer delivery by real travelers.\nFaster. Cheaper. Verified.',
+                                    context.l10n.welcomeSubtext,
                                     textAlign: TextAlign.center,
                                     style: typo.welcomeSubtext,
                                   ),
@@ -185,7 +185,7 @@ class WelcomeScreen extends StatelessWidget {
                                 //   const SizedBox(height: AppButton.stackGap),
                                 // ],
                                 AppButton(
-                                  label: context.tr('Sign up'),
+                                  label: context.l10n.signUp,
                                   variant: AppButtonVariant.primary,
                                   // variant: demoMode.enabled
                                   //     ? AppButtonVariant.outlineWhite
@@ -195,7 +195,7 @@ class WelcomeScreen extends StatelessWidget {
                                 ),
                                 const SizedBox(height: AppButton.stackGap),
                                 AppButton(
-                                  label: context.tr('Log in'),
+                                  label: context.l10n.login,
                                   variant: AppButtonVariant.outlineWhite,
                                   textStyle: typo.welcomeButton,
                                   onPressed: () => context.push('/login'),

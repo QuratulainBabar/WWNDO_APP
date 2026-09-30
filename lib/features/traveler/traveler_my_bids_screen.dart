@@ -131,8 +131,8 @@ class _TravelerMyBidsScreenState extends State<TravelerMyBidsScreen> {
         _loading = false;
         if (fallback.isEmpty) {
           _error = _acceptedOnly
-              ? 'Unable to load accepted offers.'
-              : 'Unable to load counter offers.';
+              ? context.l10n.unableToLoadAcceptedOffers
+              : context.l10n.unableToLoadCounterOffers;
         }
       });
     }
@@ -143,13 +143,13 @@ class _TravelerMyBidsScreenState extends State<TravelerMyBidsScreen> {
     final typo = context.typo;
     final horizontal = context.horizontalPadding;
     final title =
-        _acceptedOnly ? 'Accepted Offers' : 'Counter Offers Sent';
+        _acceptedOnly ? context.l10n.acceptedOffers : context.l10n.counterOffersSent;
     final subtitle = _acceptedOnly
-        ? 'Offers where you accepted the sender\'s max budget. Once the sender confirms, they move to My Deliveries.'
-        : 'These are the counter offers you have sent to senders.';
+        ? context.l10n.acceptedOffersSubtitle
+        : context.l10n.counterOffersSentSubtitle;
     final emptyLabel = _acceptedOnly
-        ? 'No pending accepted offers.'
-        : 'No counter offers yet.';
+        ? context.l10n.noPendingAcceptedOffers
+        : context.l10n.noCounterOffersYet;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -245,7 +245,8 @@ class _CounterOfferCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
-    final sentOn = DateFormat('MMM d, yyyy').format(bid.offerSentAt);
+    final sentOn = DateFormat('MMM d, yyyy', context.l10n.locale.toString())
+        .format(bid.offerSentAt);
 
     return AppCard(
       margin: EdgeInsets.zero,
@@ -280,7 +281,7 @@ class _CounterOfferCard extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           _DetailRow(
-            label: 'Offer amount',
+            label: context.l10n.offerAmount,
             value: WalletService.formatMajor(bid.amount),
             valueStyle: typo.bodyBold.copyWith(
               fontWeight: FontWeight.w800,
@@ -289,7 +290,7 @@ class _CounterOfferCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           _DetailRow(
-            label: 'Sent on',
+            label: context.l10n.sentOn,
             value: sentOn,
             valueStyle: typo.sm.copyWith(color: AppColors.textPrimary),
           ),
@@ -335,7 +336,7 @@ class _StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppBadge(
-      label: status.label,
+      label: context.tr(status.label),
       color: status.color,
       backgroundColor: status.color.withValues(alpha: 0.12),
       small: true,

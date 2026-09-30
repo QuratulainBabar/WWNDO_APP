@@ -11,6 +11,7 @@ import '../../../core/widgets/app_labeled_field.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/captured_image_preview.dart';
 import '../../../core/widgets/image_source_sheet.dart';
+import '../../../l10n/app_localizations.dart';
 
 class ParcelPhotosSection extends StatefulWidget {
   const ParcelPhotosSection({
@@ -45,9 +46,9 @@ class _ParcelPhotosSectionState extends State<ParcelPhotosSection> {
     FocusScope.of(context).unfocus();
     final result = await PlatformUi.showAppBottomSheet<Object>(
       context,
-      child: const ImageSourceSheet(
-        title: 'Add parcel photo',
-        subtitle: 'Upload 1–3 photos of your parcel.',
+      child: ImageSourceSheet(
+        title: context.l10n.addParcelPhoto,
+        subtitle: context.l10n.uploadParcelPhotosShort,
         showCancel: false,
       ),
     );
@@ -120,17 +121,18 @@ class _ParcelPhotosSectionState extends State<ParcelPhotosSection> {
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
+    final l10n = context.l10n;
     final totalCount = widget.existingPhotos.length + widget.photoPaths.length;
     final canAddMore = totalCount < _maxPhotos;
 
     return AppLabeledField(
-      label: 'Parcel Photos',
+      label: l10n.parcelPhotos,
       labelStyle: typo.inputLabel.copyWith(fontWeight: FontWeight.w600),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Upload 1–3 photos of your parcel before posting.',
+            l10n.uploadParcelPhotosHint,
             style: typo.sm.copyWith(color: AppColors.textSecondary),
           ),
           const SizedBox(height: 8),
@@ -164,7 +166,7 @@ class _ParcelPhotosSectionState extends State<ParcelPhotosSection> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Upload Photos',
+                      l10n.uploadPhotos,
                       style: typo.body.copyWith(
                         fontWeight: FontWeight.w600,
                         color: canAddMore ? AppColors.textPrimary : AppColors.textDisabled,
@@ -233,7 +235,7 @@ class _EmptyPhotosPlaceholder extends StatelessWidget {
           Icon(Icons.image_outlined, size: 20, color: AppColors.textSecondary),
           const SizedBox(width: 8),
           Text(
-            'No photos selected yet',
+            context.l10n.noPhotosSelectedYet,
             style: typo.sm.copyWith(color: AppColors.textSecondary),
           ),
         ],

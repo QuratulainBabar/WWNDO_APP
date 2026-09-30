@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../data/models/shipment.dart';
+import '../../../l10n/app_localizations.dart';
 import 'tracking_step_state.dart';
 
 /// Vertical status timeline (Open → Delivered).
@@ -25,11 +26,11 @@ class ShipmentStatusTimeline extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Status timeline', style: typo.h3.copyWith(fontWeight: FontWeight.w700)),
+        Text(context.l10n.statusTimeline, style: typo.h3.copyWith(fontWeight: FontWeight.w700)),
         const SizedBox(height: 12),
         ...List.generate(_labels.length, (i) {
           return _TimelineStep(
-            label: _labels[i],
+            label: context.tr(_labels[i]),
             isDone: trackingStepIsDone(stepProgress, i),
             isCurrent: trackingStepIsCurrent(stepProgress, i),
             isLast: i == _labels.length - 1,

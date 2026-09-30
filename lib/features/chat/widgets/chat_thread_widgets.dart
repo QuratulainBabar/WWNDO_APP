@@ -5,6 +5,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_avatar.dart';
 import '../../../data/models/chat_message.dart';
+import '../../../l10n/app_localizations.dart';
 import 'chat_image_attachment.dart';
 
 /// Builds the scrollable children for a chat thread: day separators plus
@@ -67,16 +68,18 @@ class ChatDaySeparator extends StatelessWidget {
   /// Null renders a generic "Today" pill when messages carry no timestamp.
   final DateTime? day;
 
-  String _label() {
+  String _label(BuildContext context) {
+    final l10n = context.l10n;
+    final locale = l10n.locale.toString();
     final d = day;
-    if (d == null) return 'Today';
+    if (d == null) return l10n.today;
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final diff = today.difference(d).inDays;
-    if (diff <= 0) return 'Today';
-    if (diff == 1) return 'Yesterday';
-    if (diff < 7) return DateFormat('EEEE').format(d);
-    return DateFormat('MMM d, yyyy').format(d);
+    if (diff <= 0) return l10n.today;
+    if (diff == 1) return l10n.yesterday;
+    if (diff < 7) return DateFormat('EEEE', locale).format(d);
+    return DateFormat('MMM d, yyyy', locale).format(d);
   }
 
   @override
@@ -92,7 +95,7 @@ class ChatDaySeparator extends StatelessWidget {
             borderRadius: BorderRadius.circular(20),
           ),
           child: Text(
-            _label(),
+            _label(context),
             style: typo.datePill.copyWith(
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -135,12 +138,12 @@ class ChatEmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'No messages yet',
+              context.l10n.noMessagesYet,
               style: typo.bodyBold.copyWith(fontSize: 16),
             ),
             const SizedBox(height: 6),
             Text(
-              message ?? 'Say hello to get the conversation started.',
+              message ?? context.l10n.sayHelloToStart,
               textAlign: TextAlign.center,
               style: typo.sm.copyWith(color: AppColors.textSecondary),
             ),

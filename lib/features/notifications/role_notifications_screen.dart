@@ -264,7 +264,7 @@ class _RoleNotificationsScreenState extends State<RoleNotificationsScreen>
                     ],
                   ),
                 ),
-                ..._buildSlivers(typo),
+                ..._buildSlivers(context, typo),
               ],
             ),
           ),
@@ -273,7 +273,7 @@ class _RoleNotificationsScreenState extends State<RoleNotificationsScreen>
     );
   }
 
-  List<Widget> _buildSlivers(AppTypography typo) {
+  List<Widget> _buildSlivers(BuildContext context, AppTypography typo) {
     if (_loading && _apiNotifications.isEmpty) {
       return [
         const SliverFillRemaining(
@@ -300,7 +300,7 @@ class _RoleNotificationsScreenState extends State<RoleNotificationsScreen>
             icon: Icons.wifi_off_rounded,
             title: 'Couldn’t load alerts',
             subtitle: _error!,
-            actionLabel: 'Retry',
+            actionLabel: context.tr('Retry'),
             onAction: () => _load(),
           ),
         ),
@@ -309,12 +309,11 @@ class _RoleNotificationsScreenState extends State<RoleNotificationsScreen>
 
     if (_apiNotifications.isEmpty) {
       return [
-        const SliverFillEmpty(
+        SliverFillEmpty(
           child: _EmptyState(
             icon: Icons.notifications_none_rounded,
-            title: 'You’re all caught up',
-            subtitle:
-                'New delivery updates, bids, and requests will show up here.',
+            title: context.l10n.youreAllCaughtUp,
+            subtitle: context.l10n.alertsEmptySubtitle,
           ),
         ),
       ];
@@ -327,7 +326,7 @@ class _RoleNotificationsScreenState extends State<RoleNotificationsScreen>
       if (unread.isNotEmpty) ...[
         SliverToBoxAdapter(
           child: _SectionLabel(
-            label: 'New',
+            label: context.l10n.sectionNew,
             count: unread.length,
           ),
         ),
@@ -346,7 +345,7 @@ class _RoleNotificationsScreenState extends State<RoleNotificationsScreen>
         SliverToBoxAdapter(
           child: Padding(
             padding: EdgeInsets.only(top: unread.isEmpty ? 0 : 8),
-            child: const _SectionLabel(label: 'Earlier'),
+            child: _SectionLabel(label: context.l10n.sectionEarlier),
           ),
         ),
         SliverList(
@@ -396,6 +395,7 @@ class _InboxHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
+    final l10n = context.l10n;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
@@ -433,19 +433,21 @@ class _InboxHeader extends StatelessWidget {
               children: [
                 if (showTitle)
                   Text(
-                    'Notifications',
+                    context.tr('Notifications'),
                     style: typo.h2.copyWith(fontWeight: FontWeight.w800),
                   )
                 else
                   Text(
-                    'Your alerts',
+                    l10n.yourAlerts,
                     style: typo.bodyBold.copyWith(fontWeight: FontWeight.w700),
                   ),
                 const SizedBox(height: 2),
                 Text(
                   unreadCount > 0
-                      ? '$unreadCount unread update${unreadCount == 1 ? '' : 's'}'
-                      : 'No unread alerts',
+                      ? (unreadCount == 1
+                          ? l10n.unreadUpdatesOne(unreadCount)
+                          : l10n.unreadUpdatesMany(unreadCount))
+                      : l10n.noUnreadAlerts,
                   style: typo.sm.copyWith(color: AppColors.textSecondary),
                 ),
               ],
@@ -459,7 +461,7 @@ class _InboxHeader extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 8),
               ),
               child: Text(
-                markingAll ? '…' : 'Mark all read',
+                markingAll ? '…' : l10n.markAllReadShort,
                 style: typo.caption.copyWith(
                   color: AppColors.primary,
                   fontWeight: FontWeight.w700,
@@ -864,7 +866,7 @@ class _NotificationTile extends StatelessWidget {
                         children: [
                           Expanded(
                             child: Text(
-                              _displayTitle(n),
+                              context.tr(_displayTitle(n)),
                               style: typo.bodyBold.copyWith(
                                 fontWeight:
                                     n.unread ? FontWeight.w800 : FontWeight.w600,
@@ -874,7 +876,7 @@ class _NotificationTile extends StatelessWidget {
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            n.time,
+                            context.tr(n.time),
                             style: typo.caption.copyWith(
                               color: AppColors.textSecondary,
                             ),
@@ -884,7 +886,7 @@ class _NotificationTile extends StatelessWidget {
                       const SizedBox(height: 4),
                       if (tripParts != null) ...[
                         Text(
-                          tripParts.subtitle,
+                          context.tr(tripParts.subtitle),
                           style: typo.sm.copyWith(
                             color: AppColors.textSecondary,
                             height: 1.35,
@@ -902,7 +904,7 @@ class _NotificationTile extends StatelessWidget {
                         ],
                       ] else
                         Text(
-                          _displayBody(n),
+                          context.tr(_displayBody(n)),
                           maxLines: 3,
                           overflow: TextOverflow.ellipsis,
                           style: typo.sm.copyWith(
@@ -944,6 +946,7 @@ class _TypeChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final label = switch (type) {
       AppNotificationType.otp => 'OTP',
       AppNotificationType.kycUpdate => 'KYC',
@@ -951,14 +954,14 @@ class _TypeChip extends StatelessWidget {
       AppNotificationType.bidAccepted => 'Accepted',
       AppNotificationType.offerAccepted => 'Offer Accepted',
       AppNotificationType.counterOffer => 'Counter Offer',
-      AppNotificationType.matching => 'Delivery',
+      AppNotificationType.matching => l10n.categoryDelivery,
       AppNotificationType.tripAvailable => 'Trip',
       AppNotificationType.parcelRequest => 'Request',
       AppNotificationType.senderRequest => 'Request',
       AppNotificationType.receiverPayment => 'Payment',
-      AppNotificationType.platformFee => 'Fee',
+      AppNotificationType.platformFee => l10n.categoryFee,
       AppNotificationType.nfcPrompt => 'NFC',
-      AppNotificationType.deliveryStatus => 'Delivery',
+      AppNotificationType.deliveryStatus => l10n.categoryDelivery,
       AppNotificationType.cancellation => 'Cancel',
       AppNotificationType.reviewReceived => 'Review',
       AppNotificationType.general => 'Alert',

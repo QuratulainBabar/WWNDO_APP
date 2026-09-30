@@ -20,6 +20,7 @@ import '../../providers/notification_realtime_provider.dart';
 import '../../providers/sender_deliveries_provider.dart';
 import 'delivery_posting_actions.dart';
 import 'widgets/delivery_form_fields.dart';
+import '../../l10n/app_localizations.dart';
 
 class PostDeliveryScreen extends StatefulWidget {
   const PostDeliveryScreen({super.key, this.initialTrip});
@@ -112,7 +113,7 @@ class _PostDeliveryScreenState extends State<PostDeliveryScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: BackHeader(
-        title: 'Post delivery',
+        title: context.l10n.postDelivery,
         fallbackRoute: fromTrip
             ? '/discover-trips/${widget.initialTrip!.displayId}'
             : '/delivery-type',
@@ -121,7 +122,9 @@ class _PostDeliveryScreenState extends State<PostDeliveryScreen> {
         pinActions: false,
         actions: [
           AppButton(
-            label: _submitting ? 'Posting…' : 'Post delivery →',
+            label: _submitting
+                ? context.l10n.postingEllipsis
+                : context.l10n.postDeliveryArrow,
             onPressed: _submitting ? null : _submit,
           ),
         ],

@@ -55,7 +55,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
         }
         if (e is ApiException && mounted) {
           // Non-blocking: show warning but proceed.
-          AppToast.info(context, 'Role saved locally. Continuing…');
+          AppToast.info(context, context.tr('Role saved locally. Continuing…'));
         }
       }
 
@@ -89,37 +89,39 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Select your account', style: typo.h1),
+            Text(context.l10n.selectYourAccount, style: typo.h1),
             const SizedBox(height: 8),
             Text(
-              'Select how you want to use WWNGO today.',
+              context.l10n.selectHowUseWwngo,
               style: typo.subheading,
             ),
             const SizedBox(height: 24),
             _RoleCard(
               iconAsset: AppIcons.roleSender,
               title: context.tr('Sender'),
-              description: 'Create parcel requests and choose matching travelers.',
+              description: context.l10n.roleSelectDescSender,
               selected: _selectedRole == WalletRole.sender,
               onTap: () => setState(() => _selectedRole = WalletRole.sender),
             ),
             _RoleCard(
               iconAsset: AppIcons.roleTraveler,
               title: context.tr('Traveler'),
-              description: 'Create trips and carry parcels\non your route.',
+              description: context.l10n.roleSelectDescTraveler,
               selected: _selectedRole == WalletRole.traveler,
               onTap: () => setState(() => _selectedRole = WalletRole.traveler),
             ),
             _RoleCard(
               iconAsset: AppIcons.roleReceiver,
               title: context.tr('Receiver'),
-              description: 'Accept parcel requests and receive your parcel securely.',
+              description: context.l10n.roleSelectDescReceiver,
               selected: _selectedRole == WalletRole.receiver,
               onTap: () => setState(() => _selectedRole = WalletRole.receiver),
             ),
             const SizedBox(height: 8),
             AppButton(
-              label: _saving ? 'Continuing…' : 'Continue',
+              label: _saving
+                  ? context.l10n.continuingEllipsis
+                  : context.l10n.continueLabel,
               onPressed: _selectedRole == null || _saving ? null : _continue,
             ),
           ],

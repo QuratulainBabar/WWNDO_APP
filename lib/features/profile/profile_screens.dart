@@ -72,6 +72,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.didChangeDependencies();
     final location = GoRouterState.of(context).matchedLocation;
     if (location == '/profile' && _lastMatchedLocation != '/profile') {
+      // Clear in case a prior push never completed (e.g. locale rebuild).
+      _openingRoute = false;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           _loadShipmentCounts(silent: _activeCount != null);
@@ -194,7 +196,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Profile', style: typo.h1),
+                  Text(context.l10n.profile, style: typo.h1),
                   GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: () => _openRoute('/settings?role=sender'),
@@ -211,11 +213,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 role: WalletRole.sender,
                 name: user.name,
                 initial: user.initial,
-                subtitle: switch (SelectedRoleStore.roleFromUser(authUser)) {
-                  WalletRole.traveler => 'Traveler',
-                  WalletRole.receiver => 'Receiver',
-                  _ => 'Sender',
-                },
+                subtitle: context.tr(
+                  switch (SelectedRoleStore.roleFromUser(authUser)) {
+                    WalletRole.traveler => 'Traveler',
+                    WalletRole.receiver => 'Receiver',
+                    _ => 'Sender',
+                  },
+                ),
                 memberSince: user.memberSince,
                 bio: user.bio,
                 rating: user.rating,
@@ -228,7 +232,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _stat(
                       context,
                       activeLabel,
-                      'Active Shipments',
+                      context.l10n.activeShipments,
                       onTap: () => _openRoute(
                         '/my-posted-parcels',
                         onReturn: () => _loadShipmentCounts(silent: true),
@@ -238,7 +242,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _stat(
                       context,
                       completedLabel,
-                      'Completed Shipments',
+                      context.l10n.completedShipments,
                       onTap: () => _openRoute(
                         '/shipment-history?role=sender',
                         onReturn: () => _loadShipmentCounts(silent: true),
@@ -258,7 +262,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         WalletService.formatCents(
                           WalletService.availableCents(WalletRole.sender),
                         ),
-                        'Wallet',
+                        context.l10n.wallet,
                         onTap: () => _openRoute('/wallet?role=sender'),
                         expand: false,
                       ),
@@ -275,17 +279,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
               const SizedBox(height: 16),
               const RoleSwitchCard(currentRole: ShipmentRole.sender),
               const SizedBox(height: 16),
-              Text('Quick actions', style: typo.h3.copyWith(fontWeight: FontWeight.w700)),
+              Text(
+                context.l10n.quickActions,
+                style: typo.h3.copyWith(fontWeight: FontWeight.w700),
+              ),
               const SizedBox(height: 12),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _quickAction(context, AppIcons.track, 'My Shipments', () => context.go('/track')),
+                  _quickAction(
+                    context,
+                    AppIcons.track,
+                    context.l10n.myShipments,
+                    () => context.go('/track'),
+                  ),
                   const SizedBox(width: 10),
                   _quickAction(
                     context,
                     AppIcons.history,
-                    'Shipment History',
+                    context.l10n.shipmentHistory,
                     () => _openRoute(
                       '/shipment-history?role=sender',
                       onReturn: () => _loadShipmentCounts(silent: true),
@@ -295,7 +307,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _quickAction(
                     context,
                     AppIcons.browse,
-                    'Transaction History',
+                    context.l10n.transactionHistory,
                     () => _openRoute('/transaction-history?role=sender'),
                   ),
                 ],
@@ -553,7 +565,7 @@ class _ShipmentHistoryScreenState extends State<ShipmentHistoryScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: BackHeader(
-        title: 'Shipment History',
+        title: context.l10n.shipmentHistory,
         fallbackRoute: fallback,
       ),
       body: SafeArea(
@@ -565,7 +577,7 @@ class _ShipmentHistoryScreenState extends State<ShipmentHistoryScreen> {
             padding: context.pagePadding.copyWith(top: 16),
             children: [
               Text(
-                'Completed city-to-city and country-to-country deliveries.',
+                context.l10n.completedCityToCity,
                 style: typo.sm,
               ),
               const SizedBox(height: 16),
@@ -591,7 +603,7 @@ class _ShipmentHistoryScreenState extends State<ShipmentHistoryScreen> {
                 )
               else if (_items.isEmpty)
                 Text(
-                  'No completed shipments yet.',
+                  context.l10n.noCompletedShipments,
                   style: typo.sm.copyWith(color: AppColors.textSecondary),
                 )
               else
@@ -691,7 +703,10 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: BackHeader(title: 'Transaction History', fallbackRoute: fallback),
+      appBar: BackHeader(
+        title: context.l10n.transactionHistory,
+        fallbackRoute: fallback,
+      ),
       body: Consumer<WalletProvider>(
         builder: (context, wallet, _) {
           return ValueListenableBuilder<int>(
@@ -709,13 +724,13 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Immutable ledger · all sender, traveler, and receiver activity.',
+                      context.l10n.immutableLedger,
                       style: typo.sm,
                     ),
                     const SizedBox(height: 16),
                     if (entries.isEmpty)
                       Text(
-                        'No transactions yet.',
+                        context.l10n.noTransactionsYet,
                         style: typo.sm,
                       )
                     else
@@ -738,7 +753,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
     final amountLabel = availableDelta != 0
         ? '${availableDelta > 0 ? '+' : '−'}${WalletService.formatCents(availableDelta.abs())}'
         : escrowDelta != 0
-            ? 'Escrow ${escrowDelta > 0 ? '+' : '−'}${WalletService.formatCents(escrowDelta.abs())}'
+            ? '${context.l10n.escrow} ${escrowDelta > 0 ? '+' : '−'}${WalletService.formatCents(escrowDelta.abs())}'
             : WalletService.formatCents(entry.amountCents);
 
     return Padding(
@@ -758,16 +773,20 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                     color: isCredit ? AppColors.success : AppColors.danger,
                   ),
                 ),
-                Text(entry.displayDescription, style: typo.sm),
                 Text(
-                  '${entry.type.name} · ${entry.role.name}',
+                  context.l10n.translateLedgerDescription(entry.displayDescription),
+                  style: typo.sm,
+                ),
+                Text(
+                  '${context.l10n.ledgerTypeLabel(entry.type.name)} · ${_walletRoleLabel(context, entry.role)}',
                   style: typo.sm.copyWith(color: AppColors.textSecondary),
                 ),
               ],
             ),
           ),
           Text(
-            DateFormat('MMM d').format(entry.createdAt),
+            DateFormat.MMMd(context.l10n.locale.toString())
+                .format(entry.createdAt),
             style: typo.sm,
           ),
         ],
@@ -775,6 +794,12 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
     );
   }
 }
+
+String _walletRoleLabel(BuildContext context, WalletRole role) => switch (role) {
+      WalletRole.sender => context.l10n.sender,
+      WalletRole.traveler => context.l10n.traveler,
+      WalletRole.receiver => context.l10n.receiver,
+    };
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -815,11 +840,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final ready = status['ready'] == true;
       setState(() {
         if (!linked) {
-          _connectStatusLabel = 'Not linked';
+          _connectStatusLabel = 'not_linked';
         } else if (ready) {
-          _connectStatusLabel = 'Connected';
+          _connectStatusLabel = 'connected';
         } else {
-          _connectStatusLabel = 'Connected — finish setup';
+          _connectStatusLabel = 'connected_finish';
         }
       });
     } catch (_) {
@@ -843,7 +868,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final opened = await ExternalLinks.openUrl(url);
       if (!mounted) return;
       if (!opened) {
-        AppToast.error(context, 'Could not open Stripe Connect onboarding.');
+        AppToast.error(context, context.l10n.couldNotOpenStripeConnect);
       } else {
         await _loadConnectStatus();
       }
@@ -1061,20 +1086,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 },
               ),
               _tile(
-                _connectLoading ? 'Linking Stripe Connect…' : 'Link Stripe Connect',
+                _connectLoading
+                    ? context.l10n.linkingStripeConnect
+                    : context.l10n.linkStripeConnect,
                 subtitle: () {
                   final label = _connectStatusLabel;
-                  if (label == null) return 'Required for bank withdrawals';
-                  if (label == 'Connected') return 'Account linked for payouts';
-                  if (label.startsWith('Connected')) {
-                    return 'Account linked — finish Stripe onboarding';
+                  if (label == null) {
+                    return context.l10n.requiredForWithdrawals;
                   }
-                  return label;
+                  if (label == 'connected') {
+                    return context.l10n.accountLinkedReady;
+                  }
+                  if (label == 'connected_finish') {
+                    return context.l10n.accountLinkedFinish;
+                  }
+                  return context.l10n.notLinked;
                 }(),
                 onTap: _connectLoading ? () {} : _linkStripeConnect,
-                trailing: _connectStatusLabel != null &&
-                        _connectStatusLabel!.startsWith('Connected')
-                    ? AppBadge.success('Connected')
+                trailing: _connectStatusLabel == 'connected' ||
+                        _connectStatusLabel == 'connected_finish'
+                    ? AppBadge.success(context.l10n.connected)
                     : null,
               ),
               _tile(
@@ -1344,14 +1375,14 @@ class _WalletScreenState extends State<WalletScreen> {
       final opened = await ExternalLinks.openUrl(url);
       if (!mounted) return;
       if (!opened) {
-        AppToast.error(context, 'Could not open Stripe Connect onboarding.');
+        AppToast.error(context, context.l10n.couldNotOpenStripeConnect);
       }
     } on ApiException catch (e) {
       if (!mounted) return;
       AppToast.error(context, 'Stripe Connect: ${e.message}');
     } catch (_) {
       if (!mounted) return;
-      AppToast.error(context, 'Could not start payout setup.');
+      AppToast.error(context, context.l10n.couldNotStartPayoutSetup);
     } finally {
       if (mounted) setState(() => _connectLinking = false);
       // Re-check status when the user returns from onboarding.
@@ -1364,8 +1395,7 @@ class _WalletScreenState extends State<WalletScreen> {
 
   Future<void> _withdraw(WalletRole role, double parsedAmount) async {
     if (!_payoutEnabled) {
-      setState(() =>
-          _error = 'Link a payout account before withdrawing.');
+      setState(() => _error = context.l10n.linkPayoutBeforeWithdraw);
       return;
     }
 
@@ -1412,7 +1442,7 @@ class _WalletScreenState extends State<WalletScreen> {
       setState(() => _error = e.message);
     } catch (_) {
       if (!mounted) return;
-      setState(() => _error = 'Withdrawal failed. Please try again.');
+      setState(() => _error = context.l10n.withdrawalFailed);
     } finally {
       if (mounted) setState(() => _withdrawing = false);
     }
@@ -1475,7 +1505,7 @@ class _WalletScreenState extends State<WalletScreen> {
                       ),
                       child: Column(
                         children: [
-                          Text('Available balance', style: typo.captionOnDarkSoft),
+                          Text(context.l10n.availableBalance, style: typo.captionOnDarkSoft),
                           Text(
                             WalletService.formatCents(available),
                             style: typo.priceHeroDark,
@@ -1484,7 +1514,7 @@ class _WalletScreenState extends State<WalletScreen> {
                             Padding(
                               padding: const EdgeInsets.only(top: 8),
                               child: Text(
-                                'Escrow ${WalletService.formatCents(escrow)}',
+                                context.l10n.escrowWithAmount(WalletService.formatCents(escrow)),
                                 style: typo.captionOnDarkSoft.copyWith(
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -1493,7 +1523,7 @@ class _WalletScreenState extends State<WalletScreen> {
                           if (canWithdraw) ...[
                             const SizedBox(height: 12),
                             Text(
-                              'Minimum withdrawal: ${WalletService.formatCents(minWithdraw)}',
+                              context.l10n.minimumWithdrawal(WalletService.formatCents(minWithdraw)),
                               style: typo.captionOnDark,
                             ),
                           ],
@@ -1505,7 +1535,7 @@ class _WalletScreenState extends State<WalletScreen> {
                       children: [
                         Expanded(
                           child: AppButton(
-                            label: 'Top up (Stripe)',
+                            label: context.l10n.topUpStripe,
                             small: true,
                             onPressed: () {
                               // Unfocus first so MIUI phantom insets don't
@@ -1520,7 +1550,7 @@ class _WalletScreenState extends State<WalletScreen> {
                         const SizedBox(width: 10),
                         Expanded(
                           child: AppButton(
-                            label: 'History',
+                            label: context.l10n.history,
                             variant: AppButtonVariant.outline,
                             small: true,
                             onPressed: () => context.push(
@@ -1533,12 +1563,12 @@ class _WalletScreenState extends State<WalletScreen> {
                     if (canWithdraw) ...[
                       const SizedBox(height: 24),
                       Text(
-                        'Withdraw via Stripe Connect',
+                        context.l10n.withdrawViaStripeConnect,
                         style: typo.h3.copyWith(fontWeight: FontWeight.w700),
                       ),
                       const SizedBox(height: 8),
                       AppLabeledField(
-                        label: WalletService.fieldLabel('Amount'),
+                        label: context.l10n.amountLabelCurrency(WalletService.currencyCode),
                         labelStyle:
                             typo.inputLabel.copyWith(fontWeight: FontWeight.w600),
                         padding: const EdgeInsets.only(top: AppFieldSpacing.top),
@@ -1605,17 +1635,17 @@ class _WalletScreenState extends State<WalletScreen> {
                         child: Column(
                           children: [
                             _SummaryRow(
-                              label: "You'll receive",
+                              label: context.l10n.youWillReceive,
                               value: currencyProvider.currency
                                   .formatMajor(displayAmount),
                             ),
-                            const _SummaryRow(
-                              label: 'Payout rail',
+                            _SummaryRow(
+                              label: context.l10n.payoutRail,
                               value: 'Stripe Connect',
                             ),
-                            const _SummaryRow(
-                              label: 'Arrives in',
-                              value: '2–5 business days',
+                            _SummaryRow(
+                              label: context.l10n.arrivesIn,
+                              value: context.l10n.businessDays2to5,
                             ),
                           ],
                         ),
@@ -1644,8 +1674,8 @@ class _WalletScreenState extends State<WalletScreen> {
                               Expanded(
                                 child: Text(
                                   _connectLinked
-                                      ? 'Finish setting up your payout account to withdraw to your bank.'
-                                      : 'Link a payout account to withdraw your balance to your bank.',
+                                      ? context.l10n.finishSettingUpPayout
+                                      : context.l10n.linkPayoutToWithdraw,
                                   style: typo.sm.copyWith(
                                     color: AppColors.textPrimary,
                                     height: 1.4,
@@ -1658,18 +1688,19 @@ class _WalletScreenState extends State<WalletScreen> {
                         const SizedBox(height: 12),
                         AppButton(
                           label: _connectLinking
-                              ? 'Opening…'
+                              ? context.l10n.openingEllipsis
                               : _connectLinked
-                                  ? 'Finish payout setup'
-                                  : 'Set up payout account',
+                                  ? context.l10n.finishPayoutSetup
+                                  : context.l10n.setUpPayoutAccount,
                           textStyle:
                               typo.button.copyWith(fontWeight: FontWeight.w700),
                           onPressed: _connectLinking ? null : _setUpPayouts,
                         ),
                       ] else
                         AppButton(
-                          label:
-                              _withdrawing ? 'Withdrawing…' : 'Withdraw to bank',
+                          label: _withdrawing
+                              ? context.l10n.withdrawing
+                              : context.l10n.withdrawToBank,
                           textStyle:
                               typo.button.copyWith(fontWeight: FontWeight.w700),
                           onPressed: (_withdrawing ||
@@ -1680,17 +1711,17 @@ class _WalletScreenState extends State<WalletScreen> {
                         ),
                       const SizedBox(height: 20),
                       Text(
-                        'Recent transactions',
+                        context.l10n.recentTransactions,
                         style: typo.h3.copyWith(fontWeight: FontWeight.w700),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Immutable ledger (cents precision)',
+                        context.l10n.immutableLedgerCents,
                         style: typo.sm.copyWith(color: AppColors.textSecondary),
                       ),
                       const SizedBox(height: 10),
                       if (entries.isEmpty)
-                        Text('No transactions yet.', style: typo.sm)
+                        Text(context.l10n.noTransactionsYet, style: typo.sm)
                       else
                         ...entries.take(6).map((e) => _ledgerTile(context, e)),
                     ],
@@ -1730,11 +1761,18 @@ class _WalletScreenState extends State<WalletScreen> {
                     color: isCredit ? AppColors.success : AppColors.danger,
                   ),
                 ),
-                Text(entry.displayDescription, style: typo.sm),
+                Text(
+                  context.l10n.translateLedgerDescription(entry.displayDescription),
+                  style: typo.sm,
+                ),
               ],
             ),
           ),
-          Text(DateFormat('MMM d').format(entry.createdAt), style: typo.sm),
+          Text(
+            DateFormat.MMMd(context.l10n.locale.toString())
+                .format(entry.createdAt),
+            style: typo.sm,
+          ),
         ],
       ),
     );

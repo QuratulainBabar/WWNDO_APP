@@ -114,10 +114,10 @@ class _TravelerDeliveriesScreenState extends State<TravelerDeliveriesScreen>
     if (mounted) await _load(silent: true);
   }
 
-  String _formatTravelDate(String raw) {
+  String _formatTravelDate(String raw, String locale) {
     final parsed = DateTime.tryParse(raw);
     if (parsed == null) return raw.isEmpty ? '—' : raw;
-    return DateFormat('MMM d, yyyy').format(parsed);
+    return DateFormat('MMM d, yyyy', locale).format(parsed);
   }
 
   @override
@@ -139,7 +139,7 @@ class _TravelerDeliveriesScreenState extends State<TravelerDeliveriesScreen>
                 children: [
                   BackLink(onTap: () => context.go('/traveler-home')),
                   const SizedBox(height: 16),
-                  Text('My Deliveries', style: typo.h1),
+                  Text(context.l10n.myDeliveries, style: typo.h1),
                 ],
               ),
             ),
@@ -157,7 +157,7 @@ class _TravelerDeliveriesScreenState extends State<TravelerDeliveriesScreen>
                   Expanded(
                     child: _tab(
                       context,
-                      'Active',
+                      context.l10n.active,
                       _tabFilter == _DeliveriesTab.active,
                       () => setState(() => _tabFilter = _DeliveriesTab.active),
                     ),
@@ -165,7 +165,7 @@ class _TravelerDeliveriesScreenState extends State<TravelerDeliveriesScreen>
                   Expanded(
                     child: _tab(
                       context,
-                      'Completed',
+                      context.l10n.completed,
                       _tabFilter == _DeliveriesTab.completed,
                       () =>
                           setState(() => _tabFilter = _DeliveriesTab.completed),
@@ -174,7 +174,7 @@ class _TravelerDeliveriesScreenState extends State<TravelerDeliveriesScreen>
                   Expanded(
                     child: _tab(
                       context,
-                      'Cancelled',
+                      context.l10n.cancelled,
                       _tabFilter == _DeliveriesTab.cancelled,
                       () =>
                           setState(() => _tabFilter = _DeliveriesTab.cancelled),
@@ -225,9 +225,9 @@ class _TravelerDeliveriesScreenState extends State<TravelerDeliveriesScreen>
           padding: EdgeInsets.symmetric(horizontal: horizontal),
           child: Text(
             switch (_tabFilter) {
-              _DeliveriesTab.active => 'No active deliveries yet.',
-              _DeliveriesTab.completed => 'No completed deliveries yet.',
-              _DeliveriesTab.cancelled => 'No cancelled deliveries yet.',
+              _DeliveriesTab.active => context.l10n.noActiveDeliveries,
+              _DeliveriesTab.completed => context.l10n.noCompletedDeliveriesYet,
+              _DeliveriesTab.cancelled => context.l10n.noCancelledDeliveriesYet,
             },
             style: typo.sm.copyWith(color: AppColors.textSecondary),
             textAlign: TextAlign.center,
@@ -276,7 +276,7 @@ class _TravelerDeliveriesScreenState extends State<TravelerDeliveriesScreen>
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Travel date: ${_formatTravelDate(d.travelDate)}'
+                  '${context.l10n.travelDateColon(_formatTravelDate(d.travelDate, context.l10n.locale.toString()))}'
                   '${d.senderName != null && d.senderName!.isNotEmpty ? ' · ${d.senderName}' : ''}',
                   style: typo.sm.copyWith(color: AppColors.textSecondary),
                 ),

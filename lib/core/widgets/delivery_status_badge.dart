@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
 import 'app_badge.dart';
 
@@ -25,7 +26,7 @@ class DeliveryStatusBadge extends StatelessWidget {
       _ => ('Posted', AppColors.textSecondary, AppColors.border),
     };
     return AppBadge(
-      label: label,
+      label: context.tr(label),
       color: color,
       backgroundColor: bg,
       semiBold: semiBold,

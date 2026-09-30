@@ -341,7 +341,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         }
       }
       if (!mounted) return;
-      AppToast.success(context, 'Profile updated');
+      AppToast.success(context, context.l10n.profileUpdated);
       context.pushReplacement('/edit-profile/success', extra: widget.role);
     } on ApiException catch (e) {
       if (mounted) AppToast.error(context, e.message);
@@ -376,7 +376,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           child: ScrollableFormScreen(
             actions: [
               AppButton(
-                label: _saving || auth.loading ? 'Saving…' : 'Save changes',
+                label: _saving || auth.loading
+                    ? context.l10n.savingEllipsis
+                    : context.l10n.saveChanges,
                 onPressed: _saving || auth.loading ? null : _save,
               ),
             ],
@@ -384,22 +386,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               EditProfileRole.sender => _buildExtendedProfileForm(
                   typo,
                   auth: auth,
-                  subtitle:
-                      'This information is shown on your public profile when you send parcels.',
+                  subtitle: context.l10n.profileShownWhenSend,
                   avatarInitial: avatarInitial,
                 ),
               EditProfileRole.receiver => _buildExtendedProfileForm(
                   typo,
                   auth: auth,
-                  subtitle:
-                      'This information is shown on your public profile when you receive parcels.',
+                  subtitle: context.l10n.profileShownWhenReceive,
                   avatarInitial: avatarInitial,
                 ),
               EditProfileRole.traveler => _buildExtendedProfileForm(
                   typo,
                   auth: auth,
-                  subtitle:
-                      'This information is shown on your public profile when you carry parcels.',
+                  subtitle: context.l10n.profileShownWhenCarry,
                   avatarInitial: avatarInitial,
                 ),
             },
@@ -417,17 +416,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }) {
     final hasPhoto = _hasVisiblePhoto(auth);
     final caption =
-        hasPhoto ? 'Tap to change photo' : 'Tap to upload a photo';
+        hasPhoto ? context.l10n.tapToChangePhoto : context.l10n.tapToUploadPhoto;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Profile details', style: typo.h2),
+        Text(context.l10n.profileDetails, style: typo.h2),
         const SizedBox(height: 8),
         Text(subtitle, style: typo.sm.copyWith(height: 1.5)),
         const SizedBox(height: 24),
         AppLabeledField(
-          label: 'Profile photo',
+          label: context.l10n.profilePhoto,
           labelStyle: typo.inputLabel.copyWith(fontWeight: FontWeight.w700),
           child: Column(
             children: [
@@ -441,7 +440,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           ),
         ),
         AppLabeledField(
-          label: 'Full name',
+          label: context.l10n.fullName,
           labelStyle: typo.inputLabel.copyWith(fontWeight: FontWeight.w700),
           child: TextField(
             controller: _nameController,
@@ -449,7 +448,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             onTapOutside: dismissKeyboardOnTapOutside,
             style: typo.input,
             decoration: InputDecoration(
-              hintText: 'Your full name',
+              hintText: context.l10n.yourFullName,
               hintStyle: typo.input.copyWith(color: AppColors.textDisabled),
             ),
           ),
@@ -470,13 +469,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           ),
         ),
         RouteCountryDropdown(
-          label: 'Country',
+          label: context.tr('Country'),
           value: _countryIso,
-          hintText: 'Select country',
+          hintText: context.l10n.selectCountry,
           onChanged: _onCountryChanged,
         ),
         InternationalPhoneField(
-          label: 'Phone number',
+          label: context.tr('Phone number'),
           controller: _phoneController,
           country: _phoneCountry,
           onCountryChanged: (c) => setState(() {
@@ -532,16 +531,16 @@ class ProfileUpdatedSuccessScreen extends StatelessWidget {
                       child: const Icon(Icons.check, size: 40, color: AppColors.success),
                     ),
                     const SizedBox(height: 20),
-                    Text('Profile updated', style: typo.h1, textAlign: TextAlign.center),
+                    Text(context.l10n.profileUpdated, style: typo.h1, textAlign: TextAlign.center),
                     const SizedBox(height: 8),
                     Text(
-                      'Your profile details have been saved. These details are now shown on your public profile.',
+                      context.l10n.profileUpdatedMessage,
                       textAlign: TextAlign.center,
                       style: typo.sm.copyWith(height: 1.5),
                     ),
                     const SizedBox(height: 32),
                     AppButton(
-                      label: 'Back to settings',
+                      label: context.l10n.backToSettings,
                       onPressed: () => context.go(settingsRoute),
                     ),
                   ],
@@ -593,19 +592,19 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     final confirm = _confirmController.text;
 
     if (current.isEmpty) {
-      AppToast.error(context, 'Enter your current password');
+      AppToast.error(context, context.l10n.enterCurrentPassword);
       return;
     }
     if (newPassword.length < 8) {
-      AppToast.error(context, 'New password must be at least 8 characters');
+      AppToast.error(context, context.l10n.newPasswordMinLength);
       return;
     }
     if (newPassword != confirm) {
-      AppToast.error(context, 'Passwords do not match');
+      AppToast.error(context, context.l10n.passwordsDoNotMatch);
       return;
     }
     if (current == newPassword) {
-      AppToast.error(context, 'New password must be different from current password');
+      AppToast.error(context, context.l10n.newPasswordMustDiffer);
       return;
     }
 
@@ -617,7 +616,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
         newPassword: newPassword,
       );
       if (!mounted) return;
-      AppToast.success(context, 'Password updated successfully');
+      AppToast.success(context, context.tr('Password updated successfully'));
       context.pushReplacement('/change-password/success?role=$_roleParam');
     } on ApiException catch (e) {
       if (mounted) AppToast.error(context, e.message);
@@ -632,40 +631,42 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: BackHeader(
-        title: 'Change password',
+        title: context.tr('Change password'),
         fallbackRoute: _settingsRoute,
       ),
       body: ScrollableFormScreen(
         actions: [
           AppButton(
-            label: auth.loading ? 'Updating…' : 'Update password',
+            label: auth.loading
+                ? context.tr('Updating…')
+                : context.tr('Update password'),
             onPressed: auth.loading ? null : _updatePassword,
           ),
         ],
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Update your password', style: typo.h2),
+            Text(context.tr('Update your password'), style: typo.h2),
             const SizedBox(height: 8),
             Text(
-              'Choose a strong password you have not used elsewhere.',
+              context.l10n.strongPasswordHint,
               style: typo.sm.copyWith(height: 1.5),
             ),
             const SizedBox(height: 24),
             _passwordField(
-              label: 'Current password',
+              label: context.l10n.currentPassword,
               controller: _currentController,
               obscure: _obscureCurrent,
               onToggle: () => setState(() => _obscureCurrent = !_obscureCurrent),
             ),
             _passwordField(
-              label: 'New password',
+              label: context.l10n.newPassword,
               controller: _newController,
               obscure: _obscureNew,
               onToggle: () => setState(() => _obscureNew = !_obscureNew),
             ),
             _passwordField(
-              label: 'Confirm new password',
+              label: context.l10n.confirmNewPassword,
               controller: _confirmController,
               obscure: _obscureConfirm,
               onToggle: () => setState(() => _obscureConfirm = !_obscureConfirm),
@@ -739,16 +740,16 @@ class ChangePasswordSuccessScreen extends StatelessWidget {
                 child: const Icon(Icons.check, size: 40, color: AppColors.success),
               ),
               const SizedBox(height: 20),
-              Text('Password updated', style: typo.h1, textAlign: TextAlign.center),
+              Text(context.l10n.passwordUpdatedTitle, style: typo.h1, textAlign: TextAlign.center),
               const SizedBox(height: 8),
               Text(
-                'Your password has been changed successfully.',
+                context.l10n.passwordChangedSuccessfully,
                 textAlign: TextAlign.center,
                 style: typo.sm.copyWith(height: 1.5),
               ),
               const SizedBox(height: 32),
               AppButton(
-                label: 'Back to settings',
+                label: context.l10n.backToSettings,
                 onPressed: () => context.go(settingsRoute),
               ),
             ],
@@ -846,22 +847,24 @@ class WalletWithdrawalSuccessScreen extends StatelessWidget {
                 child: const Icon(Icons.account_balance_outlined, size: 40, color: AppColors.success),
               ),
               const SizedBox(height: 20),
-              Text('Withdrawal initiated', style: typo.h1, textAlign: TextAlign.center),
+              Text(context.l10n.withdrawalInitiated, style: typo.h1, textAlign: TextAlign.center),
               const SizedBox(height: 8),
               Text(
-                '${WalletService.formatMajor(amount)} is being transferred via Stripe Connect to your linked bank account. Arrives in 2–5 business days.',
+                context.l10n.withdrawalTransferredMessage(
+                  WalletService.formatMajor(amount),
+                ),
                 textAlign: TextAlign.center,
                 style: typo.sm.copyWith(height: 1.5),
               ),
               const SizedBox(height: 32),
               AppButton(
-                label: 'Back to wallet',
+                label: context.l10n.backToWallet,
                 textStyle: typo.button.copyWith(fontWeight: FontWeight.w700),
                 onPressed: () => context.go(walletRoute),
               ),
               const SizedBox(height: AppButton.stackGap),
               AppButton(
-                label: 'Go to home',
+                label: context.l10n.goToHome,
                 variant: AppButtonVariant.outline,
                 textStyle: typo.button.copyWith(fontWeight: FontWeight.w700, color: AppColors.textPrimary),
                 onPressed: () => context.go(homeRoute),
@@ -912,29 +915,29 @@ class _KycStatusScreenState extends State<KycStatusScreen> {
 
     final (title, message, icon, iconColor, bgColor) = switch (status) {
       'approved' => (
-          'Verification approved',
-          '$displayName is verified on WWNGO. You can post deliveries, create trips, place bids, and withdraw earnings.',
+          context.l10n.verificationApproved,
+          context.l10n.verificationApprovedMessage(displayName),
           Icons.verified_user_outlined,
           AppColors.success,
           AppColors.success.withValues(alpha: 0.12),
         ),
       'submitted' => (
-          'Pending review',
-          'Your documents are with Sumsub for automated checks and manual review (SLA up to 48 hours).',
+          context.l10n.pendingReview,
+          context.l10n.pendingReviewMessage,
           Icons.hourglass_top_rounded,
           AppColors.warning,
           AppColors.warning.withValues(alpha: 0.12),
         ),
       'rejected' => (
-          'Verification failed',
-          'Your identity could not be verified. Please retry with a valid, clearly photographed document.',
+          context.l10n.verificationFailedTitle,
+          context.l10n.verificationFailedMessage,
           Icons.error_outline_rounded,
           AppColors.danger,
           AppColors.danger.withValues(alpha: 0.1),
         ),
       _ => (
-          'Verification required',
-          'Complete identity verification to unlock posting parcels, creating trips, and placing bids.',
+          context.l10n.verificationRequired,
+          context.l10n.verificationRequiredMessage,
           Icons.badge_outlined,
           AppColors.primary,
           AppColors.primary.withValues(alpha: 0.1),
@@ -956,10 +959,10 @@ class _KycStatusScreenState extends State<KycStatusScreen> {
             if (status != 'approved')
               AppButton(
                 label: kyc.loading
-                    ? 'Please wait…'
+                    ? context.l10n.pleaseWait
                     : status == 'submitted'
-                        ? 'Refresh status'
-                        : 'Verify Identity',
+                        ? context.l10n.refreshStatus
+                        : context.l10n.verifyIdentity,
                 onPressed: kyc.loading
                     ? null
                     : () {
@@ -971,7 +974,7 @@ class _KycStatusScreenState extends State<KycStatusScreen> {
                       },
               ),
             AppButton(
-              label: 'Back to settings',
+              label: context.l10n.backToSettings,
               variant: status == 'approved' ? AppButtonVariant.primary : AppButtonVariant.outline,
               onPressed: () => appNavigateBackFromContext(context, fallback: settingsRoute),
             ),
@@ -1000,7 +1003,11 @@ class _KycStatusScreenState extends State<KycStatusScreen> {
               KycStatusBadge(user: user),
               const SizedBox(height: 8),
               Text(
-                'Status: ${KycStatusValue.fromString(status).label}',
+                context.l10n.statusLabel(
+                  context.l10n.kycStatusValueLabel(
+                    KycStatusValue.fromString(status).label,
+                  ),
+                ),
                 style: typo.bodyBold.copyWith(color: iconColor),
               ),
               if (kyc.loading) ...[
@@ -1028,11 +1035,11 @@ class _KycStatusScreenState extends State<KycStatusScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Verified details', style: typo.bodyBold),
+                      Text(context.l10n.verifiedDetails, style: typo.bodyBold),
                       const SizedBox(height: 8),
-                      Text('Name: ${user.name}', style: typo.sm),
-                      Text('Email: ${user.email}', style: typo.sm),
-                      Text('Country: ${user.countryCode}', style: typo.sm),
+                      Text('${context.l10n.nameColon} ${user.name}', style: typo.sm),
+                      Text('${context.l10n.emailColon} ${user.email}', style: typo.sm),
+                      Text('${context.l10n.countryColon} ${user.countryCode}', style: typo.sm),
                     ],
                   ),
                 ),

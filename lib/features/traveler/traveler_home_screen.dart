@@ -23,6 +23,7 @@ import '../../data/models/wallet_role.dart';
 import '../../data/services/delivery_repository.dart';
 import '../../data/services/trip_repository.dart';
 import '../../data/static_data.dart';
+import '../../l10n/app_localizations.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_realtime_provider.dart';
 import '../../providers/wallet_provider.dart';
@@ -161,7 +162,7 @@ class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
         context.watch<NotificationRealtimeProvider>().senderRequestUnreadCount;
     final firstName = (authUser?.firstName.trim().isNotEmpty ?? false)
         ? authUser!.firstName
-        : 'there';
+        : context.l10n.greetingFallbackName;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -178,13 +179,15 @@ class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Hey, $firstName 👋',
+                        context.l10n.heyUser(firstName),
                         style: typo.h1,
                       ),
                       Text(
-                        SelectedRoleStore.homeRatingSubtitle(
-                          authUser,
-                          WalletRole.traveler,
+                        context.tr(
+                          SelectedRoleStore.homeRatingSubtitle(
+                            authUser,
+                            WalletRole.traveler,
+                          ),
                         ),
                         style: typo.sm,
                       ),
@@ -199,7 +202,10 @@ class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Text('My Trips', style: typo.h3.copyWith(fontWeight: FontWeight.w700)),
+                Text(
+                  context.l10n.myTripsTitle,
+                  style: typo.h3.copyWith(fontWeight: FontWeight.w700),
+                ),
                 GestureDetector(
                   onTap: _onCreateTrip,
                   child: Container(
@@ -221,7 +227,7 @@ class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          'Create Trip',
+                          context.l10n.createTripShort,
                           style: typo.buttonSm.copyWith(
                             color: Colors.white,
                             fontWeight: FontWeight.w600,
@@ -236,14 +242,17 @@ class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
             const SizedBox(height: 12),
             _MyTripsSection(key: _tripsKey),
             const SizedBox(height: 24),
-            Text('Quick actions', style: typo.h3.copyWith(fontWeight: FontWeight.w700)),
+            Text(
+              context.l10n.quickActions,
+              style: typo.h3.copyWith(fontWeight: FontWeight.w700),
+            ),
             const SizedBox(height: 12),
             Row(
               children: [
                 _quickAction(
                   context,
                   AppIcons.roleSender,
-                  'Sender Requests',
+                  context.l10n.senderRequests,
                   () async {
                     await context.push('/matching-requests');
                     if (mounted) _refreshSenderRequestBadge();
@@ -254,7 +263,7 @@ class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
                 _quickAction(
                   context,
                   AppIcons.track,
-                  'My deliveries',
+                  context.l10n.myDeliveries,
                   () async {
                     await context.push('/traveler-deliveries');
                     if (mounted) {
@@ -270,14 +279,14 @@ class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
                 _quickAction(
                   context,
                   AppIcons.history,
-                  'Counter offers',
+                  context.l10n.counterOffers,
                   () => context.push('/traveler-bids'),
                 ),
                 const SizedBox(width: 10),
                 _quickAction(
                   context,
                   AppIcons.match,
-                  'Accepted offers',
+                  context.l10n.acceptedOffers,
                   () => context.push('/traveler-bids?filter=acceptance'),
                 ),
               ],
@@ -287,13 +296,13 @@ class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Active Deliveries',
+                  context.l10n.activeDeliveries,
                   style: typo.h3.copyWith(fontWeight: FontWeight.w700),
                 ),
                 GestureDetector(
                   onTap: () => context.push('/traveler-deliveries'),
                   child: Text(
-                    'See all',
+                    context.l10n.seeAll,
                     style: typo.sm.copyWith(
                       color: AppColors.primary,
                       fontWeight: FontWeight.w600,
@@ -507,7 +516,7 @@ class _MyTripsSectionState extends State<_MyTripsSection> {
       PopupMenuItem(
         value: 'view',
         height: 42,
-        child: Text('View', style: itemStyle),
+        child: Text(context.l10n.view, style: itemStyle),
       ),
       if (canEditOrCancel) ...[
         PopupMenuItem<String>(
@@ -523,7 +532,7 @@ class _MyTripsSectionState extends State<_MyTripsSection> {
         PopupMenuItem(
           value: 'edit',
           height: 42,
-          child: Text('Edit', style: itemStyle),
+          child: Text(context.l10n.edit, style: itemStyle),
         ),
         PopupMenuItem<String>(
           enabled: false,
@@ -538,7 +547,7 @@ class _MyTripsSectionState extends State<_MyTripsSection> {
         PopupMenuItem(
           value: 'cancel',
           height: 42,
-          child: Text('Cancel', style: itemStyle),
+          child: Text(context.l10n.cancel, style: itemStyle),
         ),
       ],
     ];
@@ -570,8 +579,9 @@ class _MyTripsSectionState extends State<_MyTripsSection> {
         child: AppCard(
           margin: EdgeInsets.zero,
           child: Text(
-            _error ??
-                'No trips yet. Tap + Create Trip to post your first route.',
+            _error != null
+                ? context.l10n.unableToLoadDeliveries
+                : context.l10n.noTripsYet,
             style: typo.sm.copyWith(color: AppColors.textSecondary, height: 1.4),
           ),
         ),
@@ -644,7 +654,7 @@ class _TripCard extends StatelessWidget {
                   minWidth: 36,
                   minHeight: 36,
                 ),
-                tooltip: 'More options',
+                tooltip: context.l10n.moreOptions,
                 onSelected: onMenuSelected,
                 itemBuilder: menuItems,
               ),
@@ -657,7 +667,9 @@ class _TripCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            '${trip.luggageCapacityKg.toStringAsFixed(0)} kg luggage available',
+            context.l10n.luggageAvailable(
+              trip.luggageCapacityKg.toStringAsFixed(0),
+            ),
             style: typo.sm.copyWith(
               color: AppColors.primary,
               fontWeight: FontWeight.w600,
@@ -770,7 +782,9 @@ class _MyDeliveriesSectionState extends State<_MyDeliveriesSection> {
         child: AppCard(
           margin: EdgeInsets.zero,
           child: Text(
-            _error ?? 'No active deliveries yet.',
+            _error != null
+                ? context.l10n.unableToLoadDeliveries
+                : context.l10n.noActiveDeliveries,
             style: typo.sm.copyWith(color: AppColors.textSecondary, height: 1.4),
           ),
         ),
@@ -840,7 +854,7 @@ class _HomeDeliveryCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Travel date: ${formatTravelDate(delivery.travelDate)}'
+            '${context.l10n.travelDateColon(formatTravelDate(delivery.travelDate))}'
             '${delivery.senderName != null && delivery.senderName!.isNotEmpty ? ' · ${delivery.senderName}' : ''}',
             style: typo.sm.copyWith(color: AppColors.textSecondary),
           ),

@@ -56,7 +56,8 @@ class _WalletTopUpScreenState extends State<WalletTopUpScreen> {
     if (currency.code == 'USD') {
       if (mounted) {
         setState(() {
-          _fxPreview = 'Wallet will be credited \$${(minor / 100).toStringAsFixed(2)} USD';
+          _fxPreview = context.l10n
+              .walletCreditedUsd((minor / 100).toStringAsFixed(2));
         });
       }
       return;
@@ -71,11 +72,14 @@ class _WalletTopUpScreenState extends State<WalletTopUpScreen> {
       );
       if (!mounted) return;
       setState(() {
-        _fxPreview =
-            '≈ \$${(quote.convertedAmountCents / 100).toStringAsFixed(2)} USD charged & credited (Stripe FX)';
+        _fxPreview = context.l10n.fxChargedCredited(
+          (quote.convertedAmountCents / 100).toStringAsFixed(2),
+        );
       });
     } on ApiException catch (e) {
-      if (mounted) setState(() => _fxPreview = 'FX preview unavailable: ${e.message}');
+      if (mounted) {
+        setState(() => _fxPreview = context.l10n.fxPreviewUnavailable(e.message));
+      }
     } catch (_) {
       if (mounted) setState(() => _fxPreview = null);
     }
@@ -87,7 +91,7 @@ class _WalletTopUpScreenState extends State<WalletTopUpScreen> {
     final wallet = context.read<WalletProvider>();
     final cents = currency.parseMajorToMinor(_amountController.text);
     if (cents <= 0) {
-      setState(() => _error = 'Enter a valid amount');
+      setState(() => _error = context.l10n.enterValidAmount);
       return;
     }
 
@@ -112,7 +116,7 @@ class _WalletTopUpScreenState extends State<WalletTopUpScreen> {
       setState(() => _error = e.message);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = 'Top-up failed. Please try again.');
+      setState(() => _error = context.l10n.topUpFailed);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -136,7 +140,7 @@ class _WalletTopUpScreenState extends State<WalletTopUpScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Enter an amount in ${currency.code}. Stripe charges the USD equivalent (live FX) and credits your wallet in USD. Your balance is shown in ${currency.code}.',
+              context.l10n.topUpIntro(currency.code),
               style: typo.sm.copyWith(height: 1.5),
             ),
             if (currency.fxError != null) ...[
@@ -148,7 +152,7 @@ class _WalletTopUpScreenState extends State<WalletTopUpScreen> {
             ],
             const SizedBox(height: 20),
             AppLabeledField(
-              label: currency.fieldLabel('Amount'),
+              label: context.l10n.amountLabelCurrency(currency.code),
               labelStyle: typo.inputLabel.copyWith(fontWeight: FontWeight.w600),
               child: TextField(
                 controller: _amountController,
@@ -158,7 +162,7 @@ class _WalletTopUpScreenState extends State<WalletTopUpScreen> {
                     const TextInputType.numberWithOptions(decimal: true),
                 style: typo.amountInput.copyWith(fontWeight: FontWeight.w700),
                 decoration: InputDecoration(
-                  hintText: 'Enter amount',
+                  hintText: context.l10n.enterAmount,
                   hintStyle: typo.amountInput.copyWith(
                     fontWeight: FontWeight.w400,
                     color: AppColors.textSecondary,
@@ -191,13 +195,13 @@ class _WalletTopUpScreenState extends State<WalletTopUpScreen> {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
-                'Secured by Stripe · Live FX Quotes · Card details are never stored by WWNGO',
+                context.l10n.stripeSecurityBanner,
                 style: typo.sm,
               ),
             ),
             const SizedBox(height: 24),
             AppButton(
-              label: _busy ? 'Processing…' : 'Pay with Stripe',
+              label: _busy ? context.l10n.processing : context.l10n.payWithStripe,
               onPressed: _busy ? null : () => _pay(role),
             ),
           ],
@@ -239,16 +243,16 @@ class WalletTopUpSuccessScreen extends StatelessWidget {
                 child: const Icon(Icons.check, size: 40, color: AppColors.success),
               ),
               const SizedBox(height: 20),
-              Text('Top-up successful', style: typo.h1, textAlign: TextAlign.center),
+              Text(context.l10n.topUpSuccessful, style: typo.h1, textAlign: TextAlign.center),
               const SizedBox(height: 8),
               Text(
-                '${currency.formatCents(amountCents)} topped up. Your wallet was credited the USD equivalent via Stripe FX.',
+                context.l10n.toppedUpCredited(currency.formatCents(amountCents)),
                 textAlign: TextAlign.center,
                 style: typo.sm.copyWith(height: 1.5),
               ),
               const SizedBox(height: 32),
               AppButton(
-                label: 'Back to wallet',
+                label: context.l10n.backToWallet,
                 onPressed: () => context.go('/wallet?role=${role.queryParam}'),
               ),
             ],
@@ -304,27 +308,27 @@ class WalletConnectSuccessScreen extends StatelessWidget {
               const SizedBox(height: 20),
               Text(
                 isRefresh
-                    ? 'Continue payout setup'
-                    : 'Payout account connected',
+                    ? context.l10n.continuePayoutSetup
+                    : context.l10n.payoutAccountConnected,
                 style: typo.h1,
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
               Text(
                 isRefresh
-                    ? 'Return to the wallet to finish linking your Stripe payout account.'
-                    : 'Your Stripe payout account is linked. You can withdraw to your bank from the wallet.',
+                    ? context.l10n.returnToWalletFinishPayout
+                    : context.l10n.stripePayoutLinkedMessage,
                 textAlign: TextAlign.center,
                 style: typo.sm.copyWith(height: 1.5),
               ),
               const SizedBox(height: 32),
               AppButton(
-                label: 'Back to wallet',
+                label: context.l10n.backToWallet,
                 onPressed: () => context.go(walletRoute),
               ),
               const SizedBox(height: AppButton.stackGap),
               AppButton(
-                label: 'Go to home',
+                label: context.l10n.goToHome,
                 variant: AppButtonVariant.outline,
                 textStyle: typo.button.copyWith(
                   fontWeight: FontWeight.w700,

@@ -5,6 +5,7 @@ import '../../../core/platform/local_image.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../data/models/chat_message.dart';
+import '../../../l10n/app_localizations.dart';
 
 class ChatImageAttachment extends StatelessWidget {
   const ChatImageAttachment({super.key, required this.message});
@@ -25,16 +26,20 @@ class ChatImageAttachment extends StatelessWidget {
         height: 110,
         fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) =>
-            _networkOrPlaceholder(typo, remoteUrl),
+            _networkOrPlaceholder(context, typo, remoteUrl),
       );
     }
 
-    return _networkOrPlaceholder(typo, remoteUrl);
+    return _networkOrPlaceholder(context, typo, remoteUrl);
   }
 
-  Widget _networkOrPlaceholder(AppTypography typo, String? remoteUrl) {
+  Widget _networkOrPlaceholder(
+    BuildContext context,
+    AppTypography typo,
+    String? remoteUrl,
+  ) {
     if (remoteUrl == null || remoteUrl.isEmpty) {
-      return _placeholder(typo);
+      return _placeholder(context, typo);
     }
     return Image.network(
       ApiConfig.resolveUploadUrl(remoteUrl),
@@ -62,11 +67,12 @@ class ChatImageAttachment extends StatelessWidget {
           ),
         );
       },
-      errorBuilder: (context, error, stackTrace) => _placeholder(typo),
+      errorBuilder: (context, error, stackTrace) =>
+          _placeholder(context, typo),
     );
   }
 
-  Widget _placeholder(AppTypography typo) {
+  Widget _placeholder(BuildContext context, AppTypography typo) {
     return Container(
       width: 160,
       height: 110,
@@ -76,7 +82,7 @@ class ChatImageAttachment extends StatelessWidget {
         children: [
           Text('📷', style: typo.actionIcon.copyWith(fontSize: 28)),
           Text(
-            'Photo',
+            context.l10n.photo,
             style: typo.badgeSm.copyWith(color: Colors.white.withValues(alpha: 0.8)),
           ),
         ],

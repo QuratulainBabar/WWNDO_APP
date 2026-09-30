@@ -60,8 +60,8 @@ class MyShipmentsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MyPostedParcelsScreen(
-      title: 'My Shipments',
+    return MyPostedParcelsScreen(
+      title: context.l10n.myShipments,
       fallbackRoute: '/home',
     );
   }
@@ -426,7 +426,7 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
                     Builder(
                       builder: (context) {
                         final phase = postedPhase!;
-                        final label = _senderPostedBadgeLabel(phase);
+                        final label = context.tr(_senderPostedBadgeLabel(phase));
                         final badge = AppBadge(
                           label: label,
                           color: phase.color,
@@ -478,17 +478,26 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
                           padding: EdgeInsets.symmetric(vertical: 20),
                           child: Divider(height: 1),
                         ),
-                        Text('Delivery details', style: typo.h3.copyWith(fontWeight: FontWeight.w700)),
+                        Text(context.l10n.deliveryDetails, style: typo.h3.copyWith(fontWeight: FontWeight.w700)),
                         const SizedBox(height: 12),
                         StackedRouteEndpoints(
                           from: shipment.fromCity,
                           to: shipment.toCity,
                           fallbackRoute: shipment.route,
-                          sectionLabel: 'Route',
+                          sectionLabel: context.l10n.route,
                           bottomPadding: 8,
                         ),
-                        _detailRow(context, 'Travel date', DateFormat('MMM d, yyyy').format(shipment.travelDate)),
-                        _detailRow(context, 'Parcel type', '${shipment.parcelCategory} · ${shipment.parcelWeightKg}kg'),
+                        _detailRow(
+                          context,
+                          context.l10n.travelDate,
+                          DateFormat('MMM d, yyyy', context.l10n.locale.toString())
+                              .format(shipment.travelDate),
+                        ),
+                        _detailRow(
+                          context,
+                          context.l10n.parcelType,
+                          '${context.tr(shipment.parcelCategory)} · ${shipment.parcelWeightKg}kg',
+                        ),
                         const SizedBox(height: 16),
                         ShipmentEscrowSection(shipmentId: shipment.id),
                         const SizedBox(height: 16),
@@ -508,7 +517,7 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
                               children: [
                                 if (showEscrowRefunded)
                                   AppBadge(
-                                    label: 'Escrow refunded',
+                                    label: context.l10n.escrowRefunded,
                                     color: AppColors.warning,
                                     backgroundColor: AppColors.warning
                                         .withValues(alpha: 0.12),
@@ -516,7 +525,7 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
                                   )
                                 else if (showEscrowFrozen)
                                   AppBadge(
-                                    label: 'Escrow frozen',
+                                    label: context.l10n.escrowFrozen,
                                     color: AppColors.danger,
                                     backgroundColor: AppColors.danger
                                         .withValues(alpha: 0.12),
@@ -524,17 +533,17 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
                                   ),
                                 if (isDisputed)
                                   AppBadge(
-                                    label: 'Dispute open',
+                                    label: context.l10n.disputeOpen,
                                     color: AppColors.danger,
                                     backgroundColor: AppColors.danger
                                         .withValues(alpha: 0.12),
                                     small: true,
                                   ),
                                 if (cp1Confirmed)
-                                  AppBadge.success('✓ Sender ↔ Traveler')
+                                  AppBadge.success(context.l10n.checkSenderTraveler)
                                 else
                                   AppBadge(
-                                    label: '○ Sender ↔ Traveler',
+                                    label: context.l10n.openCircleSenderTraveler,
                                     color: AppColors.textDisabled,
                                     backgroundColor: AppColors.textDisabled
                                         .withValues(alpha: 0.4),
@@ -542,10 +551,10 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
                                   ),
                                 if (cp2Confirmed ||
                                     status == ShipmentStatus.delivered)
-                                  AppBadge.success('✓ Traveler ↔ Receiver')
+                                  AppBadge.success(context.l10n.checkTravelerReceiver)
                                 else
                                   AppBadge(
-                                    label: '○ Traveler ↔ Receiver',
+                                    label: context.l10n.openCircleTravelerReceiver,
                                     color: AppColors.textDisabled,
                                     backgroundColor: AppColors.textDisabled
                                         .withValues(alpha: 0.4),
@@ -825,11 +834,11 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
       );
       if (status == ShipmentStatus.delivered || cp2Confirmed) {
         addTravelerReviewButton(
-          label: 'Leave a review for receiver',
+          label: context.l10n.leaveReviewForReceiver,
           revieweeRole: WalletRole.receiver,
         );
         addTravelerReviewButton(
-          label: 'Leave a review for a sender',
+          label: context.l10n.leaveReviewForSender,
           revieweeRole: WalletRole.sender,
         );
       }
@@ -840,7 +849,7 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
       if (DeliveryLifecycle.isDisputable(snap?.status)) {
         addAction(
           AppButton(
-            label: 'Dispute',
+            label: context.l10n.dispute,
             variant: AppButtonVariant.danger,
             textStyle: typo.buttonDanger.copyWith(fontWeight: FontWeight.w700),
             onPressed: () => appNavigatePush(
@@ -853,11 +862,11 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
         );
       }
       addTravelerReviewButton(
-        label: 'Leave a review for receiver',
+        label: context.l10n.leaveReviewForReceiver,
         revieweeRole: WalletRole.receiver,
       );
       addTravelerReviewButton(
-        label: 'Leave a review for a sender',
+        label: context.l10n.leaveReviewForSender,
         revieweeRole: WalletRole.sender,
       );
       return actions;
@@ -981,7 +990,7 @@ class _NfcCheckpoint1Section extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                'NFC Checkpoint Traveler & Sender',
+                context.l10n.nfcCheckpointTravelerSender,
                 style: typo.h3.copyWith(fontWeight: FontWeight.w700),
               ),
             ),
@@ -1043,7 +1052,7 @@ class _TravelerNfcDeliverySection extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                'NFC Checkpoint Traveler & Receiver',
+                context.l10n.nfcCheckpointTravelerReceiver,
                 style: typo.h3.copyWith(fontWeight: FontWeight.w700),
               ),
             ),
@@ -1052,11 +1061,11 @@ class _TravelerNfcDeliverySection extends StatelessWidget {
         const SizedBox(height: 8),
         if (isDelivered) ...[
           Text(
-            'Final delivery confirmed with the receiver via NFC. Escrow released to your wallet.',
+            context.l10n.finalDeliveryConfirmedEscrow,
             style: typo.sm.copyWith(height: 1.5, color: AppColors.success),
           ),
           const SizedBox(height: 12),
-          AppBadge.success('✓ NFC Traveler & Receiver confirmed'),
+          AppBadge.success(context.l10n.nfcTravelerReceiverConfirmed),
         ] else ...[
           Text(
             'Meet the receiver and tap phones to confirm final delivery. Both parties must complete NFC Checkpoint Traveler & Receiver to release escrow.',
@@ -1834,7 +1843,7 @@ class TravelerNfcDeliverySuccessScreen extends StatelessWidget {
               if (!waitingForPeer) ...[
                 const SizedBox(height: AppButton.stackGap),
                 AppButton(
-                  label: 'Leave a review for receiver',
+                  label: context.l10n.leaveReviewForReceiver,
                   variant: AppButtonVariant.outline,
                   onPressed: () => context.push(
                     deliveryReviewRoute(
@@ -1846,7 +1855,7 @@ class TravelerNfcDeliverySuccessScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: AppButton.stackGap),
                 AppButton(
-                  label: 'Leave a review for sender',
+                  label: context.l10n.leaveReviewForSender,
                   variant: AppButtonVariant.outline,
                   onPressed: () => context.push(
                     deliveryReviewRoute(

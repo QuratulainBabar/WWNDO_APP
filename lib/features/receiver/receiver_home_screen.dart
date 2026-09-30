@@ -197,7 +197,9 @@ class _ReceiverHomeScreenState extends State<ReceiverHomeScreen>
   Widget build(BuildContext context) {
     final typo = context.typo;
     final authUser = context.watch<AuthProvider>().user;
-    final firstName = authUser?.firstName ?? 'there';
+    final firstName = (authUser?.firstName.trim().isNotEmpty ?? false)
+        ? authUser!.firstName
+        : context.l10n.greetingFallbackName;
     final shipment = _active;
     final status = shipment == null
         ? null
@@ -219,14 +221,16 @@ class _ReceiverHomeScreenState extends State<ReceiverHomeScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Hey, $firstName 👋',
+                        context.l10n.heyUser(firstName),
                         style: typo.h1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       Text(
-                        SelectedRoleStore.homeRatingSubtitle(
-                          authUser,
-                          WalletRole.receiver,
+                        context.tr(
+                          SelectedRoleStore.homeRatingSubtitle(
+                            authUser,
+                            WalletRole.receiver,
+                          ),
                         ),
                         style: typo.sm,
                       ),
@@ -238,43 +242,51 @@ class _ReceiverHomeScreenState extends State<ReceiverHomeScreen>
             ),
             const SizedBox(height: 24),
             Text(
-              isDelivered ? 'Latest parcel' : 'Incoming parcel',
+              isDelivered
+                  ? context.l10n.latestParcel
+                  : context.l10n.incomingParcel,
               style: typo.h3.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 12),
             _parcelSection(context, typo, shipment, status),
             const SizedBox(height: 24),
-            Text('Quick actions', style: typo.h3.copyWith(fontWeight: FontWeight.w700)),
+            Text(
+              context.l10n.quickActions,
+              style: typo.h3.copyWith(fontWeight: FontWeight.w700),
+            ),
             const SizedBox(height: 12),
             Row(
               children: [
                 _action(
                   context,
                   AppIcons.track,
-                  'Parcel',
+                  context.l10n.parcel,
                   () => context.go('/receiver-shipments'),
                 ),
                 const SizedBox(width: 10),
                 _action(
                   context,
                   AppIcons.chat,
-                  'Chat traveler',
+                  context.l10n.chatTraveler,
                   () => context.go('/receiver-chats'),
                 ),
               ],
             ),
             const SizedBox(height: 24),
-            Text('What to expect', style: typo.h3.copyWith(fontWeight: FontWeight.w700)),
+            Text(
+              context.l10n.whatToExpect,
+              style: typo.h3.copyWith(fontWeight: FontWeight.w700),
+            ),
             const SizedBox(height: 12),
             AppCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _tip(context, '1', 'Follow your parcel in real time as the traveler carries it.'),
+                  _tip(context, '1', context.l10n.receiverTip1),
                   const SizedBox(height: 10),
-                  _tip(context, '2', 'Chat with the traveler to coordinate handover details.'),
+                  _tip(context, '2', context.l10n.receiverTip2),
                   const SizedBox(height: 10),
-                  _tip(context, '3', 'Confirm delivery via NFC when you meet the traveler.'),
+                  _tip(context, '3', context.l10n.receiverTip3),
                 ],
               ),
             ),
@@ -311,7 +323,10 @@ class _ReceiverHomeScreenState extends State<ReceiverHomeScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(_error!, style: typo.sm.copyWith(color: AppColors.textSecondary)),
+            Text(
+              context.l10n.unableToLoadIncoming,
+              style: typo.sm.copyWith(color: AppColors.textSecondary),
+            ),
             const SizedBox(height: 8),
             TextButton(onPressed: () => _load(), child: Text(context.tr('Retry'))),
           ],
@@ -324,7 +339,7 @@ class _ReceiverHomeScreenState extends State<ReceiverHomeScreen>
         width: double.infinity,
         child: AppCard(
           child: Text(
-            'No active shipments.',
+            context.l10n.noActiveShipments,
             style: typo.sm.copyWith(color: AppColors.textSecondary),
           ),
         ),
@@ -352,7 +367,7 @@ class _ReceiverHomeScreenState extends State<ReceiverHomeScreen>
                   style: typo.h3.copyWith(fontWeight: FontWeight.w700),
                 ),
                 AppBadge(
-                  label: status.label,
+                  label: context.tr(status.label),
                   color: status.color,
                   backgroundColor: status.backgroundColor,
                   semiBold: true,
@@ -369,14 +384,21 @@ class _ReceiverHomeScreenState extends State<ReceiverHomeScreen>
             const SizedBox(height: 8),
             Text(
               status.isPendingRequest
-                  ? 'From ${shipment.senderName ?? 'Sender'}'
-                  : 'Traveler: ${shipment.senderName ?? '—'}',
+                  ? context.l10n.fromLabel(
+                      shipment.senderName ?? context.tr('Sender'),
+                    )
+                  : context.l10n.travelerColon(shipment.senderName ?? '—'),
               style: typo.sm,
             ),
             if (travelDate != null) ...[
               const SizedBox(height: 4),
               Text(
-                'Arriving ${DateFormat('MMM d, yyyy').format(travelDate)}',
+                context.l10n.arrivingColon(
+                  DateFormat(
+                    'MMM d, yyyy',
+                    context.l10n.locale.toString(),
+                  ).format(travelDate),
+                ),
                 style: typo.sm.copyWith(
                   color: AppColors.primary,
                   fontWeight: FontWeight.w600,

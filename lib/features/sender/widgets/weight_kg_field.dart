@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../../core/platform/keyboard_utils.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_labeled_field.dart';
+import '../../../l10n/app_localizations.dart';
 
 /// Editable parcel weight field for Post Delivery forms.
 class WeightKgField extends StatefulWidget {
@@ -61,7 +62,7 @@ class _WeightKgFieldState extends State<WeightKgField> {
     final typo = context.typo;
 
     return AppLabeledField(
-      label: 'Weight (kg)',
+      label: context.l10n.weightKg,
       labelStyle: typo.inputLabel.copyWith(fontWeight: FontWeight.w600),
       child: TextField(
         controller: _controller,
@@ -74,7 +75,7 @@ class _WeightKgFieldState extends State<WeightKgField> {
         style: typo.input,
         onChanged: _handleChanged,
         decoration: InputDecoration(
-          hintText: 'Enter parcel weight',
+          hintText: context.l10n.enterParcelWeight,
           suffixText: 'kg',
           errorText: widget.errorText,
         ),

@@ -17,13 +17,10 @@ import '../../core/platform/platform_ui.dart';
 import '../../data/models/chat_message.dart';
 
 import '../../data/static_data.dart';
-
+import '../../l10n/app_localizations.dart';
 import 'chat_conversation_mixin.dart';
-
 import 'widgets/chat_composer.dart';
-
 import 'widgets/chat_image_attachment.dart';
-
 
 
 class ChatScreen extends StatefulWidget {
@@ -125,15 +122,10 @@ class _ChatScreenState extends State<ChatScreen> with ChatConversationMixin {
             color: AppColors.surface,
 
             child: Text(
-
-              'All messages end-to-end secured · $shipmentId',
-
+              context.l10n.messagesEndToEndSecured(shipmentId),
               textAlign: TextAlign.center,
-
               style: typo.sm,
-
             ),
-
           ),
 
           Divider(height: 1, thickness: 1, color: AppColors.border),
@@ -164,7 +156,7 @@ class _ChatScreenState extends State<ChatScreen> with ChatConversationMixin {
 
                     ),
 
-                    child: Text('Today', style: typo.datePill),
+                    child: Text(context.l10n.today, style: typo.datePill),
 
                   ),
 
@@ -186,7 +178,7 @@ class _ChatScreenState extends State<ChatScreen> with ChatConversationMixin {
 
             controller: chatController,
 
-            hintText: 'Message...',
+            hintText: context.l10n.messageEllipsis,
 
             onSend: sendChatTextMessage,
 

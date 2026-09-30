@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
 
@@ -65,7 +66,9 @@ class OtpCountdownTimerState extends State<OtpCountdownTimer> {
         Icon(Icons.timer_outlined, size: 18, color: color),
         const SizedBox(width: 6),
         Text(
-          isExpired ? 'Code expired' : 'Code expires in $minutes:$seconds',
+          isExpired
+              ? context.l10n.codeExpired
+              : context.l10n.codeExpiresIn('$minutes:$seconds'),
           style: typo.sm.copyWith(color: color, fontWeight: FontWeight.w700),
         ),
       ],

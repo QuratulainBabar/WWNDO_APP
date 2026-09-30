@@ -167,7 +167,7 @@ class _TravelerMyTripsScreenState extends State<TravelerMyTripsScreen>
       PopupMenuItem(
         value: 'view',
         height: 42,
-        child: Text('View', style: itemStyle),
+        child: Text(context.l10n.view, style: itemStyle),
       ),
       if (canEditOrCancel) ...[
         PopupMenuItem<String>(
@@ -183,7 +183,7 @@ class _TravelerMyTripsScreenState extends State<TravelerMyTripsScreen>
         PopupMenuItem(
           value: 'edit',
           height: 42,
-          child: Text('Edit', style: itemStyle),
+          child: Text(context.l10n.edit, style: itemStyle),
         ),
         PopupMenuItem<String>(
           enabled: false,
@@ -198,7 +198,7 @@ class _TravelerMyTripsScreenState extends State<TravelerMyTripsScreen>
         PopupMenuItem(
           value: 'cancel',
           height: 42,
-          child: Text('Cancel', style: itemStyle),
+          child: Text(context.l10n.cancel, style: itemStyle),
         ),
       ],
     ];
@@ -223,7 +223,7 @@ class _TravelerMyTripsScreenState extends State<TravelerMyTripsScreen>
                 children: [
                   BackLink(onTap: () => context.go('/traveler-home')),
                   const SizedBox(height: 16),
-                  Text('My Trips', style: typo.h1),
+                  Text(context.l10n.myTripsTitle, style: typo.h1),
                 ],
               ),
             ),
@@ -241,7 +241,7 @@ class _TravelerMyTripsScreenState extends State<TravelerMyTripsScreen>
                   Expanded(
                     child: _tab(
                       context,
-                      'Active',
+                      context.l10n.active,
                       _tabFilter == _MyTripsTab.active,
                       () => setState(() => _tabFilter = _MyTripsTab.active),
                     ),
@@ -249,7 +249,7 @@ class _TravelerMyTripsScreenState extends State<TravelerMyTripsScreen>
                   Expanded(
                     child: _tab(
                       context,
-                      'Completed',
+                      context.l10n.completed,
                       _tabFilter == _MyTripsTab.completed,
                       () => setState(() => _tabFilter = _MyTripsTab.completed),
                     ),
@@ -257,7 +257,7 @@ class _TravelerMyTripsScreenState extends State<TravelerMyTripsScreen>
                   Expanded(
                     child: _tab(
                       context,
-                      'Cancelled',
+                      context.l10n.cancelled,
                       _tabFilter == _MyTripsTab.cancelled,
                       () => setState(() => _tabFilter = _MyTripsTab.cancelled),
                     ),
@@ -307,10 +307,10 @@ class _TravelerMyTripsScreenState extends State<TravelerMyTripsScreen>
           padding: EdgeInsets.symmetric(horizontal: horizontal),
           child: Text(
             _tabFilter == _MyTripsTab.active
-                ? 'No active trips yet.'
+                ? context.l10n.noActiveTripsYet
                 : _tabFilter == _MyTripsTab.completed
-                    ? 'No completed trips yet.'
-                    : 'No cancelled trips yet.',
+                    ? context.l10n.noCompletedTripsYet
+                    : context.l10n.noCancelledTripsYet,
             style: typo.sm.copyWith(color: AppColors.textSecondary),
             textAlign: TextAlign.center,
           ),
@@ -425,7 +425,7 @@ class _TripCard extends StatelessWidget {
                   minWidth: 36,
                   minHeight: 36,
                 ),
-                tooltip: 'More options',
+                tooltip: context.l10n.moreOptions,
                 onSelected: onMenuSelected,
                 itemBuilder: menuItems,
               ),
@@ -433,12 +433,15 @@ class _TripCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            DateFormat('MMM d, yyyy').format(trip.travelDate),
+            DateFormat('MMM d, yyyy', context.l10n.locale.toString())
+                .format(trip.travelDate),
             style: typo.sm.copyWith(color: AppColors.textSecondary),
           ),
           const SizedBox(height: 4),
           Text(
-            '${trip.luggageCapacityKg.toStringAsFixed(0)} kg luggage available',
+            context.l10n.luggageAvailable(
+              trip.luggageCapacityKg.toStringAsFixed(0),
+            ),
             style: typo.sm.copyWith(
               color: AppColors.primary,
               fontWeight: FontWeight.w600,
@@ -447,7 +450,7 @@ class _TripCard extends StatelessWidget {
           if (trip.status.isCompleted) ...[
             const SizedBox(height: 8),
             Text(
-              trip.status.label,
+              context.tr(trip.status.label),
               style: typo.sm.copyWith(
                 color: trip.status.color,
                 fontWeight: FontWeight.w700,

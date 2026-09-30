@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../data/models/meetup_location.dart';
+import '../../../l10n/app_localizations.dart';
 import 'field_info_tag.dart';
 
 /// Pin-box entry point for meetup locations on the post delivery form.
@@ -23,6 +24,7 @@ class MeetupLocationsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
+    final l10n = context.l10n;
     final hasLocations = locations.isNotEmpty;
 
     return Column(
@@ -32,7 +34,7 @@ class MeetupLocationsCard extends StatelessWidget {
           children: [
             Flexible(
               child: Text(
-                'Meetup Locations (Max $maxLocations)',
+                l10n.meetupLocationsMax(maxLocations),
                 style: typo.inputLabel.copyWith(
                   fontWeight: FontWeight.w600,
                   color: AppColors.textPrimary,
@@ -86,7 +88,7 @@ class MeetupLocationsCard extends StatelessWidget {
                         Text(
                           hasLocations
                               ? '${locations.length} location${locations.length == 1 ? '' : 's'} added'
-                              : 'Where you meet the traveler to hand over the parcel',
+                              : l10n.meetupHandOverHint,
                           style: typo.sm.copyWith(color: AppColors.textSecondary),
                         ),
                         if (hasLocations) ...[
@@ -121,7 +123,7 @@ class MeetupLocationsCard extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        hasLocations ? 'Edit' : 'Add locations',
+                        hasLocations ? context.tr('Edit') : l10n.addLocations,
                         style: typo.sm.copyWith(
                           color: AppColors.primary,
                           fontWeight: FontWeight.w600,

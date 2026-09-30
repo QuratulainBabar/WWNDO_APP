@@ -209,7 +209,7 @@ class _TravelerProfileScreenState extends State<TravelerProfileScreen> {
             children: [
               BackLink(onTap: () => context.go('/traveler-home')),
               const SizedBox(height: 16),
-              Text('Profile', style: typo.h1),
+              Text(context.l10n.profile, style: typo.h1),
               const SizedBox(height: 48),
               const Center(
                 child: CircularProgressIndicator(color: AppColors.primary),
@@ -228,7 +228,7 @@ class _TravelerProfileScreenState extends State<TravelerProfileScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Profile', style: typo.h1),
+              Text(context.l10n.profile, style: typo.h1),
               const SizedBox(height: 48),
               const Center(
                 child: CircularProgressIndicator(color: AppColors.primary),
@@ -259,7 +259,7 @@ class _TravelerProfileScreenState extends State<TravelerProfileScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Profile', style: typo.h1),
+                Text(context.l10n.profile, style: typo.h1),
                 GestureDetector(
                   onTap: () async {
                     await context.push('/settings?role=traveler');
@@ -297,19 +297,23 @@ class _TravelerProfileScreenState extends State<TravelerProfileScreen> {
             AppCard(
               child: Column(
                 children: [
-                  _infoRow(context, 'Email', _displayOrDash(authUser.email)),
+                  _infoRow(
+                    context,
+                    context.l10n.email,
+                    _displayOrDash(authUser.email),
+                  ),
                   const Divider(height: 24),
                   _infoRow(
                     context,
-                    'Phone number',
+                    context.l10n.phoneNumber,
                     _displayOrDash(authUser.phone),
                   ),
                   const Divider(height: 24),
-                  _infoRow(context, 'Country', country),
+                  _infoRow(context, context.l10n.country, country),
                   const Divider(height: 24),
                   _infoRow(
                     context,
-                    'Rating',
+                    context.l10n.rating,
                     '',
                     trailing: StarRatingDisplay(
                       rating: rating,
@@ -317,9 +321,17 @@ class _TravelerProfileScreenState extends State<TravelerProfileScreen> {
                     ),
                   ),
                   const Divider(height: 24),
-                  _infoRow(context, 'Total trips completed', tripsCompleted),
+                  _infoRow(
+                    context,
+                    context.l10n.totalTripsCompleted,
+                    tripsCompleted,
+                  ),
                   const Divider(height: 24),
-                  _infoRow(context, 'Parcels delivered', parcelsDelivered),
+                  _infoRow(
+                    context,
+                    context.l10n.parcelsDelivered,
+                    parcelsDelivered,
+                  ),
                 ],
               ),
             ),
@@ -331,26 +343,30 @@ class _TravelerProfileScreenState extends State<TravelerProfileScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              'Traveler statistics',
+              context.l10n.travelerStatistics,
               style: typo.h3.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 10),
             Row(
               children: [
-                _stat(context, totalDeliveries, 'Total deliveries'),
+                _stat(context, totalDeliveries, context.l10n.totalDeliveries),
                 const SizedBox(width: 10),
-                _stat(context, activeTrips, 'Active trips'),
+                _stat(context, activeTrips, context.l10n.activeTrips),
               ],
             ),
             const SizedBox(height: 10),
             Row(
               children: [
-                _stat(context, successfulRate, 'Successful delivery rate'),
+                _stat(
+                  context,
+                  successfulRate,
+                  context.l10n.successfulDeliveryRate,
+                ),
                 const SizedBox(width: 10),
                 _stat(
                   context,
                   '',
-                  'Average rating',
+                  context.l10n.averageRating,
                   trailing: StarRatingDisplay(
                     rating: rating,
                     showValue: true,
@@ -370,7 +386,7 @@ class _TravelerProfileScreenState extends State<TravelerProfileScreen> {
                       WalletService.formatCents(
                         WalletService.availableCents(WalletRole.traveler),
                       ),
-                      'Wallet',
+                      context.l10n.wallet,
                       onTap: () => context.push('/wallet?role=traveler'),
                       expand: false,
                     ),

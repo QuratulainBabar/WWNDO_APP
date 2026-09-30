@@ -46,7 +46,7 @@ class TravelDateField extends StatelessWidget {
 
     final helpText = constrainToActiveTripWindow
         ? 'Select travel date (prev ${TripDateWindow.pastDays}d – next ${TripDateWindow.futureDays}d)'
-        : 'Select travel date';
+        : context.l10n.selectTravelDate;
 
     // Compact custom dialog — Material date picker always reserves 6 week
     // rows, leaving a large empty gap above Cancel/OK.
@@ -85,7 +85,7 @@ class TravelDateField extends StatelessWidget {
               child: InputDecorator(
                 isEmpty: value == null,
                 decoration: InputDecoration(
-                  hintText: 'Select travel date',
+                  hintText: context.l10n.selectTravelDate,
                   errorText: errorText,
                   suffixIcon: Icon(
                     Icons.calendar_month_outlined,

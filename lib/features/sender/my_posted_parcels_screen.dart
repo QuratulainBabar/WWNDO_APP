@@ -28,11 +28,12 @@ enum _ShipmentsTab { active, completed, cancelled }
 class MyPostedParcelsScreen extends StatefulWidget {
   const MyPostedParcelsScreen({
     super.key,
-    this.title = 'My Posted Deliveries',
+    this.title,
     this.fallbackRoute,
   });
 
-  final String title;
+  /// When null, uses [AppLocalizations.myPostedDeliveries].
+  final String? title;
   final String? fallbackRoute;
 
   @override
@@ -276,10 +277,10 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen>
     );
   }
 
-  String _formatTravelDate(String raw) {
+  String _formatTravelDate(String raw, String locale) {
     final parsed = DateTime.tryParse(raw);
     if (parsed == null) return raw.isEmpty ? '—' : raw;
-    return DateFormat('MMM d, yyyy').format(parsed);
+    return DateFormat('MMM d, yyyy', locale).format(parsed);
   }
 
   String _formatWeight(double kg) {
@@ -401,7 +402,7 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen>
                           ),
                           const SizedBox(height: 8),
                           AppBadge(
-                            label: statusUi.label,
+                            label: context.tr(statusUi.label),
                             color: statusUi.color,
                             backgroundColor: statusUi.backgroundColor,
                             semiBold: true,
@@ -415,8 +416,8 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen>
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Travel date: ${_formatTravelDate(parcel.travelDate)}'
-                            ' · Weight: ${_formatWeight(parcel.weightKg)}',
+                            '${context.l10n.travelDateColon(_formatTravelDate(parcel.travelDate, context.l10n.locale.toString()))}'
+                            ' · ${context.l10n.weightColon(_formatWeight(parcel.weightKg))}',
                             style: typo.sm.copyWith(
                               color: AppColors.textSecondary,
                             ),
@@ -445,7 +446,7 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen>
                 if (_isActiveTab && statusUi.description != null) ...[
                   const SizedBox(height: 10),
                   Text(
-                    statusUi.description!,
+                    context.tr(statusUi.description!),
                     style: typo.sm.copyWith(
                       color: AppColors.textSecondary,
                     ),
@@ -454,7 +455,7 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen>
                 if (_isActiveTab && requests.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   Text(
-                    'Requested: ${requests.map((r) => r.travelerName).join(', ')}'
+                    '${context.l10n.requestedPrefix(requests.map((r) => r.travelerName).join(', '))}'
                     ' (${requests.length}/${PlatformFees.maxTravelerRequestsPerDelivery})',
                     style: typo.sm.copyWith(
                       color: AppColors.textSecondary,
@@ -476,7 +477,7 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen>
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: BackHeader(
-        title: widget.title,
+        title: widget.title ?? context.l10n.myPostedDeliveries,
         fallbackRoute: widget.fallbackRoute,
       ),
       body: Column(
@@ -495,7 +496,7 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen>
                 Expanded(
                   child: _tab(
                     context,
-                    'Active',
+                    context.l10n.active,
                     _tabFilter == _ShipmentsTab.active,
                     () => setState(() => _tabFilter = _ShipmentsTab.active),
                   ),
@@ -503,7 +504,7 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen>
                 Expanded(
                   child: _tab(
                     context,
-                    'Completed',
+                    context.l10n.completed,
                     _tabFilter == _ShipmentsTab.completed,
                     () => setState(() => _tabFilter = _ShipmentsTab.completed),
                   ),
@@ -511,7 +512,7 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen>
                 Expanded(
                   child: _tab(
                     context,
-                    'Cancelled',
+                    context.l10n.cancelled,
                     _tabFilter == _ShipmentsTab.cancelled,
                     () => setState(() => _tabFilter = _ShipmentsTab.cancelled),
                   ),

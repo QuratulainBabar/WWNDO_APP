@@ -8,6 +8,7 @@ import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/kyc_status_badge.dart';
 import '../../../data/models/auth_user.dart';
 import '../../../data/models/profile_trust_metrics.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../providers/auth_provider.dart';
 
 class ProfileTrustIndicators extends StatelessWidget {
@@ -30,20 +31,23 @@ class ProfileTrustIndicators extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Trust indicators', style: typo.h3.copyWith(fontWeight: FontWeight.w700)),
+        Text(
+          context.l10n.trustIndicators,
+          style: typo.h3.copyWith(fontWeight: FontWeight.w700),
+        ),
         const SizedBox(height: 10),
         AppCard(
           child: Column(
             children: [
               _row(
                 context,
-                label: 'KYC status',
+                label: context.l10n.kycStatus,
                 trailing: KycStatusBadge(user: user),
               ),
               const Divider(height: 24),
               _row(
                 context,
-                label: 'Completed deliveries',
+                label: context.l10n.completedDeliveriesLabel,
                 trailing: loading
                     ? _loadingValue(context)
                     : Text(
@@ -54,7 +58,7 @@ class ProfileTrustIndicators extends StatelessWidget {
               const Divider(height: 24),
               _row(
                 context,
-                label: 'Cancellation rate',
+                label: context.l10n.cancellationRate,
                 trailing: loading
                     ? _loadingValue(context)
                     : AppBadge(
@@ -67,7 +71,7 @@ class ProfileTrustIndicators extends StatelessWidget {
               const Divider(height: 24),
               _row(
                 context,
-                label: 'Dispute rate',
+                label: context.l10n.disputeRate,
                 trailing: loading
                     ? _loadingValue(context)
                     : AppBadge(

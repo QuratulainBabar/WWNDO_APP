@@ -78,15 +78,19 @@ abstract final class LocalTime {
   }
 
   /// Inbox row: clock for today, otherwise Yesterday / weekday / date.
-  static String inbox(DateTime value) {
+  static String inbox(
+    DateTime value, {
+    String? locale,
+    String yesterdayLabel = 'Yesterday',
+  }) {
     final local = value.toLocal();
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final day = DateTime(local.year, local.month, local.day);
     final diff = today.difference(day).inDays;
     if (diff <= 0) return clock(local);
-    if (diff == 1) return 'Yesterday';
-    if (diff < 7) return DateFormat('EEE').format(local);
-    return DateFormat('MMM d').format(local);
+    if (diff == 1) return yesterdayLabel;
+    if (diff < 7) return DateFormat('EEE', locale).format(local);
+    return DateFormat('MMM d', locale).format(local);
   }
 }

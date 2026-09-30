@@ -59,9 +59,11 @@ class LanguageSettingsScreen extends StatelessWidget {
                         language: localeProvider.supported[i],
                         selected: localeProvider.supported[i] == selected,
                         onTap: () async {
-                          await localeProvider
-                              .setLanguage(localeProvider.supported[i]);
+                          final next = localeProvider.supported[i];
+                          // Pop first so awaiting parent pushes complete before
+                          // MaterialApp rebuilds for the new locale.
                           if (context.mounted) context.pop();
+                          await localeProvider.setLanguage(next);
                         },
                       ),
                       if (i < localeProvider.supported.length - 1)

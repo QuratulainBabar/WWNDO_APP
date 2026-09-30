@@ -10,6 +10,7 @@ import '../../core/api/api_exception.dart';
 import '../../core/config/demo_mode.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
+import '../../core/time/local_time.dart';
 import '../../core/widgets/app_avatar.dart';
 import '../../core/widgets/back_link.dart';
 import '../../core/widgets/screen_body.dart';
@@ -162,7 +163,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
       if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _loading = false;
-        _error = 'Unable to load chats.';
+        _error = context.l10n.unableToLoadChats;
       });
     }
   }
@@ -216,7 +217,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
           children: [
             BackLink(onTap: () => context.go(_homeRoute)),
             const SizedBox(height: 16),
-            Text('Chats', style: typo.h1.copyWith(fontWeight: FontWeight.w700)),
+            Text(context.l10n.chats, style: typo.h1.copyWith(fontWeight: FontWeight.w700)),
             const SizedBox(height: 16),
             TextField(
               controller: _searchController,
@@ -226,7 +227,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
               onChanged: (value) => setState(() => _query = value),
               style: typo.input,
               decoration: InputDecoration(
-                hintText: 'Search chats',
+                hintText: context.l10n.searchChats,
                 hintStyle: typo.searchHint,
                 prefixIcon: Icon(
                   Icons.search_rounded,
@@ -297,14 +298,16 @@ class _ChatListScreenState extends State<ChatListScreen> {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        _query.isEmpty ? 'No chats yet' : 'No matching chats',
+                        _query.isEmpty
+                            ? context.l10n.noChatsYet
+                            : context.l10n.noMatchingChats,
                         style: typo.bodyBold.copyWith(fontSize: 16),
                       ),
                       const SizedBox(height: 6),
                       Text(
                         _query.isEmpty
-                            ? 'Your conversations will appear here.'
-                            : 'Try a different search term.',
+                            ? context.l10n.conversationsAppearHere
+                            : context.l10n.tryDifferentSearch,
                         textAlign: TextAlign.center,
                         style:
                             typo.sm.copyWith(color: AppColors.textSecondary),
@@ -389,7 +392,7 @@ class _ChatListTile extends StatelessWidget {
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              conversation.displayTime,
+                              _inboxDisplayTime(context, conversation),
                               style: typo.caption.copyWith(
                                 fontSize: 12,
                                 color: unread
@@ -418,7 +421,9 @@ class _ChatListTile extends StatelessWidget {
                                         const SizedBox(width: 4),
                                         Expanded(
                                           child: Text(
-                                            conversation.displayLastMessage,
+                                            conversation.lastMessageIsImage
+                                                ? context.l10n.photo
+                                                : conversation.displayLastMessage,
                                             style: typo.sm.copyWith(
                                               color: unread
                                                   ? AppColors.textPrimary
@@ -435,8 +440,10 @@ class _ChatListTile extends StatelessWidget {
                                     )
                                   : Text(
                                       conversation.displayLastMessage.isEmpty
-                                          ? 'Tap to start chatting'
-                                          : conversation.displayLastMessage,
+                                          ? context.l10n.tapToStartChatting
+                                          : conversation.lastMessageIsImage
+                                              ? context.l10n.photo
+                                              : conversation.displayLastMessage,
                                       style: typo.sm.copyWith(
                                         color: unread
                                             ? AppColors.textPrimary
@@ -497,6 +504,23 @@ class _ChatListTile extends StatelessWidget {
       ],
     );
   }
+}
+
+String _inboxDisplayTime(
+  BuildContext context,
+  ChatConversationPreview conversation,
+) {
+  final ts = conversation.lastMessageAt;
+  if (ts == null) {
+    final raw = conversation.time.trim();
+    if (raw.isEmpty) return '';
+    return context.tr(raw);
+  }
+  return LocalTime.inbox(
+    ts,
+    locale: context.l10n.locale.toString(),
+    yesterdayLabel: context.l10n.yesterday,
+  );
 }
 
 /// Avatar with an optional lock badge for threads that aren't unlocked yet.

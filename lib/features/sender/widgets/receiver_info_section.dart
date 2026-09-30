@@ -8,6 +8,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_labeled_field.dart';
 import '../../../core/widgets/international_phone_field.dart';
 import '../../../data/models/meetup_location.dart';
+import '../../../l10n/app_localizations.dart';
 import 'field_info_tag.dart';
 
 /// Receiver contact fields + Google Maps meetup location picker.
@@ -102,27 +103,27 @@ class _ReceiverInfoSectionState extends State<ReceiverInfoSection> {
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
+    final l10n = context.l10n;
     final hasMeetup = widget.meetupLocations.isNotEmpty;
     final meetupLabel = hasMeetup
         ? widget.meetupLocations.first.displayLabel
-        : 'Select meetup location';
+        : l10n.selectMeetupLocation;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Receiver',
+          l10n.receiverSection,
           style: typo.h3.copyWith(fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 4),
         Text(
-          'Enter the receiver\'s contact details. When you post this delivery, '
-          'we\'ll send an email notification to the address below.',
+          l10n.receiverContactIntro,
           style: typo.sm.copyWith(color: AppColors.textSecondary),
         ),
         const SizedBox(height: 4),
         AppLabeledField(
-          label: 'Receiver email',
+          label: l10n.receiverEmail,
           labelStyle: typo.inputLabel.copyWith(fontWeight: FontWeight.w600),
           child: KeyedSubtree(
             key: widget.emailFieldKey,
@@ -151,7 +152,7 @@ class _ReceiverInfoSectionState extends State<ReceiverInfoSection> {
               InternationalPhoneField(
                 controller: _phoneController,
                 country: _phoneCountry,
-                label: 'Receiver phone number',
+                label: l10n.receiverPhoneNumber,
                 labelStyle: typo.inputLabel.copyWith(fontWeight: FontWeight.w600),
                 onCountryChanged: (country) {
                   setState(() => _phoneCountry = country);
@@ -178,7 +179,7 @@ class _ReceiverInfoSectionState extends State<ReceiverInfoSection> {
               Row(
                 children: [
                   Text(
-                    'Meetup location (Google Maps)',
+                    l10n.meetupLocationGoogleMaps,
                     style: typo.inputLabel.copyWith(fontWeight: FontWeight.w600),
                   ),
                   const FieldInfoTag(
@@ -262,9 +263,8 @@ class _ReceiverInfoSectionState extends State<ReceiverInfoSection> {
           ),
         ),
         const SizedBox(height: 8),
-        const FieldInfoHint(
-          text:
-              'Destination drop-off for the receiver. Receiver must also have at least \$2 in wallet.',
+        FieldInfoHint(
+          text: l10n.receiverDropOffNote,
         ),
       ],
     );

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/theme/app_typography.dart';
 import '../../../data/wallet_service.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../providers/wallet_provider.dart';
 
 /// Live shipment escrow amount/status from GET /wallet/escrow/:id.
@@ -49,27 +50,27 @@ class _ShipmentEscrowSectionState extends State<ShipmentEscrowSection> {
 
         String statusLabel;
         if (released) {
-          statusLabel = 'Released to traveler (Traveler ↔ Receiver)';
+          statusLabel = context.l10n.releasedToTravelerCp2;
         } else if (refunded) {
-          statusLabel = 'Refunded to sender';
+          statusLabel = context.l10n.refundedToSender;
         } else if (frozen) {
-          statusLabel = 'Frozen — dispute under review';
+          statusLabel = context.l10n.escrowFrozenDispute;
         } else if (escrow > 0) {
-          statusLabel = 'Held until Traveler ↔ Receiver';
+          statusLabel = context.l10n.heldUntilCp2;
         } else {
-          statusLabel = 'No active escrow';
+          statusLabel = context.l10n.noActiveEscrow;
         }
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Shipment escrow',
+              context.l10n.shipmentEscrow,
               style: typo.h3.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
-            _detailRow(context, 'Amount', WalletService.formatCents(escrow)),
-            _detailRow(context, 'Status', statusLabel),
+            _detailRow(context, context.l10n.amount, WalletService.formatCents(escrow)),
+            _detailRow(context, context.l10n.status, statusLabel),
           ],
         );
       },

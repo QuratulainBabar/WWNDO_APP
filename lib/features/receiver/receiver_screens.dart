@@ -149,7 +149,7 @@ class _ReceiverProfileScreenState extends State<ReceiverProfileScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Profile', style: typo.h1),
+                Text(context.l10n.profile, style: typo.h1),
                 GestureDetector(
                   onTap: () => context.push('/settings?role=receiver'),
                   child: AppSvgIcon(
@@ -181,13 +181,21 @@ class _ReceiverProfileScreenState extends State<ReceiverProfileScreen> {
                   _stat(
                     context,
                     '',
-                    'Rating',
+                    context.l10n.rating,
                     trailing: StarRatingDisplay(rating: user.rating, size: 12),
                   ),
                   const SizedBox(width: 10),
-                  _stat(context, '$activeCount', 'Incoming shipments'),
+                  _stat(
+                    context,
+                    '$activeCount',
+                    context.tr('Incoming shipments'),
+                  ),
                   const SizedBox(width: 10),
-                  _stat(context, '$_deliveredCount', 'Delivered Parcels'),
+                  _stat(
+                    context,
+                    '$_deliveredCount',
+                    context.tr('Delivered Parcels'),
+                  ),
                 ],
               ),
             ),
@@ -202,7 +210,7 @@ class _ReceiverProfileScreenState extends State<ReceiverProfileScreen> {
                       WalletService.formatCents(
                         WalletService.availableCents(WalletRole.receiver),
                       ),
-                      'Wallet',
+                      context.l10n.wallet,
                       onTap: () => context.push('/wallet?role=receiver'),
                       expand: false,
                     ),
@@ -211,8 +219,8 @@ class _ReceiverProfileScreenState extends State<ReceiverProfileScreen> {
                 const SizedBox(width: 10),
                 _stat(
                   context,
-                  'History',
-                  'Transactions',
+                  context.l10n.history,
+                  context.tr('Transactions'),
                   onTap: () => context.push('/transaction-history?role=receiver'),
                 ),
               ],
@@ -223,32 +231,63 @@ class _ReceiverProfileScreenState extends State<ReceiverProfileScreen> {
               authUser: authUser,
             ),
             const SizedBox(height: 16),
-            Text('Quick actions', style: typo.h3.copyWith(fontWeight: FontWeight.w700)),
+            Text(
+              context.l10n.quickActions,
+              style: typo.h3.copyWith(fontWeight: FontWeight.w700),
+            ),
             const SizedBox(height: 12),
             Row(
               children: [
-                _quickAction(context, AppIcons.parcel, 'My Incoming Parcels', () => context.go('/receiver-shipments')),
+                _quickAction(
+                  context,
+                  AppIcons.parcel,
+                  context.tr('My Incoming Parcels'),
+                  () => context.go('/receiver-shipments'),
+                ),
                 const SizedBox(width: 10),
-                _quickAction(context, AppIcons.track, 'Parcel', () => context.push('/receiver-tracking')),
+                _quickAction(
+                  context,
+                  AppIcons.track,
+                  context.l10n.parcel,
+                  () => context.push('/receiver-tracking'),
+                ),
                 const SizedBox(width: 10),
-                _quickAction(context, AppIcons.history, 'Delivery history', () => context.push('/receiver-shipments?tab=past')),
+                _quickAction(
+                  context,
+                  AppIcons.history,
+                  context.tr('Delivery history'),
+                  () => context.push('/receiver-shipments?tab=past'),
+                ),
               ],
             ),
             const SizedBox(height: 16),
-            Text('Delivery preferences', style: typo.h3.copyWith(fontWeight: FontWeight.w700)),
+            Text(
+              context.tr('Delivery preferences'),
+              style: typo.h3.copyWith(fontWeight: FontWeight.w700),
+            ),
             const SizedBox(height: 10),
             AppCard(
               child: Column(
                 children: [
                   _prefRow(
                     context,
-                    'Handover location',
-                    user.bio.trim().isNotEmpty ? user.bio : 'Not set',
+                    context.tr('Handover location'),
+                    user.bio.trim().isNotEmpty
+                        ? user.bio
+                        : context.tr('Not set'),
                   ),
                   const Divider(height: 24),
-                  _prefRow(context, 'Preferred contact', user.phone),
+                  _prefRow(
+                    context,
+                    context.tr('Preferred contact'),
+                    user.phone,
+                  ),
                   const Divider(height: 24),
-                  _prefRow(context, 'NFC ready', 'Yes phone supports tap'),
+                  _prefRow(
+                    context,
+                    context.tr('NFC ready'),
+                    context.tr('Yes phone supports tap'),
+                  ),
                 ],
               ),
             ),
@@ -511,14 +550,14 @@ class _ReceiverShipmentsScreenState extends State<ReceiverShipmentsScreen>
                 children: [
                   BackLink(onTap: () => context.go('/receiver-home')),
                   const SizedBox(height: 16),
-                  Text('My Shipments', style: context.typo.h1),
+                  Text(context.l10n.myShipments, style: context.typo.h1),
                 ],
               ),
             ),
             const SizedBox(height: 8),
             Padding(
               padding: EdgeInsets.symmetric(horizontal: horizontal),
-              child: Text('Parcels addressed to you', style: context.typo.sm),
+              child: Text(context.l10n.parcelsAddressedToYou, style: context.typo.sm),
             ),
             const SizedBox(height: 12),
             Container(
@@ -529,9 +568,9 @@ class _ReceiverShipmentsScreenState extends State<ReceiverShipmentsScreen>
               ),
               child: Row(
                 children: [
-                  _tab(context, 'Incoming', _showActive, () => setState(() => _showActive = true)),
+                  _tab(context, context.l10n.incomingTab, _showActive, () => setState(() => _showActive = true)),
                   const SizedBox(width: 28),
-                  _tab(context, 'Past', !_showActive, () => setState(() => _showActive = false)),
+                  _tab(context, context.l10n.pastTab, !_showActive, () => setState(() => _showActive = false)),
                 ],
               ),
             ),
@@ -564,7 +603,7 @@ class _ReceiverShipmentsScreenState extends State<ReceiverShipmentsScreen>
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                _error!,
+                context.tr(_error!),
                 textAlign: TextAlign.center,
                 style: context.typo.sm.copyWith(color: AppColors.textSecondary),
               ),
@@ -616,7 +655,7 @@ class _ReceiverShipmentsScreenState extends State<ReceiverShipmentsScreen>
                         ),
                       ),
                       AppBadge(
-                        label: status.label,
+                        label: context.tr(status.label),
                         color: status.color,
                         backgroundColor: status.backgroundColor,
                         semiBold: true,
@@ -636,12 +675,14 @@ class _ReceiverShipmentsScreenState extends State<ReceiverShipmentsScreen>
                   if (status.isPendingRequest) ...[
                     const SizedBox(height: 8),
                     Text(
-                      'From ${d.senderName ?? 'Sender'}',
+                      context.l10n.fromLabel(
+                        d.senderName ?? context.tr('Sender'),
+                      ),
                       style: context.typo.sm,
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'Review and accept or decline this request',
+                      context.l10n.reviewAndAcceptRequest,
                       style: context.typo.sm.copyWith(color: AppColors.primary),
                     ),
                   ] else ...[
@@ -650,12 +691,17 @@ class _ReceiverShipmentsScreenState extends State<ReceiverShipmentsScreen>
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'From ${d.senderName ?? 'Sender'}',
+                          context.l10n.fromLabel(
+                            d.senderName ?? context.tr('Sender'),
+                          ),
                           style: context.typo.sm,
                         ),
                         if (travelDate != null)
                           Text(
-                            DateFormat('MMM d, yyyy').format(travelDate),
+                            DateFormat(
+                              'MMM d, yyyy',
+                              context.l10n.locale.toString(),
+                            ).format(travelDate),
                             style: context.typo.sm,
                           ),
                       ],
@@ -714,14 +760,16 @@ class _EmptyShipmentsState extends StatelessWidget {
             AppSvgIcon(asset: AppIcons.parcel, size: 56, color: AppColors.textDisabled),
             const SizedBox(height: 16),
             Text(
-              showActive ? 'No incoming parcels' : 'No past deliveries',
+              showActive
+                  ? context.l10n.noIncomingParcels
+                  : context.l10n.noPastDeliveries,
               style: typo.h3.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
             Text(
               showActive
-                  ? 'When someone sends a parcel to you, it will appear here.'
-                  : 'Completed deliveries will show up in this tab.',
+                  ? context.l10n.whenSomeoneSendsParcel
+                  : context.l10n.completedDeliveriesShowHere,
               textAlign: TextAlign.center,
               style: typo.sm,
             ),
@@ -934,9 +982,11 @@ class _ReceiverChatScreenState extends State<ReceiverChatScreen>
             ),
             color: AppColors.surface,
             child: Text(
-              _shipmentId.isEmpty
-                  ? 'Traveler ↔ Receiver'
-                  : 'Traveler ↔ Receiver · $_shipmentId',
+              context.l10n.rolePairLabel(
+                context.l10n.traveler,
+                context.l10n.receiver,
+                _shipmentId,
+              ),
               textAlign: TextAlign.center,
               style: typo.sm,
             ),
@@ -994,7 +1044,7 @@ class _ReceiverChatScreenState extends State<ReceiverChatScreen>
           ),
           ChatComposer(
             controller: chatController,
-            hintText: 'Message $traveler…',
+            hintText: context.l10n.messageUser(traveler),
             onSend: _sendApiMessage,
             onAttach: showChatAttachmentOptions,
             borderRadius: 12,
@@ -1247,7 +1297,7 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen>
     if (_loading) {
       return Scaffold(
         backgroundColor: AppColors.background,
-        appBar: const BackHeader(title: 'Parcel'),
+        appBar: BackHeader(title: context.l10n.parcel),
         body: const Center(
           child: SizedBox(
             width: 22,
@@ -1264,7 +1314,7 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen>
     if (_error != null || _delivery == null) {
       return Scaffold(
         backgroundColor: AppColors.background,
-        appBar: const BackHeader(title: 'Parcel'),
+        appBar: BackHeader(title: context.l10n.parcel),
         body: Center(
           child: Padding(
             padding: context.pagePadding,
@@ -1272,7 +1322,7 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen>
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  _error ?? 'Shipment not found.',
+                  context.tr(_error ?? 'Shipment not found.'),
                   textAlign: TextAlign.center,
                   style: context.typo.sm.copyWith(color: AppColors.textSecondary),
                 ),
@@ -1334,7 +1384,7 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen>
                       ),
                     ],
                     Text(
-                      'Shipment details',
+                      context.l10n.shipmentDetails,
                       style: typo.h3.copyWith(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 12),
@@ -1344,30 +1394,33 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen>
                       fallbackRoute: delivery.exactDisplayRoute.isNotEmpty
                           ? delivery.exactDisplayRoute
                           : shipment.route,
-                      sectionLabel: 'Route',
+                      sectionLabel: context.l10n.route,
                       bottomPadding: 12,
                     ),
                     _detailRow(
                       context,
-                      'Travel date',
-                      DateFormat('MMM d, yyyy').format(shipment.travelDate),
+                      context.l10n.travelDate,
+                      DateFormat(
+                        'MMM d, yyyy',
+                        context.l10n.locale.toString(),
+                      ).format(shipment.travelDate),
                     ),
                     _detailRow(
                       context,
-                      'Sender',
+                      context.tr('Sender'),
                       delivery.senderName ?? '—',
                     ),
                     _detailRow(
                       context,
-                      'Parcel type',
-                      '${shipment.parcelCategory} · ${shipment.parcelWeightKg}kg',
+                      context.l10n.parcelType,
+                      '${context.tr(shipment.parcelCategory)} · ${shipment.parcelWeightKg}kg',
                     ),
                     const SizedBox(height: 16),
                     ShipmentEscrowSection(shipmentId: shipment.id),
                     if (!featuresUnlocked) ...[
                       const SizedBox(height: 8),
                       Text(
-                        'Accept the parcel request to unlock tracking, NFC, and chat.',
+                        context.l10n.acceptUnlockTracking,
                         style: typo.sm.copyWith(
                           color: AppColors.textSecondary,
                         ),
@@ -1393,7 +1446,7 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen>
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'NFC Checkpoint Traveler & Receiver',
+                              context.l10n.nfcCheckpointTravelerReceiver,
                               style: typo.h3.copyWith(
                                 fontWeight: FontWeight.w700,
                               ),
@@ -1403,12 +1456,12 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen>
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Meet the traveler and tap phones (or use Simulate tap) to confirm you received the parcel. Both of you must complete NFC Checkpoint Traveler & Receiver.',
+                        context.l10n.nfcMeetTravelerHint,
                         style: typo.sm.copyWith(height: 1.5),
                       ),
                       const SizedBox(height: 16),
                       AppButton(
-                        label: 'Start NFC with Traveler',
+                        label: context.l10n.startNfcWithTraveler,
                         onPressed: () async {
                           await context.push(
                             '/nfc-confirm',
@@ -1429,7 +1482,7 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen>
                 const SizedBox(height: 24),
                 if (hasTraveler)
                   AppButton(
-                    label: 'Chat with traveler',
+                    label: context.l10n.chatWithTraveler,
                     onPressed: () => openDeliveryChat(
                       context,
                       chatBasePath: '/receiver-chats',
@@ -1439,7 +1492,7 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen>
                   )
                 else
                   AppButton(
-                    label: 'Waiting for traveler to chat',
+                    label: context.l10n.waitingForTravelerToChat,
                     variant: AppButtonVariant.ghost,
                     icon: Icon(
                       Icons.hourglass_empty,
@@ -1453,7 +1506,7 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen>
                   ),
                 const SizedBox(height: AppButton.stackGap),
                 AppButton(
-                  label: 'Chat with Sender',
+                  label: context.l10n.chatWithSender,
                   onPressed: () => openDeliveryChat(
                     context,
                     chatBasePath: '/receiver-chats',
@@ -1464,7 +1517,7 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen>
                 if (delivery.disputed || status == 'disputed') ...[
                   const SizedBox(height: AppButton.stackGap),
                   AppButton(
-                    label: 'View dispute',
+                    label: context.l10n.viewDispute,
                     variant: AppButtonVariant.danger,
                     onPressed: () => appNavigatePush(
                       disputeRoute(delivery.displayId, role: 'receiver'),
@@ -1475,7 +1528,7 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen>
                 )) ...[
                   const SizedBox(height: AppButton.stackGap),
                   AppButton(
-                    label: 'Dispute',
+                    label: context.l10n.dispute,
                     variant: AppButtonVariant.danger,
                     onPressed: () => appNavigatePush(
                       disputeFormRoute(
@@ -1488,7 +1541,7 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen>
                 if (status == 'delivered') ...[
                   const SizedBox(height: AppButton.stackGap),
                   AppButton(
-                    label: 'Leave a review',
+                    label: context.l10n.leaveAReview,
                     onPressed: _reviewedTraveler
                         ? null
                         : () => context.push(

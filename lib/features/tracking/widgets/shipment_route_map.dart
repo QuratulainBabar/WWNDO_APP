@@ -292,14 +292,14 @@ class _ShipmentRouteMapState extends State<ShipmentRouteMap> {
           children: [
             Expanded(
               child: Text(
-                'Route map',
+                context.l10n.routeMap,
                 style: typo.h3.copyWith(fontWeight: FontWeight.w700),
               ),
             ),
             TextButton.icon(
               onPressed: _openInGoogleMaps,
               icon: const Icon(Icons.open_in_new_rounded, size: 16),
-              label: const Text('Open map'),
+              label: Text(context.l10n.openMap),
               style: TextButton.styleFrom(
                 foregroundColor: AppColors.primary,
                 padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -512,7 +512,7 @@ class _RouteEndpoint extends StatelessWidget {
                     ],
                     const SizedBox(height: 6),
                     Text(
-                      'Open in Maps',
+                      context.l10n.openInMaps,
                       style: typo.caption.copyWith(
                         color: AppColors.primary,
                         fontWeight: FontWeight.w700,

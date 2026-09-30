@@ -3,6 +3,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../l10n/app_localizations.dart';
 
 class ChatAttachmentSheet extends StatelessWidget {
   const ChatAttachmentSheet({super.key});
@@ -10,6 +11,7 @@ class ChatAttachmentSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
+    final l10n = context.l10n;
 
     return Container(
       decoration: BoxDecoration(
@@ -32,19 +34,19 @@ class ChatAttachmentSheet extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          Text('Attach file', style: typo.headerTitle),
+          Text(l10n.attachFile, style: typo.headerTitle),
           const SizedBox(height: 4),
-          Text('Share a photo of your parcel or delivery.', style: typo.sm),
+          Text(l10n.shareParcelPhotoHint, style: typo.sm),
           const SizedBox(height: 16),
           ChatAttachmentOption(
             icon: Icons.photo_library_outlined,
-            label: 'Photo library',
+            label: l10n.photoLibrary,
             onTap: () => Navigator.pop(context, ImageSource.gallery),
           ),
           const SizedBox(height: 8),
           ChatAttachmentOption(
             icon: Icons.photo_camera_outlined,
-            label: 'Take photo',
+            label: l10n.takePhoto,
             onTap: () => Navigator.pop(context, ImageSource.camera),
           ),
         ],

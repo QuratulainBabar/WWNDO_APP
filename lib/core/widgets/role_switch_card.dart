@@ -38,7 +38,6 @@ class _RoleSwitchCardState extends State<RoleSwitchCard> {
       walletRole: WalletRole.sender,
       iconAsset: AppIcons.roleSender,
       title: 'Sender',
-      description: 'Post deliveries and choose trusted travelers',
       profileRoute: '/profile',
     ),
     (
@@ -46,7 +45,6 @@ class _RoleSwitchCardState extends State<RoleSwitchCard> {
       walletRole: WalletRole.traveler,
       iconAsset: AppIcons.roleTraveler,
       title: 'Traveler',
-      description: 'Share your route and carry\nparcels on your trip',
       profileRoute: '/traveler-profile',
     ),
     (
@@ -54,7 +52,6 @@ class _RoleSwitchCardState extends State<RoleSwitchCard> {
       walletRole: WalletRole.receiver,
       iconAsset: AppIcons.roleReceiver,
       title: 'Receiver',
-      description: 'Follow parcel progress and confirm delivery',
       profileRoute: '/receiver-profile',
     ),
   ];
@@ -97,9 +94,17 @@ class _RoleSwitchCardState extends State<RoleSwitchCard> {
       setState(() => _pendingRole = null);
     } catch (_) {
       if (!mounted) return;
-      AppToast.error(context, 'Could not switch role. Please try again.');
+      AppToast.error(context, context.l10n.roleSwitchFailed);
       setState(() => _pendingRole = null);
     }
+  }
+
+  String _roleDescription(BuildContext context, ShipmentRole role) {
+    return switch (role) {
+      ShipmentRole.sender => context.l10n.roleDescSender,
+      ShipmentRole.traveler => context.l10n.roleDescTravelerMultiline,
+      ShipmentRole.receiver => context.l10n.roleDescReceiver,
+    };
   }
 
   @override
@@ -112,9 +117,12 @@ class _RoleSwitchCardState extends State<RoleSwitchCard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Switch role', style: typo.h3.copyWith(fontWeight: FontWeight.w700)),
+        Text(
+          context.l10n.switchRole,
+          style: typo.h3.copyWith(fontWeight: FontWeight.w700),
+        ),
         const SizedBox(height: 4),
-        Text('Use WWNGO as a sender, traveler, or receiver', style: typo.sm),
+        Text(context.l10n.switchRoleSubtitle, style: typo.sm),
         const SizedBox(height: 10),
         AppCard(
           margin: EdgeInsets.zero,
@@ -126,7 +134,7 @@ class _RoleSwitchCardState extends State<RoleSwitchCard> {
                 _RoleRow(
                   iconAsset: _roles[i].iconAsset,
                   title: context.tr(_roles[i].title),
-                  description: _roles[i].description,
+                  description: _roleDescription(context, _roles[i].role),
                   selected: currentRole == _roles[i].role,
                   enabled: !switching,
                   loading: _pendingRole == _roles[i].role,
@@ -219,7 +227,7 @@ class _RoleRow extends StatelessWidget {
                 )
               else if (selected)
                 AppBadge(
-                  label: 'Active',
+                  label: context.l10n.active,
                   color: AppColors.primary,
                   backgroundColor: AppColors.primary.withValues(alpha: 0.1),
                 )

@@ -1,23 +1,44 @@
+import 'string_tables_extra.dart';
+
 /// Lookup tables for [AppLocalizations]. Keys match English source strings.
-const Map<String, Map<String, String>> kStringTables = {
-  'en': _en,
-  'fr': _fr,
-  'es': _es,
-  'it': _it,
-  'nl': _nl,
-  'de': _de,
-  'ar': _ar,
-  'hi': _hi,
-  'zh': _zh,
-  'tr': _tr,
-  'ru': _ru,
+final Map<String, Map<String, String>> kStringTables = {
+  for (final code in const [
+    'en',
+    'fr',
+    'es',
+    'it',
+    'nl',
+    'de',
+    'ar',
+    'hi',
+    'zh',
+    'tr',
+    'ru',
+  ])
+    code: {
+      ...{
+        'en': _en,
+        'fr': _fr,
+        'es': _es,
+        'it': _it,
+        'nl': _nl,
+        'de': _de,
+        'ar': _ar,
+        'hi': _hi,
+        'zh': _zh,
+        'tr': _tr,
+        'ru': _ru,
+      }[code]!,
+      ...?(kStringTablesExtra[code]),
+    },
 };
 
 /// English UI copy → catalog key (for translating hardcoded literals).
 /// Parameterized templates (containing `{`) are omitted.
 final Map<String, String> kEnglishToKey = Map<String, String>.unmodifiable(() {
   final map = <String, String>{};
-  for (final entry in _en.entries) {
+  final en = kStringTables['en']!;
+  for (final entry in en.entries) {
     if (entry.value.contains('{')) continue;
     map.putIfAbsent(entry.value, () => entry.key);
   }
@@ -545,7 +566,7 @@ const Map<String, String> _it = {
   'termsOfService': 'Termini di servizio',
   'privacyPolicy': 'Informativa sulla privacy',
   'logout': 'Esci',
-  'home': 'Home',
+  'home': 'Inizio',
   'trip': 'Viaggio',
   'trips': 'Viaggi',
   'shipments': 'Spedizioni',
@@ -707,7 +728,7 @@ const Map<String, String> _nl = {
   'termsOfService': 'Servicevoorwaarden',
   'privacyPolicy': 'Privacybeleid',
   'logout': 'Uitloggen',
-  'home': 'Home',
+  'home': 'Start',
   'trip': 'Reis',
   'trips': 'Reizen',
   'shipments': 'Zendingen',

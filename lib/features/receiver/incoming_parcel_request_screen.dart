@@ -89,7 +89,7 @@ class _IncomingParcelRequestScreenState
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = 'Unable to load parcel request.';
+        _error = context.l10n.unableToLoadParcelRequest;
       });
     }
   }
@@ -193,14 +193,13 @@ class _IncomingParcelRequestScreenState
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Request Accepted!',
+                  context.l10n.requestAcceptedExclaim,
                   style: typo.h2.copyWith(fontWeight: FontWeight.w700),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Your parcel request has been accepted. We will match a traveler '
-                      'and notify you once the sender completes payment.',
+                  context.l10n.requestAcceptedBody,
                   textAlign: TextAlign.center,
                   style: typo.sm.copyWith(
                     height: 1.5,
@@ -226,10 +225,12 @@ class _IncomingParcelRequestScreenState
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
+    final l10n = context.l10n;
+    final localeTag = l10n.locale.toString();
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: const BackHeader(title: 'Parcel Request'),
+      appBar: BackHeader(title: l10n.parcelRequest),
       body: _loading
           ? const Center(
               child: SizedBox(
@@ -249,7 +250,7 @@ class _IncomingParcelRequestScreenState
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          _error ?? 'Parcel request not found.',
+                          _error ?? l10n.parcelRequestNotFound,
                           textAlign: TextAlign.center,
                           style: typo.sm.copyWith(color: AppColors.textSecondary),
                         ),
@@ -275,6 +276,10 @@ class _IncomingParcelRequestScreenState
                     final canAccept = !_acting;
                     final isPending = status.isPendingRequest &&
                         current.status == IncomingParcelRequestStatus.pending;
+                    final travelerLabel =
+                        current.travelerLabel == 'Will be assigned'
+                            ? l10n.willBeAssigned
+                            : context.tr(current.travelerLabel);
 
                     return SingleChildScrollView(
                       physics: PlatformUi.scrollPhysics,
@@ -283,14 +288,14 @@ class _IncomingParcelRequestScreenState
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           AppBadge(
-                            label: status.label,
+                            label: context.tr(status.label),
                             color: status.color,
                             backgroundColor: status.backgroundColor,
                             semiBold: true,
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            '${current.senderName} wants to send you a parcel.',
+                            l10n.wantsToSendYouAParcel(current.senderName),
                             style: typo.body.copyWith(
                               color: AppColors.textSecondary,
                             ),
@@ -302,39 +307,43 @@ class _IncomingParcelRequestScreenState
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Parcel details',
+                                  l10n.parcelDetails,
                                   style: typo.h3
                                       .copyWith(fontWeight: FontWeight.w700),
                                 ),
                                 const SizedBox(height: 12),
-                                _detailRow(context, 'Parcel type', current.parcelType),
                                 _detailRow(
                                   context,
-                                  'Weight',
-                                  '${current.weightKg} kg',
+                                  l10n.parcelType,
+                                  context.tr(current.parcelType),
                                 ),
                                 _detailRow(
                                   context,
-                                  'Pickup location',
+                                  l10n.weight,
+                                  l10n.weightWithKg('${current.weightKg}'),
+                                ),
+                                _detailRow(
+                                  context,
+                                  l10n.pickupLocation,
                                   current.pickupLocation,
                                   valueAlign: TextAlign.left,
                                 ),
                                 _detailRow(
                                   context,
-                                  'Receiver location',
+                                  l10n.receiverLocation,
                                   current.receiverLocation,
                                   valueAlign: TextAlign.left,
                                 ),
                                 _detailRow(
                                   context,
-                                  'Travel date',
-                                  DateFormat('MMM d, yyyy')
+                                  l10n.travelDate,
+                                  DateFormat('MMM d, yyyy', localeTag)
                                       .format(current.travelDate),
                                 ),
                                 _detailRow(
                                   context,
-                                  'Traveler (to be matched)',
-                                  current.travelerLabel,
+                                  l10n.travelerToBeMatched,
+                                  travelerLabel,
                                 ),
                               ],
                             ),
@@ -346,26 +355,28 @@ class _IncomingParcelRequestScreenState
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Payment details',
+                                  l10n.paymentDetails,
                                   style: typo.h3
                                       .copyWith(fontWeight: FontWeight.w700),
                                 ),
                                 const SizedBox(height: 12),
                                 _detailRow(
                                   context,
-                                  'Platform fee',
+                                  l10n.platformFee,
                                   platformFee > 0
                                       ? WalletService.formatMajor(platformFee)
-                                      : '${WalletService.formatMajor(0)} (covered by sender)',
+                                      : l10n.feeCoveredBySenderParen(
+                                          WalletService.formatMajor(0),
+                                        ),
                                   bold: true,
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
                                   platformFee > 0
-                                      ? 'Charged from your wallet (or card if needed) when the sender taps Pay Now '
-                                          '(${WalletService.formatMajor(platformFee)}). Nothing is deducted when you Accept.'
-                                      : 'The sender chose to pay 100% of the platform fee. '
-                                          'No charge when you accept.',
+                                      ? l10n.chargedFromWalletOnPayNow(
+                                          WalletService.formatMajor(platformFee),
+                                        )
+                                      : l10n.feeFullyCoveredBySender,
                                   style: typo.sm.copyWith(
                                     color: AppColors.textSecondary,
                                   ),
@@ -380,14 +391,14 @@ class _IncomingParcelRequestScreenState
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Wallet',
+                                  context.tr('Wallet'),
                                   style: typo.h3
                                       .copyWith(fontWeight: FontWeight.w700),
                                 ),
                                 const SizedBox(height: 12),
                                 _detailRow(
                                   context,
-                                  'Wallet balance',
+                                  l10n.walletBalance,
                                   WalletService.formatMajor(walletBalance),
                                   bold: true,
                                   valueColor: AppColors.success,
@@ -410,7 +421,9 @@ class _IncomingParcelRequestScreenState
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: AppButton(
-                                    label: _acting ? 'Please wait…' : 'Accept',
+                                    label: _acting
+                                        ? l10n.pleaseWait
+                                        : l10n.accept,
                                     onPressed: canAccept ? _accept : null,
                                   ),
                                 ),
@@ -421,8 +434,8 @@ class _IncomingParcelRequestScreenState
                             Text(
                               current.status ==
                                       IncomingParcelRequestStatus.accepted
-                                  ? 'You accepted this parcel request.'
-                                  : 'You declined this parcel request.',
+                                  ? l10n.youAcceptedParcelRequest
+                                  : l10n.youDeclinedParcelRequest,
                               style: typo.sm.copyWith(
                                 color: AppColors.textSecondary,
                               ),

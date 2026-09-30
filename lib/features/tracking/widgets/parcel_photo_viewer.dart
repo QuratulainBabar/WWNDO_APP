@@ -3,17 +3,18 @@ import 'package:flutter/material.dart';
 import '../../../core/config/api_config.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../l10n/app_localizations.dart';
 
 /// Parcel photo thumbnails with full-screen viewer.
 class ParcelPhotoViewer extends StatelessWidget {
   const ParcelPhotoViewer({
     super.key,
     this.photoUrls = const [],
-    this.title = 'Parcel photos',
+    this.title,
   });
 
   final List<String> photoUrls;
-  final String title;
+  final String? title;
 
   List<String> get _resolvedUrls {
     if (photoUrls.isNotEmpty) {
@@ -29,12 +30,13 @@ class ParcelPhotoViewer extends StatelessWidget {
   Widget build(BuildContext context) {
     final typo = context.typo;
     final urls = _resolvedUrls;
+    final heading = (title ?? context.l10n.parcelPhotos).trim();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (title.trim().isNotEmpty) ...[
-          Text(title, style: typo.h3.copyWith(fontWeight: FontWeight.w700)),
+        if (heading.isNotEmpty) ...[
+          Text(heading, style: typo.h3.copyWith(fontWeight: FontWeight.w700)),
           const SizedBox(height: 12),
         ],
         if (urls.isEmpty)
@@ -52,7 +54,7 @@ class ParcelPhotoViewer extends StatelessWidget {
                 Icon(Icons.image_outlined, size: 20, color: AppColors.textSecondary),
                 const SizedBox(width: 8),
                 Text(
-                  'No photos uploaded yet',
+                  context.tr('No photos uploaded yet'),
                   style: typo.sm.copyWith(color: AppColors.textSecondary),
                 ),
               ],

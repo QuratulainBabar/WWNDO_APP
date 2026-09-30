@@ -230,8 +230,8 @@ class _SenderChatScreenState extends State<SenderChatScreen>
                 : AppColors.warning.withValues(alpha: 0.12),
             child: Text(
               _unlocked
-                  ? 'Chat is open — coordinate meetup details with your traveler.'
-                  : 'Chat unlocks after you accept a traveler and payment is complete.',
+                  ? context.l10n.chatOpenCoordinate
+                  : context.l10n.chatUnlocksAfterPayment,
               textAlign: TextAlign.center,
               style: typo.sm.copyWith(
                 color: _unlocked ? AppColors.primary : AppColors.warning,
@@ -250,9 +250,11 @@ class _SenderChatScreenState extends State<SenderChatScreen>
             ),
             color: AppColors.surface,
             child: Text(
-              _shipmentId.isEmpty
-                  ? 'Sender ↔ Traveler'
-                  : 'Sender ↔ Traveler · $_shipmentId',
+              context.l10n.rolePairLabel(
+                context.l10n.sender,
+                context.l10n.traveler,
+                _shipmentId,
+              ),
               textAlign: TextAlign.center,
               style: typo.sm,
             ),
@@ -310,7 +312,7 @@ class _SenderChatScreenState extends State<SenderChatScreen>
           ),
           ChatComposer(
             controller: chatController,
-            hintText: 'Message $traveler…',
+            hintText: context.l10n.messageUser(traveler),
             onSend: _sendApiMessage,
             onAttach: showChatAttachmentOptions,
             borderRadius: 12,

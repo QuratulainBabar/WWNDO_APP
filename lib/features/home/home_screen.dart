@@ -375,7 +375,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         width: double.infinity,
         child: AppCard(
           child: Text(
-            'No active deliveries yet.',
+            context.l10n.noActiveDeliveries,
             style: typo.sm.copyWith(color: AppColors.textSecondary),
           ),
         ),
@@ -448,7 +448,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 GestureDetector(
                   onTap: openDeliveryDetails,
                   child: AppBadge(
-                    label: status.label,
+                    label: context.tr(status.label),
                     color: status.color,
                     backgroundColor: status.backgroundColor,
                     semiBold: true,
@@ -466,7 +466,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             if (requests.isNotEmpty) ...[
               const SizedBox(height: 6),
               Text(
-                'Requested: ${requests.map((r) => r.travelerName).join(', ')}'
+                '${context.l10n.requestedPrefix(requests.map((r) => r.travelerName).join(', '))}'
                 ' (${requests.length}/${PlatformFees.maxTravelerRequestsPerDelivery})',
                 style: typo.sm.copyWith(color: AppColors.textSecondary),
               ),
@@ -485,7 +485,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         context.watch<NotificationRealtimeProvider>().unreadCount;
     final firstName = (authUser?.firstName.trim().isNotEmpty ?? false)
         ? authUser!.firstName
-        : 'there';
+        : context.l10n.greetingFallbackName;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -501,11 +501,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Hey, $firstName 👋', style: typo.h1, overflow: TextOverflow.ellipsis),
                       Text(
-                        SelectedRoleStore.homeRatingSubtitle(
-                          authUser,
-                          WalletRole.sender,
+                        context.l10n.heyUser(firstName),
+                        style: typo.h1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        context.tr(
+                          SelectedRoleStore.homeRatingSubtitle(
+                            authUser,
+                            WalletRole.sender,
+                          ),
                         ),
                         style: typo.sm,
                       ),
@@ -533,7 +539,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               ),
               child: Row(
                 children: [
-                  Expanded(child: Text('Where does your parcel need to go?', style: typo.searchHint)),
+                  Expanded(
+                    child: Text(
+                      context.l10n.parcelSearchHint,
+                      style: typo.searchHint,
+                    ),
+                  ),
                   Container(
                     width: 32,
                     height: 32,
@@ -549,34 +560,40 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             ),
             ),
             const SizedBox(height: 24),
-            Text('Quick actions', style: typo.h3.copyWith(fontWeight: FontWeight.w700)),
+            Text(
+              context.l10n.quickActions,
+              style: typo.h3.copyWith(fontWeight: FontWeight.w700),
+            ),
             const SizedBox(height: 12),
             _menuLink(
               context,
               iconAsset: AppIcons.parcel,
-              title: 'Create Delivery',
-              subtitle: 'Post a new delivery request.',
+              title: context.l10n.createDelivery,
+              subtitle: context.l10n.createDeliverySubtitle,
               route: '/delivery-type',
               requireVerification: true,
             ),
             _menuLink(
               context,
               iconAsset: AppIcons.postedParcels,
-              title: 'My Posted Deliveries',
-              subtitle: 'View all deliveries you have posted.',
+              title: context.l10n.myPostedDeliveries,
+              subtitle: context.l10n.myPostedDeliveriesSubtitle,
               route: '/my-posted-parcels',
             ),
             _menuLink(
               context,
               iconAsset: AppIcons.notification,
               title: context.tr('Notifications'),
-              subtitle: 'View delivery updates and important alerts.',
+              subtitle: context.l10n.notificationsSubtitle,
               route: '/sender-notifications',
               badge: unreadNotifications,
               refreshUnreadOnReturn: true,
             ),
             SizedBox(height: context.blockGap),
-            Text('Active deliveries', style: typo.h3.copyWith(fontWeight: FontWeight.w700)),
+            Text(
+              context.l10n.activeDeliveriesLower,
+              style: typo.h3.copyWith(fontWeight: FontWeight.w700),
+            ),
             const SizedBox(height: 12),
             _activeDeliveriesSection(context),
           ],

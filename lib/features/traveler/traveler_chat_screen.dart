@@ -17,6 +17,7 @@ import '../../data/static_data.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/chat_realtime_provider.dart';
 import '../../providers/notification_realtime_provider.dart';
+import '../../l10n/app_localizations.dart';
 import '../chat/chat_conversation_mixin.dart';
 import '../chat/widgets/chat_composer.dart';
 import '../chat/widgets/chat_thread_widgets.dart';
@@ -239,7 +240,7 @@ class _TravelerChatScreenState extends State<TravelerChatScreen>
             ),
             color: AppColors.primary.withValues(alpha: 0.08),
             child: Text(
-              'Sender ↔ Traveler chat',
+              context.l10n.senderTravelerChat,
               textAlign: TextAlign.center,
               style: typo.sm.copyWith(
                 color: AppColors.primary,
@@ -260,9 +261,11 @@ class _TravelerChatScreenState extends State<TravelerChatScreen>
             child: Column(
               children: [
                 Text(
-                  _shipmentId.isEmpty
-                      ? 'Traveler ↔ Sender'
-                      : 'Traveler ↔ Sender · $_shipmentId',
+                  context.l10n.rolePairLabel(
+                    context.l10n.traveler,
+                    context.l10n.sender,
+                    _shipmentId,
+                  ),
                   textAlign: TextAlign.center,
                   style: typo.sm,
                 ),
@@ -333,7 +336,7 @@ class _TravelerChatScreenState extends State<TravelerChatScreen>
           ),
           ChatComposer(
             controller: chatController,
-            hintText: 'Message $sender…',
+            hintText: context.l10n.messageUser(sender),
             onSend: _isDemo ? sendChatTextMessage : _sendApiMessage,
             onAttach: showChatAttachmentOptions,
             borderRadius: 12,

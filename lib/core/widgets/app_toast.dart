@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
 
 /// Floating toast notifications shown from the top of the screen.
@@ -12,7 +13,7 @@ abstract final class AppToast {
   static void error(BuildContext context, String message) {
     _show(
       context,
-      message: message,
+      message: context.l10n.translate(message),
       backgroundColor: AppColors.danger,
       icon: Icons.error_outline_rounded,
     );
@@ -21,7 +22,7 @@ abstract final class AppToast {
   static void success(BuildContext context, String message) {
     _show(
       context,
-      message: message,
+      message: context.l10n.translate(message),
       backgroundColor: AppColors.success,
       icon: Icons.check_circle_outline_rounded,
     );
@@ -30,7 +31,7 @@ abstract final class AppToast {
   static void info(BuildContext context, String message) {
     _show(
       context,
-      message: message,
+      message: context.l10n.translate(message),
       backgroundColor: AppColors.primary,
       icon: Icons.info_outline_rounded,
     );

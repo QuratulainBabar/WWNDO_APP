@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../l10n/app_localizations.dart';
 
 /// Optional platform fee choice shown below Parcel Acknowledgement on post delivery.
 class PlatformFeeSection extends StatefulWidget {
@@ -59,7 +60,7 @@ class _PlatformFeeSectionState extends State<PlatformFeeSection> {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                'Would you like to pay 100% platform fee?',
+                context.l10n.payFullPlatformFee,
                 style: typo.bodyBold.copyWith(
                   fontWeight: FontWeight.w700,
                   color: AppColors.primary,

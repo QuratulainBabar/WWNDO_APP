@@ -61,7 +61,7 @@ class AccountVerificationScreen extends StatelessWidget {
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
-          title: Text('Add phone number', style: typo.h3),
+          title: Text(context.l10n.addPhoneNumber, style: typo.h3),
           content: SingleChildScrollView(
             child: InternationalPhoneField(
               controller: controller,
@@ -102,7 +102,7 @@ class AccountVerificationScreen extends StatelessWidget {
     final user = context.watch<AuthProvider>().user;
 
     if (user == null) {
-      return const Scaffold(body: Center(child: Text('Please log in')));
+      return Scaffold(body: Center(child: Text(context.l10n.pleaseLogIn)));
     }
 
     return Scaffold(
@@ -113,15 +113,19 @@ class AccountVerificationScreen extends StatelessWidget {
           children: [
             const BackLink(),
             const SizedBox(height: 40),
-            Text('Verify your account', style: typo.h1),
+            Text(context.l10n.verifyYourAccount, style: typo.h1),
             const SizedBox(height: 8),
             Text(
-              'WWNGO requires both email and phone to be verified before you can transact.',
+              context.l10n.verifyAccountSubtitle,
               style: typo.sm.copyWith(height: 1.5),
             ),
             const SizedBox(height: 8),
             Text(
-              'Status: ${user.verificationState}',
+              context.l10n.statusColon(
+                user.isFullyCrossVerified
+                    ? context.l10n.verifiedLower
+                    : context.l10n.unverified,
+              ),
               style: typo.sm.copyWith(
                 color: user.isFullyCrossVerified ? AppColors.success : AppColors.primary,
                 fontWeight: FontWeight.w700,
@@ -138,7 +142,7 @@ class AccountVerificationScreen extends StatelessWidget {
             ),
             _VerificationCard(
               title: context.tr('Phone'),
-              value: user.phone.isEmpty ? 'Not linked yet' : user.phone,
+              value: user.phone.isEmpty ? context.l10n.notLinkedYet : user.phone,
               verified: user.phoneVerified,
               unverifiedIcon: Icons.phone_android_outlined,
               onVerify: user.phoneVerified ? null : () => _verifyPhone(context),
@@ -205,7 +209,7 @@ class _VerificationCard extends StatelessWidget {
             ),
           ),
           if (!verified && onVerify != null)
-            TextButton(onPressed: onVerify, child: const Text('Verify'))
+            TextButton(onPressed: onVerify, child: Text(context.l10n.verifyAction))
           else if (verified)
             Text('✓', style: typo.h3.copyWith(color: AppColors.success)),
         ],
@@ -313,19 +317,24 @@ class _CrossVerificationOtpScreenState extends State<CrossVerificationOtpScreen>
           children: [
             BackLink(fallbackRoute: widget.flow.returnRoute),
             const SizedBox(height: 12),
-            Text('Verify ${widget.channel.label}', style: typo.h1),
+            Text(
+              widget.channel == OtpChannel.email
+                  ? context.l10n.verifyEmailTitle
+                  : context.l10n.verifySmsTitle,
+              style: typo.h1,
+            ),
             const SizedBox(height: 8),
             Text(
               _sent
-                  ? 'Enter the code sent to $contact'
-                  : 'Sending verification code…',
+                  ? context.l10n.enterCodeSentTo(contact ?? '')
+                  : context.l10n.sendingVerificationCode,
               style: typo.sm.copyWith(height: 1.5),
             ),
             const SizedBox(height: 16),
             OtpCountdownTimer(key: _timerKey),
             const SizedBox(height: 20),
             AppLabeledField(
-              label: 'Verification code',
+              label: context.l10n.verificationCode,
               padding: const EdgeInsets.only(top: AppFieldSpacing.top),
               child: OtpCodeField(
                 controller: _otpController,
@@ -337,14 +346,16 @@ class _CrossVerificationOtpScreenState extends State<CrossVerificationOtpScreen>
             ),
             const SizedBox(height: 24),
             AppButton(
-              label: auth.loading ? 'Verifying…' : 'Confirm verification',
+              label: auth.loading
+                  ? context.l10n.verifyingEllipsis
+                  : context.l10n.confirmVerification,
               onPressed: auth.loading ? null : _verify,
             ),
             const SizedBox(height: 12),
             Center(
               child: TextButton(
                 onPressed: _sendOtp,
-                child: Text('Resend code', style: typo.linkBold),
+                child: Text(context.l10n.resendCode, style: typo.linkBold),
               ),
             ),
           ],

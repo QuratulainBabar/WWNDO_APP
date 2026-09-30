@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_card.dart';
+import '../../../l10n/app_localizations.dart';
 
 class ParcelAcknowledgementSection extends StatefulWidget {
   const ParcelAcknowledgementSection({
@@ -23,14 +24,6 @@ class _ParcelAcknowledgementSectionState
     extends State<ParcelAcknowledgementSection> {
   bool _acknowledged = false;
 
-  static const _terms = [
-    'The traveler may inspect/open the parcel before accepting it.',
-    'The traveler will carry the parcel in their own luggage.',
-    'Do not hand over your entire luggage; only the parcel.',
-    'Liquids and prohibited items are not allowed.',
-    'By continuing, you confirm that the information provided is accurate.',
-  ];
-
   void _toggleAcknowledged() {
     setState(() => _acknowledged = !_acknowledged);
     widget.onChanged?.call(_acknowledged);
@@ -39,6 +32,14 @@ class _ParcelAcknowledgementSectionState
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
+    final l10n = context.l10n;
+    final terms = [
+      l10n.parcelAckTerm1,
+      l10n.parcelAckTerm2,
+      l10n.parcelAckTerm3,
+      l10n.parcelAckTerm4,
+      l10n.parcelAckTerm5,
+    ];
 
     return AppCard(
       margin: EdgeInsets.zero,
@@ -61,16 +62,16 @@ class _ParcelAcknowledgementSectionState
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Parcel Acknowledgement',
+                l10n.parcelAcknowledgement,
                 style: typo.bodyBold.copyWith(fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 8),
               Text(
-                'Before posting your parcel, please read and acknowledge the following:',
+                l10n.parcelAckIntro,
                 style: typo.sm.copyWith(color: AppColors.textPrimary),
               ),
               const SizedBox(height: 12),
-              for (final term in _terms) ...[
+              for (final term in terms) ...[
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Row(
@@ -120,7 +121,7 @@ class _ParcelAcknowledgementSectionState
                     child: GestureDetector(
                       onTap: _toggleAcknowledged,
                       child: Text(
-                        'I have read and agree to the above terms and acknowledge that the traveler may inspect my parcel before accepting it.',
+                        l10n.parcelAckCheckbox,
                         style: typo.sm.copyWith(color: AppColors.textPrimary),
                       ),
                     ),

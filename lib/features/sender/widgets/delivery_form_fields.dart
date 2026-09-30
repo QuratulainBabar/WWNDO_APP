@@ -18,6 +18,7 @@ import '../../../data/models/meetup_location.dart';
 import '../../../data/models/traveler_trip.dart';
 import '../../../data/static_data.dart';
 import '../../../providers/auth_provider.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../traveler/widgets/route_city_dropdown.dart';
 import '../delivery_form_helpers.dart';
 import 'airport_route_search_fields.dart';
@@ -634,10 +635,11 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Route', style: context.typo.h3.copyWith(fontWeight: FontWeight.w700)),
+        Text(l10n.routeSection, style: context.typo.h3.copyWith(fontWeight: FontWeight.w700)),
         const SizedBox(height: 12),
         if (_isCountry) ...[
           AirportRouteSearchFields(
@@ -665,11 +667,11 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 RouteCityDropdown(
-                  label: 'From city',
+                  label: l10n.fromCity,
                   value: _fromLocation,
-                  hintText: 'Search Location',
-                  mapTitle: 'From city',
-                  searchHint: 'Search Location',
+                  hintText: l10n.searchLocation,
+                  mapTitle: l10n.fromCity,
+                  searchHint: l10n.searchLocation,
                   onChanged: (place) => setState(() {
                     _fromLocation = place;
                     _fromError = null;
@@ -685,11 +687,11 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 RouteCityDropdown(
-                  label: 'To city',
+                  label: l10n.toCity,
                   value: _toLocation,
-                  hintText: 'Search Location',
-                  mapTitle: 'To city',
-                  searchHint: 'Search Location',
+                  hintText: l10n.searchLocation,
+                  mapTitle: l10n.toCity,
+                  searchHint: l10n.searchLocation,
                   onChanged: (place) => setState(() {
                     _toLocation = place;
                     _toError = null;
@@ -712,13 +714,17 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
           ),
         ),
         const SizedBox(height: 12),
-        Text('Parcel', style: context.typo.h3.copyWith(fontWeight: FontWeight.w700)),
+        Text(l10n.parcelSection, style: context.typo.h3.copyWith(fontWeight: FontWeight.w700)),
         const SizedBox(height: 8),
         AppChipRow(
           options: StaticData.parcelCategories,
           selected: _category,
           onSelected: (v) => setState(() => _category = v),
-          labelOf: (o) => o.isEmpty ? o : '${o[0].toUpperCase()}${o.substring(1)}',
+          labelOf: (o) {
+            if (o.isEmpty) return o;
+            final capitalized = '${o[0].toUpperCase()}${o.substring(1)}';
+            return context.tr(capitalized);
+          },
         ),
         KeyedSubtree(
           key: _weightKey,

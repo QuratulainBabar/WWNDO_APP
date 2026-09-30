@@ -11,6 +11,7 @@ import '../../core/widgets/app_card.dart';
 import '../../core/widgets/back_header.dart';
 import '../../core/widgets/screen_body.dart';
 import '../../data/legal_documents.dart';
+import '../../l10n/app_localizations.dart';
 
 class LegalHubScreen extends StatelessWidget {
   const LegalHubScreen({super.key});
@@ -21,13 +22,13 @@ class LegalHubScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: const BackHeader(title: 'Legal & policies'),
+      appBar: BackHeader(title: context.tr('Legal & policies')),
       body: ScreenBody(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Review the policies that govern your use of WWNGO.',
+              context.l10n.legalHubIntro,
               style: typo.subheading.copyWith(
                 color: AppColors.textSecondary,
                 height: 1.5,
@@ -35,18 +36,18 @@ class LegalHubScreen extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             _LegalTile(
-              title: 'Privacy Policy',
-              subtitle: 'How we collect, use, and protect your data',
+              title: context.l10n.privacyPolicy,
+              subtitle: context.l10n.privacyPolicySubtitle,
               onTap: () => context.push('/legal/privacy'),
             ),
             _LegalTile(
-              title: 'Terms of Service',
-              subtitle: 'Rules for using the marketplace',
+              title: context.l10n.termsOfService,
+              subtitle: context.l10n.termsOfServiceSubtitle,
               onTap: () => context.push('/legal/terms'),
             ),
             _LegalTile(
-              title: 'Cookie Policy',
-              subtitle: 'How cookies are used on our website',
+              title: context.l10n.cookiePolicy,
+              subtitle: context.l10n.cookiePolicySubtitle,
               onTap: () => context.push('/legal/cookies'),
             ),
             const SizedBox(height: 8),
@@ -55,15 +56,15 @@ class LegalHubScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Full documents online', style: typo.h3),
+                  Text(context.l10n.fullDocumentsOnline, style: typo.h3),
                   const SizedBox(height: 8),
                   Text(
-                    'The latest legal text is always available on our website.',
+                    context.l10n.latestLegalOnWebsite,
                     style: typo.sm.copyWith(color: AppColors.textSecondary),
                   ),
                   const SizedBox(height: 12),
                   AppButton(
-                    label: 'Open website',
+                    label: context.l10n.openWebsite,
                     variant: AppButtonVariant.outline,
                     small: true,
                     onPressed: () => ExternalLinks.openWebsitePath('/legal/privacy'),
@@ -278,8 +279,8 @@ class CookiePolicyScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const LegalDocumentScreen(
-      title: 'Cookie Policy',
+    return LegalDocumentScreen(
+      title: context.l10n.cookiePolicy,
       websitePath: '/legal/cookies',
       sections: _sections,
     );
@@ -295,43 +296,43 @@ class HelpSupportScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: const BackHeader(title: 'Help & support'),
+      appBar: BackHeader(title: context.tr('Help & support')),
       body: ScreenBody(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Get answers or reach our team.',
+              context.l10n.helpSupportIntro,
               style: typo.subheading.copyWith(color: AppColors.textSecondary),
             ),
             const SizedBox(height: 20),
             _HelpTile(
               icon: Icons.quiz_outlined,
-              title: 'FAQ',
-              subtitle: 'Common questions about WWNGO',
+              title: context.l10n.faq,
+              subtitle: context.l10n.faqSubtitle,
               onTap: () => ExternalLinks.openFaq(),
             ),
             _HelpTile(
               icon: Icons.shield_outlined,
-              title: 'Safety & trust',
-              subtitle: 'KYC, escrow, NFC, and dispute resolution',
+              title: context.l10n.safetyTrust,
+              subtitle: context.l10n.safetyTrustSubtitle,
               onTap: () => ExternalLinks.openSafety(),
             ),
             _HelpTile(
               icon: Icons.info_outline,
-              title: 'About WWNGO',
-              subtitle: 'Our mission and how the marketplace works',
+              title: context.l10n.aboutWwngo,
+              subtitle: context.l10n.aboutWwngoSubtitle,
               onTap: () => ExternalLinks.openAbout(),
             ),
             _HelpTile(
               icon: Icons.mail_outline,
-              title: 'Contact support',
+              title: context.l10n.contactSupport,
               subtitle: 'support@wwngo.com',
               onTap: () => context.push('/contact-support'),
             ),
             _HelpTile(
               icon: Icons.language,
-              title: 'Visit website',
+              title: context.l10n.visitWebsite,
               subtitle: ApiConfig.websiteUrl,
               onTap: () => ExternalLinks.openWebsitePath('/'),
             ),

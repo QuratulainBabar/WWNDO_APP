@@ -10,6 +10,7 @@ import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/back_link.dart';
 import '../../data/models/kyc_models.dart';
+import '../../l10n/app_localizations.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/kyc_provider.dart';
 import '../../providers/wallet_provider.dart';
@@ -148,11 +149,11 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
                     const BackLink(fallbackRoute: '/login'),
                     const SizedBox(height: 12),
                     Text(
-                      'Identity Verification',
+                      context.l10n.identityVerificationTitle,
                       style: typo.headerTitle,
                     ),
                     const SizedBox(height: 2),
-                    Text('Powered by Sumsub · your data is secure', style: typo.sm),
+                    Text(context.l10n.poweredBySumsub, style: typo.sm),
                   ],
                 ),
               ),
@@ -181,12 +182,14 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
                           ),
                         ),
                         const SizedBox(height: 20),
-                        Text('Verify your identity', style: typo.h2),
+                        Text(context.l10n.verifyYourIdentity, style: typo.h2),
                         const SizedBox(height: 8),
                         Text(
                           useSumsub
-                              ? 'Upload a government ID and complete a liveness check securely with Sumsub.'
-                              : 'Photograph your government ID and take a quick selfie to unlock all features.',
+                              ? context.l10n.sumsubIdLivenessHint
+                              : context.tr(
+                                  'Photograph your government ID and take a quick selfie to unlock all features.',
+                                ),
                           textAlign: TextAlign.center,
                           style: typo.sm.copyWith(height: 1.5),
                         ),
@@ -199,12 +202,12 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('What you will do', style: typo.bodyBold),
+                                Text(context.l10n.whatYouWillDo, style: typo.bodyBold),
                                 const SizedBox(height: 8),
                                 Text(
-                                  '1. Photograph your passport, ID card, or driving licence\n'
-                                  '2. Complete a short liveness selfie check\n'
-                                  '3. Wait for automated review (manual review up to 48 hours)',
+                                  '${context.l10n.kycStepPhotographId}\n'
+                                  '${context.l10n.kycStepLiveness}\n'
+                                  '${context.l10n.kycStepWaitReview}',
                                   style: typo.sm.copyWith(height: 1.5),
                                 ),
                                 if (!kyc.isSdkSupported) ...[
@@ -291,12 +294,12 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
                   children: [
                     AppButton(
                       label: kyc.loading
-                          ? 'Opening Sumsub…'
+                          ? context.tr('Opening Sumsub…')
                           : useSumsub
-                              ? 'Verify Identity'
+                              ? context.l10n.verifyIdentity
                               : (_demoMode
-                                  ? 'Start demo verification'
-                                  : 'Start verification'),
+                                  ? context.tr('Start demo verification')
+                                  : context.tr('Start verification')),
                       onPressed: kyc.loading
                           ? null
                           : () {
@@ -450,22 +453,22 @@ class _KycStatusChip extends StatelessWidget {
     final typo = context.typo;
     final (label, color, bg) = switch (status) {
       KycStatusValue.approved => (
-          'Approved',
+          context.l10n.approved,
           AppColors.success,
           AppColors.success.withValues(alpha: 0.12),
         ),
       KycStatusValue.rejected => (
-          'Rejected',
+          context.tr('Rejected'),
           AppColors.danger,
           AppColors.danger.withValues(alpha: 0.1),
         ),
       KycStatusValue.submitted => (
-          'Pending',
+          context.tr('Pending'),
           AppColors.warning,
           AppColors.warning.withValues(alpha: 0.12),
         ),
       KycStatusValue.pending => (
-          'Pending',
+          context.tr('Pending'),
           AppColors.primary,
           AppColors.primary.withValues(alpha: 0.1),
         ),
@@ -478,7 +481,7 @@ class _KycStatusChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
-        'Status: $label',
+        context.l10n.statusColon(label),
         style: typo.sm.copyWith(color: color, fontWeight: FontWeight.w600),
       ),
     );
@@ -612,16 +615,18 @@ class _KycApprovedScreenState extends State<KycApprovedScreen> {
                 child: const Icon(Icons.check, size: 40, color: AppColors.success),
               ),
               const SizedBox(height: 20),
-              Text('Identity verified!', style: typo.h1),
+              Text(context.l10n.identityVerifiedExclaim, style: typo.h1),
               const SizedBox(height: 8),
               Text(
-                'You can now post deliveries and place bids on WWNGO.',
+                context.l10n.identityVerifiedBody,
                 textAlign: TextAlign.center,
                 style: typo.sm.copyWith(height: 1.5),
               ),
               const SizedBox(height: 32),
               AppButton(
-                label: _continuing ? 'Please wait…' : 'Continue to app',
+                label: _continuing
+                    ? context.l10n.pleaseWaitEllipsis
+                    : context.l10n.continueToApp,
                 onPressed: _continuing ? null : _continueToApp,
               ),
             ],

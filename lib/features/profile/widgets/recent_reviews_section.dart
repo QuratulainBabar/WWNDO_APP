@@ -10,6 +10,7 @@ import '../../../core/widgets/app_card.dart';
 import '../../../data/models/review.dart';
 import '../../../data/models/wallet_role.dart';
 import '../../../data/services/review_repository.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../providers/auth_provider.dart';
 
 class RecentReviewsSection extends StatefulWidget {
@@ -79,7 +80,7 @@ class _RecentReviewsSectionState extends State<RecentReviewsSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Recent reviews', style: typo.h3.copyWith(fontWeight: FontWeight.w700)),
+        Text(context.l10n.recentReviews, style: typo.h3.copyWith(fontWeight: FontWeight.w700)),
         const SizedBox(height: 10),
         if (_loading && _reviews.isEmpty)
           const Padding(
@@ -97,7 +98,7 @@ class _RecentReviewsSectionState extends State<RecentReviewsSection> {
             width: double.infinity,
             child: AppCard(
               child: Text(
-                'No reviews yet.',
+                context.l10n.noReviewsYet,
                 style: typo.sm.copyWith(color: AppColors.textSecondary),
               ),
             ),

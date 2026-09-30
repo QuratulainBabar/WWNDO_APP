@@ -87,36 +87,34 @@ class _WwngoAppState extends State<WwngoApp> with WidgetsBindingObserver {
       routerConfig: appRouter,
       builder: (context, child) {
         final mediaQuery = MediaQuery.of(context);
-        // Rebuild the whole routed tree when language changes so screens that
-        // read strings during build pick up the new locale immediately.
-        return KeyedSubtree(
-          key: ValueKey('locale-${locale.languageCode}'),
-          child: Directionality(
-            textDirection:
-                localeProvider.isRtl ? TextDirection.rtl : TextDirection.ltr,
-            child: MediaQuery(
-              data: mediaQuery.copyWith(
-                textScaler: mediaQuery.textScaler.clamp(
-                  minScaleFactor: 0.85,
-                  maxScaleFactor: 1.15,
-                ),
+        // Update direction / media query on locale change without remounting
+        // the navigator tree. A ValueKey remount left shell GlobalKey states
+        // alive while hanging context.push futures (e.g. settings from profile).
+        return Directionality(
+          textDirection:
+              localeProvider.isRtl ? TextDirection.rtl : TextDirection.ltr,
+          child: MediaQuery(
+            data: mediaQuery.copyWith(
+              textScaler: mediaQuery.textScaler.clamp(
+                minScaleFactor: 0.85,
+                maxScaleFactor: 1.15,
               ),
-              child: PopScope(
-                canPop: !showInactivityGate && appRouter.canPop(),
-                onPopInvokedWithResult: (didPop, _) {
-                  if (didPop || showInactivityGate) return;
-                  final fallback = backFallbackFor(appRouter.state.uri.path);
-                  if (fallback != null) {
-                    appRouter.go(fallback);
-                  }
-                },
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    ScreenContainer(child: child ?? const SizedBox.shrink()),
-                    if (showInactivityGate) const InactivityLockGate(),
-                  ],
-                ),
+            ),
+            child: PopScope(
+              canPop: !showInactivityGate && appRouter.canPop(),
+              onPopInvokedWithResult: (didPop, _) {
+                if (didPop || showInactivityGate) return;
+                final fallback = backFallbackFor(appRouter.state.uri.path);
+                if (fallback != null) {
+                  appRouter.go(fallback);
+                }
+              },
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ScreenContainer(child: child ?? const SizedBox.shrink()),
+                  if (showInactivityGate) const InactivityLockGate(),
+                ],
               ),
             ),
           ),

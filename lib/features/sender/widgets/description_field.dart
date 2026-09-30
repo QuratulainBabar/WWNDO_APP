@@ -4,6 +4,7 @@ import '../../../core/platform/keyboard_utils.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_labeled_field.dart';
+import '../../../l10n/app_localizations.dart';
 
 /// Editable parcel description for post delivery forms.
 class DescriptionField extends StatelessWidget {
@@ -11,19 +12,20 @@ class DescriptionField extends StatelessWidget {
     super.key,
     required this.controller,
     this.errorText,
-    this.hintText = 'Describe your parcel',
+    this.hintText,
   });
 
   final TextEditingController controller;
   final String? errorText;
-  final String hintText;
+  final String? hintText;
 
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
+    final l10n = context.l10n;
 
     return AppLabeledField(
-      label: 'Description',
+      label: l10n.descriptionLabel,
       labelStyle: typo.inputLabel.copyWith(fontWeight: FontWeight.w600),
       child: TextField(
         controller: controller,
@@ -34,7 +36,7 @@ class DescriptionField extends StatelessWidget {
         textInputAction: TextInputAction.newline,
         style: typo.input,
         decoration: InputDecoration(
-          hintText: hintText,
+          hintText: hintText ?? l10n.describeYourParcel,
           hintStyle: typo.input.copyWith(color: AppColors.textDisabled),
           errorText: errorText,
         ),

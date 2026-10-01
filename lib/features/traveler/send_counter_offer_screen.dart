@@ -130,7 +130,7 @@ class _SendCounterOfferScreenState extends State<SendCounterOfferScreen> {
 
     final amount = double.tryParse(_budgetController.text.trim());
     if (amount == null || amount <= 0) {
-      AppToast.error(context, 'Enter a valid budget amount.');
+      AppToast.error(context, context.l10n.enterValidBudgetAmount);
       return;
     }
 
@@ -149,8 +149,8 @@ class _SendCounterOfferScreenState extends State<SendCounterOfferScreen> {
       AppToast.success(
         context,
         offer.status.label == 'Updated'
-            ? 'Counter offer updated.'
-            : 'Final budget sent to the sender.',
+            ? context.l10n.counterOfferUpdatedToast
+            : context.l10n.finalBudgetSentToSender,
       );
       context.pop(true);
       return;
@@ -183,18 +183,19 @@ class _SendCounterOfferScreenState extends State<SendCounterOfferScreen> {
     }
 
     FocusScope.of(context).unfocus();
-    AppToast.success(context, 'Final budget sent to the sender.');
+    AppToast.success(context, context.l10n.finalBudgetSentToSender);
     context.pop(true);
   }
 
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
+    final l10n = context.l10n;
 
     if (_loading) {
       return Scaffold(
         backgroundColor: AppColors.background,
-        appBar: BackHeader(title: 'Send Counter Offer'),
+        appBar: BackHeader(title: l10n.sendCounterOfferTitle),
         body: Center(
           child: SizedBox(
             width: 22,
@@ -211,13 +212,13 @@ class _SendCounterOfferScreenState extends State<SendCounterOfferScreen> {
     if (_error != null || _request == null) {
       return Scaffold(
         backgroundColor: AppColors.background,
-        appBar: const BackHeader(title: 'Send Counter Offer'),
+        appBar: BackHeader(title: l10n.sendCounterOfferTitle),
         body: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                _error ?? 'Request not found.',
+                context.tr(_error ?? 'Request not found.'),
                 style: typo.sm.copyWith(color: AppColors.textSecondary),
               ),
               TextButton(onPressed: _load, child: Text(context.tr('Retry'))),
@@ -229,11 +230,11 @@ class _SendCounterOfferScreenState extends State<SendCounterOfferScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: const BackHeader(title: 'Send Counter Offer'),
+      appBar: BackHeader(title: l10n.sendCounterOfferTitle),
       body: ScrollableFormScreen(
         actions: [
           AppButton(
-            label: _submitting ? 'Sending…' : 'Send Final Budget',
+            label: _submitting ? l10n.sendingEllipsis : l10n.sendFinalBudget,
             onPressed: _submitting ? null : _sendFinalBudget,
           ),
         ],
@@ -243,17 +244,19 @@ class _SendCounterOfferScreenState extends State<SendCounterOfferScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Enter a new budget amount to send to the sender.',
+                l10n.enterNewBudgetAmountHint,
                 style: typo.sm.copyWith(color: AppColors.textSecondary),
               ),
               const SizedBox(height: 8),
               Text(
-                'Sender maximum budget: ${WalletService.formatMajor(_request!.maxBudget)}',
+                l10n.senderMaximumBudgetColon(
+                  WalletService.formatMajor(_request!.maxBudget),
+                ),
                 style: typo.sm.copyWith(fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 16),
               AppLabeledField(
-                label: WalletService.fieldLabel('Your counter offer'),
+                label: WalletService.fieldLabel(l10n.yourCounterOffer),
                 child: TextField(
                   controller: _budgetController,
                   onTap: ensureSoftKeyboardVisible,

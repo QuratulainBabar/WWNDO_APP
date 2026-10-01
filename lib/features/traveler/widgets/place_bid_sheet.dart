@@ -125,7 +125,7 @@ class _PlaceBidSheetState extends State<PlaceBidSheet> {
                 ),
               ),
               AppLabeledField(
-                label: context.tr('Message to sender (optional)'),
+                label: context.l10n.messageToSender,
                 labelStyle:
                     typo.inputLabel.copyWith(fontWeight: FontWeight.w600),
                 child: TextField(

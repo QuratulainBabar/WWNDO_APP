@@ -278,7 +278,7 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
     if (_loading) {
       return Scaffold(
         backgroundColor: AppColors.background,
-        appBar: BackHeader(title: 'Parcel Request Details'),
+        appBar: BackHeader(title: context.l10n.parcelRequestDetails),
         body: Center(
           child: SizedBox(
             width: 22,
@@ -295,13 +295,13 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
     if (_error != null || _request == null) {
       return Scaffold(
         backgroundColor: AppColors.background,
-        appBar: const BackHeader(title: 'Parcel Request Details'),
+        appBar: BackHeader(title: context.l10n.parcelRequestDetails),
         body: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                _error ?? 'Request not found.',
+                context.tr(_error ?? 'Request not found.'),
                 style: typo.sm.copyWith(color: AppColors.textSecondary),
               ),
               TextButton(onPressed: _load, child: Text(context.tr('Retry'))),
@@ -322,10 +322,11 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
         !_busy && _completedAction == _ParcelOfferAction.none;
     final canSendCounterOffer =
         !_busy && _completedAction == _ParcelOfferAction.none;
+    final l10n = context.l10n;
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: const BackHeader(title: 'Parcel Request Details'),
+      appBar: BackHeader(title: l10n.parcelRequestDetails),
       body: SafeArea(
         child: Column(
           children: [
@@ -366,12 +367,14 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
                             ),
                           ),
                           if (matchScore != null)
-                            AppBadge.success('$matchScore% Match'),
+                            AppBadge.success(
+                              l10n.matchPercentLabel('$matchScore'),
+                            ),
                         ],
                       ),
                       const SizedBox(height: 20),
                       Text(
-                        'Parcel details',
+                        l10n.parcelDetails,
                         style: typo.h3.copyWith(
                           fontWeight: FontWeight.w700,
                           color: AppColors.textPrimary,
@@ -382,58 +385,61 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
                         from: request.fromCity,
                         to: request.toCity,
                         fallbackRoute: request.route,
-                        sectionLabel: 'Route',
+                        sectionLabel: l10n.route,
                         bottomPadding: 8,
                       ),
                       _detailRow(
                         context,
-                        'Travel / delivery date',
-                        DateFormat('MMM d, yyyy').format(request.travelDate),
+                        l10n.travelDeliveryDate,
+                        DateFormat(
+                          'MMM d, yyyy',
+                          l10n.locale.toString(),
+                        ).format(request.travelDate),
                       ),
                       _detailRow(
                         context,
-                        'Parcel type',
-                        request.categoryTypeLabel,
+                        l10n.parcelType,
+                        l10n.parcelCategoryTypeLabel(request.categoryTypeLabel),
                       ),
                       _detailRow(
                         context,
-                        'Parcel weight',
-                        '${request.weightKg} kg',
+                        l10n.parcelWeight,
+                        l10n.weightWithKg('${request.weightKg}'),
                       ),
                       _detailRow(
                         context,
-                        'Sender meetup location',
+                        l10n.senderMeetupLocation,
                         request.displayMeetupLocation,
                         multiline: true,
                       ),
                       _detailRow(
                         context,
-                        'Receiver meetup location',
+                        l10n.receiverMeetupLocation,
                         request.displayReceiverHandoffLocation,
                         multiline: true,
                       ),
                       const SizedBox(height: 8),
                       ParcelPhotoViewer(
                         photoUrls: request.photoUrls,
-                        title: 'Parcel photos',
+                        title: l10n.parcelPhotos,
                       ),
                       const SizedBox(height: 12),
                       _detailRow(
                         context,
-                        'Parcel description',
+                        l10n.parcelDescription,
                         request.displayDescription,
                         multiline: true,
                       ),
                       const SizedBox(height: 8),
                       _detailRow(
                         context,
-                        'Sender maximum budget',
+                        l10n.senderMaximumBudget,
                         WalletService.formatMajor(request.maxBudget),
                         valueStyle: typo.priceSmall.copyWith(fontSize: 16),
                       ),
                       const SizedBox(height: 16),
                       AppLabeledField(
-                        label: context.tr('Message to sender (optional)'),
+                        label: l10n.messageToSender,
                         labelStyle: typo.inputLabel.copyWith(
                           fontWeight: FontWeight.w600,
                           color: AppColors.textPrimary,
@@ -446,8 +452,7 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
                           style: typo.input,
                           textInputAction: TextInputAction.done,
                           decoration: InputDecoration(
-                            hintText:
-                                'Add a note for the sender about this delivery…',
+                            hintText: l10n.addNoteForSenderPlaceholder,
                             hintStyle: typo.sm.copyWith(
                               color: AppColors.textSecondary,
                               fontStyle: FontStyle.italic,
@@ -459,12 +464,16 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
                         const SizedBox(height: 12),
                         Text(
                           acceptedOffer
-                              ? 'You accepted this offer. Send Counter Offer is disabled.'
+                              ? l10n.youAcceptedOfferCounterDisabled
                               : sentCounter
-                                  ? 'Your counter offer was sent. Accept Offer is disabled.'
+                                  ? l10n.counterOfferSentAcceptDisabled
                                   : existingBid!.isAccepted
-                                      ? 'This offer was already accepted. Counter offers are closed.'
-                                      : 'Your offer is ${existingBid.status.label}. You can still send an updated counter offer.',
+                                      ? l10n.offerAlreadyAcceptedCountersClosed
+                                      : l10n.yourOfferStatusCanUpdateCounter(
+                                          l10n.travelerBidStatusLabel(
+                                            existingBid.status.label,
+                                          ),
+                                        ),
                           style: typo.sm.copyWith(
                             color: acceptedOffer ||
                                     sentCounter ||
@@ -476,16 +485,18 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
                       ],
                       const SizedBox(height: 16),
                       AppButton(
-                        label: acceptedOffer ? 'Offer Accepted' : 'Accept Offer',
+                        label: acceptedOffer
+                            ? l10n.offerAcceptedLabel
+                            : l10n.acceptOffer,
                         onPressed: canAcceptOffer ? _acceptOffer : null,
                       ),
                       const SizedBox(height: AppButton.stackGap),
                       AppButton(
                         label: acceptedOffer
-                            ? 'Send Counter Offer'
+                            ? l10n.sendCounterOffer
                             : sentCounter
-                                ? 'Update Counter Offer'
-                                : 'Send Counter Offer',
+                                ? l10n.updateCounterOffer
+                                : l10n.sendCounterOffer,
                         variant: AppButtonVariant.ghost,
                         onPressed:
                             canSendCounterOffer ? _onSendCounterOfferTap : null,

@@ -5,6 +5,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_labeled_field.dart';
 import '../../../data/models/meetup_location.dart';
+import '../../../l10n/app_localizations.dart';
 
 /// Opens the location search screen to pick From / To city.
 class RouteCityDropdown extends StatelessWidget {
@@ -13,7 +14,7 @@ class RouteCityDropdown extends StatelessWidget {
     required this.label,
     required this.value,
     required this.onChanged,
-    this.hintText = 'Search Location',
+    this.hintText,
     this.mapTitle,
     this.searchHint,
     this.citySearch = true,
@@ -23,13 +24,14 @@ class RouteCityDropdown extends StatelessWidget {
   final String label;
   final MeetupLocation? value;
   final ValueChanged<MeetupLocation> onChanged;
-  final String hintText;
+  final String? hintText;
   final String? mapTitle;
   final String? searchHint;
   final bool citySearch;
   final bool airportSearch;
 
   Future<void> _openMapPicker(BuildContext context) async {
+    final resolvedHint = hintText ?? context.l10n.searchLocation;
     final initial = value == null ? const <MeetupLocation>[] : [value!];
     final result = await context.push<List<MeetupLocation>>(
       '/add-meetup-locations',
@@ -37,7 +39,7 @@ class RouteCityDropdown extends StatelessWidget {
         'locations': initial,
         'maxLocations': 1,
         'title': mapTitle ?? label,
-        'searchHint': searchHint ?? hintText,
+        'searchHint': searchHint ?? resolvedHint,
         'citySearch': citySearch,
         'airportSearch': airportSearch,
       },
@@ -52,6 +54,7 @@ class RouteCityDropdown extends StatelessWidget {
     final typo = context.typo;
     final hasValue = value != null;
     final display = hasValue ? value!.displayLabel : null;
+    final resolvedHint = hintText ?? context.l10n.searchLocation;
 
     return AppLabeledField(
       label: label,
@@ -64,7 +67,7 @@ class RouteCityDropdown extends StatelessWidget {
           child: InputDecorator(
             isEmpty: !hasValue,
             decoration: InputDecoration(
-              hintText: hintText,
+              hintText: resolvedHint,
               isDense: true,
               contentPadding: const EdgeInsets.fromLTRB(16, 0, 4, 0),
               prefixIcon: const Icon(

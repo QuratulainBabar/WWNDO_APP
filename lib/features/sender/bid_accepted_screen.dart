@@ -15,6 +15,7 @@ import '../../core/widgets/stacked_route_endpoints.dart';
 import '../../data/models/bid.dart';
 import '../../data/static_data.dart';
 import '../../data/wallet_service.dart';
+import '../../l10n/app_localizations.dart';
 
 class BidAcceptedScreen extends StatelessWidget {
   const BidAcceptedScreen({
@@ -29,12 +30,16 @@ class BidAcceptedScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
-    final travelDate = DateFormat('MMM d, yyyy').format(bid.travelDate);
+    final l10n = context.l10n;
+    final travelDate = DateFormat(
+      'MMM d, yyyy',
+      l10n.locale.toString(),
+    ).format(bid.travelDate);
     final route = StaticData.activeShipment.route;
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: const BackHeader(title: 'Accepted Bid Details'),
+      appBar: BackHeader(title: l10n.acceptedBidDetails),
       body: SafeArea(
         child: SingleChildScrollView(
           physics: PlatformUi.scrollPhysics,
@@ -42,9 +47,9 @@ class BidAcceptedScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              AppBadge.success('Bid accepted'),
+              AppBadge.success(context.tr('Bid accepted')),
               const SizedBox(height: 8),
-              AppBadge.success('Escrow funded · Selection locked'),
+              AppBadge.success(l10n.escrowFundedSelectionLocked),
               const SizedBox(height: 16),
               AppCard(
                 margin: EdgeInsets.zero,
@@ -75,25 +80,25 @@ class BidAcceptedScreen extends StatelessWidget {
                       child: Divider(height: 1),
                     ),
                     Text(
-                      'Bid details',
+                      l10n.bidDetailsHeading,
                       style: typo.h3.copyWith(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 12),
                     StackedRouteEndpoints.split(
                       route,
-                      sectionLabel: 'Route',
+                      sectionLabel: l10n.route,
                       bottomPadding: 8,
                     ),
-                    _detailRow(context, 'Travel date', travelDate),
+                    _detailRow(context, l10n.travelDate, travelDate),
                     _detailRow(
                       context,
-                      'Accepted bid amount',
+                      l10n.acceptedBidAmount,
                       WalletService.formatMajor(bid.price),
                       valueStyle: typo.priceSmall.copyWith(fontSize: 16),
                     ),
                     if (bid.message != null) ...[
                       const SizedBox(height: 8),
-                      Text('Traveler message', style: typo.sm),
+                      Text(l10n.travelerMessage, style: typo.sm),
                       const SizedBox(height: 8),
                       Container(
                         width: double.infinity,
@@ -110,14 +115,14 @@ class BidAcceptedScreen extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               AppButton(
-                label: 'Chat with Traveler',
+                label: l10n.chatWithTraveler,
                 onPressed: accepted
                     ? () => context.go('/sender-chats')
                     : null,
               ),
               const SizedBox(height: AppButton.stackGap),
               AppButton(
-                label: 'Back to Home',
+                label: l10n.backToHome,
                 variant: AppButtonVariant.outline,
                 onPressed: () => context.go('/home'),
               ),

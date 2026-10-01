@@ -404,8 +404,6 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
         widget.isTravelerView && !isDisputed && canMarkInTransit;
     final statusOptions = _statusOptionsFor(status);
     final selectedStatus = _selectedOptionFor(status);
-    const statusUpdateHint =
-        'NFC handoff is complete. Tap Start Transit when you begin travel with this parcel.';
     return Scaffold(
           backgroundColor: AppColors.background,
           appBar: BackHeader(
@@ -496,7 +494,7 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
                         _detailRow(
                           context,
                           context.l10n.parcelType,
-                          '${context.tr(shipment.parcelCategory)} · ${shipment.parcelWeightKg}kg',
+                          '${context.tr(shipment.parcelCategory)} · ${context.l10n.weightWithKg('${shipment.parcelWeightKg}')}',
                         ),
                         const SizedBox(height: 16),
                         ShipmentEscrowSection(shipmentId: shipment.id),
@@ -570,12 +568,12 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
                   if (showStatusUpdate) ...[
                     const SizedBox(height: 24),
                     Text(
-                      'Update Shipment Status',
+                      context.l10n.updateShipmentStatus,
                       style: typo.h3.copyWith(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      statusUpdateHint,
+                      context.l10n.nfcHandoffCompleteStartTransit,
                       style: typo.sm.copyWith(height: 1.5, color: AppColors.textSecondary),
                     ),
                     const SizedBox(height: 12),
@@ -597,7 +595,7 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
                                   children: [
                                     Expanded(
                                       child: Text(
-                                        option.label,
+                                        context.tr(option.label),
                                         style: typo.bodyBold.copyWith(fontWeight: FontWeight.w700),
                                       ),
                                     ),
@@ -619,7 +617,7 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
                     ),
                     const SizedBox(height: 12),
                     AppButton(
-                      label: 'Start Transit',
+                      label: context.l10n.startTransit,
                       onPressed: () => _updateStatus(selectedStatus),
                     ),
                   ],
@@ -689,7 +687,7 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
       if (!disputed && !canOpen) return;
       addAction(
         AppButton(
-          label: disputed ? 'View dispute' : 'Dispute',
+          label: disputed ? context.l10n.viewDispute : context.l10n.dispute,
           variant: AppButtonVariant.danger,
           textStyle: typo.buttonDanger.copyWith(fontWeight: FontWeight.w700),
           onPressed: () => appNavigatePush(
@@ -704,7 +702,7 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
     void addSenderChatButton() {
       addAction(
         AppButton(
-          label: 'Chat with Traveler',
+          label: context.l10n.chatWithTraveler,
           onPressed: () => openDeliveryChat(
             context,
             chatBasePath: '/sender-chats',
@@ -719,7 +717,7 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
       if (snap?.isReceiverAccepted != true) return;
       addAction(
         AppButton(
-          label: 'Chat with Receiver',
+          label: context.l10n.chatWithReceiver,
           onPressed: () => openDeliveryChat(
             context,
             chatBasePath: '/sender-chats',
@@ -794,7 +792,7 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
       if (_isSenderBookingCancellable()) {
         addAction(
           AppButton(
-            label: 'Cancel booking (refund escrow)',
+            label: context.l10n.cancelBookingRefundEscrow,
             variant: AppButtonVariant.danger,
             onPressed: () => _cancelSenderBooking(context),
           ),
@@ -804,7 +802,7 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
       if (status == ShipmentStatus.delivered || cp2Confirmed) {
         addAction(
           AppButton(
-            label: 'Leave a review',
+            label: context.l10n.leaveAReview,
             onPressed: _senderReviewedTraveler
                 ? null
                 : () => context.push(
@@ -822,7 +820,7 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
     if (snap?.disputed ?? false) {
       addAction(
         AppButton(
-          label: 'View dispute',
+          label: context.l10n.viewDispute,
           variant: AppButtonVariant.danger,
           onPressed: () => appNavigatePush(
             disputeRoute(
@@ -877,7 +875,7 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
     if (widget.isTravelerView && canReportIssue) {
       addAction(
         AppButton(
-          label: 'Chat with sender',
+          label: context.l10n.chatWithSender,
           variant: AppButtonVariant.ghost,
           textStyle: typo.button.copyWith(
             fontWeight: FontWeight.w700,
@@ -893,7 +891,7 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
       );
       addAction(
         AppButton(
-          label: 'Chat with receiver',
+          label: context.l10n.chatWithReceiver,
           variant: AppButtonVariant.ghost,
           textStyle: typo.button.copyWith(
             fontWeight: FontWeight.w700,
@@ -909,7 +907,7 @@ class _ShipmentDetailScreenState extends State<ShipmentDetailScreen> {
       );
       addAction(
         AppButton(
-          label: 'Dispute',
+          label: context.l10n.dispute,
           variant: AppButtonVariant.danger,
           textStyle: typo.buttonDanger.copyWith(fontWeight: FontWeight.w700),
           onPressed: () => appNavigatePush(
@@ -999,19 +997,15 @@ class _NfcCheckpoint1Section extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           isTravelerView
-              ? 'This NFC checkpoint confirms the sender handed over the parcel. '
-                  'Tap your phones with the sender so both of you can confirm on your own devices. '
-                  'After both confirm, the parcel is marked Collected. '
-                  'The sender should confirm on their device after the tap.'
-              : 'Tap phones with the traveler to confirm handoff. When both parties confirm, the parcel becomes Collected. '
-                  'Waiting for the traveler to confirm on their device after your tap.',
+              ? context.l10n.nfcCheckpoint1TravelerBody
+              : context.l10n.nfcCheckpoint1SenderBody,
           style: typo.sm.copyWith(height: 1.5),
         ),
         const SizedBox(height: 16),
         AppButton(
           label: isTravelerView
-              ? 'Start NFC with Sender'
-              : 'Start NFC with Traveler',
+              ? context.l10n.startNfcWithSender
+              : context.l10n.startNfcWithTraveler,
           onPressed: () => context.push(
             '/nfc-confirm',
             extra: {
@@ -1068,12 +1062,12 @@ class _TravelerNfcDeliverySection extends StatelessWidget {
           AppBadge.success(context.l10n.nfcTravelerReceiverConfirmed),
         ] else ...[
           Text(
-            'Meet the receiver and tap phones to confirm final delivery. Both parties must complete NFC Checkpoint Traveler & Receiver to release escrow.',
+            context.l10n.nfcMeetReceiverHint,
             style: typo.sm.copyWith(height: 1.5),
           ),
           const SizedBox(height: 16),
           AppButton(
-            label: 'Start NFC with Receiver',
+            label: context.l10n.startNfcWithReceiver,
             onPressed: () => context.push(
               '/nfc-confirm',
               extra: {
@@ -1110,7 +1104,7 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
   bool _confirmed = false;
   bool _cancelled = false;
   bool _listening = false;
-  String _status = 'Preparing NFC…';
+  String? _status;
   Timer? _peerPollTimer;
 
   bool get _isCheckpoint2 => widget.checkpoint == 2;
@@ -1159,8 +1153,8 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
     setState(() {
       _listening = true;
       _status = useSimulate
-          ? 'Confirming secure tap…'
-          : 'Matching with the other phone…';
+          ? context.l10n.confirmingSecureTapEllipsis
+          : context.l10n.matchingWithOtherPhoneEllipsis;
     });
 
     try {
@@ -1178,7 +1172,7 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
       if (!mounted || _cancelled) return;
       setState(() {
         _listening = false;
-        _status = 'NFC failed. Tap below to retry or simulate.';
+        _status = context.l10n.nfcFailedRetryHint;
       });
       AppToast.error(context, 'NFC error: $e');
     }
@@ -1258,14 +1252,14 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
     final shipmentId = widget.shipmentId;
     if (shipmentId == null || shipmentId.isEmpty) {
       if (mounted) {
-        AppToast.error(context, 'Delivery ID is missing for NFC confirm.');
+        AppToast.error(context, context.l10n.deliveryIdMissingForNfc);
       }
       setState(() => _listening = false);
       return;
     }
 
     _confirmed = true;
-    setState(() => _status = 'Confirming checkpoint…');
+    setState(() => _status = context.l10n.confirmingCheckpointEllipsis);
 
     try {
       final auth = context.read<AuthProvider>();
@@ -1312,7 +1306,7 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
         setState(() {
           _confirmed = false;
           _listening = false;
-          _status = 'Your tap is recorded — waiting for the other phone…';
+          _status = context.l10n.nfcTapRecordedWaitingPeer;
         });
         _startPeerPoll(shipmentId);
         return;
@@ -1323,7 +1317,7 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
           setState(() {
             _confirmed = false;
             _listening = false;
-            _status = 'Your tap is recorded — waiting for the other phone…';
+            _status = context.l10n.nfcTapRecordedWaitingPeer;
           });
           _startPeerPoll(shipmentId);
         }
@@ -1355,16 +1349,20 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
+    final l10n = context.l10n;
     final title = _isCheckpoint2
-        ? 'NFC Checkpoint Traveler & Receiver'
-        : 'NFC Checkpoint Traveler & Sender';
+        ? l10n.nfcCheckpointTravelerReceiver
+        : l10n.nfcCheckpointTravelerSender;
     final body = _isCheckpoint2
         ? (widget.isTraveler
-            ? "Hold your phone near the receiver's phone to confirm delivery. Both of you must match NFC to mark Delivered and release escrow."
-            : "Hold your phone near the traveler's phone to confirm delivery. Both of you must match NFC to mark Delivered.")
+            ? l10n.nfcHoldPhoneReceiverBody
+            : l10n.nfcHoldPhoneTravelerBody)
         : widget.isTraveler
-            ? "Open this screen on the sender's phone too. When both of you confirm, the parcel becomes Collected."
-            : "Open this screen on the traveler's phone too. When both of you confirm, the parcel becomes Collected.";
+            ? l10n.nfcOpenOnSenderPhone
+            : l10n.nfcOpenOnTravelerPhone;
+    final statusText = _status == null || _status!.isEmpty
+        ? l10n.preparingNfcEllipsis
+        : context.tr(_status!);
 
     return Scaffold(
       body: Container(
@@ -1409,7 +1407,7 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
                       ),
                     ),
                     child: Text(
-                      'Trip / Delivery ID: ${widget.shipmentId}',
+                      l10n.tripDeliveryIdColon(widget.shipmentId!),
                       textAlign: TextAlign.center,
                       style: typo.bodyBold.copyWith(
                         color: Colors.white,
@@ -1426,7 +1424,7 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  _status,
+                  statusText,
                   textAlign: TextAlign.center,
                   style: typo.sm.copyWith(color: Colors.white70),
                 ),
@@ -1435,7 +1433,7 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
                   TextButton(
                     onPressed: () => _startNfc(),
                     child: Text(
-                      'Retry NFC',
+                      l10n.retryNfc,
                       style: typo.button.copyWith(color: Colors.white),
                     ),
                   ),
@@ -1444,7 +1442,7 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
                       ? null
                       : () => _startNfc(forceSimulate: true),
                   child: Text(
-                    'Simulate tap (dev)',
+                    l10n.simulateTapDev,
                     style: typo.button.copyWith(
                       color: Colors.white,
                       fontSize: 16,
@@ -1453,7 +1451,7 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'One phone? Simulate as sender, then login as traveler and simulate again.',
+                  l10n.nfcSimulateDevHint,
                   textAlign: TextAlign.center,
                   style: typo.sm.copyWith(color: Colors.white60),
                 ),
@@ -1471,7 +1469,7 @@ class _NfcConfirmScreenState extends State<NfcConfirmScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     ),
                     child: Text(
-                      'Cancel',
+                      context.tr('Cancel'),
                       style: typo.button.copyWith(color: Colors.white, fontSize: 14),
                     ),
                   ),
@@ -1595,28 +1593,29 @@ class _NfcConfirmSuccessScreenState extends State<NfcConfirmSuccessScreen> {
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
+    final l10n = context.l10n;
     final shipmentId = widget.shipmentId;
     final shipmentRoute = widget.isTraveler
         ? '/shipment/$shipmentId?traveler=true'
         : '/shipment/$shipmentId';
     final listRoute = widget.isTraveler ? '/traveler-deliveries' : '/track';
-    final otherParty = widget.isTraveler ? 'sender' : 'traveler';
+    final otherParty =
+        widget.isTraveler ? l10n.sender : l10n.traveler;
     final waiting = widget.waitingForPeer;
 
     final title = waiting
-        ? 'Waiting for $otherParty'
-        : 'NFC Checkpoint Traveler & Sender complete';
-    final waitingBody =
-        'Your NFC tap for $shipmentId is recorded. Ask the $otherParty to complete their NFC tap. When both match, the parcel becomes Collected.';
+        ? l10n.waitingForParty(otherParty)
+        : l10n.nfcCheckpointComplete(l10n.nfcCheckpointTravelerSender);
+    final waitingBody = l10n.nfcWaitingForPartyBody(shipmentId, otherParty);
 
     return Scaffold(
       backgroundColor: AppColors.surface,
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(32),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              const SizedBox(height: 12),
               Container(
                 width: 80,
                 height: 80,
@@ -1648,7 +1647,7 @@ class _NfcConfirmSuccessScreenState extends State<NfcConfirmSuccessScreen> {
                 child: Column(
                   children: [
                     Text(
-                      'Trip / Delivery ID',
+                      l10n.tripDeliveryId,
                       textAlign: TextAlign.center,
                       style: typo.sm.copyWith(
                         color: AppColors.success,
@@ -1664,7 +1663,7 @@ class _NfcConfirmSuccessScreenState extends State<NfcConfirmSuccessScreen> {
                     if (!waiting) ...[
                       const SizedBox(height: 8),
                       Text(
-                        'Sender ↔ Traveler verified this exact ID',
+                        l10n.verifiedThisExactId(l10n.senderTravelerPair),
                         textAlign: TextAlign.center,
                         style: typo.sm.copyWith(
                           color: AppColors.success,
@@ -1686,24 +1685,26 @@ class _NfcConfirmSuccessScreenState extends State<NfcConfirmSuccessScreen> {
                 _NfcSuccessBulletList(
                   items: [
                     widget.isTraveler
-                        ? 'You and the Sender verified the same trip/delivery'
-                        : 'You and the Traveler verified the same trip/delivery',
+                        ? l10n.nfcBulletVerifiedSameTripSender
+                        : l10n.nfcBulletVerifiedSameTripTraveler,
                     widget.isTraveler
-                        ? 'You are connected to the correct Sender'
-                        : 'The Traveler is connected to you (the correct Sender)',
-                    'This parcel belongs to this exact trip/delivery',
-                    'Parcel status is now Collected',
-                    'Traveler can mark In Transit when ready',
+                        ? l10n.nfcBulletConnectedToSender
+                        : l10n.nfcBulletTravelerConnectedToYou,
+                    l10n.nfcBulletParcelBelongsTrip,
+                    l10n.nfcBulletParcelCollected,
+                    l10n.nfcBulletTravelerCanMarkInTransit,
                   ],
                 ),
               const SizedBox(height: 32),
               AppButton(
-                label: 'View shipment',
+                label: l10n.viewShipment,
                 onPressed: () => context.go(shipmentRoute),
               ),
               const SizedBox(height: AppButton.stackGap),
               AppButton(
-                label: widget.isTraveler ? 'Back to deliveries' : 'Back to shipments',
+                label: widget.isTraveler
+                    ? l10n.backToDeliveries
+                    : l10n.backToShipments,
                 variant: AppButtonVariant.outline,
                 onPressed: () => context.go(listRoute),
               ),
@@ -1728,11 +1729,11 @@ class TravelerNfcDeliverySuccessScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
+    final l10n = context.l10n;
     final title = waitingForPeer
-        ? 'Waiting for receiver'
-        : 'NFC Checkpoint Traveler & Receiver complete';
-    final waitingBody =
-        'Your NFC tap for $shipmentId is recorded. Ask the receiver to complete their NFC Checkpoint Traveler & Receiver tap to confirm delivery and release escrow.';
+        ? l10n.waitingForParty(l10n.receiver)
+        : l10n.nfcCheckpointComplete(l10n.nfcCheckpointTravelerReceiver);
+    final waitingBody = l10n.nfcWaitingForReceiverBody(shipmentId);
 
     return Scaffold(
       backgroundColor: AppColors.surface,
@@ -1776,7 +1777,7 @@ class TravelerNfcDeliverySuccessScreen extends StatelessWidget {
                 child: Column(
                   children: [
                     Text(
-                      'Trip / Delivery ID',
+                      l10n.tripDeliveryId,
                       textAlign: TextAlign.center,
                       style: typo.sm.copyWith(
                         color: AppColors.success,
@@ -1792,7 +1793,7 @@ class TravelerNfcDeliverySuccessScreen extends StatelessWidget {
                     if (!waitingForPeer) ...[
                       const SizedBox(height: 8),
                       Text(
-                        'Traveler ↔ Receiver verified this exact ID',
+                        l10n.verifiedThisExactId(l10n.travelerReceiverPair),
                         textAlign: TextAlign.center,
                         style: typo.sm.copyWith(
                           color: AppColors.success,
@@ -1811,13 +1812,13 @@ class TravelerNfcDeliverySuccessScreen extends StatelessWidget {
                   style: typo.sm.copyWith(height: 1.5),
                 )
               else
-                const _NfcSuccessBulletList(
+                _NfcSuccessBulletList(
                   items: [
-                    'You and the Receiver verified the same trip/delivery',
-                    'You are handing over the parcel to the correct Receiver',
-                    'This parcel belongs to this exact trip/delivery',
-                    'Parcel status is now Delivered',
-                    'Escrow has been released to your wallet',
+                    l10n.nfcBulletVerifiedSameTripReceiver,
+                    l10n.nfcBulletHandingOverToReceiver,
+                    l10n.nfcBulletParcelBelongsTrip,
+                    l10n.nfcBulletParcelDelivered,
+                    l10n.nfcBulletEscrowReleasedWallet,
                   ],
                 ),
               if (!waitingForPeer) ...[
@@ -1826,18 +1827,18 @@ class TravelerNfcDeliverySuccessScreen extends StatelessWidget {
                   margin: EdgeInsets.zero,
                   child: Column(
                     children: [
-                      _travelerNfcSuccessRow(context, 'NFC Verified'),
+                      _travelerNfcSuccessRow(context, l10n.nfcVerifiedLabel),
                       const SizedBox(height: 12),
-                      _travelerNfcSuccessRow(context, 'Parcel Delivered'),
+                      _travelerNfcSuccessRow(context, l10n.parcelDeliveredLabel),
                       const SizedBox(height: 12),
-                      _travelerNfcSuccessRow(context, 'Payment Completed'),
+                      _travelerNfcSuccessRow(context, l10n.paymentCompletedLabel),
                     ],
                   ),
                 ),
               ],
               const SizedBox(height: 32),
               AppButton(
-                label: 'Back to tracking',
+                label: l10n.backToTracking,
                 onPressed: () => context.go('/shipment/$shipmentId?traveler=true'),
               ),
               if (!waitingForPeer) ...[
@@ -2407,7 +2408,7 @@ class ContactSupportSuccessScreen extends StatelessWidget {
                     if (shipmentId != null) ...[
                       const SizedBox(height: AppButton.stackGap),
                       AppButton(
-                        label: 'View dispute',
+                        label: context.l10n.viewDispute,
                         variant: AppButtonVariant.outline,
                         onPressed: () => appNavigatePush('/dispute/$shipmentId'),
                       ),
@@ -2450,6 +2451,7 @@ class ReviewSubmittedSuccessScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
+    final l10n = context.l10n;
 
     return Scaffold(
       backgroundColor: AppColors.surface,
@@ -2470,21 +2472,25 @@ class ReviewSubmittedSuccessScreen extends StatelessWidget {
                 child: const Icon(Icons.check, size: 40, color: AppColors.success),
               ),
               const SizedBox(height: 20),
-              Text('Review submitted!', style: typo.h1, textAlign: TextAlign.center),
+              Text(
+                l10n.reviewSubmittedExclaim,
+                style: typo.h1,
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: 8),
               Text(
-                'Thanks for sharing your feedback on $shipmentId. Your $rating-star review helps keep WWNGO safe and reliable.',
+                l10n.thanksForFeedbackReview(shipmentId, '$rating'),
                 textAlign: TextAlign.center,
                 style: typo.sm.copyWith(height: 1.5),
               ),
               const SizedBox(height: 32),
               AppButton(
-                label: 'Back to home',
+                label: l10n.backToHome,
                 onPressed: () => context.go(homeRouteForWalletRole(reviewerRole)),
               ),
               const SizedBox(height: AppButton.stackGap),
               AppButton(
-                label: 'View my shipments',
+                label: l10n.viewMyShipments,
                 variant: AppButtonVariant.outline,
                 onPressed: () => context.go(
                   reviewerRole == WalletRole.traveler
@@ -2566,7 +2572,7 @@ class _DeliveryReviewScreenState extends State<DeliveryReviewScreen> {
     if (shipmentId.isEmpty) {
       setState(() {
         _loading = false;
-        _loadError = 'Missing shipment ID. Open review from a completed delivery.';
+        _loadError = context.l10n.missingShipmentIdForReview;
       });
       return;
     }
@@ -2579,35 +2585,37 @@ class _DeliveryReviewScreenState extends State<DeliveryReviewScreen> {
     });
 
     if (context.read<DemoModeProvider>().enabled) {
+      final l10n = context.l10n;
       final demoContext = switch (reviewerRole) {
         WalletRole.traveler when revieweeRole == WalletRole.sender =>
           ReviewContext(
             revieweeId: 'demo-sender',
             revieweeRole: WalletRole.sender,
-            revieweeName: 'Sender',
-            confirmationMessage:
-                'Delivery $shipmentId complete. How was your experience with the sender?',
+            revieweeName: l10n.sender,
+            shipmentId: shipmentId,
+            kind: ReviewConfirmationKind.deliveryCompleteExperience,
           ),
         WalletRole.traveler => ReviewContext(
             revieweeId: 'demo-receiver',
             revieweeRole: WalletRole.receiver,
-            revieweeName: 'Receiver',
-            confirmationMessage:
-                'Delivery $shipmentId complete. How was the handoff with the receiver?',
+            revieweeName: l10n.receiver,
+            shipmentId: shipmentId,
+            kind: ReviewConfirmationKind.deliveryCompleteHandoff,
           ),
         WalletRole.receiver => ReviewContext(
             revieweeId: 'demo-traveler',
             revieweeRole: WalletRole.traveler,
-            revieweeName: 'Traveler',
-            confirmationMessage:
-                'Delivery $shipmentId confirmed. How was your experience with the traveler?',
+            revieweeName: l10n.traveler,
+            shipmentId: shipmentId,
+            kind: ReviewConfirmationKind.deliveryConfirmedExperience,
           ),
         WalletRole.sender => ReviewContext(
             revieweeId: 'demo-traveler',
             revieweeRole: WalletRole.traveler,
-            revieweeName: 'Traveler',
-            confirmationMessage:
-                'Delivery $shipmentId confirmed. How was your experience with the traveler?',
+            revieweeName: l10n.traveler,
+            shipmentId: shipmentId,
+            kind: ReviewConfirmationKind.payoutReleasedToTraveler,
+            payoutAmount: formatReviewPayout(200),
           ),
       };
       setState(() {
@@ -2631,8 +2639,7 @@ class _DeliveryReviewScreenState extends State<DeliveryReviewScreen> {
       if (reviewContext == null) {
         setState(() {
           _loading = false;
-          _loadError =
-              'Unable to determine who to review for this delivery. Try again from shipment details.';
+          _loadError = context.l10n.unableToDetermineReviewee;
         });
         return;
       }
@@ -2650,7 +2657,7 @@ class _DeliveryReviewScreenState extends State<DeliveryReviewScreen> {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _loadError = 'Unable to load delivery details.';
+        _loadError = context.l10n.unableToLoadDeliveryDetails;
       });
     }
   }
@@ -2661,7 +2668,7 @@ class _DeliveryReviewScreenState extends State<DeliveryReviewScreen> {
 
     final text = _reviewController.text.trim();
     if (text.isEmpty) {
-      AppToast.error(context, 'Please write a short review before submitting.');
+      AppToast.error(context, context.l10n.pleaseWriteShortReview);
       return;
     }
 
@@ -2701,7 +2708,7 @@ class _DeliveryReviewScreenState extends State<DeliveryReviewScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _submitting = false);
-      AppToast.error(context, 'Unable to submit review. Please try again.');
+      AppToast.error(context, context.l10n.unableToSubmitReview);
     }
   }
 
@@ -2718,12 +2725,13 @@ class _DeliveryReviewScreenState extends State<DeliveryReviewScreen> {
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
+    final l10n = context.l10n;
     final reviewContext = _context;
 
     if (_loading) {
       return Scaffold(
         backgroundColor: AppColors.surface,
-        appBar: const BackHeader(title: 'Leave a review'),
+        appBar: BackHeader(title: l10n.leaveAReview),
         body: const Center(
           child: SizedBox(
             width: 24,
@@ -2737,7 +2745,7 @@ class _DeliveryReviewScreenState extends State<DeliveryReviewScreen> {
     if (_loadError != null || reviewContext == null) {
       return Scaffold(
         backgroundColor: AppColors.surface,
-        appBar: const BackHeader(title: 'Leave a review'),
+        appBar: BackHeader(title: l10n.leaveAReview),
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(28),
@@ -2745,7 +2753,9 @@ class _DeliveryReviewScreenState extends State<DeliveryReviewScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  _loadError ?? 'Review unavailable.',
+                  _loadError != null
+                      ? context.tr(_loadError!)
+                      : l10n.reviewUnavailable,
                   textAlign: TextAlign.center,
                   style: typo.sm.copyWith(color: AppColors.textSecondary, height: 1.5),
                 ),
@@ -2758,9 +2768,12 @@ class _DeliveryReviewScreenState extends State<DeliveryReviewScreen> {
       );
     }
 
+    final revieweeName = _localizedRevieweeName(l10n, reviewContext);
+    final confirmation = _localizedConfirmation(l10n, reviewContext, revieweeName);
+
     return Scaffold(
       backgroundColor: AppColors.surface,
-      appBar: const BackHeader(title: 'Leave a review'),
+      appBar: BackHeader(title: l10n.leaveAReview),
       body: SafeArea(
         top: false,
         child: SingleChildScrollView(
@@ -2780,16 +2793,20 @@ class _DeliveryReviewScreenState extends State<DeliveryReviewScreen> {
                 child: const Icon(Icons.celebration_outlined, size: 40, color: AppColors.success),
               ),
               const SizedBox(height: 16),
-              Text('Delivery confirmed!', style: typo.h1, textAlign: TextAlign.center),
+              Text(
+                l10n.deliveryConfirmedExclaim,
+                style: typo.h1,
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: 8),
               Text(
-                reviewContext.confirmationMessage,
+                confirmation,
                 textAlign: TextAlign.center,
                 style: typo.sm.copyWith(height: 1.5),
               ),
               const SizedBox(height: 8),
               Text(
-                'How was your experience with ${reviewContext.revieweeName}?',
+                l10n.howWasExperienceWith(revieweeName),
                 style: typo.sm,
                 textAlign: TextAlign.center,
               ),
@@ -2821,14 +2838,14 @@ class _DeliveryReviewScreenState extends State<DeliveryReviewScreen> {
                   onTap: ensureSoftKeyboardVisible,
                   onTapOutside: dismissKeyboardOnTapOutside,
                   maxLines: 3,
-                  decoration: const InputDecoration(
-                    hintText: 'Share how the delivery went…',
+                  decoration: InputDecoration(
+                    hintText: l10n.shareHowDeliveryWentHint,
                   ),
                 ),
               ),
               const SizedBox(height: 24),
               AppButton(
-                label: _submitting ? 'Submitting…' : 'Submit review',
+                label: _submitting ? l10n.submittingEllipsis : l10n.submitReview,
                 onPressed: _submitting ? null : _submit,
               ),
               const SizedBox(height: 10),
@@ -2836,12 +2853,43 @@ class _DeliveryReviewScreenState extends State<DeliveryReviewScreen> {
                 onPressed: _submitting
                     ? null
                     : () => context.go(homeRouteForWalletRole(_reviewerRole)),
-                child: Text('Skip for now', style: typo.link),
+                child: Text(l10n.skipForNow, style: typo.link),
               ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  String _localizedRevieweeName(AppLocalizations l10n, ReviewContext ctx) {
+    final raw = ctx.revieweeName.trim();
+    if (raw.isNotEmpty) return raw;
+    return switch (ctx.revieweeRole) {
+      WalletRole.sender => l10n.theSenderFallback,
+      WalletRole.traveler => l10n.yourTravelerFallback,
+      WalletRole.receiver => l10n.theReceiverFallback,
+    };
+  }
+
+  String _localizedConfirmation(
+    AppLocalizations l10n,
+    ReviewContext ctx,
+    String revieweeName,
+  ) {
+    return switch (ctx.kind) {
+      ReviewConfirmationKind.payoutReleasedToTraveler =>
+        l10n.payoutReleasedToWalletFor(
+          ctx.payoutAmount ?? '',
+          revieweeName,
+          ctx.shipmentId,
+        ),
+      ReviewConfirmationKind.deliveryCompleteExperience =>
+        l10n.deliveryCompleteExperienceWith(ctx.shipmentId, revieweeName),
+      ReviewConfirmationKind.deliveryCompleteHandoff =>
+        l10n.deliveryCompleteHandoffWith(ctx.shipmentId, revieweeName),
+      ReviewConfirmationKind.deliveryConfirmedExperience =>
+        l10n.deliveryConfirmedExperienceWith(ctx.shipmentId, revieweeName),
+    };
   }
 }

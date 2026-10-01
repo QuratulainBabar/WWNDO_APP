@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../../core/platform/keyboard_utils.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../l10n/app_localizations.dart';
 
 /// Numeric available luggage capacity for the post trip form.
 class AvailableLuggageCapacityField extends StatefulWidget {
@@ -23,12 +24,6 @@ class AvailableLuggageCapacityField extends StatefulWidget {
 
 class _AvailableLuggageCapacityFieldState
     extends State<AvailableLuggageCapacityField> {
-  static const _placeholder = 'Enter available capacity';
-  static const _helperText =
-      'This capacity will be visible when matching with sender requests.';
-  static const _infoNote =
-      'You may accept multiple parcel requests as long as your available luggage capacity allows.';
-
   late final TextEditingController _controller;
 
   @override
@@ -58,6 +53,7 @@ class _AvailableLuggageCapacityFieldState
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
+    final l10n = context.l10n;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -72,14 +68,14 @@ class _AvailableLuggageCapacityFieldState
           ],
           style: typo.input,
           onChanged: _handleChanged,
-          decoration: const InputDecoration(
-            hintText: _placeholder,
-            suffixText: 'kg',
+          decoration: InputDecoration(
+            hintText: l10n.enterAvailableCapacity,
+            suffixText: l10n.kgUnit,
           ),
         ),
         const SizedBox(height: 8),
         Text(
-          _helperText,
+          l10n.capacityVisibleToSenders,
           style: typo.sm.copyWith(color: AppColors.textSecondary),
         ),
         const SizedBox(height: 12),
@@ -91,7 +87,7 @@ class _AvailableLuggageCapacityFieldState
             borderRadius: BorderRadius.circular(12),
           ),
           child: Text(
-            _infoNote,
+            l10n.capacityMultipleRequestsNote,
             style: typo.sm.copyWith(height: 1.45),
           ),
         ),

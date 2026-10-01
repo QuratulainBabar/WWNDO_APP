@@ -46,6 +46,7 @@ class _BidPaymentSuccessScreenState extends State<BidPaymentSuccessScreen> {
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
+    final l10n = context.l10n;
     final acceptance = widget.acceptance;
     final total = StaticData.totalPayment(
       acceptance.bid.price,
@@ -57,7 +58,7 @@ class _BidPaymentSuccessScreenState extends State<BidPaymentSuccessScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.surface,
-      appBar: const BackHeader(title: 'Payment'),
+      appBar: BackHeader(title: l10n.paymentTitle),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -88,25 +89,27 @@ class _BidPaymentSuccessScreenState extends State<BidPaymentSuccessScreen> {
                     ),
                     const SizedBox(height: 20),
                     Text(
-                      'Payment Successful',
+                      l10n.paymentSuccessful,
                       style: typo.h1,
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Bid Accepted',
+                      l10n.bidAcceptedLabel,
                       style: typo.h3,
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      '${WalletService.formatMajor(total)} deposited securely in escrow.',
+                      l10n.escrowDepositedAmount(
+                        WalletService.formatMajor(total),
+                      ),
                       textAlign: TextAlign.center,
                       style: typo.sm.copyWith(height: 1.5),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Platform fees collected · Selected bid locked · Parties notified',
+                      l10n.paymentSuccessSubline,
                       textAlign: TextAlign.center,
                       style: typo.sm.copyWith(color: AppColors.textSecondary),
                     ),

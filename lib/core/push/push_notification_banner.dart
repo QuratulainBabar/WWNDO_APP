@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../theme/app_colors.dart';
+import '../../l10n/app_localizations.dart';
 import '../../router/app_router.dart';
 
 /// WhatsApp-style in-app notification banner (slides from top while app is open).
@@ -156,6 +157,11 @@ class _PushBannerState extends State<_WhatsAppStyleBanner>
     final titleColor = AppColors.textPrimary;
     final subtitleColor = AppColors.textSecondary;
     final shadowColor = Colors.black.withValues(alpha: isDark ? 0.45 : 0.22);
+    final localizedTitle = context.tr(widget.title);
+    final localizedBody =
+        widget.body == null || widget.body!.isEmpty
+            ? null
+            : context.tr(widget.body!);
 
     return SlideTransition(
       position: _slide,
@@ -227,7 +233,7 @@ class _PushBannerState extends State<_WhatsAppStyleBanner>
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            widget.title,
+                            localizedTitle,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
@@ -237,10 +243,10 @@ class _PushBannerState extends State<_WhatsAppStyleBanner>
                               height: 1.2,
                             ),
                           ),
-                          if (widget.body != null && widget.body!.isNotEmpty) ...[
+                          if (localizedBody != null) ...[
                             const SizedBox(height: 3),
                             Text(
-                              widget.body!,
+                              localizedBody,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(

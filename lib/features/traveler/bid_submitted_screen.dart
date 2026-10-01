@@ -5,6 +5,7 @@ import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/back_link.dart';
 import '../../data/wallet_service.dart';
+import '../../l10n/app_localizations.dart';
 
 class BidSubmittedScreen extends StatelessWidget {
   const BidSubmittedScreen({
@@ -33,6 +34,7 @@ class BidSubmittedScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
+    final l10n = context.l10n;
     final fromMatchingFlow = tripId != null && tripId!.isNotEmpty;
 
     return Scaffold(
@@ -67,22 +69,24 @@ class BidSubmittedScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 20),
                     Text(
-                      'Request Accepted!',
+                      l10n.requestAcceptedExclaim,
                       style: typo.h1,
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'You accepted the ${WalletService.formatMajor(price)} offer on $route. '
-                      'The sender can now see your acceptance.',
+                      l10n.youAcceptedOfferOnRoute(
+                        WalletService.formatMajor(price),
+                        route,
+                      ),
                       textAlign: TextAlign.center,
                       style: typo.sm.copyWith(height: 1.5),
                     ),
                     const SizedBox(height: 32),
                     AppButton(
                       label: fromMatchingFlow
-                          ? 'Back to requests'
-                          : 'View my deliveries',
+                          ? l10n.backToRequests
+                          : l10n.viewMyDeliveries,
                       onPressed: () {
                         if (fromMatchingFlow) {
                           context.go('/matching-requests/$tripId');
@@ -94,8 +98,8 @@ class BidSubmittedScreen extends StatelessWidget {
                     const SizedBox(height: AppButton.stackGap),
                     AppButton(
                       label: fromMatchingFlow
-                          ? 'View my bids'
-                          : 'Browse more requests',
+                          ? l10n.viewMyBids
+                          : l10n.browseMoreRequests,
                       variant: AppButtonVariant.outline,
                       onPressed: () {
                         if (fromMatchingFlow) {

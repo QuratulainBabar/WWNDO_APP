@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
@@ -8,6 +9,7 @@ import '../../../core/widgets/profile_avatar.dart';
 import '../../../core/widgets/star_rating_display.dart';
 import '../../../data/models/auth_user.dart';
 import '../../../data/models/wallet_role.dart';
+import '../../../l10n/app_localizations.dart';
 
 class ProfileHeaderCard extends StatelessWidget {
   const ProfileHeaderCard({
@@ -31,16 +33,31 @@ class ProfileHeaderCard extends StatelessWidget {
   final double rating;
   final AuthUser? authUser;
 
+  /// Backend sends English short months (`Aug 2026`); reformat for the UI locale.
+  static String _localizedMemberSince(String raw, String languageCode) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return trimmed;
+    try {
+      final parsed = DateFormat('MMM yyyy', 'en_US').parseStrict(trimmed);
+      return DateFormat('MMM yyyy', languageCode).format(parsed);
+    } catch (_) {
+      return trimmed;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
+    final l10n = context.l10n;
     final profile = authUser?.toUserProfile();
     final displayName = profile?.name.isNotEmpty == true ? profile!.name : name;
     final displayInitial =
         profile != null && profile.initial.isNotEmpty ? profile.initial : initial;
-    final displayMemberSince = profile?.memberSince.isNotEmpty == true
+    final rawMemberSince = profile?.memberSince.isNotEmpty == true
         ? profile!.memberSince
         : memberSince;
+    final displayMemberSince =
+        _localizedMemberSince(rawMemberSince, l10n.locale.languageCode);
     final displayBio = () {
       final fromAuth = profile?.bio.trim() ?? '';
       if (fromAuth.isNotEmpty) return fromAuth;
@@ -70,18 +87,18 @@ class ProfileHeaderCard extends StatelessWidget {
                   children: [
                     Text(displayName, style: typo.h2),
                     if (crossVerified)
-                      AppBadge.verified(label: '✓ Verified')
+                      AppBadge.verified(label: '✓ ${l10n.kycApproved}')
                     else
-                      const AppBadge(
-                        label: 'Unverified',
+                      AppBadge(
+                        label: l10n.unverifiedBadge,
                         color: AppColors.warning,
-                        backgroundColor: Color(0x1AF59E0B),
+                        backgroundColor: const Color(0x1AF59E0B),
                         small: true,
                       ),
                   ],
                 ),
                 Text(
-                  '$subtitle · Member since $displayMemberSince',
+                  '$subtitle · ${l10n.memberSinceLabel(displayMemberSince)}',
                   style: typo.sm,
                 ),
                 const SizedBox(height: 6),

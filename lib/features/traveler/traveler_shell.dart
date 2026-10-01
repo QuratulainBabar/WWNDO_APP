@@ -8,6 +8,7 @@ import '../../core/config/demo_mode.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_svg_icon.dart';
+import '../../core/widgets/bottom_nav_label.dart';
 import '../../data/models/wallet_role.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/chat_realtime_provider.dart';
@@ -243,12 +244,10 @@ class _Tab extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 4),
-            Text(
-              label,
-              style: typo.caption.copyWith(
-                color: color,
-                fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-              ),
+            BottomNavLabel(
+              label: label,
+              color: color,
+              active: active,
             ),
           ],
         ),

@@ -45,8 +45,37 @@ class _InactivityLockGateState extends State<InactivityLockGate>
     super.dispose();
   }
 
+  String _biometricLabel(AppLocalizations l10n) =>
+      PlatformUi.isIOS ? l10n.faceId : l10n.fingerprint;
+
+  String _localizedStatusMessage(
+    BiometricAuthResult result,
+    AppLocalizations l10n,
+    String label,
+  ) {
+    switch (result.status) {
+      case BiometricAuthStatus.cancelled:
+        return l10n.authenticationCancelled;
+      case BiometricAuthStatus.notEnrolled:
+        return l10n.biometricNotSetUp(label);
+      case BiometricAuthStatus.notAvailable:
+        return l10n.biometricNotAvailable(label);
+      case BiometricAuthStatus.lockedOut:
+      case BiometricAuthStatus.failed:
+        if (result.message != null) {
+          final translated = l10n.translate(result.message!);
+          if (translated != result.message) return translated;
+        }
+        return l10n.biometricNotRecognized(label);
+      case BiometricAuthStatus.success:
+        return '';
+    }
+  }
+
   Future<void> _authenticate() async {
     if (_authenticating) return;
+    final l10n = context.l10n;
+    final label = _biometricLabel(l10n);
     setState(() {
       _authenticating = true;
       _statusMessage = null;
@@ -54,7 +83,7 @@ class _InactivityLockGateState extends State<InactivityLockGate>
     });
 
     final result = await BiometricAuthService.authenticate(
-      reason: PlatformUi.biometricInactivityReason,
+      reason: l10n.biometricInactivityReason(label),
       // Face ID / fingerprint preferred; device PIN allowed as fallback.
       biometricOnly: false,
     );
@@ -72,8 +101,7 @@ class _InactivityLockGateState extends State<InactivityLockGate>
             if (email.isEmpty) {
               setState(() {
                 _authenticating = false;
-                _statusMessage =
-                    'Email verification required. Use password login.';
+                _statusMessage = l10n.emailVerificationRequiredUsePassword;
               });
               return;
             }
@@ -104,7 +132,7 @@ class _InactivityLockGateState extends State<InactivityLockGate>
       case BiometricAuthStatus.cancelled:
         setState(() {
           _authenticating = false;
-          _statusMessage = 'Authentication cancelled.';
+          _statusMessage = l10n.authenticationCancelled;
         });
       case BiometricAuthStatus.notAvailable:
       case BiometricAuthStatus.notEnrolled:
@@ -112,8 +140,7 @@ class _InactivityLockGateState extends State<InactivityLockGate>
       case BiometricAuthStatus.failed:
         setState(() {
           _authenticating = false;
-          _statusMessage = result.message ??
-              '${PlatformUi.biometricShortLabel} failed. Try again.';
+          _statusMessage = _localizedStatusMessage(result, l10n, label);
         });
     }
   }
@@ -130,7 +157,7 @@ class _InactivityLockGateState extends State<InactivityLockGate>
     final typo = context.typo;
     final l10n = context.l10n;
     final user = context.watch<AuthProvider>().user;
-    final label = PlatformUi.biometricShortLabel;
+    final label = _biometricLabel(l10n);
     final scale = Tween<double>(begin: 0.96, end: 1.04).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );

@@ -824,6 +824,7 @@ class AccountSuspendedScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
+    final l10n = context.l10n;
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -854,10 +855,10 @@ class AccountSuspendedScreen extends StatelessWidget {
                         child: Text('🚫', style: typo.avatarLg.copyWith(fontWeight: FontWeight.normal)),
                       ),
                       const SizedBox(height: 20),
-                      Text('Account suspended', style: typo.screenTitleDark),
+                      Text(l10n.accountSuspendedTitle, style: typo.screenTitleDark),
                       const SizedBox(height: 10),
                       Text(
-                        "Your account has been permanently\nsuspended due to a violation of\nWWNGO's zero-tolerance fraud policy.",
+                        l10n.accountSuspendedBody,
                         textAlign: TextAlign.center,
                         style: typo.bodyOnDark.copyWith(fontSize: 15),
                       ),
@@ -876,15 +877,15 @@ class AccountSuspendedScreen extends StatelessWidget {
                             style: typo.sm.copyWith(color: Colors.white.withValues(alpha: 0.6), height: 1.5),
                             children: [
                               TextSpan(
-                                text: 'WWNGO Zero Tolerance Policy',
+                                text: l10n.zeroTolerancePolicyTitle,
                                 style: typo.sm.copyWith(
                                   color: AppColors.danger,
                                   fontWeight: FontWeight.w700,
                                   height: 1.5,
                                 ),
                               ),
-                              const TextSpan(
-                                text: '\nOne confirmed fraud violation results in a permanent, irrevocable account ban. Your KYC identity has been flagged.',
+                              TextSpan(
+                                text: '\n${l10n.zeroTolerancePolicyBody}',
                               ),
                             ],
                           ),
@@ -894,7 +895,7 @@ class AccountSuspendedScreen extends StatelessWidget {
                       TextButton(
                         onPressed: () => context.push('/contact-support'),
                         child: Text(
-                          'If you believe this is a mistake, contact legal@wwngo.com',
+                          l10n.accountSuspendedContactMistake('legal@wwngo.com'),
                           textAlign: TextAlign.center,
                           style: typo.sm.copyWith(fontSize: 15, color: Colors.white.withValues(alpha: 0.4)),
                         ),
@@ -903,7 +904,7 @@ class AccountSuspendedScreen extends StatelessWidget {
                   ),
                 ),
                 AppButton(
-                  label: 'Return to welcome',
+                  label: l10n.returnToWelcome,
                   variant: AppButtonVariant.outlineWhite,
                   onPressed: () => context.go('/welcome'),
                 ),

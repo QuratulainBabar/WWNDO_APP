@@ -10,6 +10,9 @@ class LocaleProvider extends ChangeNotifier {
   AppLanguage _language = AppLanguage.english;
   bool _loaded = false;
 
+  /// Optional sync hook (e.g. PATCH preferred language to backend).
+  Future<void> Function(String code)? syncPreferredLanguage;
+
   AppLanguage get language => _language;
   Locale get locale => _language.locale;
   String get code => _language.code;
@@ -30,8 +33,25 @@ class LocaleProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefsKey, value.code);
+    final sync = syncPreferredLanguage;
+    if (sync != null) {
+      try {
+        await sync(value.code);
+      } catch (_) {
+        // Local language still applies; push locale will catch up on next sync.
+      }
+    }
   }
 
   Future<void> setLanguageCode(String code) =>
       setLanguage(AppLanguage.fromCode(code));
+
+  /// Push the current local preference to the backend (login / cold start).
+  Future<void> syncToBackend() async {
+    final sync = syncPreferredLanguage;
+    if (sync == null) return;
+    try {
+      await sync(_language.code);
+    } catch (_) {}
+  }
 }

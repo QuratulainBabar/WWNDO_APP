@@ -51,6 +51,12 @@ class _CancelTripScreenState extends State<CancelTripScreen> {
     );
   }
 
+  String _blockedMessage(BuildContext context) {
+    return context.l10n.travelerCancelBlocked(
+      '${DeliveryCancelPolicy.travelerCancelMinHoursBeforeTravel}',
+    );
+  }
+
   Future<void> _load() async {
     setState(() {
       _loading = true;
@@ -67,7 +73,7 @@ class _CancelTripScreenState extends State<CancelTripScreen> {
       if (trip == null) {
         setState(() {
           _loading = false;
-          _loadError = 'Trip not found.';
+          _loadError = context.l10n.tripNotFound;
         });
         return;
       }
@@ -95,7 +101,7 @@ class _CancelTripScreenState extends State<CancelTripScreen> {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _loadError = 'Unable to load this trip. Please try again.';
+        _loadError = context.l10n.unableToLoadTrip;
       });
     }
   }
@@ -105,14 +111,15 @@ class _CancelTripScreenState extends State<CancelTripScreen> {
     if (trip == null) return;
 
     final demoMode = context.read<DemoModeProvider>().enabled;
+    final blocked = _blockedMessage(context);
 
     if (demoMode) {
       if (!StaticData.canTravelerCancelTrip(trip)) {
-        AppToast.error(context, StaticData.travelerCancelBlockedMessage);
+        AppToast.error(context, blocked);
         return;
       }
     } else if (trip.status != TripStatus.openBid) {
-      AppToast.error(context, DeliveryCancelPolicy.travelerCancelBlockedMessage);
+      AppToast.error(context, blocked);
       return;
     }
 
@@ -125,10 +132,10 @@ class _CancelTripScreenState extends State<CancelTripScreen> {
     if (demoMode) {
       final cancelled = StaticData.tryCancelTravelerTrip(trip.id);
       if (!cancelled) {
-        AppToast.error(context, StaticData.travelerCancelBlockedMessage);
+        AppToast.error(context, blocked);
         return;
       }
-      AppToast.success(context, '${trip.displayId} cancelled');
+      AppToast.success(context, context.l10n.itemCancelled(trip.displayId));
       context.go('/traveler-trips');
       return;
     }
@@ -137,14 +144,14 @@ class _CancelTripScreenState extends State<CancelTripScreen> {
     try {
       await _repository().cancelTrip(trip.displayId);
       if (!mounted) return;
-      AppToast.success(context, '${trip.displayId} cancelled');
+      AppToast.success(context, context.l10n.itemCancelled(trip.displayId));
       context.go('/traveler-trips');
     } on ApiException catch (e) {
       if (!mounted) return;
       AppToast.error(context, e.message);
     } catch (_) {
       if (!mounted) return;
-      AppToast.error(context, 'Unable to cancel this trip. Please try again.');
+      AppToast.error(context, context.l10n.unableToCancelTrip);
     } finally {
       if (mounted) setState(() => _cancelling = false);
     }
@@ -153,12 +160,13 @@ class _CancelTripScreenState extends State<CancelTripScreen> {
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
+    final l10n = context.l10n;
 
     if (_loading) {
       return Scaffold(
         backgroundColor: AppColors.background,
-        appBar: const BackHeader(
-          title: 'Cancel trip',
+        appBar: BackHeader(
+          title: l10n.cancelTrip,
           fallbackRoute: '/traveler-trips',
         ),
         body: const Center(
@@ -170,8 +178,8 @@ class _CancelTripScreenState extends State<CancelTripScreen> {
     if (_loadError != null || _trip == null) {
       return Scaffold(
         backgroundColor: AppColors.background,
-        appBar: const BackHeader(
-          title: 'Cancel trip',
+        appBar: BackHeader(
+          title: l10n.cancelTrip,
           fallbackRoute: '/traveler-trips',
         ),
         body: Center(
@@ -181,12 +189,12 @@ class _CancelTripScreenState extends State<CancelTripScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  _loadError ?? 'Trip not found.',
+                  _loadError ?? l10n.tripNotFound,
                   textAlign: TextAlign.center,
                   style: typo.sm.copyWith(color: AppColors.textSecondary),
                 ),
                 const SizedBox(height: 16),
-                TextButton(onPressed: _load, child: Text(context.tr('Retry'))),
+                TextButton(onPressed: _load, child: Text(l10n.retry)),
               ],
             ),
           ),
@@ -199,7 +207,7 @@ class _CancelTripScreenState extends State<CancelTripScreen> {
       return Scaffold(
         backgroundColor: AppColors.background,
         appBar: BackHeader(
-          title: 'Cancel ${trip.displayId}',
+          title: l10n.cancelTripWithId(trip.displayId),
           fallbackRoute: '/traveler-trips',
         ),
         body: Center(
@@ -207,8 +215,8 @@ class _CancelTripScreenState extends State<CancelTripScreen> {
             padding: const EdgeInsets.all(24),
             child: Text(
               trip.status.isCompleted
-                  ? 'Completed trips cannot be cancelled.'
-                  : 'This trip cannot be cancelled at its current stage.',
+                  ? l10n.completedTripsCannotBeCancelled
+                  : l10n.tripCannotBeCancelledAtStage,
               textAlign: TextAlign.center,
               style: typo.sm.copyWith(color: AppColors.textSecondary),
             ),
@@ -227,22 +235,24 @@ class _CancelTripScreenState extends State<CancelTripScreen> {
     final travelWindowOpen = DeliveryCancelPolicy.canTravelerCancelBeforeTravel(
       trip.travelDate,
     );
+    final hours =
+        '${DeliveryCancelPolicy.travelerCancelMinHoursBeforeTravel}';
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: BackHeader(
-        title: 'Cancel ${trip.displayId}',
+        title: l10n.cancelTripWithId(trip.displayId),
         fallbackRoute: '/traveler-trips',
       ),
       body: ScrollableFormScreen(
         actions: [
           AppButton(
-            label: 'Keep trip',
+            label: l10n.keepTrip,
             variant: AppButtonVariant.ghost,
             onPressed: _cancelling ? null : () => context.pop(),
           ),
           AppButton(
-            label: _cancelling ? 'Cancelling…' : 'Cancel trip',
+            label: _cancelling ? l10n.cancellingEllipsis : l10n.cancelTrip,
             variant: AppButtonVariant.danger,
             onPressed: _cancelling || !canCancel ? null : _confirmCancel,
           ),
@@ -251,12 +261,12 @@ class _CancelTripScreenState extends State<CancelTripScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Are you sure you want to cancel this trip?',
+              l10n.cancelTripConfirmTitle,
               style: typo.h3.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
             Text(
-              'This will remove your trip from open bids. Any pending matches will no longer be visible to senders.',
+              l10n.cancelTripConfirmBody,
               style: typo.sm.copyWith(color: AppColors.textSecondary),
             ),
             const SizedBox(height: 12),
@@ -272,15 +282,11 @@ class _CancelTripScreenState extends State<CancelTripScreen> {
               child: Text(
                 canCancel
                     ? (noRequests
-                        ? 'You can cancel this trip because it has no sender requests yet.'
+                        ? l10n.cancelTripNoRequestsYet
                         : (travelWindowOpen
-                            ? 'You can cancel this trip because it is still more than '
-                                '${DeliveryCancelPolicy.travelerCancelMinHoursBeforeTravel} hours before the flight.'
-                            : 'Cancellation may be blocked if sender requests exist and travel is within '
-                                '${DeliveryCancelPolicy.travelerCancelMinHoursBeforeTravel} hours.'))
-                    : (demoMode
-                        ? StaticData.travelerCancelBlockedMessage
-                        : DeliveryCancelPolicy.travelerCancelBlockedMessage),
+                            ? l10n.cancelTripHoursBeforeFlight(hours)
+                            : l10n.cancelTripMayBeBlocked(hours)))
+                    : _blockedMessage(context),
                 style: typo.sm.copyWith(
                   height: 1.45,
                   color: canCancel ? AppColors.success : AppColors.danger,
@@ -304,12 +310,15 @@ class _CancelTripScreenState extends State<CancelTripScreen> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      DateFormat('MMM d, yyyy').format(trip.travelDate),
+                      DateFormat.yMMMd(Localizations.localeOf(context).toString())
+                          .format(trip.travelDate),
                       style: typo.sm.copyWith(color: AppColors.textSecondary),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${trip.luggageCapacityKg.toStringAsFixed(0)} kg luggage available',
+                      l10n.luggageAvailable(
+                        trip.luggageCapacityKg.toStringAsFixed(0),
+                      ),
                       style: typo.sm.copyWith(
                         color: AppColors.primary,
                         fontWeight: FontWeight.w600,

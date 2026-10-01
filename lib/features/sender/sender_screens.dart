@@ -28,6 +28,7 @@ import '../../data/route_display.dart';
 import '../../data/services/delivery_repository.dart';
 import '../../data/static_data.dart';
 import '../../data/wallet_service.dart';
+import '../../l10n/app_localizations.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_realtime_provider.dart';
 import '../../providers/sender_deliveries_provider.dart';
@@ -660,8 +661,8 @@ class _PostDeliveryPostedSuccessScreenState
 
     return Scaffold(
       backgroundColor: AppColors.surface,
-      appBar: const BackHeader(
-        title: 'Post delivery',
+      appBar: BackHeader(
+        title: context.l10n.postDelivery,
         fallbackRoute: '/home',
       ),
       body: SafeArea(
@@ -687,13 +688,13 @@ class _PostDeliveryPostedSuccessScreenState
               ),
               const SizedBox(height: 20),
               Text(
-                'Delivery posted successfully!',
+                context.l10n.deliveryPostedSuccessfully,
                 style: typo.h1.copyWith(fontWeight: FontWeight.w700),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 10),
               Text(
-                'Your parcel request is live.',
+                context.l10n.parcelRequestIsLive,
                 style: typo.sm.copyWith(
                   height: 1.5,
                   color: AppColors.textSecondary,
@@ -732,8 +733,8 @@ class _PostDeliveryPostedSuccessScreenState
                   children: [
                     Text(
                       waiting
-                          ? 'Waiting for receiver acceptance'
-                          : 'Receiver accepted',
+                          ? context.l10n.waitingForReceiverAcceptance
+                          : context.l10n.receiverAcceptedTitle,
                       style: typo.bodyBold.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
@@ -742,10 +743,8 @@ class _PostDeliveryPostedSuccessScreenState
                     const SizedBox(height: 8),
                     Text(
                       waiting
-                          ? "We've sent an email notification to your receiver.\n"
-                              'The matching process will start once they accept.'
-                          : 'Your receiver accepted the request.\n'
-                              'You can now choose a matching traveler.',
+                          ? context.l10n.emailedReceiverMatchingStarts
+                          : context.l10n.receiverAcceptedChooseMatchingBody,
                       style: typo.sm.copyWith(
                         height: 1.5,
                         color: AppColors.textSecondary,
@@ -759,8 +758,8 @@ class _PostDeliveryPostedSuccessScreenState
               if (!waiting && deliveryId != null) ...[
                 AppButton(
                   label: delivery?.status == 'posted'
-                      ? 'View Matching Travelers'
-                      : 'View Delivery Details',
+                      ? context.l10n.viewMatchingTravelers
+                      : context.l10n.viewDeliveryDetails,
                   onPressed: () {
                     if (delivery != null) {
                       context.go(
@@ -774,7 +773,7 @@ class _PostDeliveryPostedSuccessScreenState
                 const SizedBox(height: AppButton.stackGap),
               ],
               AppButton(
-                label: 'View My Deliveries',
+                label: context.l10n.viewMyDeliveries,
                 onPressed: () {
                   final auth = context.read<AuthProvider>();
                   final demoMode = context.read<DemoModeProvider>();
@@ -791,7 +790,7 @@ class _PostDeliveryPostedSuccessScreenState
               ),
               const SizedBox(height: AppButton.stackGap),
               AppButton(
-                label: 'Back to Home',
+                label: context.l10n.backToHome,
                 variant: AppButtonVariant.outline,
                 onPressed: () {
                   final auth = context.read<AuthProvider>();

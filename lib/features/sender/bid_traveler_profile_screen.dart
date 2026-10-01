@@ -120,7 +120,7 @@ class _BidTravelerProfileScreenState extends State<BidTravelerProfileScreen> {
           !widget.bid.canCarryWeightKg(parcelWeight)) {
         AppToast.error(
           context,
-          'This traveler does not have enough luggage capacity for your parcel weight.',
+          context.l10n.travelerInsufficientLuggageCapacity,
         );
         return;
       }
@@ -143,7 +143,7 @@ class _BidTravelerProfileScreenState extends State<BidTravelerProfileScreen> {
       } catch (_) {
         if (!mounted) return;
         setState(() => _requesting = false);
-        AppToast.error(context, 'Unable to send request to this traveler.');
+        AppToast.error(context, context.l10n.unableToSendRequestToTraveler);
         return;
       }
       if (!mounted) return;
@@ -171,13 +171,13 @@ class _BidTravelerProfileScreenState extends State<BidTravelerProfileScreen> {
     if (shipmentId == null || _paying) return;
     final demoMode = context.read<DemoModeProvider>();
     if (demoMode.enabled) {
-      AppToast.error(context, 'Turn off Demo mode to complete live payment.');
+      AppToast.error(context, context.l10n.demoModeCompleteLivePayment);
       return;
     }
     if (!_travelerAcceptedOffer) {
       AppToast.info(
         context,
-        'Pay Now is available after ${widget.bid.travelerName} accepts your request.',
+        context.l10n.payNowAfterAccept(widget.bid.travelerName),
       );
       return;
     }
@@ -203,7 +203,7 @@ class _BidTravelerProfileScreenState extends State<BidTravelerProfileScreen> {
       if (!matchesRequest || !matchesTrip) {
         AppToast.info(
           context,
-          'No payable offer from ${widget.bid.travelerName} yet.',
+          context.l10n.noPayableOfferFrom(widget.bid.travelerName),
         );
         return;
       }
@@ -245,15 +245,14 @@ class _BidTravelerProfileScreenState extends State<BidTravelerProfileScreen> {
       if (e.statusCode == 404 || e.code == 'NOT_FOUND') {
         AppToast.info(
           context,
-          'Waiting for ${widget.bid.travelerName} to accept. '
-          'You’ll be able to pay once their offer is ready.',
+          context.l10n.waitingForAcceptPay(widget.bid.travelerName),
         );
         return;
       }
       AppToast.error(context, e.message);
     } catch (_) {
       if (!mounted) return;
-      AppToast.error(context, 'Unable to start payment right now.');
+      AppToast.error(context, context.l10n.unableToStartPaymentNow);
     } finally {
       if (mounted) setState(() => _paying = false);
     }
@@ -264,7 +263,10 @@ class _BidTravelerProfileScreenState extends State<BidTravelerProfileScreen> {
     final bid = widget.bid;
     final shipmentId = widget.shipmentId;
     final typo = context.typo;
-    final travelDate = DateFormat('MMM d, yyyy').format(bid.travelDate);
+    final travelDate = DateFormat(
+      'MMM d, yyyy',
+      context.l10n.locale.toString(),
+    ).format(bid.travelDate);
     final matchColor = bid.routeMatchConfidence >= 90
         ? AppColors.success
         : bid.routeMatchConfidence >= 80
@@ -291,7 +293,7 @@ class _BidTravelerProfileScreenState extends State<BidTravelerProfileScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: const BackHeader(title: 'Traveler Profile'),
+      appBar: BackHeader(title: context.l10n.travelerProfile),
       body: Column(
         children: [
           Expanded(
@@ -318,7 +320,7 @@ class _BidTravelerProfileScreenState extends State<BidTravelerProfileScreen> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                '⭐ ${bid.rating} · ${bid.reviewCount} reviews',
+                                '⭐ ${context.l10n.ratingReviewsCount('${bid.rating}', '${bid.reviewCount}')}',
                                 style: typo.sm,
                               ),
                               const SizedBox(height: 8),
@@ -336,39 +338,44 @@ class _BidTravelerProfileScreenState extends State<BidTravelerProfileScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'About',
+                          context.l10n.about,
                           style: typo.h3.copyWith(fontWeight: FontWeight.w700),
                         ),
                         const SizedBox(height: 8),
                         Text(
                           bid.bio ??
-                              'Verified traveler available for this route.',
+                              context.l10n.verifiedTravelerRouteFallback,
                           style: typo.body,
                         ),
                         const SizedBox(height: 16),
                         _row(
                           context,
-                          'Completed deliveries',
+                          context.l10n.completedDeliveriesLabel,
                           '${bid.completedDeliveries}',
                         ),
-                        _row(context, 'Travel date', travelDate),
+                        _row(context, context.l10n.travelDate, travelDate),
                         if (bid.departureTime?.trim().isNotEmpty == true)
                           _row(
                             context,
-                            'Departure time',
-                            LocalTime.formatDepartureTime(bid.departureTime),
+                            context.l10n.departureTime,
+                            LocalTime.formatDepartureTime(
+                              bid.departureTime,
+                              context.l10n.locale.toString(),
+                            ),
                           ),
                         if (bid.travelMethodLabel != null)
                           _row(
                             context,
-                            'Travel method',
-                            bid.travelMethodLabel!,
+                            context.l10n.travelMethod,
+                            context.tr(bid.travelMethodLabel!),
                           ),
                         if (bid.flightNumber != null)
-                          _row(context, 'Flight', bid.flightNumber!),
+                          _row(context, context.l10n.flight, bid.flightNumber!),
                         const SizedBox(height: 8),
                         AppBadge(
-                          label: bid.routeMatchLabel,
+                          label: context.l10n.matchPercentLabel(
+                            '${bid.routeMatchConfidence}',
+                          ),
                           color: matchColor,
                           backgroundColor: matchColor.withValues(alpha: 0.12),
                           semiBold: true,
@@ -384,32 +391,35 @@ class _BidTravelerProfileScreenState extends State<BidTravelerProfileScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Route Details',
+                            context.l10n.routeDetails,
                             style: typo.h3.copyWith(fontWeight: FontWeight.w700),
                           ),
                           const SizedBox(height: 12),
                           _row(
                             context,
-                            'From',
+                            context.l10n.from,
                             '${shipment.fromCity} (${shipment.fromCode})',
                           ),
                           _row(
                             context,
-                            'To',
+                            context.l10n.to,
                             '${shipment.toCity} (${shipment.toCode})',
                           ),
-                          _row(context, 'Travel date', travelDate),
+                          _row(context, context.l10n.travelDate, travelDate),
                           if (bid.departureTime?.trim().isNotEmpty == true)
                             _row(
                               context,
-                              'Departure time',
-                              LocalTime.formatDepartureTime(bid.departureTime),
+                              context.l10n.departureTime,
+                              LocalTime.formatDepartureTime(
+                                bid.departureTime,
+                                context.l10n.locale.toString(),
+                              ),
                             ),
                           if (bid.travelMethodLabel != null)
                             _row(
                               context,
-                              'Travel method',
-                              bid.travelMethodLabel!,
+                              context.l10n.travelMethod,
+                              context.tr(bid.travelMethodLabel!),
                             ),
                         ],
                       ),
@@ -433,12 +443,12 @@ class _BidTravelerProfileScreenState extends State<BidTravelerProfileScreen> {
                   children: [
                     AppButton(
                       label: isSelected || alreadyRequested
-                          ? 'Request Sent'
+                          ? context.l10n.requestSent
                           : isLocked
-                              ? 'Unavailable'
+                              ? context.l10n.unavailable
                               : atLimit
-                                  ? 'Limit reached'
-                                  : 'Send Request',
+                                  ? context.l10n.limitReached
+                                  : context.l10n.sendRequest,
                       variant: AppButtonVariant.outline,
                       onPressed: canSelect && !_requesting && _requestsLoaded
                           ? _selectTraveler
@@ -446,7 +456,9 @@ class _BidTravelerProfileScreenState extends State<BidTravelerProfileScreen> {
                     ),
                     const SizedBox(height: AppButton.stackGap),
                     AppButton(
-                      label: _paying ? 'Opening payment…' : 'Pay Now',
+                      label: _paying
+                          ? context.l10n.openingPaymentEllipsis
+                          : context.l10n.payNow,
                       onPressed: _travelerAcceptedOffer &&
                               !demoMode &&
                               !_paying

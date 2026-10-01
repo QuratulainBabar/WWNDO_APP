@@ -220,7 +220,7 @@ class _ReceiverProfileScreenState extends State<ReceiverProfileScreen> {
                 _stat(
                   context,
                   context.l10n.history,
-                  context.tr('Transactions'),
+                  context.l10n.transactions,
                   onTap: () => context.push('/transaction-history?role=receiver'),
                 ),
               ],
@@ -1413,7 +1413,7 @@ class _ReceiverTrackingScreenState extends State<ReceiverTrackingScreen>
                     _detailRow(
                       context,
                       context.l10n.parcelType,
-                      '${context.tr(shipment.parcelCategory)} · ${shipment.parcelWeightKg}kg',
+                      '${context.tr(shipment.parcelCategory)} · ${context.l10n.weightWithKg('${shipment.parcelWeightKg}')}',
                     ),
                     const SizedBox(height: 16),
                     ShipmentEscrowSection(shipmentId: shipment.id),
@@ -1645,13 +1645,13 @@ class _ReceiverNfcDeliverySuccessScreenState
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
+    final l10n = context.l10n;
     final waitingForPeer = widget.waitingForPeer;
     final shipmentId = widget.shipmentId;
     final title = waitingForPeer
-        ? 'Waiting for traveler'
-        : 'NFC Checkpoint Traveler & Receiver complete';
-    final waitingBody =
-        'Your NFC tap for $shipmentId is recorded. Ask the traveler to complete their NFC Checkpoint Traveler & Receiver tap to confirm delivery and release escrow.';
+        ? l10n.waitingForTraveler
+        : l10n.nfcCheckpointComplete(l10n.nfcCheckpointTravelerReceiver);
+    final waitingBody = l10n.nfcWaitingForTravelerBody(shipmentId);
 
     return Scaffold(
       backgroundColor: AppColors.surface,
@@ -1695,7 +1695,7 @@ class _ReceiverNfcDeliverySuccessScreenState
                 child: Column(
                   children: [
                     Text(
-                      'Trip / Delivery ID',
+                      l10n.tripDeliveryId,
                       textAlign: TextAlign.center,
                       style: typo.sm.copyWith(
                         color: AppColors.success,
@@ -1711,7 +1711,7 @@ class _ReceiverNfcDeliverySuccessScreenState
                     if (!waitingForPeer) ...[
                       const SizedBox(height: 8),
                       Text(
-                        'Traveler ↔ Receiver verified this exact ID',
+                        l10n.verifiedThisExactId(l10n.travelerReceiverPair),
                         textAlign: TextAlign.center,
                         style: typo.sm.copyWith(
                           color: AppColors.success,
@@ -1730,14 +1730,14 @@ class _ReceiverNfcDeliverySuccessScreenState
                   style: typo.sm.copyWith(height: 1.5),
                 )
               else
-                const _ReceiverNfcSuccessBulletList(
+                _ReceiverNfcSuccessBulletList(
                   items: [
-                    'You and the Traveler verified the same trip/delivery',
-                    'The Traveler is handing over the parcel to you (the correct Receiver)',
-                    'This parcel belongs to this exact trip/delivery',
-                    'Parcel status is now Delivered',
-                    'Escrow has been released to the traveler',
-                    'You can leave a review',
+                    l10n.nfcBulletVerifiedSameTripTraveler,
+                    l10n.nfcBulletTravelerHandingOverToYou,
+                    l10n.nfcBulletParcelBelongsTrip,
+                    l10n.nfcBulletParcelDelivered,
+                    l10n.nfcBulletEscrowReleasedToTraveler,
+                    l10n.youCanLeaveAReview,
                   ],
                 ),
               if (!waitingForPeer) ...[
@@ -1746,18 +1746,18 @@ class _ReceiverNfcDeliverySuccessScreenState
                   margin: EdgeInsets.zero,
                   child: Column(
                     children: [
-                      _nfcSuccessRow(context, 'NFC Verified'),
+                      _nfcSuccessRow(context, l10n.nfcVerifiedLabel),
                       const SizedBox(height: 12),
-                      _nfcSuccessRow(context, 'Parcel Delivered'),
+                      _nfcSuccessRow(context, l10n.parcelDeliveredLabel),
                       const SizedBox(height: 12),
-                      _nfcSuccessRow(context, 'Payment Completed'),
+                      _nfcSuccessRow(context, l10n.paymentCompletedLabel),
                     ],
                   ),
                 ),
               ],
               const SizedBox(height: 32),
               AppButton(
-                label: waitingForPeer ? 'Back to tracking' : 'View completed',
+                label: waitingForPeer ? l10n.backToTracking : l10n.viewCompleted,
                 onPressed: () => context.go(
                   waitingForPeer
                       ? '/receiver-tracking'
@@ -1767,7 +1767,7 @@ class _ReceiverNfcDeliverySuccessScreenState
               if (!waitingForPeer) ...[
                 const SizedBox(height: AppButton.stackGap),
                 AppButton(
-                  label: 'Leave a review',
+                  label: l10n.leaveAReview,
                   variant: AppButtonVariant.outline,
                   onPressed: _reviewedTraveler
                       ? null

@@ -628,17 +628,25 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
               margin: EdgeInsets.zero,
               child: Column(
                 children: [
-                  _detailRow(context, 'Accepted traveler', bid.travelerName),
-                  _detailRow(context, 'Parcel ID', acceptance.shipmentId),
                   _detailRow(
                     context,
-                    'Accepted bid amount',
+                    context.l10n.acceptedTraveler,
+                    bid.travelerName,
+                  ),
+                  _detailRow(
+                    context,
+                    context.l10n.parcelIdLabel,
+                    acceptance.shipmentId,
+                  ),
+                  _detailRow(
+                    context,
+                    context.l10n.acceptedBidAmount,
                     WalletService.formatMajor(bid.price),
                   ),
                   const Divider(height: 24),
                   _detailRow(
                     context,
-                    'Your platform fee',
+                    context.l10n.yourPlatformFee,
                     PlatformFees.senderPlatformFeeLabel(
                       category: category,
                       paysReceiverFee: paysReceiver,
@@ -648,7 +656,7 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
                   const Divider(height: 24),
                   _detailRow(
                     context,
-                    'Total due now',
+                    context.l10n.totalDueNow,
                     WalletService.formatMajor(total),
                     primary: true,
                   ),
@@ -657,7 +665,7 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
             ),
             const SizedBox(height: 12),
             Text(
-              'Payment method',
+              context.l10n.paymentMethod,
               style: context.typo.h3.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
@@ -670,8 +678,13 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
               _PaymentMethodTile(
                 title: context.tr('Pay from wallet'),
                 subtitle: walletCoversTotal
-                    ? 'Available balance: ${WalletService.formatMajor(walletAvailable)}'
-                    : 'Available ${WalletService.formatMajor(walletAvailable)} — need ${WalletService.formatMajor(total)}',
+                    ? context.l10n.walletAvailableBalance(
+                        WalletService.formatMajor(walletAvailable),
+                      )
+                    : context.l10n.walletAvailableNeedAmount(
+                        WalletService.formatMajor(walletAvailable),
+                        WalletService.formatMajor(total),
+                      ),
                 selected: selectedMethod == _BidPaymentMethod.wallet,
                 enabled: !actionLocked,
                 onTap: _selectWallet,
@@ -681,8 +694,10 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
                 title: context.tr('Pay with card (Stripe)'),
                 subtitle: _stripeMethodCollected &&
                         selectedMethod == _BidPaymentMethod.stripe
-                    ? 'Card selected — tap Pay Now to complete'
-                    : 'Charge full ${WalletService.formatMajor(total)} to your card',
+                    ? context.l10n.cardSelectedTapPayNow
+                    : context.l10n.chargeFullToCard(
+                        WalletService.formatMajor(total),
+                      ),
                 selected: selectedMethod == _BidPaymentMethod.stripe,
                 enabled: !actionLocked && _stripeEnabled,
                 onTap: _stripeEnabled ? _selectStripe : null,
@@ -691,7 +706,7 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
                 Padding(
                   padding: const EdgeInsets.only(top: 6),
                   child: Text(
-                    'Card payments are not configured. Use wallet balance.',
+                    context.l10n.cardPaymentsNotConfiguredUseWallet,
                     style: context.typo.sm.copyWith(color: AppColors.textSecondary),
                   ),
                 ),
@@ -701,19 +716,17 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
               spacing: 6,
               runSpacing: 6,
               children: [
-                AppBadge.success('✓ Escrow protected'),
-                AppBadge.success('✓ Secure payment'),
+                AppBadge.success('✓ ${context.l10n.escrowProtected}'),
+                AppBadge.success('✓ ${context.l10n.securePayment}'),
               ],
             ),
             const SizedBox(height: 8),
             Text(
               payCompleted
-                  ? 'Payment already completed. This booking is locked.'
+                  ? context.l10n.paymentAlreadyCompletedLocked
                   : selectedMethod == _BidPaymentMethod.wallet
-                      ? 'The total is deducted from your sender wallet. Booking is not created if balance is insufficient.'
-                      : 'Tap Pay Now to open Stripe and charge the full amount to your card. '
-                          'Your wallet balance is not used or changed. '
-                          'Your sender platform fee is collected now.',
+                      ? context.l10n.walletDeductedBookingHint
+                      : context.l10n.stripeChargeFullHint,
               style: context.typo.sm.copyWith(
                 color: AppColors.textSecondary,
                 height: 1.4,
@@ -722,10 +735,10 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
             const SizedBox(height: 24),
             AppButton(
               label: payCompleted
-                  ? 'Paid'
+                  ? context.l10n.paidLabel
                   : payBusy
-                      ? 'Processing…'
-                      : 'Pay Now',
+                      ? context.tr('Processing…')
+                      : context.l10n.payNow,
               onPressed: payDisabled ? null : _payNow,
             ),
           ],

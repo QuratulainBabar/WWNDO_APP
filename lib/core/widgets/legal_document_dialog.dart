@@ -35,7 +35,7 @@ Future<void> showLegalDocumentDialog({
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Last updated ${LegalDocuments.lastUpdated}',
+                  dialogContext.l10n.legalLastUpdatedLabel,
                   style: typo.sm.copyWith(color: AppColors.textSecondary),
                 ),
                 const SizedBox(height: 12),

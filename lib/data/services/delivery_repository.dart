@@ -8,6 +8,7 @@ import '../../core/geo/meetup_origin_validation.dart';
 import '../models/created_delivery.dart';
 import '../models/matching_traveler.dart';
 import '../models/traveler_request_summary.dart';
+import '../trip_date_window.dart';
 
 /// Result of POST /api/v1/deliveries/:id/cancel
 class CancelDeliveryResult {
@@ -215,7 +216,10 @@ class DeliveryRepository {
       eligible.map((delivery) async {
         final apiId = delivery.displayId;
         try {
-          final travelers = await listMatchingTravelers(apiId);
+          final travelers = await listMatchingTravelers(
+            apiId,
+            deliveryTravelDate: delivery.travelDateParsed,
+          );
           final count = travelers.length;
           counts[apiId] = count;
           if (delivery.id.isNotEmpty) {
@@ -261,10 +265,14 @@ class DeliveryRepository {
   }
 
   /// GET /api/v1/deliveries/:id/matching-travelers
-  /// Backend is the single source of truth (destination + luggage on open
-  /// trips). Home badge counts call this same method — do not re-filter with
-  /// the browse TripDateWindow or counts diverge from the list / notifies.
-  Future<List<MatchingTraveler>> listMatchingTravelers(String deliveryId) async {
+  /// Backend filters by destination + luggage + the delivery-relative
+  /// TripDateWindow (delivery − 5 … delivery + 7). When [deliveryTravelDate]
+  /// is provided, the client re-filters so stale responses cannot show
+  /// out-of-window trips.
+  Future<List<MatchingTraveler>> listMatchingTravelers(
+    String deliveryId, {
+    DateTime? deliveryTravelDate,
+  }) async {
     if (_isDemoMode) return const [];
 
     final data = await _apiClient.get(
@@ -273,12 +281,19 @@ class DeliveryRepository {
     );
     final list = data['travelers'];
     if (list is! List) return const <MatchingTraveler>[];
-    return list
+    final travelers = list
         .whereType<Map>()
         .map(
           (item) => MatchingTraveler.fromJson(Map<String, dynamic>.from(item)),
         )
         .toList();
+    final anchor = deliveryTravelDate;
+    if (anchor == null) return travelers;
+    return TripDateWindow.filterByDeliveryTravelDate(
+      travelers,
+      (t) => t.travelDate,
+      anchor,
+    );
   }
 
   /// GET /api/v1/deliveries/:id/traveler-requests

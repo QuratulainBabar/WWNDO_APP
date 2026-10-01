@@ -14,7 +14,6 @@ import '../../core/widgets/app_avatar.dart';
 import '../../core/widgets/app_badge.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_card.dart';
-import '../../core/widgets/app_chip.dart';
 import '../../core/widgets/back_header.dart';
 import '../../data/models/bid.dart';
 import '../../data/models/created_delivery.dart';
@@ -150,8 +149,17 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
       if (!mounted || generation != _loadGeneration) return;
 
       final delivery = results[0] as CreatedDelivery;
-      // Same source as home matching badge counts: destination + luggage.
-      final travelers = results[1] as List<MatchingTraveler>;
+      // Same source as home matching badge counts: destination + luggage +
+      // delivery-relative date window (delivery − 5 … delivery + 7).
+      var travelers = results[1] as List<MatchingTraveler>;
+      final deliveryDate = delivery.travelDateParsed;
+      if (deliveryDate != null) {
+        travelers = TripDateWindow.filterByDeliveryTravelDate(
+          travelers,
+          (t) => t.travelDate,
+          deliveryDate,
+        );
+      }
       final bids = travelers.map((t) => t.toBid()).toList();
       if (bids.isNotEmpty) {
         // Highlight the best match for the existing card badge.
@@ -219,7 +227,7 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
     if (_paying) return;
     final demo = context.read<DemoModeProvider>().enabled;
     if (demo) {
-      AppToast.error(context, 'Turn off Demo mode to complete live payment.');
+      AppToast.error(context, context.l10n.demoModeCompleteLivePayment);
       return;
     }
 
@@ -228,7 +236,7 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
         status != BidReviewStatus.accepted) {
       AppToast.info(
         context,
-        'Pay Now is available after ${bid.travelerName} accepts your request.',
+        context.l10n.payNowAfterAccept(bid.travelerName),
       );
       return;
     }
@@ -251,7 +259,7 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
       if (!matchesRequest || !matchesTrip) {
         AppToast.info(
           context,
-          'No payable offer from ${bid.travelerName} yet.',
+          context.l10n.noPayableOfferFrom(bid.travelerName),
         );
         return;
       }
@@ -260,8 +268,8 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
         AppToast.info(
           context,
           offer.isAccepted
-              ? 'This offer is already paid and confirmed.'
-              : 'This offer is no longer available to pay.',
+              ? context.l10n.offerAlreadyPaidConfirmed
+              : context.l10n.offerNoLongerAvailableToPay,
         );
         context.push('/sender-counter-offer/${offer.id}');
         return;
@@ -290,15 +298,14 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
       if (e.statusCode == 404 || e.code == 'NOT_FOUND') {
         AppToast.info(
           context,
-          'Waiting for ${bid.travelerName} to accept. '
-          'You’ll be able to pay once their offer is ready.',
+          context.l10n.waitingForAcceptPay(bid.travelerName),
         );
         return;
       }
       AppToast.error(context, e.message);
     } catch (_) {
       if (!mounted) return;
-      AppToast.error(context, 'Unable to start payment right now.');
+      AppToast.error(context, context.l10n.unableToStartPaymentNow);
     } finally {
       if (mounted) setState(() => _paying = false);
     }
@@ -319,7 +326,7 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
     if (parcelWeight != null && !bid.canCarryWeightKg(parcelWeight)) {
       AppToast.error(
         context,
-        'This traveler does not have enough luggage capacity for your parcel weight.',
+        context.l10n.travelerInsufficientLuggageCapacity,
       );
       return;
     }
@@ -335,7 +342,7 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
       if (!mounted) return;
       final message = e is ApiException
           ? e.message
-          : 'Unable to send request to this traveler.';
+          : context.l10n.unableToSendRequestToTraveler;
       AppToast.error(context, message);
       return;
     } finally {
@@ -377,7 +384,7 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
     if (_loading) {
       return Scaffold(
         backgroundColor: AppColors.background,
-        appBar: const BackHeader(title: 'Matching Travelers'),
+        appBar: BackHeader(title: context.l10n.matchingTravelers),
         body: const Center(
           child: SizedBox(
             width: 28,
@@ -391,7 +398,7 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
     if (_error != null || delivery == null) {
       return Scaffold(
         backgroundColor: AppColors.background,
-        appBar: const BackHeader(title: 'Matching Travelers'),
+        appBar: BackHeader(title: context.l10n.matchingTravelers),
         body: Center(
           child: Padding(
             padding: context.pagePadding,
@@ -399,7 +406,7 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  _error ?? 'This delivery could not be found.',
+                  context.tr(_error ?? 'This delivery could not be found.'),
                   textAlign: TextAlign.center,
                   style: typo.sm.copyWith(color: AppColors.textSecondary),
                 ),
@@ -425,7 +432,7 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: const BackHeader(title: 'Matching Travelers'),
+      appBar: BackHeader(title: context.l10n.matchingTravelers),
       body: ListView.builder(
         physics: PlatformUi.scrollPhysics,
         padding: context.pagePadding,
@@ -455,7 +462,7 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Sort by',
+                    context.l10n.sortBy,
                     style: context.typo.sm.copyWith(
                       fontWeight: FontWeight.w600,
                       color: AppColors.textSecondary,
@@ -463,13 +470,13 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    TripDateWindow.matchingListHint,
+                    context.l10n.matchingListHint,
                     style: context.typo.sm.copyWith(
                       color: AppColors.textSecondary,
                     ),
                   ),
                   const SizedBox(height: 6),
-                  AppChipRow(
+                  _SortOptionGrid(
                     options: BidSortOption.labels,
                     selected: _sort.label,
                     onSelected: (label) {
@@ -480,9 +487,7 @@ class _BidRequestsScreenState extends State<BidRequestsScreen> {
                     const SizedBox(height: 16),
                     AppCard(
                       child: Text(
-                        'No matching travelers on this route yet. '
-                        'When a traveler posts a trip to your destination, '
-                        'they will appear here.',
+                        context.l10n.noMatchingTravelersOnRoute,
                         style: typo.sm.copyWith(color: AppColors.textSecondary),
                       ),
                     ),
@@ -563,8 +568,8 @@ class _ParcelSummaryCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'Travel date: ${DateFormat('MMM d, yyyy').format(summary.travelDate)}'
-            ' · Weight: ${summary.weightKg} kg',
+            '${context.l10n.travelDateColon(DateFormat('MMM d, yyyy', context.l10n.locale.toString()).format(summary.travelDate))}'
+            ' · ${context.l10n.weightColon('${summary.weightKg} kg')}',
             style: typo.sm.copyWith(color: AppColors.textSecondary),
           ),
           const SizedBox(height: 12),
@@ -585,7 +590,7 @@ class _ParcelSummaryCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Receiver has accepted the request.',
+                        context.l10n.receiverHasAcceptedRequest,
                         style: typo.sm.copyWith(
                           fontWeight: FontWeight.w700,
                           color: AppColors.primaryDark,
@@ -593,7 +598,7 @@ class _ParcelSummaryCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'Here are the best matching travelers for your route.',
+                        context.l10n.bestMatchingTravelersIntro,
                         style: typo.sm.copyWith(color: AppColors.primary),
                       ),
                     ],
@@ -624,13 +629,13 @@ class _SelectedTravelersCard extends StatelessWidget {
 
     String hint;
     if (requests.isEmpty) {
-      hint = 'You can request 1 or 2 travelers for this parcel.';
+      hint = context.l10n.canRequestUpToTwoTravelers;
     } else if (remaining > 0) {
       hint = remaining == 1
-          ? 'You can request 1 more traveler for this parcel.'
-          : 'You can request $remaining more travelers for this parcel.';
+          ? context.l10n.canRequestOneMoreTraveler
+          : context.l10n.canRequestMoreTravelersCount('$remaining');
     } else {
-      hint = 'Maximum of $maxCount travelers requested for this parcel.';
+      hint = context.l10n.maximumTravelersRequestedForParcel('$maxCount');
     }
 
     return AppCard(
@@ -638,7 +643,10 @@ class _SelectedTravelersCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Selected travelers (${requests.length}/$maxCount)',
+            context.l10n.selectedTravelersCount(
+              '${requests.length}',
+              '$maxCount',
+            ),
             style: typo.bodyBold.copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 4),
@@ -679,7 +687,7 @@ class _SelectedTravelerRow extends StatelessWidget {
           child: Text(name, style: typo.sm.copyWith(fontWeight: FontWeight.w600)),
         ),
         AppBadge(
-          label: accepted ? 'Accepted' : 'Requested',
+          label: accepted ? context.tr('Accepted') : context.tr('Requested'),
           color: accepted ? AppColors.primary : AppColors.warning,
           backgroundColor: (accepted ? AppColors.primary : AppColors.warning)
               .withValues(alpha: 0.12),
@@ -735,7 +743,7 @@ class _MatchingTravelerCard extends StatelessWidget {
                     children: [
                       Text(bid.travelerName, style: typo.bodyBold),
                       Text(
-                        '★ ${bid.rating.toStringAsFixed(1)} · ${bid.reviewCount} reviews',
+                        '★ ${context.l10n.ratingReviewsCount(bid.rating.toStringAsFixed(1), '${bid.reviewCount}')}',
                         style: typo.sm.copyWith(color: AppColors.textSecondary),
                       ),
                     ],
@@ -743,44 +751,56 @@ class _MatchingTravelerCard extends StatelessWidget {
                 ),
                 if (accepted)
                   AppBadge(
-                    label: 'Accepted',
+                    label: context.tr('Accepted'),
                     color: AppColors.primary,
                     backgroundColor: AppColors.primary.withValues(alpha: 0.12),
                   )
                 else if (requested)
                   AppBadge(
-                    label: 'Requested',
+                    label: context.tr('Requested'),
                     color: AppColors.warning,
                     backgroundColor: AppColors.warning.withValues(alpha: 0.12),
                   )
                 else if (bid.featured)
-                  AppBadge.success('Best match'),
+                  AppBadge.success(context.l10n.bestMatchBadge),
               ],
             ),
             const SizedBox(height: 12),
             Text(
-              '${WalletService.formatMajor(bid.price)} proposed',
+              context.l10n.amountProposed(WalletService.formatMajor(bid.price)),
               style: typo.sm.copyWith(color: AppColors.textSecondary),
             ),
             const SizedBox(height: 4),
             Text(
               [
-                'Travel date: ${DateFormat('MMM d, yyyy').format(bid.travelDate)}',
-                'Match ${bid.routeMatchConfidence}%',
+                context.l10n.travelDateColon(
+                  DateFormat(
+                    'MMM d, yyyy',
+                    context.l10n.locale.toString(),
+                  ).format(bid.travelDate),
+                ),
+                context.l10n.matchPercentLabel('${bid.routeMatchConfidence}'),
               ].join(' · '),
               style: typo.sm.copyWith(color: AppColors.textSecondary),
             ),
             if (bid.departureTime?.trim().isNotEmpty == true) ...[
               const SizedBox(height: 4),
               Text(
-                'Departure time: ${LocalTime.formatDepartureTime(bid.departureTime)}',
+                context.l10n.departureTimeColon(
+                  LocalTime.formatDepartureTime(
+                    bid.departureTime,
+                    context.l10n.locale.toString(),
+                  ),
+                ),
                 style: typo.sm.copyWith(color: AppColors.textSecondary),
               ),
             ],
             if (bid.travelMethodLabel != null) ...[
               const SizedBox(height: 4),
               Text(
-                'Travel method: ${bid.travelMethodLabel}',
+                context.l10n.travelMethodColon(
+                  context.tr(bid.travelMethodLabel!),
+                ),
                 style: typo.sm.copyWith(color: AppColors.textSecondary),
               ),
             ],
@@ -789,26 +809,26 @@ class _MatchingTravelerCard extends StatelessWidget {
               children: [
                 _rowActionButton(
                   context,
-                  label: 'View Profile',
+                  label: context.l10n.viewProfile,
                   onPressed: onViewProfile,
                 ),
                 const SizedBox(width: 8),
                 _rowActionButton(
                   context,
                   label: accepted || requested
-                      ? 'Requested'
+                      ? context.l10n.requestedLabel
                       : atLimit
-                          ? 'Limit reached'
+                          ? context.l10n.limitReached
                           : requesting
-                              ? 'Sending…'
-                              : 'Send Request',
+                              ? context.l10n.sendingEllipsis
+                              : context.l10n.sendRequest,
                   onPressed: canSendRequest ? onSelectTraveler : null,
                 ),
               ],
             ),
             const SizedBox(height: 8),
             AppButton(
-              label: paying ? 'Opening…' : 'Pay Now',
+              label: paying ? context.l10n.openingPaymentEllipsis : context.l10n.payNow,
               small: true,
               // Enabled only after this traveler accepted the sender request.
               onPressed: paying || !accepted ? null : onPayNow,
@@ -856,6 +876,108 @@ class _MatchingTravelerCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Equal-size 2x2 grid of sort chips (mirrors the traveler home quick
+/// actions layout) so labels of different lengths don't distort chip size.
+class _SortOptionGrid extends StatelessWidget {
+  const _SortOptionGrid({
+    required this.options,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final List<String> options;
+  final String selected;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final typo = context.typo;
+    final labelStyle = typo.chip.copyWith(height: 1.2);
+    const horizontalPad = 20.0; // 10 + 10
+    const verticalPad = 20.0; // 10 + 10
+    const gridGap = 8.0;
+    const borderWidth = 1.5;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final tileWidth = (constraints.maxWidth - gridGap) / 2;
+        final labelMaxWidth =
+            (tileWidth - horizontalPad).clamp(0.0, double.infinity);
+        final textScaler = MediaQuery.textScalerOf(context);
+        final textDirection = Directionality.of(context);
+
+        var labelBlockHeight = 0.0;
+        for (final option in options) {
+          final painter = TextPainter(
+            text: TextSpan(
+              text: context.tr(option),
+              style: labelStyle,
+            ),
+            textAlign: TextAlign.center,
+            textDirection: textDirection,
+            textScaler: textScaler,
+            maxLines: 2,
+            ellipsis: '…',
+          )..layout(maxWidth: labelMaxWidth);
+          if (painter.height > labelBlockHeight) {
+            labelBlockHeight = painter.height;
+          }
+        }
+        // Buffer for glyph metrics / rounding across locales.
+        labelBlockHeight += 4;
+
+        final tileHeight =
+            verticalPad + labelBlockHeight + (borderWidth * 2);
+
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: options.length,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            mainAxisSpacing: gridGap,
+            crossAxisSpacing: gridGap,
+            mainAxisExtent: tileHeight,
+          ),
+          itemBuilder: (context, index) {
+            final option = options[index];
+            final isSelected = option == selected;
+            return GestureDetector(
+              onTap: () => onSelected(option),
+              child: Container(
+                alignment: Alignment.center,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? AppColors.primary.withValues(alpha: 0.08)
+                      : null,
+                  border: Border.all(
+                    color: isSelected ? AppColors.primary : AppColors.border,
+                    width: borderWidth,
+                  ),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Text(
+                  context.tr(option),
+                  maxLines: 2,
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                  style: labelStyle.copyWith(
+                    color: isSelected
+                        ? AppColors.primary
+                        : AppColors.textSecondary,
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

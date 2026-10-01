@@ -199,11 +199,19 @@ class _CompactTravelDateDialogState extends State<_CompactTravelDateDialog> {
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
+    final l10n = context.l10n;
+    final locale = l10n.locale.toString();
     final cells = _daysInMonthGrid();
     final weekCount = cells.length ~/ 7;
-    final monthLabel = DateFormat('MMMM yyyy').format(_displayedMonth);
-    final selectedLabel = DateFormat('EEE, MMM d').format(_selected);
-    const weekdays = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+    final monthLabel =
+        DateFormat('MMMM yyyy', locale).format(_displayedMonth);
+    final selectedLabel =
+        DateFormat('EEE, MMM d', locale).format(_selected);
+    // Sunday-first grid (matches _daysInMonthGrid). Jan 1 2023 was Sunday.
+    final weekdays = [
+      for (var i = 0; i < 7; i++)
+        DateFormat.E(locale).format(DateTime(2023, 1, 1 + i)),
+    ];
 
     return Dialog(
       backgroundColor: AppColors.surface,
@@ -358,14 +366,14 @@ class _CompactTravelDateDialogState extends State<_CompactTravelDateDialog> {
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
                   child: Text(
-                    'Cancel',
+                    l10n.cancel,
                     style: typo.buttonSm.copyWith(color: AppColors.primary),
                   ),
                 ),
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(_selected),
                   child: Text(
-                    'OK',
+                    l10n.ok,
                     style: typo.buttonSm.copyWith(
                       color: AppColors.primary,
                       fontWeight: FontWeight.w700,

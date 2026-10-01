@@ -12,6 +12,7 @@ import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/back_header.dart';
 import '../../data/services/trip_repository.dart';
+import '../../l10n/app_localizations.dart';
 import '../../providers/auth_provider.dart';
 import 'bid_acceptance_payment_screen.dart';
 
@@ -46,7 +47,7 @@ class _TravelerSelectedConfirmationScreenState
   Future<void> _continueToOfferOrWait() async {
     final shipmentId = widget.acceptance.shipmentId.trim();
     if (shipmentId.isEmpty) {
-      AppToast.error(context, 'Shipment details are missing.');
+      AppToast.error(context, context.l10n.shipmentDetailsAreMissing);
       return;
     }
 
@@ -88,8 +89,9 @@ class _TravelerSelectedConfirmationScreenState
       if (e.statusCode == 404 || e.code == 'NOT_FOUND') {
         AppToast.info(
           context,
-          'Waiting for ${widget.acceptance.bid.travelerName} to send a counter offer. '
-          'You’ll get a notification when it’s ready to pay.',
+          context.l10n.waitingForCounterOffer(
+            widget.acceptance.bid.travelerName,
+          ),
         );
         context.go('/my-posted-parcels');
         return;
@@ -97,7 +99,7 @@ class _TravelerSelectedConfirmationScreenState
       AppToast.error(context, e.message);
     } catch (_) {
       if (!mounted) return;
-      AppToast.error(context, 'Unable to check counter offer status.');
+      AppToast.error(context, context.l10n.unableToCheckCounterOfferStatus);
     } finally {
       if (mounted) setState(() => _checkingOffer = false);
     }
@@ -110,7 +112,7 @@ class _TravelerSelectedConfirmationScreenState
 
     return Scaffold(
       backgroundColor: AppColors.surface,
-      appBar: const BackHeader(title: 'Confirmation'),
+      appBar: BackHeader(title: context.l10n.confirmation),
       body: SafeArea(
         child: SingleChildScrollView(
           physics: PlatformUi.scrollPhysics,
@@ -144,15 +146,15 @@ class _TravelerSelectedConfirmationScreenState
               ),
               const SizedBox(height: 24),
               Text(
-                'Traveler Selected!',
+                context.l10n.travelerSelectedExclaim,
                 style: typo.h1,
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
               Text(
-                '$name has been notified of your parcel request.\n'
-                'Payment unlocks after they send a counter offer.'
-                '${widget.acceptance.canRequestAnotherTraveler ? '\nYou can still request 1 more traveler for this parcel.' : ''}',
+                '${context.l10n.travelerNotifiedBody(name)}\n'
+                '${context.l10n.paymentUnlocksAfterCounterOffer}'
+                '${widget.acceptance.canRequestAnotherTraveler ? '\n${context.l10n.canRequestOneMoreTraveler}' : ''}',
                 textAlign: TextAlign.center,
                 style: typo.sm.copyWith(height: 1.5, color: AppColors.textSecondary),
               ),
@@ -169,28 +171,28 @@ class _TravelerSelectedConfirmationScreenState
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'What happens next?',
+                      context.l10n.whatHappensNext,
                       style: typo.bodyBold.copyWith(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 14),
-                    _step(context, 1, 'Traveler reviews and sends a counter offer'),
-                    _step(context, 2, 'You accept the offer and pay to lock escrow'),
-                    _step(context, 3, 'Agree meetup, then complete NFC handoff'),
-                    _step(context, 4, 'Traveler marks In Transit, then delivers via NFC'),
+                    _step(context, 1, context.l10n.confirmationStep1),
+                    _step(context, 2, context.l10n.confirmationStep2),
+                    _step(context, 3, context.l10n.confirmationStep3),
+                    _step(context, 4, context.l10n.confirmationStep4),
                   ],
                 ),
               ),
               const SizedBox(height: 32),
               AppButton(
                 label: _checkingOffer
-                    ? 'Checking…'
-                    : 'Continue',
+                    ? context.l10n.checkingEllipsis
+                    : context.l10n.continueLabel,
                 onPressed: _checkingOffer ? null : _continueToOfferOrWait,
               ),
               if (widget.acceptance.canRequestAnotherTraveler) ...[
                 const SizedBox(height: AppButton.stackGap),
                 AppButton(
-                  label: 'Select another traveler',
+                  label: context.l10n.selectAnotherTraveler,
                   variant: AppButtonVariant.outline,
                   onPressed: () {
                     final shipmentId = widget.acceptance.shipmentId.trim();
@@ -204,7 +206,7 @@ class _TravelerSelectedConfirmationScreenState
               ],
               const SizedBox(height: AppButton.stackGap),
               AppButton(
-                label: 'Back to Home',
+                label: context.l10n.backToHome,
                 variant: AppButtonVariant.outline,
                 onPressed: () => context.go('/home'),
               ),

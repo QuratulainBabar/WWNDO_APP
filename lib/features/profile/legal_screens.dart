@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/config/api_config.dart';
-import '../../core/layout/responsive.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/utils/external_links.dart';
@@ -144,7 +143,7 @@ class LegalDocumentScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Last updated ${LegalDocuments.lastUpdated}',
+              context.l10n.legalLastUpdatedLabel,
               style: typo.sm.copyWith(color: AppColors.textSecondary),
             ),
             const SizedBox(height: 16),
@@ -232,10 +231,10 @@ class PrivacyPolicyScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const LegalDocumentScreen(
-      title: LegalDocuments.privacyTitle,
+    return LegalDocumentScreen(
+      title: context.l10n.legalPrivacyTitle,
       websitePath: '/legal/privacy',
-      sections: LegalDocuments.privacySections,
+      sections: context.l10n.localizedPrivacySections(),
     );
   }
 }
@@ -245,10 +244,10 @@ class TermsOfServiceScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const LegalDocumentScreen(
-      title: LegalDocuments.termsTitle,
+    return LegalDocumentScreen(
+      title: context.l10n.legalTermsTitle,
       websitePath: '/legal/terms',
-      sections: LegalDocuments.termsSections,
+      sections: context.l10n.localizedTermsSections(),
     );
   }
 }
@@ -256,33 +255,12 @@ class TermsOfServiceScreen extends StatelessWidget {
 class CookiePolicyScreen extends StatelessWidget {
   const CookiePolicyScreen({super.key});
 
-  static const _sections = [
-    LegalSection(
-      heading: 'What are cookies?',
-      body:
-          'Cookies are small text files stored on your device. They help remember preferences and understand how you use our site.',
-    ),
-    LegalSection(
-      heading: 'Cookies we use',
-      bullets: [
-        'Essential — required for security and sessions',
-        'Analytics — help us improve performance (optional)',
-        'Preferences — remember your settings (optional)',
-      ],
-    ),
-    LegalSection(
-      heading: 'Managing cookies',
-      body:
-          'You can control cookies in your browser settings. Disabling essential cookies may affect site functionality.',
-    ),
-  ];
-
   @override
   Widget build(BuildContext context) {
     return LegalDocumentScreen(
       title: context.l10n.cookiePolicy,
       websitePath: '/legal/cookies',
-      sections: _sections,
+      sections: context.l10n.localizedCookieSections(),
     );
   }
 }

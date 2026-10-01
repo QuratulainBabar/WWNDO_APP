@@ -40,7 +40,7 @@ abstract final class LocalTime {
 
   /// Formats a stored departure time (`HH:mm`, `H:mm`, or already `h:mm a`)
   /// for sender-facing display with AM/PM (e.g. `9:00 AM`).
-  static String formatDepartureTime(String? raw) {
+  static String formatDepartureTime(String? raw, [String? locale]) {
     final value = raw?.trim() ?? '';
     if (value.isEmpty) return '';
 
@@ -57,7 +57,8 @@ abstract final class LocalTime {
         hour += 12;
       }
       if (hour > 23 || minute > 59) return value;
-      return DateFormat('h:mm a').format(DateTime(2000, 1, 1, hour, minute));
+      return DateFormat('h:mm a', locale)
+          .format(DateTime(2000, 1, 1, hour, minute));
     }
 
     final match = RegExp(r'^(\d{1,2}):(\d{2})(?::\d{2})?$').firstMatch(value);
@@ -74,7 +75,8 @@ abstract final class LocalTime {
       return value;
     }
 
-    return DateFormat('h:mm a').format(DateTime(2000, 1, 1, hour, minute));
+    return DateFormat('h:mm a', locale)
+        .format(DateTime(2000, 1, 1, hour, minute));
   }
 
   /// Inbox row: clock for today, otherwise Yesterday / weekday / date.

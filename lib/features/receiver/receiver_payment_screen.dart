@@ -20,6 +20,7 @@ import '../../data/services/platform_repository.dart';
 import '../../data/platform_fees.dart';
 import '../../data/static_data.dart';
 import '../../data/wallet_service.dart';
+import '../../l10n/app_localizations.dart';
 import '../../providers/auth_provider.dart';
 import 'receiver_payment_success_screen.dart';
 
@@ -153,7 +154,7 @@ class _ReceiverPaymentScreenState extends State<ReceiverPaymentScreen> {
                     from: s.fromCity,
                     to: s.toCity,
                     fallbackRoute: s.route,
-                    sectionLabel: 'Route',
+                    sectionLabel: context.l10n.route,
                     bottomPadding: 8,
                   ),
                   const Divider(height: 24),

@@ -5,6 +5,7 @@ import '../../core/widgets/app_button.dart';
 import '../../core/widgets/back_header.dart';
 import '../../core/widgets/scrollable_form_screen.dart';
 import '../../data/services/trip_repository.dart';
+import '../../l10n/app_localizations.dart';
 import 'trip_posting_actions.dart';
 import 'widgets/trip_form_fields.dart';
 
@@ -33,14 +34,15 @@ class _CountryToCountryPostTripScreenState
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: const BackHeader(title: 'Post a trip'),
+      appBar: BackHeader(title: l10n.postTrip),
       body: ScrollableFormScreen(
         pinActions: false,
         actions: [
           AppButton(
-            label: 'Post trip →',
+            label: l10n.postTripArrow,
             onPressed: _postTrip,
           ),
         ],

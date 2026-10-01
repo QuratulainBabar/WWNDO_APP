@@ -213,7 +213,7 @@ class _TravelerBidDetailScreenState extends State<TravelerBidDetailScreen> {
                         from: bid.displayFrom,
                         to: bid.displayTo,
                         fallbackRoute: bid.route,
-                        sectionLabel: 'Route',
+                        sectionLabel: context.l10n.route,
                         bottomPadding: 8,
                       ),
                       _detailRow(context, 'Delivery date', deliveryDate),

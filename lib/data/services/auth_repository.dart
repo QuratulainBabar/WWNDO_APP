@@ -762,12 +762,30 @@ class AuthRepository {
     );
   }
 
-  Future<void> registerFcmToken(String token, {String platform = 'unknown'}) async {
+  Future<void> registerFcmToken(
+    String token, {
+    String platform = 'unknown',
+    String? preferredLanguage,
+  }) async {
     if (_isDemoMode) return;
     await _apiClient.post(
       '/auth/devices/fcm-token',
       authenticated: true,
-      body: {'token': token, 'platform': platform},
+      body: {
+        'token': token,
+        'platform': platform,
+        if (preferredLanguage != null && preferredLanguage.isNotEmpty)
+          'preferredLanguage': preferredLanguage,
+      },
+    );
+  }
+
+  Future<void> updatePreferredLanguage(String preferredLanguage) async {
+    if (_isDemoMode) return;
+    await _apiClient.patch(
+      '/auth/preferred-language',
+      authenticated: true,
+      body: {'preferredLanguage': preferredLanguage},
     );
   }
 

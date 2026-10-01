@@ -891,6 +891,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _onBiometricToggled(bool enabled) async {
     if (_biometricBusy) return;
+    final l10n = context.l10n;
+    final bioLabel =
+        PlatformUi.isIOS ? l10n.faceId : l10n.fingerprint;
 
     if (!enabled) {
       setState(() {
@@ -906,7 +909,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _biometricBusy = true);
 
     final result = await BiometricAuthService.authenticate(
-      reason: PlatformUi.biometricSetupReason,
+      reason: l10n.biometricSetupReason(bioLabel),
     );
 
     if (!mounted) return;
@@ -928,8 +931,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     if (result.status == BiometricAuthStatus.cancelled) return;
 
-    final message = result.message ??
-        'Could not enable ${PlatformUi.biometricShortLabel}. Please try again.';
+    final message = switch (result.status) {
+      BiometricAuthStatus.notEnrolled => l10n.biometricNotSetUp(bioLabel),
+      BiometricAuthStatus.notAvailable =>
+        l10n.biometricNotAvailable(bioLabel),
+      BiometricAuthStatus.failed => l10n.biometricNotRecognized(bioLabel),
+      _ => l10n.couldNotEnableBiometric(bioLabel),
+    };
     AppToast.error(context, message);
   }
 
@@ -1131,12 +1139,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 trailing: KycStatusBadge(user: authUser),
               ),
               _toggle(
-                l10n.biometricLogin(PlatformUi.biometricShortLabel),
+                l10n.biometricLogin(
+                  PlatformUi.isIOS ? l10n.faceId : l10n.fingerprint,
+                ),
                 _biometricEnabled,
                 kIsWeb || _biometricBusy ? null : _onBiometricToggled,
                 subtitle: kIsWeb
                     ? l10n.biometricLoginWebSubtitle
-                    : l10n.biometricLoginSubtitle(PlatformUi.biometricShortLabel),
+                    : l10n.biometricLoginSubtitle(
+                        PlatformUi.isIOS ? l10n.faceId : l10n.fingerprint,
+                      ),
               ),
             ]),
             _sectionLabel(l10n.legal),

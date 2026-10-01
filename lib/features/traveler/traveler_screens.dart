@@ -199,6 +199,7 @@ class PostTripSuccessScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
+    final l10n = context.l10n;
 
     return Scaffold(
       backgroundColor: AppColors.surface,
@@ -224,21 +225,21 @@ class PostTripSuccessScreen extends StatelessWidget {
                       child: const Icon(Icons.check, size: 40, color: AppColors.success),
                     ),
                     const SizedBox(height: 20),
-                    Text('Trip posted!', style: typo.h1, textAlign: TextAlign.center),
+                    Text(l10n.tripPosted, style: typo.h1, textAlign: TextAlign.center),
                     const SizedBox(height: 8),
                     Text(
-                      'Your $route trip is now discoverable to senders and matched by route similarity.',
+                      l10n.tripPostedDiscoverable(route),
                       textAlign: TextAlign.center,
                       style: typo.sm.copyWith(height: 1.5),
                     ),
                     const SizedBox(height: 32),
                     AppButton(
-                      label: 'View sender requests',
+                      label: l10n.viewSenderRequests,
                       onPressed: () => context.go('/matching-requests'),
                     ),
                     const SizedBox(height: AppButton.stackGap),
                     AppButton(
-                      label: 'Back to home',
+                      label: l10n.backToHome,
                       variant: AppButtonVariant.outline,
                       onPressed: () => context.go('/traveler-home'),
                     ),

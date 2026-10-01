@@ -32,6 +32,18 @@ class BackHeader extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
+    final backControl = Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onBack ?? () => _handleBack(context),
+        borderRadius: BorderRadius.circular(8),
+        child: const Padding(
+          padding: EdgeInsets.symmetric(vertical: 8, horizontal: 2),
+          child: BackLinkLabel(),
+        ),
+      ),
+    );
+
     return AppBar(
       automaticallyImplyLeading: false,
       elevation: 0,
@@ -48,35 +60,53 @@ class BackHeader extends StatelessWidget implements PreferredSizeWidget {
               child: Divider(height: 1, thickness: 1, color: AppColors.border),
             )
           : null,
-      title: Row(
-        children: [
-          SizedBox(
-            width: 72,
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: onBack ?? () => _handleBack(context),
-                  borderRadius: BorderRadius.circular(8),
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8, horizontal: 2),
-                    child: BackLinkLabel(),
+      title: centerTitle
+          ? Stack(
+              alignment: Alignment.center,
+              children: [
+                Padding(
+                  // Keep title clear of the back control on narrow screens /
+                  // longer translations without forcing the back label to wrap.
+                  padding: const EdgeInsets.symmetric(horizontal: 88),
+                  child: Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: typo.headerTitle,
                   ),
                 ),
-              ),
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: MediaQuery.sizeOf(context).width * 0.38,
+                    ),
+                    child: backControl,
+                  ),
+                ),
+              ],
+            )
+          : Row(
+              children: [
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: MediaQuery.sizeOf(context).width * 0.38,
+                  ),
+                  child: backControl,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    title,
+                    textAlign: TextAlign.start,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: typo.headerTitle,
+                  ),
+                ),
+              ],
             ),
-          ),
-          Expanded(
-            child: Text(
-              title,
-              textAlign: centerTitle ? TextAlign.center : TextAlign.start,
-              style: typo.headerTitle,
-            ),
-          ),
-          const SizedBox(width: 72),
-        ],
-      ),
     );
   }
 }
@@ -95,7 +125,12 @@ class SimpleHeader extends StatelessWidget implements PreferredSizeWidget {
     final typo = context.typo;
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.fromLTRB(context.horizontalPadding, 14, context.horizontalPadding, 14),
+      padding: EdgeInsets.fromLTRB(
+        context.horizontalPadding,
+        14,
+        context.horizontalPadding,
+        14,
+      ),
       decoration: BoxDecoration(
         color: AppColors.surface,
         border: Border(bottom: BorderSide(color: AppColors.border)),

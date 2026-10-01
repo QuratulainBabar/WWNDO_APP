@@ -165,6 +165,22 @@ class AppTypography extends ThemeExtension<AppTypography> {
         fontWeight: color == AppColors.primary ? FontWeight.w900 : FontWeight.w400,
       );
 
+  /// Bottom-nav label style. Arabic uses a smaller size so longer labels
+  /// (e.g. الملف الشخصي) stay on one line like English.
+  TextStyle bottomNavLabel(
+    Color color, {
+    required String languageCode,
+    bool active = false,
+  }) {
+    final isArabic = languageCode == 'ar';
+    return tabLabel.copyWith(
+      color: color,
+      fontWeight: active ? FontWeight.w900 : FontWeight.w400,
+      fontSize: isArabic ? 11 : 14,
+      height: 1.1,
+    );
+  }
+
   /// Base text theme for Material [ThemeData].
   TextTheme get materialTextTheme => (colors == AppColorPalette.dark
           ? ThemeData.dark()

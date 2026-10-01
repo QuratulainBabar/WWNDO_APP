@@ -410,7 +410,7 @@ class _ParcelCreationWizardScreenState extends State<ParcelCreationWizardScreen>
                   from: trip.displayOrigin,
                   to: trip.displayDestination,
                   fallbackRoute: trip.route,
-                  sectionLabel: 'Route',
+                  sectionLabel: context.l10n.route,
                   bottomPadding: 4,
                 ),
               Text('Category: ${_flow.category}', style: typo.sm),

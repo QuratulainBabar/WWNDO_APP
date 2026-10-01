@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import '../../l10n/app_localizations.dart';
 
 import '../../core/config/demo_mode.dart';
 import '../../core/theme/app_colors.dart';
@@ -60,18 +61,19 @@ class _MatchingRequestsScreenState extends State<MatchingRequestsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     if (_error != null) {
       return Scaffold(
         backgroundColor: AppColors.background,
-        appBar: const BackHeader(title: 'Sender Requests'),
+        appBar: BackHeader(title: l10n.senderRequests),
         body: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(_error!),
+              Text(context.tr(_error!)),
               TextButton(
                 onPressed: () => context.go('/matching-requests'),
-                child: const Text('Back to Sender Requests'),
+                child: Text(l10n.backToSenderRequests),
               ),
             ],
           ),
@@ -81,8 +83,8 @@ class _MatchingRequestsScreenState extends State<MatchingRequestsScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: BackHeader(title: 'Sender Requests'),
-      body: Center(
+      appBar: BackHeader(title: l10n.senderRequests),
+      body: const Center(
         child: SizedBox(
           width: 22,
           height: 22,

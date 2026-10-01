@@ -2758,13 +2758,19 @@ abstract final class StaticData {
 
   /// Posted trips discoverable by senders, optionally ranked for a parcel route.
   /// Excludes trips whose luggage capacity is below the parcel weight.
-  /// Only trips within the active rolling travel-date window are shown.
+  /// Matching uses the delivery-relative travel-date window
+  /// (delivery − 5 … delivery + 7).
   static List<({TravelerTrip trip, int matchScore})> discoverableTripsForShipment(
     Shipment shipment,
   ) {
     final parcelWeight = shipment.parcelWeightKg;
     final ranked = travelerPostedTrips
-        .where((trip) => TripDateWindow.contains(trip.travelDate))
+        .where(
+          (trip) => TripDateWindow.containsForDelivery(
+            trip.travelDate,
+            shipment.travelDate,
+          ),
+        )
         .where((trip) => trip.luggageCapacityKg >= parcelWeight)
         .map(
           (trip) => (

@@ -55,6 +55,7 @@ class _TripTypeSelectionScreenState extends State<TripTypeSelectionScreen> {
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
+    final l10n = context.l10n;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -64,30 +65,30 @@ class _TripTypeSelectionScreenState extends State<TripTypeSelectionScreen> {
           children: [
             const BackLink(),
             const SizedBox(height: 16),
-            Text('Choose trip type', style: typo.h1),
+            Text(l10n.chooseTripType, style: typo.h1),
             const SizedBox(height: 8),
             Text(
-              'Select the type of trip you want to post.',
+              l10n.chooseTripTypeSubtitle,
               style: typo.subheading,
             ),
             const SizedBox(height: 24),
             _TripTypeCard(
               iconAsset: AppIcons.track,
-              title: 'City to City',
-              description: 'Share a domestic route between two cities.',
+              title: l10n.cityToCity,
+              description: l10n.tripCityToCityDesc,
               selected: _selectedType == _TripType.cityToCity,
               onTap: () => setState(() => _selectedType = _TripType.cityToCity),
             ),
             _TripTypeCard(
               icon: Icons.public_rounded,
-              title: 'Country to Country',
-              description: 'Share an international route across borders.',
+              title: l10n.countryToCountry,
+              description: l10n.tripCountryToCountryDesc,
               selected: _selectedType == _TripType.countryToCountry,
               onTap: () => setState(() => _selectedType = _TripType.countryToCountry),
             ),
             const SizedBox(height: 8),
             AppButton(
-              label: context.tr('Continue'),
+              label: l10n.continueLabel,
               onPressed: _selectedType == null ? null : _continue,
             ),
           ],

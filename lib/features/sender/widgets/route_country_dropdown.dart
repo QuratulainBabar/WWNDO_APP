@@ -17,6 +17,7 @@ class RouteCountryDropdown extends StatelessWidget {
     this.hintText = 'Select country',
     this.allowedIsos,
     this.compact = false,
+    this.labelStyle,
   });
 
   final String label;
@@ -27,6 +28,7 @@ class RouteCountryDropdown extends StatelessWidget {
   final Set<String>? allowedIsos;
   /// When true, shows only the ISO code (e.g. for Code columns).
   final bool compact;
+  final TextStyle? labelStyle;
 
   Future<void> _openPicker(BuildContext context) async {
     final selected = await showModalBottomSheet<WorldCountry>(
@@ -62,7 +64,8 @@ class RouteCountryDropdown extends StatelessWidget {
 
     return AppLabeledField(
       label: context.tr(label),
-      labelStyle: typo.inputLabel.copyWith(fontWeight: FontWeight.w600),
+      labelStyle: labelStyle ??
+          typo.inputLabel.copyWith(fontWeight: FontWeight.w700),
       child: Material(
         color: Colors.transparent,
         child: InkWell(

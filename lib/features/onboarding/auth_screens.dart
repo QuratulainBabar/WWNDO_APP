@@ -276,7 +276,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final auth = context.watch<AuthProvider>();
     final pagePadding = context.pagePadding;
     final fieldLabelStyle =
-        context.typo.inputLabel.copyWith(fontWeight: FontWeight.w600);
+        context.typo.inputLabel.copyWith(fontWeight: FontWeight.w700);
     final inputStyle = context.typo.input;
     final subtitleStyle = context.typo.subheading;
 
@@ -322,7 +322,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               labelStyle: fieldLabelStyle,
               inputStyle: inputStyle,
               keyboardType: TextInputType.emailAddress,
-              hintText: 'you@email.com',
+              hintText: context.l10n.emailPlaceholder,
             ),
             RouteCountryDropdown(
               label: context.tr('Country'),
@@ -643,7 +643,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   labelStyle: fieldLabelStyle,
                   inputStyle: inputStyle,
                   keyboardType: TextInputType.emailAddress,
-                  hintText: 'you@email.com',
+                  hintText: context.l10n.emailPlaceholder,
                   onChanged: (value) => _emailTyped = value,
                 ),
                 _labeledField(

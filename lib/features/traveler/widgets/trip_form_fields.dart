@@ -13,6 +13,7 @@ import '../../../core/widgets/app_toast.dart';
 import '../../../data/models/meetup_location.dart';
 import '../../../data/models/traveler_trip.dart';
 import '../../../data/services/trip_repository.dart';
+import '../../../l10n/app_localizations.dart';
 import '../../../providers/auth_provider.dart';
 import '../../sender/widgets/departure_time_field.dart';
 import '../../sender/widgets/travel_date_field.dart';
@@ -141,13 +142,13 @@ class TripFormFieldsState extends State<TripFormFields> {
   bool validate() {
     if (_fromLocation == null || _toLocation == null) {
       final endpointLabel = _isCountry
-          ? (_isAirTravel ? 'airport' : 'city')
-          : 'location';
+          ? (_isAirTravel ? context.l10n.airportEndpoint : context.l10n.cityEndpoint)
+          : context.l10n.locationEndpoint;
       AppToast.error(
         context,
         _isCountry
-            ? 'Select both From $endpointLabel and To $endpointLabel.'
-            : 'Select both From and To locations.',
+            ? context.l10n.selectBothFromToEndpoints(endpointLabel)
+            : context.l10n.selectBothFromToLocations,
       );
       return false;
     }
@@ -162,14 +163,14 @@ class TripFormFieldsState extends State<TripFormFields> {
           fromCode == toCode) {
         AppToast.error(
           context,
-          'Origin and destination countries must be different.',
+          context.l10n.originDestCountriesMustDiffer,
         );
         return false;
       }
       if (_fromLocation!.displayLabel == _toLocation!.displayLabel) {
         AppToast.error(
           context,
-          'Origin and destination must be different.',
+          context.l10n.originDestMustDiffer,
         );
         return false;
       }
@@ -179,23 +180,24 @@ class TripFormFieldsState extends State<TripFormFields> {
       if (origin.isEmpty || destination.isEmpty) {
         AppToast.error(
           context,
-          'Select both From and To locations.',
+          context.l10n.selectBothFromToLocations,
         );
         return false;
       }
     }
 
+    final l10n = context.l10n;
     setState(() {
       if (_travelDate == null) {
-        _travelDateError = 'Select a travel date.';
+        _travelDateError = l10n.selectATravelDate;
       } else {
         _travelDateError = null;
       }
       _departureTimeError = _departureTime == null
-          ? 'Select a departure time.'
+          ? l10n.selectADepartureTime
           : null;
       _capacityError = _luggageCapacityKg <= 0
-          ? 'Enter a valid capacity greater than 0.'
+          ? l10n.enterValidCapacity
           : null;
     });
     return _travelDateError == null &&
@@ -296,17 +298,20 @@ class TripFormFieldsState extends State<TripFormFields> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final sectionTitleStyle =
         context.typo.h3.copyWith(fontWeight: FontWeight.w600);
     final authUser = context.watch<AuthProvider>().user;
     final kycOk = authUser?.isKycApproved ?? false;
+    final byAir = l10n.byAir;
+    final byLand = l10n.byLand;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (widget.showCreateBadges) ...[
           Text(
-            'Tell senders where you\'re going and how much you can carry.',
+            l10n.postTripIntro,
             style: context.typo.sm,
           ),
           const SizedBox(height: 12),
@@ -315,7 +320,7 @@ class TripFormFieldsState extends State<TripFormFields> {
             runSpacing: 6,
             children: [
               AppBadge(
-                label: kycOk ? 'KYC approved' : 'KYC required',
+                label: kycOk ? l10n.kycApprovedLabel : l10n.kycRequiredLabel,
                 color: kycOk ? AppColors.success : AppColors.danger,
                 backgroundColor: (kycOk ? AppColors.success : AppColors.danger)
                     .withValues(alpha: 0.12),
@@ -329,20 +334,20 @@ class TripFormFieldsState extends State<TripFormFields> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Route', style: sectionTitleStyle),
+              Text(l10n.route, style: sectionTitleStyle),
               const SizedBox(height: 12),
               if (_isCountry) ...[
                 AppLabeledField(
-                  label: 'Travel method',
+                  label: l10n.travelMethod,
                   labelStyle: context.typo.inputLabel
                       .copyWith(fontWeight: FontWeight.w600),
                   child: AppChipRow(
-                    options: const ['By Air', 'By Land'],
+                    options: [byAir, byLand],
                     selected: _travelMethod == _TravelMethod.byLand
-                        ? 'By Land'
-                        : 'By Air',
+                        ? byLand
+                        : byAir,
                     onSelected: (value) => _setTravelMethod(
-                      value == 'By Land'
+                      value == byLand
                           ? _TravelMethod.byLand
                           : _TravelMethod.byAir,
                     ),
@@ -350,46 +355,46 @@ class TripFormFieldsState extends State<TripFormFields> {
                 ),
                 const SizedBox(height: 8),
                 RouteCityDropdown(
-                  label: _isAirTravel ? 'From airport' : 'From city',
+                  label: _isAirTravel ? l10n.fromAirport : l10n.fromCity,
                   value: _fromLocation,
                   hintText:
-                      _isAirTravel ? 'Search Airport' : 'Search City',
-                  mapTitle: _isAirTravel ? 'From airport' : 'From city',
+                      _isAirTravel ? l10n.searchAirport : l10n.searchCity,
+                  mapTitle: _isAirTravel ? l10n.fromAirport : l10n.fromCity,
                   searchHint:
-                      _isAirTravel ? 'Search Airport' : 'Search City',
+                      _isAirTravel ? l10n.searchAirport : l10n.searchCity,
                   citySearch: !_isAirTravel,
                   airportSearch: _isAirTravel,
                   onChanged: (place) => setState(() => _fromLocation = place),
                 ),
                 RouteCityDropdown(
-                  label: _isAirTravel ? 'To airport' : 'To city',
+                  label: _isAirTravel ? l10n.toAirport : l10n.toCity,
                   value: _toLocation,
                   hintText:
-                      _isAirTravel ? 'Search Airport' : 'Search City',
-                  mapTitle: _isAirTravel ? 'To airport' : 'To city',
+                      _isAirTravel ? l10n.searchAirport : l10n.searchCity,
+                  mapTitle: _isAirTravel ? l10n.toAirport : l10n.toCity,
                   searchHint:
-                      _isAirTravel ? 'Search Airport' : 'Search City',
+                      _isAirTravel ? l10n.searchAirport : l10n.searchCity,
                   citySearch: !_isAirTravel,
                   airportSearch: _isAirTravel,
                   onChanged: (place) => setState(() => _toLocation = place),
                 ),
               ] else ...[
                 RouteCityDropdown(
-                  label: 'From city',
+                  label: l10n.fromCity,
                   value: _fromLocation,
-                  hintText: 'Search Location',
-                  mapTitle: 'From city',
-                  searchHint: 'Search Location',
+                  hintText: l10n.searchLocation,
+                  mapTitle: l10n.fromCity,
+                  searchHint: l10n.searchLocation,
                   citySearch: true,
                   airportSearch: false,
                   onChanged: (place) => setState(() => _fromLocation = place),
                 ),
                 RouteCityDropdown(
-                  label: 'To city',
+                  label: l10n.toCity,
                   value: _toLocation,
-                  hintText: 'Search Location',
-                  mapTitle: 'To city',
-                  searchHint: 'Search Location',
+                  hintText: l10n.searchLocation,
+                  mapTitle: l10n.toCity,
+                  searchHint: l10n.searchLocation,
                   citySearch: true,
                   airportSearch: false,
                   onChanged: (place) => setState(() => _toLocation = place),
@@ -407,6 +412,8 @@ class TripFormFieldsState extends State<TripFormFields> {
               DepartureTimeField(
                 value: _departureTime,
                 errorText: _departureTimeError,
+                label: l10n.departureTime,
+                hintText: l10n.selectDepartureTime,
                 onChanged: (time) => setState(() {
                   _departureTime = time;
                   _departureTimeError = null;
@@ -419,7 +426,7 @@ class TripFormFieldsState extends State<TripFormFields> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Available Luggage Capacity', style: sectionTitleStyle),
+              Text(l10n.availableLuggageCapacity, style: sectionTitleStyle),
               const SizedBox(height: 12),
               AvailableLuggageCapacityField(
                 initialValue:
@@ -438,7 +445,7 @@ class TripFormFieldsState extends State<TripFormFields> {
               ],
               if (_isCountry && _isAirTravel)
                 AppLabeledField(
-                  label: 'Flight number (optional)',
+                  label: l10n.flightNumberOptional,
                   labelStyle: context.typo.inputLabel
                       .copyWith(fontWeight: FontWeight.w600),
                   child: TextField(
@@ -447,8 +454,8 @@ class TripFormFieldsState extends State<TripFormFields> {
                     onTapOutside: dismissKeyboardOnTapOutside,
                     style: context.typo.input,
                     textCapitalization: TextCapitalization.characters,
-                    decoration: const InputDecoration(
-                      hintText: 'e.g. BA083',
+                    decoration: InputDecoration(
+                      hintText: l10n.flightNumberHint,
                     ),
                   ),
                 ),

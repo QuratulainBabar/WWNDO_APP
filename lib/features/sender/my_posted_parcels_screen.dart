@@ -221,13 +221,14 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen>
 
   List<PopupMenuEntry<String>> _menuItems(BuildContext context) {
     final typo = context.typo;
+    final l10n = context.l10n;
     final itemStyle = typo.body.copyWith(fontWeight: FontWeight.w400);
 
     return [
       PopupMenuItem(
         value: 'edit',
         height: 42,
-        child: Text('Edit', style: itemStyle),
+        child: Text(l10n.edit, style: itemStyle),
       ),
       PopupMenuItem<String>(
         enabled: false,
@@ -242,7 +243,7 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen>
       PopupMenuItem(
         value: 'cancel',
         height: 42,
-        child: Text('Cancel', style: itemStyle),
+        child: Text(l10n.cancel, style: itemStyle),
       ),
     ];
   }
@@ -283,12 +284,13 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen>
     return DateFormat('MMM d, yyyy', locale).format(parsed);
   }
 
-  String _formatWeight(double kg) {
-    if (kg == kg.roundToDouble()) return '${kg.toInt()} kg';
+  String _formatWeight(BuildContext context, double kg) {
+    final unit = context.l10n.kgUnit;
+    if (kg == kg.roundToDouble()) return '${kg.toInt()} $unit';
     var label = kg.toStringAsFixed(2);
     label = label.replaceFirst(RegExp(r'0+$'), '');
     label = label.replaceFirst(RegExp(r'\.$'), '');
-    return '$label kg';
+    return '$label $unit';
   }
 
   Widget _body(BuildContext context) {
@@ -338,9 +340,11 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen>
             const SizedBox(height: 80),
             Text(
               switch (_tabFilter) {
-                _ShipmentsTab.active => 'No active deliveries yet.',
-                _ShipmentsTab.completed => 'No completed deliveries yet.',
-                _ShipmentsTab.cancelled => 'No cancelled deliveries yet.',
+                _ShipmentsTab.active => context.l10n.noActiveDeliveriesYet,
+                _ShipmentsTab.completed =>
+                  context.l10n.noCompletedDeliveriesYet,
+                _ShipmentsTab.cancelled =>
+                  context.l10n.noCancelledDeliveriesYet,
               },
               textAlign: TextAlign.center,
               style: typo.sm.copyWith(color: AppColors.textSecondary),
@@ -410,14 +414,20 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen>
                           ),
                           const SizedBox(height: 8),
                           StackedRouteEndpoints(
-                            from: parcel.exactDisplayFrom,
-                            to: parcel.exactDisplayTo,
-                            fallbackRoute: parcel.exactDisplayRoute,
+                            from: context.l10n.localizePlaceLabel(
+                              parcel.exactDisplayFrom,
+                            ),
+                            to: context.l10n.localizePlaceLabel(
+                              parcel.exactDisplayTo,
+                            ),
+                            fallbackRoute: context.l10n.localizePlaceLabel(
+                              parcel.exactDisplayRoute,
+                            ),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             '${context.l10n.travelDateColon(_formatTravelDate(parcel.travelDate, context.l10n.locale.toString()))}'
-                            ' · ${context.l10n.weightColon(_formatWeight(parcel.weightKg))}',
+                            ' · ${context.l10n.weightColon(_formatWeight(context, parcel.weightKg))}',
                             style: typo.sm.copyWith(
                               color: AppColors.textSecondary,
                             ),
@@ -437,7 +447,7 @@ class _MyPostedParcelsScreenState extends State<MyPostedParcelsScreen>
                           minWidth: 36,
                           minHeight: 36,
                         ),
-                        tooltip: 'More options',
+                        tooltip: context.l10n.moreOptions,
                         onSelected: (value) => _onMenuSelected(value, parcel),
                         itemBuilder: _menuItems,
                       ),

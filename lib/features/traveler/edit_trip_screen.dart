@@ -65,7 +65,7 @@ class _EditTripScreenState extends State<EditTripScreen> {
       if (trip == null) {
         setState(() {
           _loading = false;
-          _loadError = 'Trip not found.';
+          _loadError = context.l10n.tripNotFound;
         });
         return;
       }
@@ -93,7 +93,7 @@ class _EditTripScreenState extends State<EditTripScreen> {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _loadError = 'Unable to load this trip. Please try again.';
+        _loadError = context.l10n.unableToLoadTrip;
       });
     }
   }
@@ -136,7 +136,7 @@ class _EditTripScreenState extends State<EditTripScreen> {
         ),
       );
       if (!mounted) return;
-      AppToast.success(context, '${trip.displayId} updated');
+      AppToast.success(context, context.l10n.itemUpdated(trip.displayId));
       context.pop(true);
       return;
     }
@@ -145,14 +145,14 @@ class _EditTripScreenState extends State<EditTripScreen> {
     try {
       await _repository().updateTrip(trip.displayId, request);
       if (!mounted) return;
-      AppToast.success(context, '${trip.displayId} updated');
+      AppToast.success(context, context.l10n.itemUpdated(trip.displayId));
       context.pop(true);
     } on ApiException catch (e) {
       if (!mounted) return;
       AppToast.error(context, e.message);
     } catch (_) {
       if (!mounted) return;
-      AppToast.error(context, 'Unable to save changes. Please try again.');
+      AppToast.error(context, context.l10n.unableToSaveChanges);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -161,12 +161,13 @@ class _EditTripScreenState extends State<EditTripScreen> {
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
+    final l10n = context.l10n;
 
     if (_loading) {
       return Scaffold(
         backgroundColor: AppColors.background,
-        appBar: const BackHeader(
-          title: 'Edit trip',
+        appBar: BackHeader(
+          title: l10n.editTrip,
           fallbackRoute: '/traveler-trips',
         ),
         body: const Center(
@@ -178,8 +179,8 @@ class _EditTripScreenState extends State<EditTripScreen> {
     if (_loadError != null || _trip == null) {
       return Scaffold(
         backgroundColor: AppColors.background,
-        appBar: const BackHeader(
-          title: 'Edit trip',
+        appBar: BackHeader(
+          title: l10n.editTrip,
           fallbackRoute: '/traveler-trips',
         ),
         body: Center(
@@ -189,12 +190,12 @@ class _EditTripScreenState extends State<EditTripScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  _loadError ?? 'Trip not found.',
+                  _loadError ?? l10n.tripNotFound,
                   textAlign: TextAlign.center,
                   style: typo.sm.copyWith(color: AppColors.textSecondary),
                 ),
                 const SizedBox(height: 16),
-                TextButton(onPressed: _load, child: Text(context.tr('Retry'))),
+                TextButton(onPressed: _load, child: Text(l10n.retry)),
               ],
             ),
           ),
@@ -208,14 +209,14 @@ class _EditTripScreenState extends State<EditTripScreen> {
       return Scaffold(
         backgroundColor: AppColors.background,
         appBar: BackHeader(
-          title: 'Edit ${trip.displayId}',
+          title: l10n.editTripWithId(trip.displayId),
           fallbackRoute: '/traveler-trips',
         ),
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Text(
-              'Completed trips cannot be edited.',
+              l10n.completedTripsCannotBeEdited,
               textAlign: TextAlign.center,
               style: typo.sm.copyWith(color: AppColors.textSecondary),
             ),
@@ -227,13 +228,13 @@ class _EditTripScreenState extends State<EditTripScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: BackHeader(
-        title: 'Edit ${trip.displayId}',
+        title: l10n.editTripWithId(trip.displayId),
         fallbackRoute: '/traveler-trips',
       ),
       body: ScrollableFormScreen(
         actions: [
           AppButton(
-            label: _saving ? 'Saving…' : 'Save changes',
+            label: _saving ? l10n.savingEllipsis : l10n.saveChanges,
             onPressed: _saving ? null : _save,
           ),
         ],

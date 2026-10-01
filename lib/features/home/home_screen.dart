@@ -10,6 +10,7 @@ import '../../core/layout/responsive.dart';
 import '../../core/widgets/app_badge.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_svg_icon.dart';
+import '../../core/widgets/bottom_nav_label.dart';
 import '../../core/widgets/screen_body.dart';
 import '../../core/widgets/stacked_route_endpoints.dart';
 import '../../core/widgets/wallet_card.dart';
@@ -163,9 +164,10 @@ class _Tab extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 3),
-            Text(
-              label,
-              style: typo.tabLabelActive(color),
+            BottomNavLabel(
+              label: label,
+              color: color,
+              active: active,
             ),
           ],
         ),

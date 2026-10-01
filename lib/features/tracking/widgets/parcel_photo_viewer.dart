@@ -123,7 +123,7 @@ class _NetworkThumbnail extends StatelessWidget {
                   Icon(Icons.broken_image_outlined, size: 28, color: AppColors.textSecondary),
                   const SizedBox(height: 4),
                   Text(
-                    'Photo $index',
+                    context.l10n.photoIndexLabel('$index'),
                     style: typo.caption.copyWith(
                       fontWeight: FontWeight.w600,
                       color: AppColors.textSecondary,
@@ -227,7 +227,10 @@ class _ParcelPhotoViewerDialogState extends State<_ParcelPhotoViewerDialog> {
             Padding(
               padding: const EdgeInsets.all(16),
               child: Text(
-                'Photo ${_index + 1} of ${widget.urls.length}',
+                context.l10n.photoIndexOfTotal(
+                  '${_index + 1}',
+                  '${widget.urls.length}',
+                ),
                 style: typo.body.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
               ),
             ),

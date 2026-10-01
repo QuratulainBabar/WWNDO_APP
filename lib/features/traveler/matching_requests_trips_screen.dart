@@ -113,18 +113,19 @@ class _MatchingRequestsTripsScreenState
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
+    final l10n = context.l10n;
     final horizontal = context.horizontalPadding;
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: const BackHeader(title: 'Sender Requests'),
+      appBar: BackHeader(title: l10n.senderRequests),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
             padding: EdgeInsets.fromLTRB(horizontal, 4, horizontal, 12),
             child: Text(
-              'Select a trip to view sender requests.',
+              l10n.selectTripToViewSenderRequests,
               style: typo.sm.copyWith(height: 1.45),
             ),
           ),
@@ -146,7 +147,7 @@ class _MatchingRequestsTripsScreenState
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              _error!,
+                              context.tr(_error!),
                               style: typo.sm
                                   .copyWith(color: AppColors.textSecondary),
                             ),
@@ -164,7 +165,7 @@ class _MatchingRequestsTripsScreenState
                                 horizontal: horizontal,
                               ),
                               child: Text(
-                                'No trips with sender requests yet.',
+                                l10n.noTripsWithSenderRequestsYet,
                                 style: typo.sm.copyWith(
                                   color: AppColors.textSecondary,
                                 ),
@@ -230,6 +231,7 @@ class _SenderRequestSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
+    final l10n = context.l10n;
 
     return AppCard(
       margin: EdgeInsets.zero,
@@ -253,7 +255,10 @@ class _SenderRequestSummaryCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      DateFormat('MMM d, yyyy').format(request.travelDate),
+                      DateFormat(
+                        'MMM d, yyyy',
+                        l10n.locale.toString(),
+                      ).format(request.travelDate),
                       style: typo.sm.copyWith(color: AppColors.textSecondary),
                     ),
                   ],
@@ -276,7 +281,7 @@ class _SenderRequestSummaryCard extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           AppButton(
-            label: 'View Details',
+            label: l10n.viewDetails,
             onPressed: onViewDetails,
           ),
         ],

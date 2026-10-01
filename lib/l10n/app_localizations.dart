@@ -77,17 +77,220 @@ class AppLocalizations {
     if (inTransit != null) {
       return parcelInTransitBody(inTransit.group(1)!);
     }
-    final feePaid = RegExp(
+    final feeCard = RegExp(
       r'^(.+) platform fee deducted from your card for (.+)\.$',
     ).firstMatch(english);
-    if (feePaid != null) {
-      return platformFeeDeductedBody(feePaid.group(1)!, feePaid.group(2)!);
+    if (feeCard != null) {
+      return platformFeeDeductedBody(feeCard.group(1)!, feeCard.group(2)!);
     }
-    final nfc = RegExp(
+    final feeWallet = RegExp(
+      r'^(.+) platform fee deducted from your wallet for (.+)\.$',
+    ).firstMatch(english);
+    if (feeWallet != null) {
+      return platformFeeDeductedWalletBody(
+        feeWallet.group(1)!,
+        feeWallet.group(2)!,
+      );
+    }
+    final feeMixed = RegExp(
+      r'^(.+) platform fee paid for (.+) \((.+) from wallet \+ (.+) from card\)\.$',
+    ).firstMatch(english);
+    if (feeMixed != null) {
+      return platformFeePaidMixedBody(
+        feeMixed.group(1)!,
+        feeMixed.group(2)!,
+        feeMixed.group(3)!,
+        feeMixed.group(4)!,
+      );
+    }
+
+    // --- Notification relative time ---
+    final minsAgo = RegExp(r'^(\d+)m ago$').firstMatch(english);
+    if (minsAgo != null) return minutesAgoShort(minsAgo.group(1)!);
+    final hoursAgo = RegExp(r'^(\d+)h ago$').firstMatch(english);
+    if (hoursAgo != null) return hoursAgoShort(hoursAgo.group(1)!);
+    final daysAgo = RegExp(r'^(\d+)d ago$').firstMatch(english);
+    if (daysAgo != null) return daysAgoShort(daysAgo.group(1)!);
+
+    // --- Notification bodies (API English templates) ---
+    final parcelCollected = RegExp(
+      r'^Your parcel (.+) has been collected by the traveler after successful NFC handoff\.$',
+    ).firstMatch(english);
+    if (parcelCollected != null) {
+      return parcelCollectedBody(parcelCollected.group(1)!);
+    }
+    final senderAcceptedCounter = RegExp(
+      r'^A sender accepted your counter offer of (.+) for (.+) \((.+)\)\.$',
+    ).firstMatch(english);
+    if (senderAcceptedCounter != null) {
+      return senderAcceptedCounterOfferBody(
+        senderAcceptedCounter.group(1)!,
+        senderAcceptedCounter.group(2)!,
+        senderAcceptedCounter.group(3)!,
+      );
+    }
+    final senderDeclinedCounter = RegExp(
+      r'^A sender declined your counter offer of (.+) for (.+) \((.+)\)\.$',
+    ).firstMatch(english);
+    if (senderDeclinedCounter != null) {
+      return senderDeclinedCounterOfferBody(
+        senderDeclinedCounter.group(1)!,
+        senderDeclinedCounter.group(2)!,
+        senderDeclinedCounter.group(3)!,
+      );
+    }
+    final travelerAcceptedOffer = RegExp(
+      r'^(.+) accepted your offer of (.+) for (.+) \((.+)\)\.$',
+    ).firstMatch(english);
+    if (travelerAcceptedOffer != null) {
+      return travelerAcceptedOfferBody(
+        travelerAcceptedOffer.group(1)!,
+        travelerAcceptedOffer.group(2)!,
+        travelerAcceptedOffer.group(3)!,
+        travelerAcceptedOffer.group(4)!,
+      );
+    }
+    final travelerUpdatedCounter = RegExp(
+      r'^(.+) updated their counter offer to (.+) for (.+) \((.+)\)\.$',
+    ).firstMatch(english);
+    if (travelerUpdatedCounter != null) {
+      return travelerUpdatedCounterOfferBody(
+        travelerUpdatedCounter.group(1)!,
+        travelerUpdatedCounter.group(2)!,
+        travelerUpdatedCounter.group(3)!,
+        travelerUpdatedCounter.group(4)!,
+      );
+    }
+    final travelerSentCounter = RegExp(
+      r'^(.+) sent a counter offer of (.+) for (.+) \((.+)\)\.$',
+    ).firstMatch(english);
+    if (travelerSentCounter != null) {
+      return travelerSentCounterOfferBody(
+        travelerSentCounter.group(1)!,
+        travelerSentCounter.group(2)!,
+        travelerSentCounter.group(3)!,
+        travelerSentCounter.group(4)!,
+      );
+    }
+    final nfcSenderCp1 = RegExp(
+      r'^NFC match confirmed for Trip/Delivery (.+)\. You and the Traveler verified the same delivery — the Traveler is connected to the correct Sender for this parcel\. Status is now Collected\.$',
+    ).firstMatch(english);
+    if (nfcSenderCp1 != null) {
+      return nfcMatchSenderCp1Body(nfcSenderCp1.group(1)!);
+    }
+    final nfcTravelerCp1 = RegExp(
+      r'^NFC match confirmed for Trip/Delivery (.+)\. You and the Sender verified the same delivery — you are connected to the correct Sender for this parcel\. Status is now Collected\. Mark in transit when you begin travel\.$',
+    ).firstMatch(english);
+    if (nfcTravelerCp1 != null) {
+      return nfcMatchTravelerCp1Body(nfcTravelerCp1.group(1)!);
+    }
+    final nfcTravelerCp2 = RegExp(
+      r'^NFC match confirmed for Trip/Delivery (.+)\. You and the Receiver verified the same delivery — you are handing over the parcel to the correct Receiver for this exact trip/delivery\. Status is now Delivered\. Escrow released\.$',
+    ).firstMatch(english);
+    if (nfcTravelerCp2 != null) {
+      return nfcMatchTravelerCp2Body(nfcTravelerCp2.group(1)!);
+    }
+    final nfcReceiverCp2 = RegExp(
+      r'^NFC match confirmed for Trip/Delivery (.+)\. You and the Traveler verified the same delivery — the Traveler is handing over the parcel to you \(the correct Receiver\) for this exact trip/delivery\. Status is now Delivered\. You can leave a review\.$',
+    ).firstMatch(english);
+    if (nfcReceiverCp2 != null) {
+      return nfcMatchReceiverCp2Body(nfcReceiverCp2.group(1)!);
+    }
+    // Legacy truncated NFC body (older stored notifications).
+    final nfcLegacy = RegExp(
       r'^NFC match confirmed for Trip/Delivery (.+)\. You and the Traveler verified the same delivery — the Traveler is connected',
     ).firstMatch(english);
-    if (nfc != null) {
-      return nfcMatchConfirmedBody(nfc.group(1)!);
+    if (nfcLegacy != null) {
+      return nfcMatchSenderCp1Body(nfcLegacy.group(1)!);
+    }
+    final matchingTravelerBody = RegExp(
+      r'^A traveler posted a trip on (.+) that matches your parcel (.+)\.$',
+    ).firstMatch(english);
+    if (matchingTravelerBody != null) {
+      return matchingTravelerAvailableBody(
+        matchingTravelerBody.group(1)!,
+        matchingTravelerBody.group(2)!,
+      );
+    }
+    final newSenderReqBody = RegExp(
+      r'^A sender requested your trip (.+) for parcel (.+) \((.+)\)\.$',
+    ).firstMatch(english);
+    if (newSenderReqBody != null) {
+      return newSenderRequestBody(
+        newSenderReqBody.group(1)!,
+        newSenderReqBody.group(2)!,
+        newSenderReqBody.group(3)!,
+      );
+    }
+    final receiverAccepted = RegExp(
+      r'^Receiver accepted (.+)\. Matching travelers are now available\.$',
+    ).firstMatch(english);
+    if (receiverAccepted != null) {
+      return receiverAcceptedBody(receiverAccepted.group(1)!);
+    }
+    final receiverPaidFee = RegExp(
+      r'^Receiver paid their platform fee for (.+)\.$',
+    ).firstMatch(english);
+    if (receiverPaidFee != null) {
+      return receiverPaidFeeShareBody(receiverPaidFee.group(1)!);
+    }
+    final senderCancelledReq = RegExp(
+      r'^The sender cancelled parcel request (.+)\.$',
+    ).firstMatch(english);
+    if (senderCancelledReq != null) {
+      return senderCancelledParcelRequestBody(senderCancelledReq.group(1)!);
+    }
+    final parcelCancelled = RegExp(
+      r'^Parcel (.+) was cancelled by the sender\.$',
+    ).firstMatch(english);
+    if (parcelCancelled != null) {
+      return parcelCancelledBySenderBody(parcelCancelled.group(1)!);
+    }
+    final autoCancelled = RegExp(
+      r'^Parcel (.+) was cancelled — receiver did not pay within 2 hours\.$',
+    ).firstMatch(english);
+    if (autoCancelled != null) {
+      return deliveryAutoCancelledBody(autoCancelled.group(1)!);
+    }
+    final travelerNoResponse = RegExp(
+      r'^Your request for parcel (.+) expired — the traveler did not respond before the deadline\.$',
+    ).firstMatch(english);
+    if (travelerNoResponse != null) {
+      return travelerDidNotRespondBody(travelerNoResponse.group(1)!);
+    }
+    final senderReqExpired = RegExp(
+      r'^A sender request for (.+) expired because it was not accepted in time\.$',
+    ).firstMatch(english);
+    if (senderReqExpired != null) {
+      return senderRequestExpiredBody(senderReqExpired.group(1)!);
+    }
+    final newReview = RegExp(
+      r'^(.+) left you a (\d+)-star review( for (.+))?\.$',
+    ).firstMatch(english);
+    if (newReview != null) {
+      final shipmentPart = newReview.group(4) != null
+          ? ' for ${newReview.group(4)!}'
+          : '';
+      return newReviewReceivedBody(
+        newReview.group(1)!,
+        '${newReview.group(2)!}-star',
+        shipmentPart,
+      );
+    }
+    final verificationCodeSent = RegExp(
+      r'^A verification code was sent to (.+)\.$',
+    ).firstMatch(english);
+    if (verificationCodeSent != null) {
+      return verificationCodeSentTo(verificationCodeSent.group(1)!);
+    }
+    final selectBothEndpoints = RegExp(
+      r'^Select both From (.+) and To (.+)\.$',
+    ).firstMatch(english);
+    if (selectBothEndpoints != null) {
+      // Prefer a single endpoint label when From/To use the same noun.
+      final a = selectBothEndpoints.group(1)!;
+      final b = selectBothEndpoints.group(2)!;
+      return selectBothFromToEndpoints(a == b ? a : '$a / $b');
     }
 
     // --- Toast message templates (AppToast literals with interpolation) ---
@@ -229,7 +432,35 @@ class AppLocalizations {
       r'^Could not enable (.+)\. Please try again\.$',
     ).firstMatch(english);
     if (couldNotEnableBiometricMatch != null) {
-      return couldNotEnableBiometric(couldNotEnableBiometricMatch.group(1)!);
+      return couldNotEnableBiometric(
+        translate(couldNotEnableBiometricMatch.group(1)!),
+      );
+    }
+    final biometricNotSetUpMatch = RegExp(
+      r'^No (.+) is set up on this device\. Add one in your device settings first\.$',
+    ).firstMatch(english);
+    if (biometricNotSetUpMatch != null) {
+      final raw = biometricNotSetUpMatch.group(1)!;
+      final titled = raw.isEmpty
+          ? raw
+          : '${raw[0].toUpperCase()}${raw.substring(1)}';
+      return biometricNotSetUp(translate(titled));
+    }
+    final biometricNotAvailableMatch = RegExp(
+      r'^(.+) is not available on this device\.$',
+    ).firstMatch(english);
+    if (biometricNotAvailableMatch != null) {
+      return biometricNotAvailable(
+        translate(biometricNotAvailableMatch.group(1)!),
+      );
+    }
+    final biometricNotRecognizedMatch = RegExp(
+      r'^(.+) was not recognized\. Try again\.$',
+    ).firstMatch(english);
+    if (biometricNotRecognizedMatch != null) {
+      return biometricNotRecognized(
+        translate(biometricNotRecognizedMatch.group(1)!),
+      );
     }
     final paymentFailedBookingNotCreatedDetailMatch = RegExp(
       r'^Payment failed\. Booking was not created\. (.+)$',
@@ -388,10 +619,25 @@ class AppLocalizations {
   String get withdraw => _t('withdraw');
   String get transactionHistory => _t('transactionHistory');
   String get security => _t('security');
+  String get fingerprint => _t('fingerprint');
+  String get faceId => _t('faceId');
   String biometricLogin(String label) => _tp('biometricLogin', {'label': label});
   String biometricLoginSubtitle(String label) =>
       _tp('biometricLoginSubtitle', {'label': label});
   String get biometricLoginWebSubtitle => _t('biometricLoginWebSubtitle');
+  String biometricSetupReason(String label) =>
+      _tp('biometricSetupReason', {'label': label});
+  String biometricPromptReason(String label) =>
+      _tp('biometricPromptReason', {'label': label});
+  String biometricNotRecognized(String label) =>
+      _tp('biometricNotRecognized', {'label': label});
+  String get biometricBrowserUnsupported => _t('biometricBrowserUnsupported');
+  String get authenticationFailedTryAgain => _t('authenticationFailedTryAgain');
+  String get authenticationCancelled => _t('authenticationCancelled');
+  String biometricInactivityReason(String label) =>
+      _tp('biometricInactivityReason', {'label': label});
+  String get emailVerificationRequiredUsePassword =>
+      _t('emailVerificationRequiredUsePassword');
   String get legal => _t('legal');
   String get termsOfService => _t('termsOfService');
   String get privacyPolicy => _t('privacyPolicy');
@@ -560,7 +806,10 @@ class AppLocalizations {
   String get verifyAccountSubtitle => _t('verifyAccountSubtitle');
   String statusColon(String status) => _tp('statusColon', {'status': status});
   String get unverified => _t('unverified');
+  String get unverifiedBadge => _t('unverifiedBadge');
   String get verifiedLower => _t('verifiedLower');
+  String memberSinceLabel(String date) =>
+      _tp('memberSinceLabel', {'date': date});
   String get verifyAction => _t('verifyAction');
   String get notLinkedYet => _t('notLinkedYet');
   String get pleaseLogIn => _t('pleaseLogIn');
@@ -765,6 +1014,7 @@ class AppLocalizations {
   String get noTransactionsYet => _t('noTransactionsYet');
   String get topUpStripe => _t('topUpStripe');
   String get history => _t('history');
+  String get transactions => _t('transactions');
   String get youWillReceive => _t('youWillReceive');
   String get payoutRail => _t('payoutRail');
   String get arrivesIn => _t('arrivesIn');
@@ -823,8 +1073,141 @@ class AppLocalizations {
       _tp('parcelInTransitBody', {'id': id});
   String platformFeeDeductedBody(String amount, String id) =>
       _tp('platformFeeDeductedBody', {'amount': amount, 'id': id});
-  String nfcMatchConfirmedBody(String id) =>
-      _tp('nfcMatchConfirmedBody', {'id': id});
+  String platformFeeDeductedWalletBody(String amount, String id) =>
+      _tp('platformFeeDeductedWalletBody', {'amount': amount, 'id': id});
+  String platformFeePaidMixedBody(
+    String amount,
+    String id,
+    String wallet,
+    String card,
+  ) =>
+      _tp('platformFeePaidMixedBody', {
+        'amount': amount,
+        'id': id,
+        'wallet': wallet,
+        'card': card,
+      });
+  String nfcMatchConfirmedBody(String id) => nfcMatchSenderCp1Body(id);
+  String parcelCollectedBody(String id) =>
+      _tp('parcelCollectedBody', {'id': id});
+  String senderAcceptedCounterOfferBody(
+    String amount,
+    String id,
+    String route,
+  ) =>
+      _tp('senderAcceptedCounterOfferBody', {
+        'amount': amount,
+        'id': id,
+        'route': route,
+      });
+  String senderDeclinedCounterOfferBody(
+    String amount,
+    String id,
+    String route,
+  ) =>
+      _tp('senderDeclinedCounterOfferBody', {
+        'amount': amount,
+        'id': id,
+        'route': route,
+      });
+  String travelerAcceptedOfferBody(
+    String name,
+    String amount,
+    String id,
+    String route,
+  ) =>
+      _tp('travelerAcceptedOfferBody', {
+        'name': name,
+        'amount': amount,
+        'id': id,
+        'route': route,
+      });
+  String travelerUpdatedCounterOfferBody(
+    String name,
+    String amount,
+    String id,
+    String route,
+  ) =>
+      _tp('travelerUpdatedCounterOfferBody', {
+        'name': name,
+        'amount': amount,
+        'id': id,
+        'route': route,
+      });
+  String travelerSentCounterOfferBody(
+    String name,
+    String amount,
+    String id,
+    String route,
+  ) =>
+      _tp('travelerSentCounterOfferBody', {
+        'name': name,
+        'amount': amount,
+        'id': id,
+        'route': route,
+      });
+  String nfcMatchSenderCp1Body(String id) =>
+      _tp('nfcMatchSenderCp1Body', {'id': id});
+  String nfcMatchTravelerCp1Body(String id) =>
+      _tp('nfcMatchTravelerCp1Body', {'id': id});
+  String nfcMatchTravelerCp2Body(String id) =>
+      _tp('nfcMatchTravelerCp2Body', {'id': id});
+  String nfcMatchReceiverCp2Body(String id) =>
+      _tp('nfcMatchReceiverCp2Body', {'id': id});
+  String matchingTravelerAvailableBody(String route, String id) =>
+      _tp('matchingTravelerAvailableBody', {'route': route, 'id': id});
+  String newSenderRequestBody(String tripId, String id, String route) =>
+      _tp('newSenderRequestBody', {
+        'tripId': tripId,
+        'id': id,
+        'route': route,
+      });
+  String receiverAcceptedBody(String id) =>
+      _tp('receiverAcceptedBody', {'id': id});
+  String receiverPaidFeeShareBody(String id) =>
+      _tp('receiverPaidFeeShareBody', {'id': id});
+  String senderCancelledParcelRequestBody(String id) =>
+      _tp('senderCancelledParcelRequestBody', {'id': id});
+  String parcelCancelledBySenderBody(String id) =>
+      _tp('parcelCancelledBySenderBody', {'id': id});
+  String deliveryAutoCancelledBody(String id) =>
+      _tp('deliveryAutoCancelledBody', {'id': id});
+  String travelerDidNotRespondBody(String id) =>
+      _tp('travelerDidNotRespondBody', {'id': id});
+  String senderRequestExpiredBody(String id) =>
+      _tp('senderRequestExpiredBody', {'id': id});
+  String newReviewReceivedBody(String name, String stars, String shipment) =>
+      _tp('newReviewReceivedBody', {
+        'name': name,
+        'stars': stars,
+        'shipment': shipment,
+      });
+  String minutesAgoShort(String n) => _tp('minutesAgoShort', {'n': n});
+  String hoursAgoShort(String n) => _tp('hoursAgoShort', {'n': n});
+  String daysAgoShort(String n) => _tp('daysAgoShort', {'n': n});
+  String verificationCodeSentTo(String contact) =>
+      _tp('verificationCodeSentTo', {'contact': contact});
+  String selectBothFromToEndpoints(String endpoint) =>
+      _tp('selectBothFromToEndpoints', {'endpoint': endpoint});
+  String get selectBothFromToLocations => _t('selectBothFromToLocations');
+  String get originDestCountriesMustDiffer =>
+      _t('originDestCountriesMustDiffer');
+  String get originDestMustDiffer => _t('originDestMustDiffer');
+  String get airportEndpoint => _t('airportEndpoint');
+  String get cityEndpoint => _t('cityEndpoint');
+  String get locationEndpoint => _t('locationEndpoint');
+  String get chipOtp => _t('chipOtp');
+  String get chipKyc => _t('chipKyc');
+  String get chipBid => _t('chipBid');
+  String get chipAccepted => _t('chipAccepted');
+  String get chipOfferAccepted => _t('chipOfferAccepted');
+  String get chipCounterOffer => _t('chipCounterOffer');
+  String get chipTrip => _t('chipTrip');
+  String get chipRequest => _t('chipRequest');
+  String get chipPayment => _t('chipPayment');
+  String get chipNfc => _t('chipNfc');
+  String get chipCancel => _t('chipCancel');
+  String get chipReview => _t('chipReview');
   String get addParcelPhoto => _t('addParcelPhoto');
   String get uploadParcelPhotosShort => _t('uploadParcelPhotosShort');
   String get weightKg => _t('weightKg');
@@ -890,6 +1273,19 @@ class AppLocalizations {
         'Rejected' => _t('statusRejectedLabel'),
         _ => _t('statusPendingLabel'),
       };
+
+  /// Localizes a [TravelerBidStatus.label] English literal.
+  String travelerBidStatusLabel(String englishLabel) => switch (englishLabel) {
+        'Updated' => _t('updated'),
+        'Accepted' => _t('accepted'),
+        'Rejected' => _t('rejected'),
+        _ => _t('pending'),
+      };
+
+  String get pending => _t('pending');
+  String get updated => _t('updated');
+  String get acceptedStatus => _t('accepted');
+  String get rejected => _t('rejected');
 
   String topUpIntro(String currency) =>
       _tp('topUpIntro', {'currency': currency});
@@ -1293,6 +1689,472 @@ class AppLocalizations {
   String codeSentVia(String channel, String contact) =>
       _tp('codeSentVia', {'channel': channel, 'contact': contact});
   String selectLabel(String label) => _tp('selectLabel', {'label': label});
+
+  // --- Sender flow: Matching Travelers / sort / traveler profile / confirmation ---
+  String get sortBy => _t('sortBy');
+  String get bestMatch => _t('bestMatch');
+  String get lowestPrice => _t('lowestPrice');
+  String get earliestDeparture => _t('earliestDeparture');
+  String get highestRating => _t('highestRating');
+  String get bestMatchBadge => _t('bestMatchBadge');
+  String get viewProfile => _t('viewProfile');
+  String get sendRequest => _t('sendRequest');
+  String get requestSent => _t('requestSent');
+  String get limitReached => _t('limitReached');
+  String get requestedLabel => _t('requestedLabel');
+  String get sendingEllipsis => _t('sendingEllipsis');
+  String get travelerProfile => _t('travelerProfile');
+  String get about => _t('about');
+  String get verifiedTravelerRouteFallback =>
+      _t('verifiedTravelerRouteFallback');
+  String get departureTime => _t('departureTime');
+  String matchPercentLabel(String n) => _tp('matchPercentLabel', {'n': n});
+  String amountProposed(String amount) =>
+      _tp('amountProposed', {'amount': amount});
+  String ratingReviewsCount(String rating, String count) =>
+      _tp('ratingReviewsCount', {'rating': rating, 'count': count});
+  String get matchingListHint => _t('matchingListHint');
+  String get noMatchingTravelersOnRoute => _t('noMatchingTravelersOnRoute');
+  String get receiverHasAcceptedRequest => _t('receiverHasAcceptedRequest');
+  String get bestMatchingTravelersIntro => _t('bestMatchingTravelersIntro');
+  String selectedTravelersCount(String count, String max) =>
+      _tp('selectedTravelersCount', {'count': count, 'max': max});
+  String get canRequestUpToTwoTravelers => _t('canRequestUpToTwoTravelers');
+  String get canRequestOneMoreTraveler => _t('canRequestOneMoreTraveler');
+  String canRequestMoreTravelersCount(String n) =>
+      _tp('canRequestMoreTravelersCount', {'n': n});
+  String maximumTravelersRequestedForParcel(String max) =>
+      _tp('maximumTravelersRequestedForParcel', {'max': max});
+  String departureTimeColon(String time) =>
+      _tp('departureTimeColon', {'time': time});
+  String travelMethodColon(String method) =>
+      _tp('travelMethodColon', {'method': method});
+  String get travelMethod => _t('travelMethod');
+  String get flight => _t('flight');
+  String get routeDetails => _t('routeDetails');
+  String get unavailable => _t('unavailable');
+  String get openingPaymentEllipsis => _t('openingPaymentEllipsis');
+  String get confirmation => _t('confirmation');
+  String get travelerSelectedExclaim => _t('travelerSelectedExclaim');
+  String travelerNotifiedBody(String name) =>
+      _tp('travelerNotifiedBody', {'name': name});
+  String get paymentUnlocksAfterCounterOffer =>
+      _t('paymentUnlocksAfterCounterOffer');
+  String get whatHappensNext => _t('whatHappensNext');
+  String get confirmationStep1 => _t('confirmationStep1');
+  String get confirmationStep2 => _t('confirmationStep2');
+  String get confirmationStep3 => _t('confirmationStep3');
+  String get confirmationStep4 => _t('confirmationStep4');
+  String get checkingEllipsis => _t('checkingEllipsis');
+  String get selectAnotherTraveler => _t('selectAnotherTraveler');
+  String get backToHome => _t('backToHome');
+  String get waitingForReceiverAcceptance =>
+      _t('waitingForReceiverAcceptance');
+  String get awaitingTravelerAcceptance => _t('awaitingTravelerAcceptance');
+  String get notifiedReceiverMatchingStarts =>
+      _t('notifiedReceiverMatchingStarts');
+  String get emailedReceiverMatchingStarts =>
+      _t('emailedReceiverMatchingStarts');
+  String get requestSentToTravelerTracking =>
+      _t('requestSentToTravelerTracking');
+  String requestSentToNamedTravelerTracking(String name) =>
+      _tp('requestSentToNamedTravelerTracking', {'name': name});
+  String requestsSentToTravelersTracking(String count) =>
+      _tp('requestsSentToTravelersTracking', {'count': count});
+  String get receiverAcceptedChooseMatchingBody =>
+      _t('receiverAcceptedChooseMatchingBody');
+  String get receiverAcceptedTitle => _t('receiverAcceptedTitle');
+  String get goToMyDeliveries => _t('goToMyDeliveries');
+  String get viewMatchingTravelers => _t('viewMatchingTravelers');
+  String get viewDeliveryDetails => _t('viewDeliveryDetails');
+  String get unableToLoadDeliveryStatus => _t('unableToLoadDeliveryStatus');
+  String get turnOffDemoModeDeliveryStatus =>
+      _t('turnOffDemoModeDeliveryStatus');
+  String get deliveryPostedSuccessfully => _t('deliveryPostedSuccessfully');
+  String get parcelRequestIsLive => _t('parcelRequestIsLive');
+
+  // --- Sender flow: Counter offer detail ---
+  String get counterOfferDetails => _t('counterOfferDetails');
+  String get rejectCounterOfferTitle => _t('rejectCounterOfferTitle');
+  String rejectCounterOfferBody(String name, String amount) =>
+      _tp('rejectCounterOfferBody', {'name': name, 'amount': amount});
+  String get yourOriginalBudget => _t('yourOriginalBudget');
+  String get shipmentIdLabel => _t('shipmentIdLabel');
+  String get travelerMessage => _t('travelerMessage');
+  String get counterOfferAcceptedBadge => _t('counterOfferAcceptedBadge');
+  String get paymentPendingBadge => _t('paymentPendingBadge');
+  String get counterOfferReservedPaymentIncomplete =>
+      _t('counterOfferReservedPaymentIncomplete');
+  String get paidLabel => _t('paidLabel');
+  String get completePayment => _t('completePayment');
+  String get counterOfferRejectedBadge => _t('counterOfferRejectedBadge');
+  String get offerAcceptedBadge => _t('offerAcceptedBadge');
+  String get offerRejectedBadge => _t('offerRejectedBadge');
+
+  // --- Sender flow: payment summary / payment success ---
+  String get acceptedTraveler => _t('acceptedTraveler');
+  String get parcelIdLabel => _t('parcelIdLabel');
+  String walletAvailableBalance(String amount) =>
+      _tp('walletAvailableBalance', {'amount': amount});
+  String walletAvailableNeedAmount(String available, String needed) =>
+      _tp('walletAvailableNeedAmount', {
+        'available': available,
+        'needed': needed,
+      });
+  String get cardSelectedTapPayNow => _t('cardSelectedTapPayNow');
+  String chargeFullToCard(String amount) =>
+      _tp('chargeFullToCard', {'amount': amount});
+  String get cardPaymentsNotConfiguredUseWallet =>
+      _t('cardPaymentsNotConfiguredUseWallet');
+  String get paymentAlreadyCompletedLocked =>
+      _t('paymentAlreadyCompletedLocked');
+  String get walletDeductedBookingHint => _t('walletDeductedBookingHint');
+  String get stripeChargeFullHint => _t('stripeChargeFullHint');
+  String get bidAcceptedLabel => _t('bidAcceptedLabel');
+  String get paymentSuccessful => _t('paymentSuccessful');
+  String get paymentTitle => _t('paymentTitle');
+  String escrowDepositedAmount(String amount) =>
+      _tp('escrowDepositedAmount', {'amount': amount});
+  String get paymentSuccessSubline => _t('paymentSuccessSubline');
+
+  // --- Sender flow: tracking / NFC ---
+  String get chatWithReceiver => _t('chatWithReceiver');
+  String get cancelBookingRefundEscrow => _t('cancelBookingRefundEscrow');
+  String get nfcCheckpoint1TravelerBody => _t('nfcCheckpoint1TravelerBody');
+  String get nfcCheckpoint1SenderBody => _t('nfcCheckpoint1SenderBody');
+  String get startNfcWithSender => _t('startNfcWithSender');
+  String get nfcMeetReceiverHint => _t('nfcMeetReceiverHint');
+  String get startNfcWithReceiver => _t('startNfcWithReceiver');
+  String get preparingNfcEllipsis => _t('preparingNfcEllipsis');
+  String get confirmingSecureTapEllipsis => _t('confirmingSecureTapEllipsis');
+  String get matchingWithOtherPhoneEllipsis =>
+      _t('matchingWithOtherPhoneEllipsis');
+  String get nfcFailedRetryHint => _t('nfcFailedRetryHint');
+  String get deliveryIdMissingForNfc => _t('deliveryIdMissingForNfc');
+  String get confirmingCheckpointEllipsis =>
+      _t('confirmingCheckpointEllipsis');
+  String get travelerMustAddFundsForHandoff =>
+      _t('travelerMustAddFundsForHandoff');
+  String get nfcHoldPhoneReceiverBody => _t('nfcHoldPhoneReceiverBody');
+  String get nfcHoldPhoneTravelerBody => _t('nfcHoldPhoneTravelerBody');
+  String get nfcOpenOnSenderPhone => _t('nfcOpenOnSenderPhone');
+  String get nfcOpenOnTravelerPhone => _t('nfcOpenOnTravelerPhone');
+  String tripDeliveryIdColon(String id) =>
+      _tp('tripDeliveryIdColon', {'id': id});
+  String get tripDeliveryId => _t('tripDeliveryId');
+  String get retryNfc => _t('retryNfc');
+  String get simulateTapDev => _t('simulateTapDev');
+  String get nfcSimulateDevHint => _t('nfcSimulateDevHint');
+  String waitingForParty(String party) =>
+      _tp('waitingForParty', {'party': party});
+  String nfcCheckpointComplete(String checkpoint) =>
+      _tp('nfcCheckpointComplete', {'checkpoint': checkpoint});
+  String get viewShipment => _t('viewShipment');
+  String get backToShipments => _t('backToShipments');
+  String get backToDeliveries => _t('backToDeliveries');
+  String verifiedThisExactId(String pair) =>
+      _tp('verifiedThisExactId', {'pair': pair});
+  String nfcWaitingForPartyBody(String id, String party) =>
+      _tp('nfcWaitingForPartyBody', {'id': id, 'party': party});
+  String nfcWaitingForReceiverBody(String id) =>
+      _tp('nfcWaitingForReceiverBody', {'id': id});
+  String get nfcBulletVerifiedSameTripSender =>
+      _t('nfcBulletVerifiedSameTripSender');
+  String get nfcBulletConnectedToSender => _t('nfcBulletConnectedToSender');
+  String get nfcBulletVerifiedSameTripTraveler =>
+      _t('nfcBulletVerifiedSameTripTraveler');
+  String get nfcBulletTravelerConnectedToYou =>
+      _t('nfcBulletTravelerConnectedToYou');
+  String get nfcBulletParcelBelongsTrip => _t('nfcBulletParcelBelongsTrip');
+  String get nfcBulletParcelCollected => _t('nfcBulletParcelCollected');
+  String get nfcBulletTravelerCanMarkInTransit =>
+      _t('nfcBulletTravelerCanMarkInTransit');
+  String get nfcBulletVerifiedSameTripReceiver =>
+      _t('nfcBulletVerifiedSameTripReceiver');
+  String get nfcBulletHandingOverToReceiver =>
+      _t('nfcBulletHandingOverToReceiver');
+  String get nfcBulletParcelDelivered => _t('nfcBulletParcelDelivered');
+  String get nfcBulletEscrowReleasedWallet =>
+      _t('nfcBulletEscrowReleasedWallet');
+  String get nfcBulletTravelerHandingOverToYou =>
+      _t('nfcBulletTravelerHandingOverToYou');
+  String get nfcBulletEscrowReleasedToTraveler =>
+      _t('nfcBulletEscrowReleasedToTraveler');
+  String get youCanLeaveAReview => _t('youCanLeaveAReview');
+  String get waitingForTraveler => _t('waitingForTraveler');
+  String get viewCompleted => _t('viewCompleted');
+  String get reviewUnavailable => _t('reviewUnavailable');
+  String nfcWaitingForTravelerBody(String id) =>
+      _tp('nfcWaitingForTravelerBody', {'id': id});
+  String get deliveryConfirmedExclaim => _t('deliveryConfirmedExclaim');
+  String payoutReleasedToWalletFor(String amount, String name, String id) =>
+      _tp('payoutReleasedToWalletFor', {
+        'amount': amount,
+        'name': name,
+        'id': id,
+      });
+  String deliveryCompleteExperienceWith(String id, String name) =>
+      _tp('deliveryCompleteExperienceWith', {'id': id, 'name': name});
+  String deliveryCompleteHandoffWith(String id, String name) =>
+      _tp('deliveryCompleteHandoffWith', {'id': id, 'name': name});
+  String deliveryConfirmedExperienceWith(String id, String name) =>
+      _tp('deliveryConfirmedExperienceWith', {'id': id, 'name': name});
+  String howWasExperienceWith(String name) =>
+      _tp('howWasExperienceWith', {'name': name});
+  String get shareHowDeliveryWentHint => _t('shareHowDeliveryWentHint');
+  String get submitReview => _t('submitReview');
+  String get submittingEllipsis => _t('submittingEllipsis');
+  String get skipForNow => _t('skipForNow');
+  String get reviewSubmittedExclaim => _t('reviewSubmittedExclaim');
+  String thanksForFeedbackReview(String id, String rating) =>
+      _tp('thanksForFeedbackReview', {'id': id, 'rating': rating});
+  String get viewMyShipments => _t('viewMyShipments');
+  String get missingShipmentIdForReview => _t('missingShipmentIdForReview');
+  String get unableToDetermineReviewee => _t('unableToDetermineReviewee');
+  String get yourTravelerFallback => _t('yourTravelerFallback');
+  String get theSenderFallback => _t('theSenderFallback');
+  String get theReceiverFallback => _t('theReceiverFallback');
+  String get pleaseWriteShortReview => _t('pleaseWriteShortReview');
+  String get unableToSubmitReview => _t('unableToSubmitReview');
+  String get backToTracking => _t('backToTracking');
+  String get nfcVerifiedLabel => _t('nfcVerifiedLabel');
+  String get parcelDeliveredLabel => _t('parcelDeliveredLabel');
+  String get paymentCompletedLabel => _t('paymentCompletedLabel');
+  String get byAir => _t('byAir');
+  String get byLand => _t('byLand');
+
+  // --- Traveler trip post / edit / cancel flow ---
+  String get chooseTripType => _t('chooseTripType');
+  String get chooseTripTypeSubtitle => _t('chooseTripTypeSubtitle');
+  String get tripCityToCityDesc => _t('tripCityToCityDesc');
+  String get tripCountryToCountryDesc => _t('tripCountryToCountryDesc');
+  String get postTrip => _t('postTrip');
+  String get postTripArrow => _t('postTripArrow');
+  String get postTripIntro => _t('postTripIntro');
+  String get kycApprovedLabel => _t('kycApprovedLabel');
+  String get kycRequiredLabel => _t('kycRequiredLabel');
+  String get fromAirport => _t('fromAirport');
+  String get toAirport => _t('toAirport');
+  String get searchAirport => _t('searchAirport');
+  String get searchCity => _t('searchCity');
+  String get availableLuggageCapacity => _t('availableLuggageCapacity');
+  String get enterAvailableCapacity => _t('enterAvailableCapacity');
+  String get capacityVisibleToSenders => _t('capacityVisibleToSenders');
+  String get capacityMultipleRequestsNote =>
+      _t('capacityMultipleRequestsNote');
+  String get flightNumberOptional => _t('flightNumberOptional');
+  String get flightNumberHint => _t('flightNumberHint');
+  String get selectATravelDate => _t('selectATravelDate');
+  String get selectADepartureTime => _t('selectADepartureTime');
+  String get enterValidCapacity => _t('enterValidCapacity');
+  String get selectDepartureTime => _t('selectDepartureTime');
+  String get selectDepartureTimeTitle => _t('selectDepartureTimeTitle');
+  String get editTrip => _t('editTrip');
+  String editTripWithId(String id) => _tp('editTripWithId', {'id': id});
+  String get tripNotFound => _t('tripNotFound');
+  String get unableToLoadTrip => _t('unableToLoadTrip');
+  String get completedTripsCannotBeEdited =>
+      _t('completedTripsCannotBeEdited');
+  String get unableToSaveChanges => _t('unableToSaveChanges');
+  String get cancelTrip => _t('cancelTrip');
+  String cancelTripWithId(String id) => _tp('cancelTripWithId', {'id': id});
+  String get keepTrip => _t('keepTrip');
+  String get cancellingEllipsis => _t('cancellingEllipsis');
+  String get cancelTripConfirmTitle => _t('cancelTripConfirmTitle');
+  String get cancelTripConfirmBody => _t('cancelTripConfirmBody');
+  String get cancelTripNoRequestsYet => _t('cancelTripNoRequestsYet');
+  String cancelTripHoursBeforeFlight(String hours) =>
+      _tp('cancelTripHoursBeforeFlight', {'hours': hours});
+  String cancelTripMayBeBlocked(String hours) =>
+      _tp('cancelTripMayBeBlocked', {'hours': hours});
+  String get completedTripsCannotBeCancelled =>
+      _t('completedTripsCannotBeCancelled');
+  String get tripCannotBeCancelledAtStage =>
+      _t('tripCannotBeCancelledAtStage');
+  String travelerCancelBlocked(String hours) =>
+      _tp('travelerCancelBlocked', {'hours': hours});
+  String get unableToCancelTrip => _t('unableToCancelTrip');
+  String get turnOffDemoModeTrips => _t('turnOffDemoModeTrips');
+  String get tripPosted => _t('tripPosted');
+  String tripPostedDiscoverable(String route) =>
+      _tp('tripPostedDiscoverable', {'route': route});
+  String get viewSenderRequests => _t('viewSenderRequests');
+  String get kgUnit => _t('kgUnit');
+  String get periodAm => _t('periodAm');
+  String get periodPm => _t('periodPm');
+
+  // --- Account suspended ---
+  String get accountSuspendedTitle => _t('accountSuspendedTitle');
+  String get accountSuspendedBody => _t('accountSuspendedBody');
+  String get zeroTolerancePolicyTitle => _t('zeroTolerancePolicyTitle');
+  String get zeroTolerancePolicyBody => _t('zeroTolerancePolicyBody');
+  String accountSuspendedContactMistake(String email) =>
+      _tp('accountSuspendedContactMistake', {'email': email});
+  String get returnToWelcome => _t('returnToWelcome');
+
+  // --- Sender cancel delivery / posted parcels ---
+  String get travelerAcceptedPayToConfirm =>
+      _t('travelerAcceptedPayToConfirm');
+  String get waitingForTravelersRespond => _t('waitingForTravelersRespond');
+  String get receiverAcceptedChooseTraveler =>
+      _t('receiverAcceptedChooseTraveler');
+  String get paymentSecuredMeetNfc => _t('paymentSecuredMeetNfc');
+  String get cancelDelivery => _t('cancelDelivery');
+  String cancelDeliveryWithId(String id) =>
+      _tp('cancelDeliveryWithId', {'id': id});
+  String get keepDelivery => _t('keepDelivery');
+  String get cancelDeliveryConfirmTitle => _t('cancelDeliveryConfirmTitle');
+  String get cancelDeliveryConfirmBody => _t('cancelDeliveryConfirmBody');
+  String cancelDeliveryHoursBeforeFlight(String hours) =>
+      _tp('cancelDeliveryHoursBeforeFlight', {'hours': hours});
+  String escrowRefundFeesAlso(String hours) =>
+      _tp('escrowRefundFeesAlso', {'hours': hours});
+  String escrowRefundFeesKept(String hours) =>
+      _tp('escrowRefundFeesKept', {'hours': hours});
+  String get unableToLoadDelivery => _t('unableToLoadDelivery');
+  String get deliveryNotFound => _t('deliveryNotFound');
+  String get unableToCancelDelivery => _t('unableToCancelDelivery');
+  String get bookingCancelledFeesRefunded =>
+      _t('bookingCancelledFeesRefunded');
+  String get bookingCancelledFeesKept => _t('bookingCancelledFeesKept');
+  String get cancelRequestTitle => _t('cancelRequestTitle');
+  String get cancelRequestBody => _t('cancelRequestBody');
+  String cancelPolicyMoreThanHours(String hours) =>
+      _tp('cancelPolicyMoreThanHours', {'hours': hours});
+  String cancelPolicyLessThanHours(String hours) =>
+      _tp('cancelPolicyLessThanHours', {'hours': hours});
+  String get escrowAmountRefunded => _t('escrowAmountRefunded');
+  String get escrowAmountRefundedToSender =>
+      _t('escrowAmountRefundedToSender');
+  String get platformFeeRefundedAllUsers => _t('platformFeeRefundedAllUsers');
+  String get platformFeeNonRefundableAllUsers =>
+      _t('platformFeeNonRefundableAllUsers');
+  String get keep => _t('keep');
+
+  /// Localize comma-separated place labels (e.g. "Lahore, Pakistan").
+  String localizePlaceLabel(String place) {
+    final parts = place
+        .split(',')
+        .map((p) => p.trim())
+        .where((p) => p.isNotEmpty)
+        .map(translate)
+        .toList();
+    return parts.isEmpty ? place : parts.join(', ');
+  }
+
+  String get nfcTapRecordedWaitingPeer => _t('nfcTapRecordedWaitingPeer');
+  String get holdPhonesTogetherNfc => _t('holdPhonesTogetherNfc');
+  String get nfcSessionFailedSimulated => _t('nfcSessionFailedSimulated');
+  String get usingSimulatedTap => _t('usingSimulatedTap');
+  String get senderTravelerPair => _t('senderTravelerPair');
+  String get travelerReceiverPair => _t('travelerReceiverPair');
+  String get acceptedBidDetails => _t('acceptedBidDetails');
+  String get escrowFundedSelectionLocked => _t('escrowFundedSelectionLocked');
+  String get bidDetailsHeading => _t('bidDetailsHeading');
+
+  // --- Traveler flow: Sender Requests / parcel request / counter offer ---
+  String get selectTripToViewSenderRequests =>
+      _t('selectTripToViewSenderRequests');
+  String get unableToLoadSenderRequests => _t('unableToLoadSenderRequests');
+  String get noTripsWithSenderRequestsYet =>
+      _t('noTripsWithSenderRequestsYet');
+  String get parcelRequestDetails => _t('parcelRequestDetails');
+  String get travelDeliveryDate => _t('travelDeliveryDate');
+  String get parcelWeight => _t('parcelWeight');
+  String get senderMeetupLocation => _t('senderMeetupLocation');
+  String get receiverMeetupLocation => _t('receiverMeetupLocation');
+  String photoIndexLabel(String n) => _tp('photoIndexLabel', {'n': n});
+  String photoIndexOfTotal(String current, String total) =>
+      _tp('photoIndexOfTotal', {'current': current, 'total': total});
+  String get parcelDescription => _t('parcelDescription');
+  String get senderMaximumBudget => _t('senderMaximumBudget');
+  String senderMaximumBudgetColon(String amount) =>
+      _tp('senderMaximumBudgetColon', {'amount': amount});
+  String get addNoteForSenderPlaceholder => _t('addNoteForSenderPlaceholder');
+  String get acceptOffer => _t('acceptOffer');
+  String get offerAcceptedLabel => _t('offerAcceptedLabel');
+  String get sendCounterOffer => _t('sendCounterOffer');
+  String get updateCounterOffer => _t('updateCounterOffer');
+  String get youAcceptedOfferCounterDisabled =>
+      _t('youAcceptedOfferCounterDisabled');
+  String get counterOfferSentAcceptDisabled =>
+      _t('counterOfferSentAcceptDisabled');
+  String get offerAlreadyAcceptedCountersClosed =>
+      _t('offerAlreadyAcceptedCountersClosed');
+  String yourOfferStatusCanUpdateCounter(String status) =>
+      _tp('yourOfferStatusCanUpdateCounter', {'status': status});
+  String get sendCounterOfferTitle => _t('sendCounterOfferTitle');
+  String get enterNewBudgetAmountHint => _t('enterNewBudgetAmountHint');
+  String get yourCounterOffer => _t('yourCounterOffer');
+  String get sendFinalBudget => _t('sendFinalBudget');
+  String youAcceptedOfferOnRoute(String amount, String route) =>
+      _tp('youAcceptedOfferOnRoute', {'amount': amount, 'route': route});
+  String get backToRequests => _t('backToRequests');
+  String get viewMyBids => _t('viewMyBids');
+  String get viewMyDeliveries => _t('viewMyDeliveries');
+  String get browseMoreRequests => _t('browseMoreRequests');
+  String get updateShipmentStatus => _t('updateShipmentStatus');
+  String get nfcHandoffCompleteStartTransit =>
+      _t('nfcHandoffCompleteStartTransit');
+  String get startTransit => _t('startTransit');
+  String get inTransit => _t('inTransit');
+  String get finalBudgetSentToSender => _t('finalBudgetSentToSender');
+  String get counterOfferUpdatedToast => _t('counterOfferUpdatedToast');
+  String get enterValidBudgetAmount => _t('enterValidBudgetAmount');
+  String get alreadyAcceptedCounterUnavailable =>
+      _t('alreadyAcceptedCounterUnavailable');
+  String get unableToLoadThisRequest => _t('unableToLoadThisRequest');
+  String get requestNotFound => _t('requestNotFound');
+  String get backToSenderRequests => _t('backToSenderRequests');
+  String get documentSingular => _t('documentSingular');
+  String get objectSingular => _t('objectSingular');
+
+  String parcelCategoryTypeLabel(String englishLabel) => switch (englishLabel) {
+        'Document' => documentSingular,
+        'Object' => objectSingular,
+        _ => translate(englishLabel),
+      };
+
+  // --- Sender flow: demo-mode / generic error messages (also auto-matched
+  // by AppToast via kEnglishToKey when passed as literal English strings) ---
+  String get demoModeCompleteLivePayment =>
+      _t('demoModeCompleteLivePayment');
+  String get demoModeBrowseTravelers => _t('demoModeBrowseTravelers');
+  String get unableToLoadMatchingTravelers =>
+      _t('unableToLoadMatchingTravelers');
+  String get demoModeCompleteLiveEscrowPayment =>
+      _t('demoModeCompleteLiveEscrowPayment');
+  String get deliveryCouldNotBeFound => _t('deliveryCouldNotBeFound');
+  String get offerAlreadyPaidConfirmed => _t('offerAlreadyPaidConfirmed');
+  String get offerNoLongerAvailableToPay =>
+      _t('offerNoLongerAvailableToPay');
+  String get unableToStartPaymentNow => _t('unableToStartPaymentNow');
+  String get travelerInsufficientLuggageCapacity =>
+      _t('travelerInsufficientLuggageCapacity');
+  String get unableToSendRequestToTraveler =>
+      _t('unableToSendRequestToTraveler');
+  String get counterOfferNotFound => _t('counterOfferNotFound');
+  String get unableToLoadCounterOfferDetails =>
+      _t('unableToLoadCounterOfferDetails');
+  String get counterOfferRejectedToast => _t('counterOfferRejectedToast');
+  String get unableToRejectCounterOffer => _t('unableToRejectCounterOffer');
+  String get shipmentDetailsAreMissing => _t('shipmentDetailsAreMissing');
+  String get unableToCheckCounterOfferStatus =>
+      _t('unableToCheckCounterOfferStatus');
+  String get cardPaymentsNotAvailable => _t('cardPaymentsNotAvailable');
+  String get counterOfferNotReadyWaitTraveler =>
+      _t('counterOfferNotReadyWaitTraveler');
+  String get insufficientWalletChooseCard =>
+      _t('insufficientWalletChooseCard');
+  String get cardPaymentAlreadyCompletedRetry =>
+      _t('cardPaymentAlreadyCompletedRetry');
+  String get cardPaymentSucceededIdMissing =>
+      _t('cardPaymentSucceededIdMissing');
+  String get paymentCouldNotCompleteRetry =>
+      _t('paymentCouldNotCompleteRetry');
+  String get paymentFailedBookingNotCreated =>
+      _t('paymentFailedBookingNotCreated');
+  String get unableToLoadDeliveryDetails => _t('unableToLoadDeliveryDetails');
 }
 
 class _AppLocalizationsDelegate

@@ -395,8 +395,8 @@ class _TravelerProfileScreenState extends State<TravelerProfileScreen> {
                 const SizedBox(width: 10),
                 _stat(
                   context,
-                  'History',
-                  'Transactions',
+                  context.l10n.history,
+                  context.l10n.transactions,
                   onTap: () =>
                       context.push('/transaction-history?role=traveler'),
                 ),

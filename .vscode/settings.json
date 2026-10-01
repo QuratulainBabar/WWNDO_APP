@@ -1,7 +1,3 @@
 {
-    "git.ignoreLimitWarning": true,
-    "dart.flutterRunAdditionalArgs": [
-        "--dart-define=API_BASE_URL=https://wango.toolkitpro.cloud",
-        "--dart-define=WEBSITE_URL=https://wango.toolkitpro.cloud"
-    ]
+    "git.ignoreLimitWarning": true
 }

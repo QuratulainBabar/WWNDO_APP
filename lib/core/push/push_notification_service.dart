@@ -100,6 +100,9 @@ abstract final class PushNotificationService {
     }
   }
 
+  /// Preferred language code synced with FCM registration / login.
+  static String? preferredLanguageCode;
+
   static Future<void> registerIfAuthenticated(AuthRepository repository) async {
     if (!_initialized) {
       if (kDebugMode) {
@@ -112,6 +115,17 @@ abstract final class PushNotificationService {
         debugPrint('[Push] skip register — not logged in');
       }
       return;
+    }
+
+    final language = preferredLanguageCode;
+    if (language != null && language.isNotEmpty) {
+      try {
+        await repository.updatePreferredLanguage(language);
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint('[Push] preferred language sync failed: $e');
+        }
+      }
     }
 
     try {
@@ -127,7 +141,11 @@ abstract final class PushNotificationService {
       if (token == _lastRegisteredToken) return;
 
       final platform = _platformLabel();
-      await repository.registerFcmToken(token, platform: platform);
+      await repository.registerFcmToken(
+        token,
+        platform: platform,
+        preferredLanguage: language,
+      );
       _lastRegisteredToken = token;
       if (kDebugMode) {
         debugPrint(

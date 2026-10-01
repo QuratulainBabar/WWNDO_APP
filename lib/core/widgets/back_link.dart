@@ -6,6 +6,9 @@ import '../theme/app_typography.dart';
 import '../../l10n/app_localizations.dart';
 
 /// Shared ← Back label with a slightly larger arrow.
+///
+/// Arrow and translated label stay on one line for all locales; text scales
+/// down slightly when space is tight instead of wrapping under the arrow.
 class BackLinkLabel extends StatelessWidget {
   const BackLinkLabel({super.key});
 
@@ -14,14 +17,26 @@ class BackLinkLabel extends StatelessWidget {
     final style = context.typo.backLink;
     final arrowSize = (style.fontSize ?? 14) + 2;
 
-    return Text.rich(
-      TextSpan(
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: AlignmentDirectional.centerStart,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          TextSpan(
-            text: PlatformUi.backArrow,
-            style: style.copyWith(fontSize: arrowSize, height: 1.1),
+          Text(
+            PlatformUi.backArrow,
+            style: style.copyWith(fontSize: arrowSize, height: 1),
+            maxLines: 1,
+            softWrap: false,
           ),
-          TextSpan(text: ' ${context.l10n.back}', style: style),
+          const SizedBox(width: 4),
+          Text(
+            context.l10n.back,
+            style: style.copyWith(height: 1),
+            maxLines: 1,
+            softWrap: false,
+          ),
         ],
       ),
     );
@@ -38,7 +53,8 @@ class BackLink extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap ?? () => appNavigateBackFromContext(context, fallback: fallbackRoute),
+      onTap: onTap ??
+          () => appNavigateBackFromContext(context, fallback: fallbackRoute),
       child: const BackLinkLabel(),
     );
   }

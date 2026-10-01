@@ -60,10 +60,14 @@ class _DiscoverTravelersScreenState extends State<DiscoverTravelersScreen> {
     try {
       final auth = context.read<AuthProvider>();
       if (shipmentId != null) {
+        final shipment = StaticData.shipmentById(shipmentId);
         final travelers = await DeliveryRepository(
           apiClient: auth.repository.apiClient,
           demoMode: demoMode,
-        ).listMatchingTravelers(shipmentId);
+        ).listMatchingTravelers(
+          shipmentId,
+          deliveryTravelDate: shipment?.travelDate,
+        );
 
         if (!mounted) return;
         // Backend already filters by matching route + luggage capacity.

@@ -499,56 +499,76 @@ class CreatedDelivery {
 
   factory CreatedDelivery.fromJson(Map<String, dynamic> json) {
     final photosRaw = json['photos'];
+    final meetupRaw = json['preferredMeetupLocations'];
+    List<String> meetupLocations = const [];
+    if (meetupRaw is List) {
+      meetupLocations = meetupRaw.map((e) => e.toString()).toList();
+    } else if (meetupRaw is String && meetupRaw.trim().isNotEmpty) {
+      // Tolerate drivers/gateways that stringify array columns.
+      meetupLocations = meetupRaw
+          .split(',')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
+    }
+
     return CreatedDelivery(
-      id: json['id'] as String? ?? '',
-      publicId: json['publicId'] as String? ?? '',
-      deliveryType: DeliveryType.fromApi(json['deliveryType'] as String?),
-      route: json['route'] as String? ?? '',
-      travelDate: json['travelDate'] as String? ?? '',
-      parcelCategory: json['parcelCategory'] as String? ?? '',
-      parcelSize: json['parcelSize'] as String? ?? '',
-      weightKg: (json['weightKg'] as num?)?.toDouble() ?? 0,
-      maxBudget: (json['maxBudget'] as num?)?.toDouble() ?? 0,
-      description: json['description'] as String? ?? '',
-      preferredMeetupLocations: (json['preferredMeetupLocations'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
-          const [],
-      acknowledged: json['acknowledged'] as bool? ?? false,
+      id: json['id']?.toString() ?? '',
+      publicId: json['publicId']?.toString() ?? '',
+      deliveryType: DeliveryType.fromApi(json['deliveryType']?.toString()),
+      route: json['route']?.toString() ?? '',
+      travelDate: json['travelDate']?.toString() ?? '',
+      parcelCategory: json['parcelCategory']?.toString() ?? '',
+      parcelSize: json['parcelSize']?.toString() ?? '',
+      weightKg: (json['weightKg'] as num?)?.toDouble() ??
+          double.tryParse('${json['weightKg'] ?? ''}') ??
+          0,
+      maxBudget: (json['maxBudget'] as num?)?.toDouble() ??
+          double.tryParse('${json['maxBudget'] ?? ''}') ??
+          0,
+      description: json['description']?.toString() ?? '',
+      preferredMeetupLocations: meetupLocations,
+      acknowledged: json['acknowledged'] == true,
       photos: photosRaw is List
           ? photosRaw
               .whereType<Map>()
               .map((e) => DeliveryPhoto.fromJson(Map<String, dynamic>.from(e)))
               .toList()
           : const [],
-      status: json['status'] as String?,
-      fromCity: json['fromCity'] as String?,
-      fromCode: json['fromCode'] as String?,
-      toCity: json['toCity'] as String?,
-      toCode: json['toCode'] as String?,
-      originCountry: json['originCountry'] as String?,
-      originAirport: json['originAirport'] as String?,
-      destinationCountry: json['destinationCountry'] as String?,
-      destinationAirport: json['destinationAirport'] as String?,
-      departureTime: json['departureTime'] as String?,
-      travelMethod: json['travelMethod'] as String?,
-      flightNumber: json['flightNumber'] as String?,
-      platformFee: (json['platformFee'] as num?)?.toDouble(),
-      platformFeeShare: (json['platformFeeShare'] as num?)?.toDouble(),
+      status: json['status']?.toString(),
+      fromCity: json['fromCity']?.toString(),
+      fromCode: json['fromCode']?.toString(),
+      toCity: json['toCity']?.toString(),
+      toCode: json['toCode']?.toString(),
+      originCountry: json['originCountry']?.toString(),
+      originAirport: json['originAirport']?.toString(),
+      destinationCountry: json['destinationCountry']?.toString(),
+      destinationAirport: json['destinationAirport']?.toString(),
+      departureTime: json['departureTime']?.toString(),
+      travelMethod: json['travelMethod']?.toString(),
+      flightNumber: json['flightNumber']?.toString(),
+      platformFee: (json['platformFee'] as num?)?.toDouble() ??
+          double.tryParse('${json['platformFee'] ?? ''}'),
+      platformFeeShare: (json['platformFeeShare'] as num?)?.toDouble() ??
+          double.tryParse('${json['platformFeeShare'] ?? ''}'),
       paysReceiverFee: json['paysReceiverFee'] == true ||
-          ((json['platformFeeShare'] as num?)?.toDouble() ?? 1) <= 0,
-      receiverEmail: json['receiverEmail'] as String?,
-      receiverPhone: json['receiverPhone'] as String?,
-      receiverMeetupLocation: json['receiverMeetupLocation'] as String?,
-      senderName: json['senderName'] as String?,
-      senderId: json['senderId'] as String?,
-      travelerId: json['travelerId'] as String?,
-      travelerName: json['travelerName'] as String?,
-      tripId: json['tripId'] as String?,
-      tripPublicId: json['tripPublicId'] as String?,
-      bidAmount: (json['bidAmount'] as num?)?.toDouble(),
-      receiverId: json['receiverId'] as String?,
-      receiverName: json['receiverName'] as String?,
+          ((json['platformFeeShare'] as num?)?.toDouble() ??
+                  double.tryParse('${json['platformFeeShare'] ?? ''}') ??
+                  1) <=
+              0,
+      receiverEmail: json['receiverEmail']?.toString(),
+      receiverPhone: json['receiverPhone']?.toString(),
+      receiverMeetupLocation: json['receiverMeetupLocation']?.toString(),
+      senderName: json['senderName']?.toString(),
+      senderId: json['senderId']?.toString(),
+      travelerId: json['travelerId']?.toString(),
+      travelerName: json['travelerName']?.toString(),
+      tripId: json['tripId']?.toString(),
+      tripPublicId: json['tripPublicId']?.toString(),
+      bidAmount: (json['bidAmount'] as num?)?.toDouble() ??
+          double.tryParse('${json['bidAmount'] ?? ''}'),
+      receiverId: json['receiverId']?.toString(),
+      receiverName: json['receiverName']?.toString(),
       receiverAcceptedAt: json['receiverAcceptedAt']?.toString(),
       disputed: json['disputed'] == true || json['status'] == 'disputed',
     );

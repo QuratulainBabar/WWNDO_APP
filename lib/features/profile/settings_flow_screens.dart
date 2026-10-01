@@ -473,6 +473,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           value: _countryIso,
           hintText: context.l10n.selectCountry,
           onChanged: _onCountryChanged,
+          labelStyle: typo.inputLabel.copyWith(fontWeight: FontWeight.w700),
         ),
         InternationalPhoneField(
           label: context.tr('Phone number'),

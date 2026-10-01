@@ -9,6 +9,7 @@ import '../../data/models/traveler_trip.dart';
 import '../../data/services/trip_repository.dart';
 import '../../data/kyc_validation.dart';
 import '../../data/wallet_gate.dart';
+import '../../l10n/app_localizations.dart';
 import '../../providers/auth_provider.dart';
 
 /// Shared gate + post helper for traveler trip creation screens.
@@ -34,7 +35,7 @@ abstract final class TripPostingActions {
     final demoMode = context.read<DemoModeProvider>();
     if (demoMode.enabled) {
       if (context.mounted) {
-        AppToast.error(context, 'Turn off Demo mode to post trips to the server.');
+        AppToast.error(context, context.l10n.turnOffDemoModeTrips);
       }
       return false;
     }

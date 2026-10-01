@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../data/delivery_cancel_policy.dart';
+import '../../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
 import 'app_button.dart';
@@ -17,13 +19,15 @@ Future<bool> showCancelRequestConfirmation(
     context: context,
     builder: (dialogContext) {
       final typo = dialogContext.typo;
+      final l10n = dialogContext.l10n;
+      final hours = '${DeliveryCancelPolicy.cancelMinHoursBeforeTravel}';
       final cancelButton = AppButton(
-        label: 'Cancel Request',
+        label: l10n.cancelRequestTitle,
         variant: AppButtonVariant.danger,
         onPressed: () => Navigator.of(dialogContext).pop(true),
       );
       final keepButton = AppButton(
-        label: 'Keep',
+        label: l10n.keep,
         variant: AppButtonVariant.ghost,
         onPressed: () => Navigator.of(dialogContext).pop(false),
       );
@@ -35,28 +39,27 @@ Future<bool> showCancelRequestConfirmation(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Cancel Request',
+                l10n.cancelRequestTitle,
                 style: typo.h2.copyWith(fontWeight: FontWeight.w700),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
               Text(
-                'Allowed even if the parcel is already collected, '
-                'as long as the flight has not started.',
+                l10n.cancelRequestBody,
                 style: typo.sm.copyWith(color: AppColors.textSecondary),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
               _CancellationPolicySection(
-                title: 'More than 24 hours before travel',
-                escrowLabel: 'Escrow Amount: Refunded',
-                feeLabel: 'Platform Fee: Refunded (all users)',
+                title: l10n.cancelPolicyMoreThanHours(hours),
+                escrowLabel: l10n.escrowAmountRefunded,
+                feeLabel: l10n.platformFeeRefundedAllUsers,
               ),
               const SizedBox(height: 14),
               _CancellationPolicySection(
-                title: 'Less than 24 hours before travel',
-                escrowLabel: 'Escrow Amount: Refunded to Sender',
-                feeLabel: 'Platform Fee: Non-refundable (all users)',
+                title: l10n.cancelPolicyLessThanHours(hours),
+                escrowLabel: l10n.escrowAmountRefundedToSender,
+                feeLabel: l10n.platformFeeNonRefundableAllUsers,
               ),
               const SizedBox(height: 24),
               if (keepButtonFirst) ...[
@@ -92,7 +95,7 @@ class _CancellationPolicySection extends StatelessWidget {
   Widget build(BuildContext context) {
     final typo = context.typo;
     return Align(
-      alignment: Alignment.centerLeft,
+      alignment: AlignmentDirectional.centerStart,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

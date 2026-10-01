@@ -44,6 +44,11 @@ Future<void> main() async {
     demoMode: demoMode,
     inactivityLock: inactivityLock,
   );
+  localeProvider.syncPreferredLanguage = (code) async {
+    PushNotificationService.preferredLanguageCode = code;
+    if (!authProvider.isAuthenticated) return;
+    await authProvider.repository.updatePreferredLanguage(code);
+  };
   await Future.wait([
     demoMode.init(),
     themeProvider.init(),
@@ -52,6 +57,7 @@ Future<void> main() async {
     authProvider.init(),
     PushNotificationService.initialize(),
   ]);
+  PushNotificationService.preferredLanguageCode = localeProvider.code;
   await inactivityLock.init(isAuthenticated: authProvider.isAuthenticated);
 
   if (authProvider.isAuthenticated) {

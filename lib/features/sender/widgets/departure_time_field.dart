@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_labeled_field.dart';
+import '../../../l10n/app_localizations.dart';
 
 /// Time picker for Post Trip departure time.
 class DepartureTimeField extends StatelessWidget {
@@ -11,15 +12,15 @@ class DepartureTimeField extends StatelessWidget {
     required this.value,
     required this.onChanged,
     this.errorText,
-    this.label = 'Departure Time',
-    this.hintText = 'Select departure time',
+    this.label,
+    this.hintText,
   });
 
   final TimeOfDay? value;
   final ValueChanged<TimeOfDay> onChanged;
   final String? errorText;
-  final String label;
-  final String hintText;
+  final String? label;
+  final String? hintText;
 
   Future<void> _pickTime(BuildContext context) async {
     final picked = await showModalBottomSheet<TimeOfDay>(
@@ -45,10 +46,13 @@ class DepartureTimeField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
+    final l10n = context.l10n;
+    final fieldLabel = label ?? l10n.departureTime;
+    final fieldHint = hintText ?? l10n.selectDepartureTime;
     final formatted = value == null ? '' : _format(context, value!);
 
     return AppLabeledField(
-      label: label,
+      label: fieldLabel,
       labelStyle: typo.inputLabel.copyWith(fontWeight: FontWeight.w600),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -61,7 +65,7 @@ class DepartureTimeField extends StatelessWidget {
               child: InputDecorator(
                 isEmpty: value == null,
                 decoration: InputDecoration(
-                  hintText: hintText,
+                  hintText: fieldHint,
                   errorText: errorText,
                   suffixIcon: Icon(
                     Icons.access_time_outlined,
@@ -130,6 +134,7 @@ class _DepartureTimePickerSheetState extends State<_DepartureTimePickerSheet> {
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
+    final l10n = context.l10n;
     final bottomInset = MediaQuery.paddingOf(context).bottom;
 
     return Container(
@@ -154,7 +159,7 @@ class _DepartureTimePickerSheetState extends State<_DepartureTimePickerSheet> {
           ),
           const SizedBox(height: 18),
           Text(
-            'Select Departure Time',
+            l10n.selectDepartureTimeTitle,
             style: typo.headerTitle.copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 20),
@@ -215,7 +220,7 @@ class _DepartureTimePickerSheetState extends State<_DepartureTimePickerSheet> {
                       borderRadius: BorderRadius.circular(28),
                       child: Center(
                         child: Text(
-                          'Cancel',
+                          l10n.cancel,
                           style: typo.buttonSm.copyWith(
                             color: AppColors.textPrimary,
                             fontWeight: FontWeight.w600,
@@ -240,7 +245,7 @@ class _DepartureTimePickerSheetState extends State<_DepartureTimePickerSheet> {
                       borderRadius: BorderRadius.circular(28),
                       child: Center(
                         child: Text(
-                          'Done',
+                          l10n.done,
                           style: typo.buttonSm.copyWith(
                             color: Colors.white,
                             fontWeight: FontWeight.w700,
@@ -350,6 +355,7 @@ class _AmPmColumn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Center(
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
@@ -361,14 +367,14 @@ class _AmPmColumn extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             _AmPmOption(
-              label: 'AM',
+              label: l10n.periodAm,
               selected: isAm,
               height: itemExtent - 8,
               onTap: () => onChanged(true),
             ),
             const SizedBox(height: 4),
             _AmPmOption(
-              label: 'PM',
+              label: l10n.periodPm,
               selected: !isAm,
               height: itemExtent - 8,
               onTap: () => onChanged(false),

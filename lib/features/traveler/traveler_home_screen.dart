@@ -242,50 +242,7 @@ class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
             const SizedBox(height: 24),
             Text(l10n.quickActions, style: typo.h3.copyWith(fontWeight: FontWeight.w700)),
             const SizedBox(height: 12),
-            Row(
-              children: [
-                _quickAction(
-                  context,
-                  AppIcons.roleSender,
-                  l10n.senderRequests,
-                  () async {
-                    await context.push('/matching-requests');
-                    if (mounted) _refreshSenderRequestBadge();
-                  },
-                  badgeCount: senderRequestCount,
-                ),
-                const SizedBox(width: 10),
-                _quickAction(
-                  context,
-                  AppIcons.track,
-                  l10n.myDeliveries,
-                  () async {
-                    await context.push('/traveler-deliveries');
-                    if (mounted) {
-                      _deliveriesKey.currentState?.reload(silent: true);
-                    }
-                  },
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                _quickAction(
-                  context,
-                  AppIcons.history,
-                  l10n.counterOffers,
-                  () => context.push('/traveler-bids'),
-                ),
-                const SizedBox(width: 10),
-                _quickAction(
-                  context,
-                  AppIcons.match,
-                  l10n.acceptedOffers,
-                  () => context.push('/traveler-bids?filter=acceptance'),
-                ),
-              ],
-            ),
+            _quickActionsGrid(context, l10n, senderRequestCount),
             const SizedBox(height: 24),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -314,63 +271,190 @@ class _TravelerHomeScreenState extends State<TravelerHomeScreen> {
     );
   }
 
+  Widget _quickActionsGrid(
+    BuildContext context,
+    AppLocalizations l10n,
+    int senderRequestCount,
+  ) {
+    final typo = context.typo;
+    final labelStyle = typo.sm.copyWith(
+      fontWeight: FontWeight.w600,
+      height: 1.2,
+    );
+    const verticalPad = 32.0; // 16 top + 16 bottom
+    const iconSize = 28.0;
+    const iconGap = 10.0;
+    const horizontalPad = 12.0; // 6 + 6
+    const gridGap = 10.0;
+    const borderWidth = 1.0; // Border.all on each tile
+
+    final actions = <({String icon, String label, VoidCallback onTap, int badge})>[
+      (
+        icon: AppIcons.roleSender,
+        label: l10n.senderRequests,
+        onTap: () async {
+          await context.push('/matching-requests');
+          if (mounted) _refreshSenderRequestBadge();
+        },
+        badge: senderRequestCount,
+      ),
+      (
+        icon: AppIcons.track,
+        label: l10n.myDeliveries,
+        onTap: () async {
+          await context.push('/traveler-deliveries');
+          if (mounted) {
+            _deliveriesKey.currentState?.reload(silent: true);
+          }
+        },
+        badge: 0,
+      ),
+      (
+        icon: AppIcons.history,
+        label: l10n.counterOffers,
+        onTap: () => context.push('/traveler-bids'),
+        badge: 0,
+      ),
+      (
+        icon: AppIcons.match,
+        label: l10n.acceptedOffers,
+        onTap: () => context.push('/traveler-bids?filter=acceptance'),
+        badge: 0,
+      ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final tileWidth = (constraints.maxWidth - gridGap) / 2;
+        final labelMaxWidth = (tileWidth - horizontalPad).clamp(0.0, double.infinity);
+        final textScaler = MediaQuery.textScalerOf(context);
+        final textDirection = Directionality.of(context);
+
+        var labelBlockHeight = 0.0;
+        for (final action in actions) {
+          final painter = TextPainter(
+            text: TextSpan(text: action.label, style: labelStyle),
+            textAlign: TextAlign.center,
+            textDirection: textDirection,
+            textScaler: textScaler,
+            maxLines: 2,
+            ellipsis: '…',
+          )..layout(maxWidth: labelMaxWidth);
+          if (painter.height > labelBlockHeight) {
+            labelBlockHeight = painter.height;
+          }
+        }
+        // Small buffer for glyph metrics / rounding across locales.
+        labelBlockHeight += 4;
+
+        // Border reduces the inner content area by 1px top + 1px bottom.
+        final tileHeight = verticalPad +
+            iconSize +
+            iconGap +
+            labelBlockHeight +
+            (borderWidth * 2);
+
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: actions.length,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            mainAxisSpacing: gridGap,
+            crossAxisSpacing: gridGap,
+            mainAxisExtent: tileHeight,
+          ),
+          itemBuilder: (context, index) {
+            final action = actions[index];
+            return _quickAction(
+              context,
+              action.icon,
+              action.label,
+              action.onTap,
+              badgeCount: action.badge,
+              labelStyle: labelStyle,
+              labelBlockHeight: labelBlockHeight,
+            );
+          },
+        );
+      },
+    );
+  }
+
   Widget _quickAction(
     BuildContext context,
     String iconAsset,
     String label,
     VoidCallback onTap, {
     int badgeCount = 0,
+    TextStyle? labelStyle,
+    required double labelBlockHeight,
   }) {
     final typo = context.typo;
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 98),
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 16),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    AppSvgIcon(asset: iconAsset, size: 28, color: AppColors.primary),
-                    const SizedBox(height: 10),
-                    Text(
-                      label,
-                      textAlign: TextAlign.center,
-                      style: typo.sm.copyWith(fontWeight: FontWeight.w600),
-                    ),
-                  ],
-                ),
-              ),
-              if (badgeCount > 0)
-                Positioned(
-                  top: -4,
-                  right: 4,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppColors.danger,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      badgeCount > 99 ? '99+' : '$badgeCount',
-                      style: typo.caption.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
+    final style = labelStyle ??
+        typo.sm.copyWith(fontWeight: FontWeight.w600, height: 1.2);
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        height: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 16),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AppSvgIcon(
+                    asset: iconAsset,
+                    size: 28,
+                    color: AppColors.primary,
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    height: labelBlockHeight,
+                    width: double.infinity,
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: Text(
+                        label,
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: style,
                       ),
                     ),
                   ),
+                ],
+              ),
+            ),
+            if (badgeCount > 0)
+              Positioned(
+                top: -4,
+                right: 4,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppColors.danger,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    badgeCount > 99 ? '99+' : '$badgeCount',
+                    style: typo.caption.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
-            ],
-          ),
+              ),
+          ],
         ),
       ),
     );

@@ -87,12 +87,13 @@ class _SenderParcelWaitingScreenState extends State<SenderParcelWaitingScreen>
   }
 
   Future<void> _load({bool silent = false}) async {
+    final l10n = context.l10n;
     final demo = context.read<DemoModeProvider>().enabled;
     if (demo) {
       if (!silent) {
         setState(() {
           _loading = false;
-          _error = 'Turn off Demo mode to view live delivery status.';
+          _error = l10n.turnOffDemoModeDeliveryStatus;
         });
       }
       return;
@@ -144,7 +145,7 @@ class _SenderParcelWaitingScreenState extends State<SenderParcelWaitingScreen>
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = 'Unable to load delivery status.';
+        _error = context.l10n.unableToLoadDeliveryStatus;
       });
     }
   }
@@ -152,6 +153,7 @@ class _SenderParcelWaitingScreenState extends State<SenderParcelWaitingScreen>
   @override
   Widget build(BuildContext context) {
     final typo = context.typo;
+    final l10n = context.l10n;
 
     if (_loading || _redirecting) {
       return Scaffold(
@@ -178,7 +180,7 @@ class _SenderParcelWaitingScreenState extends State<SenderParcelWaitingScreen>
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  _error ?? 'Delivery not found.',
+                  _error ?? l10n.deliveryNotFound,
                   textAlign: TextAlign.center,
                   style: typo.sm.copyWith(color: AppColors.textSecondary),
                 ),
@@ -203,17 +205,22 @@ class _SenderParcelWaitingScreenState extends State<SenderParcelWaitingScreen>
     final requests = _snapshot!.travelerRequests;
 
     final title = isAwaitingTraveler
-        ? 'Awaiting traveler acceptance'
-        : 'Waiting for receiver acceptance';
+        ? l10n.awaitingTravelerAcceptance
+        : l10n.waitingForReceiverAcceptance;
     final body = isAwaitingTraveler
         ? (requests.isEmpty
-            ? 'We have sent a request to the traveler. Tracking unlocks after they accept.'
+            ? l10n.requestSentToTravelerTracking
             : requests.length == 1
-                ? 'We have sent a request to ${requests.first.travelerName}. Tracking unlocks after they accept.'
-                : 'We have sent requests to ${requests.length} travelers. Tracking unlocks after one accepts.')
-        : "We've notified your receiver.\nThe matching process will start once they accept.";
+                ? l10n.requestSentToNamedTravelerTracking(
+                    requests.first.travelerName,
+                  )
+                : l10n.requestsSentToTravelersTracking('${requests.length}'))
+        : l10n.notifiedReceiverMatchingStarts;
 
     final travelDate = delivery.travelDateParsed;
+    final travelDateLabel = travelDate != null
+        ? DateFormat('MMM d, yyyy', l10n.locale.toString()).format(travelDate)
+        : delivery.travelDate;
 
     return Scaffold(
       backgroundColor: AppColors.surface,
@@ -262,7 +269,7 @@ class _SenderParcelWaitingScreenState extends State<SenderParcelWaitingScreen>
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Travel date: ${travelDate != null ? DateFormat('MMM d, yyyy').format(travelDate) : delivery.travelDate}',
+                        l10n.travelDateColon(travelDateLabel),
                         textAlign: TextAlign.center,
                         style: typo.sm.copyWith(
                           height: 1.5,
@@ -295,18 +302,18 @@ class _SenderParcelWaitingScreenState extends State<SenderParcelWaitingScreen>
               ),
               if (phase == SenderPostedPhase.matchingTravelers)
                 AppButton(
-                  label: 'View Matching Travelers',
+                  label: l10n.viewMatchingTravelers,
                   onPressed: () =>
                       context.push('/bid-requests/${delivery.displayId}'),
                 )
               else
                 AppButton(
-                  label: 'Go to My Deliveries',
+                  label: l10n.goToMyDeliveries,
                   onPressed: () => context.go('/my-posted-parcels'),
                 ),
               const SizedBox(height: AppButton.stackGap),
               AppButton(
-                label: 'Back to Home',
+                label: l10n.backToHome,
                 variant: AppButtonVariant.outline,
                 onPressed: () => context.go('/home'),
               ),

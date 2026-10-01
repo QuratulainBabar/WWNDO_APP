@@ -167,7 +167,7 @@ class _CounterOfferDetailScreenState extends State<CounterOfferDetailScreen> {
 
     final shipmentId = (offer.deliveryPublicId ?? '').trim();
     if (shipmentId.isEmpty) {
-      AppToast.error(context, 'Shipment details are missing for this offer.');
+      AppToast.error(context, context.l10n.shipmentDetailsAreMissing);
       return;
     }
 
@@ -226,24 +226,29 @@ class _CounterOfferDetailScreenState extends State<CounterOfferDetailScreen> {
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Reject counter offer?'),
-        content: Text(
-          'Reject ${offer.travelerName}\'s offer of '
-          '${WalletService.formatMajor(offer.amount)}?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(context.tr('Cancel')),
+      builder: (ctx) {
+        final dialogL10n = ctx.l10n;
+        return AlertDialog(
+          title: Text(dialogL10n.rejectCounterOfferTitle),
+          content: Text(
+            dialogL10n.rejectCounterOfferBody(
+              offer.travelerName,
+              WalletService.formatMajor(offer.amount),
+            ),
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
-            child: Text(context.tr('Reject')),
-          ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(dialogL10n.cancel),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+              child: Text(dialogL10n.reject),
+            ),
+          ],
+        );
+      },
     );
     if (confirmed != true || !mounted) return;
 
@@ -291,13 +296,13 @@ class _CounterOfferDetailScreenState extends State<CounterOfferDetailScreen> {
       }
 
       if (!mounted) return;
-      AppToast.success(context, 'Counter offer rejected.');
+      AppToast.success(context, context.l10n.counterOfferRejectedToast);
     } on ApiException catch (e) {
       if (!mounted) return;
       AppToast.error(context, e.message);
     } catch (_) {
       if (!mounted) return;
-      AppToast.error(context, 'Unable to reject this counter offer.');
+      AppToast.error(context, context.l10n.unableToRejectCounterOffer);
     } finally {
       if (mounted) setState(() => _acting = false);
     }
@@ -310,7 +315,7 @@ class _CounterOfferDetailScreenState extends State<CounterOfferDetailScreen> {
     if (_loading && _offer == null) {
       return Scaffold(
         backgroundColor: AppColors.background,
-        appBar: BackHeader(title: 'Counter Offer Details'),
+        appBar: BackHeader(title: context.l10n.counterOfferDetails),
         body: Center(
           child: SizedBox(
             width: 22,
@@ -328,13 +333,13 @@ class _CounterOfferDetailScreenState extends State<CounterOfferDetailScreen> {
     if (_error != null || offer == null) {
       return Scaffold(
         backgroundColor: AppColors.background,
-        appBar: const BackHeader(title: 'Counter Offer Details'),
+        appBar: BackHeader(title: context.l10n.counterOfferDetails),
         body: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                _error ?? 'Counter offer not found.',
+                context.tr(_error ?? 'Counter offer not found.'),
                 style: typo.sm.copyWith(color: AppColors.textSecondary),
                 textAlign: TextAlign.center,
               ),
@@ -357,16 +362,19 @@ class _CounterOfferDetailScreenState extends State<CounterOfferDetailScreen> {
     );
     final acceptLocked = _acting || acceptConsumed || payLocked;
     final showAccepted = offer.isAccepted || payCompleted;
+    final l10n = context.l10n;
 
-    final travelDate = DateFormat('MMM d, yyyy').format(offer.travelDate);
+    final travelDate = DateFormat(
+      'MMM d, yyyy',
+      l10n.locale.toString(),
+    ).format(offer.travelDate);
     final ratingLabel = offer.travelerRating != null
-        ? '⭐ ${offer.travelerRating!.toStringAsFixed(1)}'
-            '${offer.travelerReviewCount > 0 ? ' · ${offer.travelerReviewCount} reviews' : ''}'
-        : 'Traveler';
+        ? '⭐ ${l10n.ratingReviewsCount(offer.travelerRating!.toStringAsFixed(1), '${offer.travelerReviewCount}')}'
+        : l10n.traveler;
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: const BackHeader(title: 'Counter Offer Details'),
+      appBar: BackHeader(title: l10n.counterOfferDetails),
       body: SafeArea(
         child: Column(
           children: [
@@ -416,7 +424,7 @@ class _CounterOfferDetailScreenState extends State<CounterOfferDetailScreen> {
                                       const SizedBox(height: 4),
                                       Text(ratingLabel, style: typo.sm),
                                       const SizedBox(height: 8),
-                                      AppBadge.verified(label: context.tr('Traveler')),
+                                      AppBadge.verified(label: l10n.traveler),
                                     ],
                                   ),
                                 ),
@@ -434,14 +442,14 @@ class _CounterOfferDetailScreenState extends State<CounterOfferDetailScreen> {
                               child: Divider(height: 1),
                             ),
                             Text(
-                              'Counter offer',
+                              l10n.counterOffer,
                               style: typo.h3
                                   .copyWith(fontWeight: FontWeight.w700),
                             ),
                             const SizedBox(height: 12),
                             _detailRow(
                               context,
-                              'Offer amount',
+                              l10n.offerAmount,
                               WalletService.formatMajor(offer.amount),
                               valueStyle:
                                   typo.priceSmall.copyWith(fontSize: 18),
@@ -449,30 +457,34 @@ class _CounterOfferDetailScreenState extends State<CounterOfferDetailScreen> {
                             if (offer.maxBudget > 0)
                               _detailRow(
                                 context,
-                                'Your original budget',
+                                l10n.yourOriginalBudget,
                                 WalletService.formatMajor(offer.maxBudget),
                               ),
                             _detailRow(
                               context,
-                              'Shipment ID',
+                              l10n.shipmentIdLabel,
                               offer.deliveryPublicId ?? '—',
                             ),
                             StackedRouteEndpoints(
                               from: offer.displayFrom,
                               to: offer.displayTo,
                               fallbackRoute: offer.route,
-                              sectionLabel: 'Route',
+                              sectionLabel: l10n.route,
                               bottomPadding: 8,
                             ),
-                            _detailRow(context, 'Travel date', travelDate),
                             _detailRow(
                               context,
-                              'Status',
-                              offer.status.label,
+                              l10n.travelDate,
+                              travelDate,
+                            ),
+                            _detailRow(
+                              context,
+                              l10n.status,
+                              l10n.travelerBidStatusLabel(offer.status.label),
                             ),
                             if ((offer.message ?? '').trim().isNotEmpty) ...[
                               const SizedBox(height: 8),
-                              Text('Traveler message', style: typo.sm),
+                              Text(l10n.travelerMessage, style: typo.sm),
                               const SizedBox(height: 8),
                               Container(
                                 width: double.infinity,
@@ -499,7 +511,7 @@ class _CounterOfferDetailScreenState extends State<CounterOfferDetailScreen> {
             if (showAccepted)
               Padding(
                 padding: context.pagePadding.copyWith(top: 8, bottom: 16),
-                child: AppBadge.success('Counter offer accepted'),
+                child: AppBadge.success(l10n.counterOfferAcceptedBadge),
               )
             else if (offer.isOpen)
               Padding(
@@ -508,7 +520,9 @@ class _CounterOfferDetailScreenState extends State<CounterOfferDetailScreen> {
                   children: [
                     Expanded(
                       child: AppButton(
-                        label: _acting ? 'Please wait…' : 'Reject',
+                        label: _acting
+                            ? l10n.pleaseWaitEllipsis
+                            : l10n.reject,
                         variant: AppButtonVariant.danger,
                         onPressed: _acting || payLocked ? null : _reject,
                       ),
@@ -516,7 +530,9 @@ class _CounterOfferDetailScreenState extends State<CounterOfferDetailScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: AppButton(
-                        label: _acting ? 'Please wait…' : 'Accept',
+                        label: _acting
+                            ? l10n.pleaseWaitEllipsis
+                            : l10n.accept,
                         onPressed: acceptLocked ? null : _accept,
                       ),
                     ),
@@ -530,7 +546,7 @@ class _CounterOfferDetailScreenState extends State<CounterOfferDetailScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     AppBadge(
-                      label: 'Payment pending',
+                      label: l10n.paymentPendingBadge,
                       color: AppColors.warning,
                       backgroundColor: AppColors.warning.withValues(alpha: 0.12),
                       small: true,
@@ -538,8 +554,7 @@ class _CounterOfferDetailScreenState extends State<CounterOfferDetailScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Your counter offer is reserved but payment was not completed. '
-                      'Finish payment to confirm the booking.',
+                      l10n.counterOfferReservedPaymentIncomplete,
                       style: typo.sm.copyWith(
                         color: AppColors.textSecondary,
                         height: 1.4,
@@ -548,10 +563,12 @@ class _CounterOfferDetailScreenState extends State<CounterOfferDetailScreen> {
                     const SizedBox(height: 12),
                     AppButton(
                       label: payLocked
-                          ? (payCompleted ? 'Paid' : 'Processing…')
+                          ? (payCompleted
+                              ? l10n.paidLabel
+                              : l10n.processing)
                           : _acting
-                              ? 'Please wait…'
-                              : 'Complete Payment',
+                              ? l10n.pleaseWaitEllipsis
+                              : l10n.completePayment,
                       onPressed: _acting || payLocked ? null : _accept,
                     ),
                   ],
@@ -561,7 +578,7 @@ class _CounterOfferDetailScreenState extends State<CounterOfferDetailScreen> {
               Padding(
                 padding: context.pagePadding.copyWith(top: 8, bottom: 16),
                 child: AppBadge(
-                  label: 'Counter offer rejected',
+                  label: l10n.counterOfferRejectedBadge,
                   color: AppColors.danger,
                   backgroundColor: AppColors.danger.withValues(alpha: 0.12),
                   small: true,
@@ -614,9 +631,10 @@ class _StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     if (paymentPending) {
       return AppBadge(
-        label: 'Payment pending',
+        label: l10n.paymentPendingBadge,
         color: AppColors.warning,
         backgroundColor: AppColors.warning.withValues(alpha: 0.12),
         small: true,
@@ -624,11 +642,11 @@ class _StatusBadge extends StatelessWidget {
       );
     }
     if (status == TravelerBidStatus.accepted) {
-      return AppBadge.success('Offer accepted');
+      return AppBadge.success(l10n.offerAcceptedBadge);
     }
     if (status == TravelerBidStatus.rejected) {
       return AppBadge(
-        label: 'Offer rejected',
+        label: l10n.offerRejectedBadge,
         color: AppColors.danger,
         backgroundColor: AppColors.danger.withValues(alpha: 0.12),
         small: true,
@@ -636,7 +654,7 @@ class _StatusBadge extends StatelessWidget {
       );
     }
     return AppBadge(
-      label: status.label,
+      label: l10n.travelerBidStatusLabel(status.label),
       color: status.color,
       backgroundColor: status.color.withValues(alpha: 0.12),
       small: true,

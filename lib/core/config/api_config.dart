@@ -1,29 +1,29 @@
 /// API base URL for the WWNGO backend.
 ///
-/// Default is the live API (`https://wango.toolkitpro.cloud`).
-/// Override for local testing with:
-/// `flutter run --dart-define=API_BASE_URL=http://192.168.1.6:3000`
+/// Default is the live API (`https://wwngo.com/backend`).
+/// Local: `flutter run --dart-define=API_BASE_URL=http://172.16.11.31:3000`
 /// or the "wwngo_app (local API)" launch configuration.
 class ApiConfig {
   ApiConfig._();
 
-  /// Production API / website.
-  static const String liveBaseUrl = 'https://wango.toolkitpro.cloud';
+  /// Production API.
+  static const String liveBaseUrl = 'https://wwngo.com/backend';
 
-  /// Wi-Fi backend used for local testing (opt-in via --dart-define only).
-  static const String localBaseUrl = 'http://192.168.1.6:3000';
+  /// Production marketing site (legal pages, FAQ, contact).
+  static const String liveWebsiteUrl = 'https://wwngo.com';
+
+  /// Local Wi-Fi backend for testing.
+  static const String localBaseUrl = 'http://172.16.11.31:3000';
 
   static const String _configuredBase = String.fromEnvironment(
     'API_BASE_URL',
-    // Live API by default so receiver incoming parcels / alerts match production data.
-    // Override for local testing:
-    // --dart-define=API_BASE_URL=http://192.168.1.6:3000
+    // Live API by default. Override with local launch config when needed.
     defaultValue: liveBaseUrl,
   );
 
   static const String _configuredWebsite = String.fromEnvironment(
     'WEBSITE_URL',
-    defaultValue: liveBaseUrl,
+    defaultValue: liveWebsiteUrl,
   );
 
   /// REST / Socket.io origin (no trailing slash).
@@ -51,7 +51,7 @@ class ApiConfig {
   /// Marketing site (legal pages, FAQ, contact).
   static String get websiteUrl {
     final raw = _configuredWebsite.trim();
-    if (raw.isEmpty) return liveBaseUrl;
+    if (raw.isEmpty) return liveWebsiteUrl;
     if (raw.endsWith('/')) return raw.substring(0, raw.length - 1);
     return raw;
   }
@@ -68,7 +68,7 @@ class ApiConfig {
   /// Override with: `flutter run --dart-define=GOOGLE_MAPS_API_KEY=...`
   static const String googleMapsApiKey = String.fromEnvironment(
     'GOOGLE_MAPS_API_KEY',
-    defaultValue: 'AIzaSyBM9mGr8VU88NzvMs0CD1up5panX8Ec8Go',
+    defaultValue: 'AIzaSyD3uup1fPTj-sEXRgApvEAguETU-nX9-1M',
   );
 
   /// Absolute URL for a relative upload path returned by the API.

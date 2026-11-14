@@ -15,7 +15,7 @@
       "request": "launch",
       "type": "dart",
       "toolArgs": [
-        "--dart-define=API_BASE_URL=http://192.168.1.6:3000",
+        "--dart-define=API_BASE_URL=http://192.168.1.5:3000",
         "--dart-define=WEBSITE_URL=https://wwngo.com"
       ]
     }

@@ -86,3 +86,6 @@ gradle-clean.txt
 gradle-stop.txt
 cleanup-status.txt
 flutter_*.log
+
+# Local build-time secrets (copy dart_defines.example.json)
+/dart_defines.json

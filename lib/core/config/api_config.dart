@@ -65,10 +65,11 @@ class ApiConfig {
   static String get socketUrl => baseUrl;
 
   /// Same Google Maps / Places key used by the backend (`GOOGLE_MAPS_API_KEY`).
-  /// Override with: `flutter run --dart-define=GOOGLE_MAPS_API_KEY=...`
+  /// Not hardcoded: pass it at build/run time, e.g.
+  /// `flutter run --dart-define-from-file=dart_defines.json` (see dart_defines.example.json).
   static const String googleMapsApiKey = String.fromEnvironment(
     'GOOGLE_MAPS_API_KEY',
-    defaultValue: 'AIzaSyD3uup1fPTj-sEXRgApvEAguETU-nX9-1M',
+    defaultValue: '',
   );
 
   /// Absolute URL for a relative upload path returned by the API.

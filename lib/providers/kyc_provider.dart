@@ -177,6 +177,28 @@ class KycProvider extends ChangeNotifier {
     }
   }
 
+  /// Local testing only: approves KYC on the backend without Sumsub.
+  Future<KycStatusResult> devBypass() async {
+    _loading = true;
+    _error = null;
+    notifyListeners();
+    try {
+      final result = await _kycRepository.devBypass();
+      _lastStatus = result;
+      final user = _kycRepository.userFromStatus(result);
+      if (user != null) {
+        await _authRepository.updateCurrentUser(user);
+      }
+      return result;
+    } on ApiException catch (e) {
+      _error = e.message;
+      rethrow;
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
+  }
+
   void clearError() {
     _error = null;
     notifyListeners();

@@ -33,6 +33,13 @@ class KycRepository {
     return SumsubAccessToken.fromJson(data);
   }
 
+  /// POST /api/v1/kyc/dev-bypass — local testing only; the server rejects it
+  /// unless KYC_DEV_BYPASS=true.
+  Future<KycStatusResult> devBypass() async {
+    final data = await _apiClient.post('/kyc/dev-bypass', authenticated: true);
+    return KycStatusResult.fromJson(data);
+  }
+
   /// GET /api/v1/kyc/status
   Future<KycStatusResult> fetchStatus({bool sync = true}) async {
     if (_isDemoMode) {

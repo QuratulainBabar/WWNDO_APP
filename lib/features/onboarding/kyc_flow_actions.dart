@@ -57,6 +57,25 @@ abstract final class KycFlowActions {
     }
   }
 
+  /// Local testing only: skip Sumsub (e.g. disabled App Token) and open the app.
+  static Future<void> bypassSumsub(BuildContext context) async {
+    final kyc = context.read<KycProvider>();
+    try {
+      await kyc.devBypass();
+    } catch (e) {
+      if (context.mounted) {
+        AppToast.error(context, kyc.error ?? e.toString());
+      }
+      return;
+    }
+    if (!context.mounted) return;
+    AppToast.success(context, 'Sumsub bypassed — KYC approved for testing.');
+    await PostAuthNavigation.continueAfterAuth(
+      context,
+      offerBiometricSetup: false,
+    );
+  }
+
   static Future<void> refreshAndRoute(BuildContext context) async {
     final kyc = context.read<KycProvider>();
     try {

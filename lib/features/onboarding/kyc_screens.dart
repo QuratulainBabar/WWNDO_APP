@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../core/auth/post_auth_navigation.dart';
+import '../../core/config/api_config.dart';
 import '../../core/config/demo_mode.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
@@ -335,6 +336,19 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
                                   }
                                 }
                               },
+                      ),
+                    ],
+                    // Local backend only: skip Sumsub when its App Token is disabled.
+                    if (useSumsub &&
+                        status != KycStatusValue.approved &&
+                        ApiConfig.baseUrl != ApiConfig.liveBaseUrl) ...[
+                      const SizedBox(height: 12),
+                      AppButton(
+                        label: 'Bypass Sumsub verification',
+                        variant: AppButtonVariant.outline,
+                        onPressed: kyc.loading
+                            ? null
+                            : () => KycFlowActions.bypassSumsub(context),
                       ),
                     ],
                     if (appDemo || _demoMode) ...[

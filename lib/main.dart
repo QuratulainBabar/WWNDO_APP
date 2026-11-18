@@ -26,6 +26,9 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   debugPrint('API CONFIG → baseUrl=${ApiConfig.baseUrl}');
   debugPrint('API CONFIG → apiV1=${ApiConfig.apiV1}');
+  debugPrint(
+    'API CONFIG → mapsKeyConfigured=${ApiConfig.googleMapsApiKey.isNotEmpty}',
+  );
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,

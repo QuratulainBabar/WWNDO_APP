@@ -1,13 +1,16 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../../../core/api/api_exception.dart';
 import '../../../core/platform/keyboard_utils.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/widgets/app_chip.dart';
 import '../../../data/models/meetup_location.dart';
 import '../../../data/services/places_search_service.dart';
+import '../../../providers/auth_provider.dart';
 
 /// From / To airport or city search for country-to-country posting.
 class AirportRouteSearchFields extends StatefulWidget {
@@ -70,7 +73,9 @@ class _AirportRouteSearchFieldsState extends State<AirportRouteSearchFields> {
   bool _applyingSelection = false;
 
   PlacesSearchService get _places {
-    return _placesService ??= PlacesSearchService();
+    return _placesService ??= PlacesSearchService(
+      apiClient: context.read<AuthProvider>().repository.apiClient,
+    );
   }
 
   @override
@@ -210,7 +215,7 @@ class _AirportRouteSearchFieldsState extends State<AirportRouteSearchFields> {
               : results.take(_previewLimit).toList();
           _searching = false;
         });
-      } catch (_) {
+      } catch (e) {
         if (!mounted) return;
         final searchAirports = _active == _ActiveField.from
             ? widget.fromSearchAirports
@@ -219,9 +224,11 @@ class _AirportRouteSearchFieldsState extends State<AirportRouteSearchFields> {
           _suggestions = const [];
           _totalMatches = 0;
           _searching = false;
-          _searchError = searchAirports
-              ? 'Could not search airports. Try again.'
-              : 'Could not search locations. Try again.';
+          _searchError = e is ApiException && e.message.trim().isNotEmpty
+              ? e.message
+              : (searchAirports
+                  ? 'Could not search airports. Try again.'
+                  : 'Could not search locations. Try again.');
         });
       }
     });

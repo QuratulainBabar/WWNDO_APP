@@ -1,7 +1,7 @@
 /// API base URL for the WWNGO backend.
 ///
 /// Default is the live API (`https://wwngo.com/backend`).
-/// Local: `flutter run --dart-define=API_BASE_URL=http://192.168.1.4:3000`
+/// Local: `flutter run --dart-define=API_BASE_URL=http://172.16.11.31:3000`
 /// or the "wwngo_app (local API)" launch configuration.
 class ApiConfig {
   ApiConfig._();
@@ -13,7 +13,7 @@ class ApiConfig {
   static const String liveWebsiteUrl = 'https://wwngo.com';
 
   /// Local Wi-Fi backend for testing.
-  static const String localBaseUrl = 'http://192.168.1.4:3000';
+  static const String localBaseUrl = 'http://172.16.11.31:3000';
 
   static const String _configuredBase = String.fromEnvironment(
     'API_BASE_URL',
@@ -65,8 +65,8 @@ class ApiConfig {
   static String get socketUrl => baseUrl;
 
   /// Same Google Maps / Places key used by the backend (`GOOGLE_MAPS_API_KEY`).
-  /// Not hardcoded: pass it at build/run time, e.g.
-  /// `flutter run --dart-define-from-file=dart_defines.json` (see dart_defines.example.json).
+  /// Pass at build/run time via `--dart-define-from-file=dart_defines.json`
+  /// (see dart_defines.example.json).
   static const String googleMapsApiKey = String.fromEnvironment(
     'GOOGLE_MAPS_API_KEY',
     defaultValue: '',

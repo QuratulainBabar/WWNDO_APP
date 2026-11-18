@@ -3,12 +3,15 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
+import '../../core/api/api_exception.dart';
 import '../../core/platform/keyboard_utils.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../data/models/meetup_location.dart';
 import '../../data/services/places_search_service.dart';
+import '../../providers/auth_provider.dart';
 
 /// Location picker (search + multi-stop) used for From/To city and meetup spots.
 /// Plain background — no map. Selecting a place returns immediately to the caller.
@@ -56,7 +59,9 @@ class _AddMeetupLocationsScreenState extends State<AddMeetupLocationsScreen> {
   String? _searchError;
 
   PlacesSearchService get _places {
-    return _placesService ??= PlacesSearchService();
+    return _placesService ??= PlacesSearchService(
+      apiClient: context.read<AuthProvider>().repository.apiClient,
+    );
   }
 
   @override
@@ -152,12 +157,14 @@ class _AddMeetupLocationsScreenState extends State<AddMeetupLocationsScreen> {
           _suggestions = results;
           _searching = false;
         });
-      } catch (_) {
+      } catch (e) {
         if (!mounted) return;
         setState(() {
           _suggestions = [];
           _searching = false;
-          _searchError = 'Could not search locations. Try again.';
+          _searchError = e is ApiException && e.message.trim().isNotEmpty
+              ? e.message
+              : 'Could not search locations. Try again.';
         });
       }
     });

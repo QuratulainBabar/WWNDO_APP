@@ -77,4 +77,17 @@ abstract final class SelectedRoleStore {
     }
     return null;
   }
+
+  static Future<void> clearForUser({
+    String? userId,
+    String? email,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (userId != null && userId.isNotEmpty) {
+      await prefs.remove('$_idPrefix$userId');
+    }
+    if (email != null && email.trim().isNotEmpty) {
+      await prefs.remove('$_emailPrefix${email.trim().toLowerCase()}');
+    }
+  }
 }

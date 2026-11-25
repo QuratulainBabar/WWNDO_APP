@@ -115,6 +115,9 @@ const Map<String, String> _enExtra = {
   'legalPoliciesSubtitle': 'Privacy, terms, cookies',
   'account': 'Account',
   'deleteAccount': 'Delete account',
+  'deleteAccountConfirmBody':
+      'This permanently deletes your WWNGO account and associated data. You will not be able to sign in with this email and password again. This cannot be undone.',
+  'deleteAccountSuccess': 'Your account has been deleted.',
   'quickActions': 'Quick actions',
   'createTripShort': 'Create Trip',
   'myTripsTitle': 'My Trips',

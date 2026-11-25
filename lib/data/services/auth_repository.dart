@@ -871,4 +871,44 @@ class AuthRepository {
     _currentUser = updated;
     await _tokenStorage.saveUser(updated);
   }
+
+  /// Permanently deletes the signed-in account on the backend, then clears
+  /// local tokens and session. Does not deactivate or suspend.
+  Future<void> deleteAccount() async {
+    final user = _currentUser;
+    if (user == null) {
+      throw const ApiException(
+        message: 'Not signed in',
+        code: 'UNAUTHORIZED',
+      );
+    }
+
+    if (_isDemoMode) {
+      await SelectedRoleStore.clearForUser(
+        userId: user.id,
+        email: user.email,
+      );
+      await logout(forceFull: true);
+      return;
+    }
+
+    try {
+      await _apiClient.delete('/auth/me', authenticated: true);
+    } on ApiException catch (e) {
+      if (e.statusCode == 404 || e.code == 'NOT_FOUND') {
+        throw const ApiException(
+          message:
+              'Account deletion is not available on the server yet. Your account was not deleted.',
+          code: 'NOT_FOUND',
+          statusCode: 404,
+        );
+      }
+      rethrow;
+    }
+    await SelectedRoleStore.clearForUser(
+      userId: user.id,
+      email: user.email,
+    );
+    await logout(forceFull: true);
+  }
 }

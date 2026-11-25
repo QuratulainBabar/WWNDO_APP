@@ -11,6 +11,7 @@ import '../../core/currency/fx_rate_service.dart';
 import '../../core/layout/responsive.dart';
 import '../../core/navigation/app_navigation.dart';
 import '../../core/payments/stripe_connect_return.dart';
+import '../../router/app_router.dart';
 import '../../core/platform/biometric_auth_service.dart';
 import '../../core/platform/biometric_prefs.dart';
 import '../../core/platform/keyboard_utils.dart';
@@ -801,6 +802,7 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _biometricEnabled = false;
   bool _biometricBusy = false;
+  bool _deleteBusy = false;
   bool _connectLoading = false;
   String? _connectStatusLabel;
 
@@ -932,6 +934,80 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _routeWithRole(String baseRoute, String? roleParam) {
     if (roleParam == null || roleParam.isEmpty) return baseRoute;
     return '$baseRoute?role=$roleParam';
+  }
+
+  Future<bool> _confirmDeleteAccount() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        final typo = dialogContext.typo;
+        final l10n = dialogContext.l10n;
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  l10n.deleteAccount,
+                  style: typo.h2.copyWith(fontWeight: FontWeight.w700),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  l10n.deleteAccountConfirmBody,
+                  style: typo.sm.copyWith(color: AppColors.textSecondary),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                AppButton(
+                  label: l10n.deleteAccount,
+                  variant: AppButtonVariant.danger,
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                ),
+                const SizedBox(height: AppButton.stackGap),
+                AppButton(
+                  label: l10n.keep,
+                  variant: AppButtonVariant.ghost,
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    return confirmed ?? false;
+  }
+
+  Future<void> _deleteAccount() async {
+    if (_deleteBusy) return;
+    final confirmed = await _confirmDeleteAccount();
+    if (!confirmed || !mounted) return;
+
+    setState(() => _deleteBusy = true);
+    try {
+      await context.read<AuthProvider>().deleteAccount();
+      if (!mounted) return;
+      try {
+        context.read<WalletProvider>().clear();
+      } catch (_) {}
+      final success = context.l10n.deleteAccountSuccess;
+      AppToast.success(context, success);
+      appRouter.go('/login');
+    } on ApiException catch (e) {
+      if (mounted) AppToast.error(context, e.message);
+    } catch (_) {
+      if (mounted) {
+        AppToast.error(
+          context,
+          'Unable to delete account. Please try again.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _deleteBusy = false);
+    }
   }
 
   @override
@@ -1164,9 +1240,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 12),
             AppButton(
-              label: context.tr('Delete account'),
+              label: _deleteBusy
+                  ? context.tr('Deleting...')
+                  : context.tr('Delete account'),
               variant: AppButtonVariant.danger,
-              onPressed: () => context.go('/account-suspended'),
+              onPressed: _deleteBusy ? null : _deleteAccount,
             ),
             const SizedBox(height: 24),
             Center(

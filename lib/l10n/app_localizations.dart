@@ -930,6 +930,8 @@ class AppLocalizations {
   String get legalPoliciesSubtitle => _t('legalPoliciesSubtitle');
   String get account => _t('account');
   String get deleteAccount => _t('deleteAccount');
+  String get deleteAccountConfirmBody => _t('deleteAccountConfirmBody');
+  String get deleteAccountSuccess => _t('deleteAccountSuccess');
   String get quickActions => _t('quickActions');
   String get createTripShort => _t('createTripShort');
   String get myTripsTitle => _t('myTripsTitle');

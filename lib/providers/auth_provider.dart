@@ -127,6 +127,24 @@ class AuthProvider extends ChangeNotifier {
   /// chooses password login from the inactivity Face ID gate.
   Future<void> logoutFully() => _run(() => _repository.logout(forceFull: true));
 
+  /// Permanently deletes the account via the backend, then clears the session.
+  /// On API failure the user stays logged in.
+  Future<void> deleteAccount() async {
+    _loading = true;
+    notifyListeners();
+    try {
+      await _repository.deleteAccount();
+      await BiometricPrefs.setLoginEnabled(false);
+      await _inactivityLock?.onLoggedOut();
+      notifyListeners();
+    } on ApiException {
+      rethrow;
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> sendPasswordResetOtp({
     required String contact,
     required OtpChannel channel,

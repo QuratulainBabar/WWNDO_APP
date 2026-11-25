@@ -1,21 +1,21 @@
 {
   "project_info": {
-    "project_number": "YOUR_PROJECT_NUMBER",
-    "project_id": "chatapp-5c41d",
-    "storage_bucket": "chatapp-5c41d.appspot.com"
+    "project_number": "166422952774",
+    "project_id": "wwngo-21cc7",
+    "storage_bucket": "wwngo-21cc7.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:YOUR_PROJECT_NUMBER:android:YOUR_APP_HASH",
+        "mobilesdk_app_id": "1:166422952774:android:390a93467eff075925c347",
         "android_client_info": {
-          "package_name": "com.wwngo.wwngo_app"
+          "package_name": "com.wwngo.app"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "YOUR_ANDROID_API_KEY"
+          "current_key": "AIzaSyB4vUIk8b3rJGuTetkRtmhzyoAiExak6bs"
         }
       ],
       "services": {

@@ -1,4 +1,4 @@
-package com.wwngo.wwngo_app;
+package com.wwngo.app;
 
 import android.os.Bundle;
 import android.view.WindowManager;

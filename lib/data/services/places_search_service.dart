@@ -6,13 +6,16 @@ import 'package:http/http.dart' as http;
 import '../../core/api/api_client.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/config/api_config.dart';
+import '../../core/geo/world_airports.dart';
+import '../../core/geo/world_cities.dart';
+import '../../core/geo/world_countries.dart';
 import '../models/meetup_location.dart';
 
-/// Location search via Google Places API (New), with optional backend proxy
-/// fallback (`GET /api/v1/places/...`).
+/// Location search via the WWNGO backend Places proxy, with optional direct
+/// Google Places API (New) and local city/airport catalog fallbacks.
 ///
-/// Direct Google calls use [ApiConfig.googleMapsApiKey] (from
-/// `--dart-define-from-file=dart_defines.json` or the compile-time default).
+/// Prefer the backend: Android-restricted API keys often return
+/// "The caller does not have permission" for plain REST calls from the app.
 class PlacesSearchService {
   PlacesSearchService({
     ApiClient? apiClient,
@@ -61,17 +64,7 @@ class PlacesSearchService {
 
     Object? lastError;
 
-    if (_apiKey.isNotEmpty) {
-      try {
-        return await _autocompleteGoogle(trimmed, mode: mode);
-      } catch (e) {
-        lastError = e;
-        if (kDebugMode) {
-          debugPrint('Places Google autocomplete failed: $e');
-        }
-      }
-    }
-
+    // Backend first — uses the server key (no Android package attestation).
     if (_api != null) {
       try {
         return await _autocompleteBackend(trimmed, mode: mode);
@@ -83,19 +76,24 @@ class PlacesSearchService {
       }
     }
 
-    if (lastError is ApiException) throw lastError;
-    if (_apiKey.isEmpty && _api == null) {
-      throw const ApiException(
-        message:
-            'Google Maps is not configured. Set GOOGLE_MAPS_API_KEY for the app.',
-        code: 'MAPS_NOT_CONFIGURED',
-        statusCode: 503,
-      );
+    if (_apiKey.isNotEmpty) {
+      try {
+        return await _autocompleteGoogle(trimmed, mode: mode);
+      } catch (e) {
+        lastError = e;
+        if (kDebugMode) {
+          debugPrint('Places Google autocomplete failed: $e');
+        }
+      }
     }
-    throw const ApiException(
-      message: 'Unable to search locations. Please try again.',
-      code: 'PLACES_NETWORK_ERROR',
-    );
+
+    // Offline / permission-safe fallback for route pickers.
+    if (mode == 'cities' || mode == 'airports') {
+      final local = _autocompleteLocal(trimmed, mode: mode);
+      if (local.isNotEmpty) return local;
+    }
+
+    throw _toSearchException(lastError);
   }
 
   Future<List<MeetupLocation>> _autocompleteGoogle(
@@ -206,12 +204,70 @@ class PlacesSearchService {
         .toList();
   }
 
+  List<MeetupLocation> _autocompleteLocal(
+    String trimmed, {
+    required String mode,
+  }) {
+    if (mode == 'airports') {
+      return WorldAirports.search(trimmed, limit: 12)
+          .map(
+            (a) => MeetupLocation(
+              name: a.resultTitle,
+              address: a.locationSubtitle,
+              countryCode: a.countryIso,
+              locality: a.city,
+            ),
+          )
+          .toList();
+    }
+
+    final cities = WorldCities.search(query: trimmed)
+        .take(12)
+        .map((c) {
+          final country = WorldCountries.byIso(c.countryIso).name;
+          return MeetupLocation(
+            name: c.name,
+            address: '${c.name}, $country',
+            countryCode: c.countryIso,
+            locality: c.name,
+          );
+        });
+
+    final countries = WorldCountries.search(trimmed)
+        .take(8)
+        .map(
+          (c) => MeetupLocation(
+            name: c.name,
+            address: c.name,
+            countryCode: c.iso,
+          ),
+        );
+
+    final seen = <String>{};
+    final out = <MeetupLocation>[];
+    for (final place in [...cities, ...countries]) {
+      final key = '${place.name}|${place.countryCode ?? ''}'.toLowerCase();
+      if (seen.add(key)) out.add(place);
+    }
+    return out;
+  }
+
   /// Enrich a prediction with country ISO + coordinates (Place Details).
   /// Preserves the user's autocomplete selection ([MeetupLocation.name] and
   /// [MeetupLocation.address]) — only adds metadata from Place Details.
   Future<MeetupLocation> resolveDetails(MeetupLocation place) async {
     final placeId = place.placeId?.trim();
     if (placeId == null || placeId.isEmpty) return place;
+
+    if (_api != null) {
+      try {
+        return await _resolveDetailsBackend(place, placeId);
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint('Places backend details failed: $e');
+        }
+      }
+    }
 
     if (_apiKey.isNotEmpty) {
       try {
@@ -224,16 +280,6 @@ class PlacesSearchService {
       } catch (e) {
         if (kDebugMode) {
           debugPrint('Places Google details failed: $e');
-        }
-      }
-    }
-
-    if (_api != null) {
-      try {
-        return await _resolveDetailsBackend(place, placeId);
-      } catch (e) {
-        if (kDebugMode) {
-          debugPrint('Places backend details failed: $e');
         }
       }
     }
@@ -341,6 +387,36 @@ class PlacesSearchService {
       locality: (locality != null && locality.isNotEmpty)
           ? locality
           : place.locality,
+    );
+  }
+
+  ApiException _toSearchException(Object? lastError) {
+    if (lastError is ApiException) {
+      final message = lastError.message.trim();
+      final lower = message.toLowerCase();
+      if (lower.contains('permission') ||
+          lower.contains('permission_denied') ||
+          lastError.statusCode == 403) {
+        return const ApiException(
+          message:
+              'Location search is temporarily unavailable. Please try again.',
+          code: 'PLACES_PERMISSION_DENIED',
+          statusCode: 403,
+        );
+      }
+      if (message.isNotEmpty) return lastError;
+    }
+    if (_apiKey.isEmpty && _api == null) {
+      return const ApiException(
+        message:
+            'Google Maps is not configured. Set GOOGLE_MAPS_API_KEY for the app.',
+        code: 'MAPS_NOT_CONFIGURED',
+        statusCode: 503,
+      );
+    }
+    return const ApiException(
+      message: 'Unable to search locations. Please try again.',
+      code: 'PLACES_NETWORK_ERROR',
     );
   }
 

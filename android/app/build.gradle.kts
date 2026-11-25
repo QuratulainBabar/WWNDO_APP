@@ -24,21 +24,23 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    signingConfigs {
+        create("release") {
+            if (keystorePropertiesFile.exists()) {
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+                storeFile = file(keystoreProperties.getProperty("storeFile") ?: "keystore.jks")
+                storePassword = keystoreProperties.getProperty("storePassword")
+            }
+        }
+    }
+
     defaultConfig {
         applicationId = "com.wwngo.app"
         minSdk = maxOf(23, flutter.minSdkVersion)
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-    }
-
-    signingConfigs {
-        create("release") {
-            keyAlias = keystoreProperties.getProperty("keyAlias")
-            keyPassword = keystoreProperties.getProperty("keyPassword")
-            storeFile = file(keystoreProperties.getProperty("storeFile") ?: "keystore.jks")
-            storePassword = keystoreProperties.getProperty("storePassword")
-        }
     }
 
     buildTypes {

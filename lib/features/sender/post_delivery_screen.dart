@@ -15,12 +15,12 @@ import '../../data/models/wallet_role.dart';
 import '../../data/services/delivery_repository.dart';
 import '../../data/static_data.dart';
 import '../../data/wallet_gate.dart';
+import '../../l10n/app_localizations.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_realtime_provider.dart';
 import '../../providers/sender_deliveries_provider.dart';
 import 'delivery_posting_actions.dart';
 import 'widgets/delivery_form_fields.dart';
-import '../../l10n/app_localizations.dart';
 
 class PostDeliveryScreen extends StatefulWidget {
   const PostDeliveryScreen({super.key, this.initialTrip});
@@ -65,7 +65,9 @@ class _PostDeliveryScreenState extends State<PostDeliveryScreen> {
           shipmentId: created.publicId,
           fromCity: fromCity,
           toCity: toCity,
-          fromCode: request.fromCode?.isNotEmpty == true ? request.fromCode! : 'WW',
+          fromCode: request.fromCode?.isNotEmpty == true
+              ? request.fromCode!
+              : 'WW',
           toCode: request.toCode?.isNotEmpty == true ? request.toCode! : 'WW',
           travelDate: request.travelDate,
           parcelCategory: request.parcelCategory,
@@ -85,10 +87,7 @@ class _PostDeliveryScreenState extends State<PostDeliveryScreen> {
       context.read<NotificationRealtimeProvider>().notifyDeliveryUpdated();
       await WalletGate.refreshRoles(context, [WalletRole.sender]);
       if (!mounted) return;
-      context.pushReplacement(
-        '/post-delivery/success',
-        extra: created,
-      );
+      context.pushReplacement('/post-delivery/success', extra: created);
     } on ApiException catch (e) {
       if (!mounted) return;
       final form = _formKey.currentState;
@@ -98,10 +97,7 @@ class _PostDeliveryScreenState extends State<PostDeliveryScreen> {
       AppToast.error(context, e.message);
     } catch (e) {
       if (!mounted) return;
-      AppToast.error(
-        context,
-        e.toString().replaceFirst('Exception: ', ''),
-      );
+      AppToast.error(context, e.toString().replaceFirst('Exception: ', ''));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }

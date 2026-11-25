@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -128,15 +129,21 @@ class CurrencyProvider extends ChangeNotifier {
         quoteId: quote.quoteId,
       );
       _fxError = null;
-      debugPrint(
-        'FX rate USD→$to = ${quote.exchangeRate} (quote ${quote.quoteId})',
-      );
+      if (kDebugMode) {
+        debugPrint(
+          'FX rate USD→$to = ${quote.exchangeRate} (quote ${quote.quoteId})',
+        );
+      }
     } on ApiException catch (e) {
       _fxError = e.message;
-      debugPrint('FX rate refresh failed: ${e.message}');
+      if (kDebugMode) {
+        debugPrint('FX rate refresh failed: ${e.message}');
+      }
     } catch (e) {
       _fxError = 'Unable to load exchange rate';
-      debugPrint('FX rate refresh failed: $e');
+      if (kDebugMode) {
+        debugPrint('FX rate refresh failed: $e');
+      }
     } finally {
       _fxLoading = false;
       notifyListeners();

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import '../../l10n/app_localizations.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/config/demo_mode.dart';
@@ -23,6 +22,7 @@ import '../../data/services/delivery_repository.dart';
 import '../../data/services/trip_repository.dart';
 import '../../data/static_data.dart';
 import '../../data/wallet_service.dart';
+import '../../l10n/app_localizations.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/wallet_provider.dart';
 import '../profile/widgets/profile_header_card.dart';
@@ -47,10 +47,10 @@ class _TravelerProfileScreenState extends State<TravelerProfileScreen> {
   bool _statsLoading = true;
 
   ProfileTrustMetrics get _trustMetrics => ProfileTrustMetrics(
-        completedDeliveries: _completedDeliveries,
-        cancellationRate: 0,
-        disputeRate: 0,
-      );
+    completedDeliveries: _completedDeliveries,
+    cancellationRate: 0,
+    disputeRate: 0,
+  );
 
   @override
   void initState() {
@@ -150,8 +150,9 @@ class _TravelerProfileScreenState extends State<TravelerProfileScreen> {
     var activeTrips = _activeTrips;
 
     try {
-      final deliveries =
-          await _deliveryRepository().listDeliveries(role: 'traveler');
+      final deliveries = await _deliveryRepository().listDeliveries(
+        role: 'traveler',
+      );
       totalDeliveries = deliveries.length;
       completedDeliveries = deliveries.where((d) {
         final status = (d.status ?? '').trim().toLowerCase();
@@ -275,10 +276,7 @@ class _TravelerProfileScreenState extends State<TravelerProfileScreen> {
             ),
             if (_error != null) ...[
               const SizedBox(height: 8),
-              Text(
-                _error!,
-                style: typo.sm.copyWith(color: AppColors.danger),
-              ),
+              Text(_error!, style: typo.sm.copyWith(color: AppColors.danger)),
             ],
             const SizedBox(height: 16),
             ProfileHeaderCard(
@@ -381,7 +379,7 @@ class _TravelerProfileScreenState extends State<TravelerProfileScreen> {
                 Expanded(
                   child: ValueListenableBuilder<int>(
                     valueListenable: WalletService.walletVersion,
-                    builder: (context, _, __) => _stat(
+                    builder: (context, _, _) => _stat(
                       context,
                       WalletService.formatCents(
                         WalletService.availableCents(WalletRole.traveler),
@@ -429,7 +427,8 @@ class _TravelerProfileScreenState extends State<TravelerProfileScreen> {
         Expanded(child: Text(label, style: typo.sm)),
         const SizedBox(width: 12),
         Flexible(
-          child: trailing ??
+          child:
+              trailing ??
               Text(
                 value,
                 textAlign: TextAlign.end,

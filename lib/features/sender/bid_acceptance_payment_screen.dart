@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import '../../l10n/app_localizations.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/config/demo_mode.dart';
@@ -24,6 +23,7 @@ import '../../data/services/trip_repository.dart';
 import '../../data/services/wallet_repository.dart';
 import '../../data/wallet_gate.dart';
 import '../../data/wallet_service.dart';
+import '../../l10n/app_localizations.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/currency_provider.dart';
 import '../../providers/sender_offer_flow_lock.dart';
@@ -66,7 +66,8 @@ class BidAcceptancePaymentScreen extends StatefulWidget {
       _BidAcceptancePaymentScreenState();
 }
 
-class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen> {
+class _BidAcceptancePaymentScreenState
+    extends State<BidAcceptancePaymentScreen> {
   bool _paying = false;
   bool _paid = false;
   bool _loading = true;
@@ -144,14 +145,14 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
       int availableCents = 0;
       try {
         final summary = await context.read<WalletProvider>().refresh(
-              WalletRole.sender,
-              silent: true,
-            );
+          WalletRole.sender,
+          silent: true,
+        );
         availableCents = summary.availableCents;
       } catch (_) {
         availableCents = context.read<WalletProvider>().availableCents(
-              WalletRole.sender,
-            );
+          WalletRole.sender,
+        );
       }
       if (!mounted) return;
       setState(() {
@@ -210,10 +211,7 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
   TripRepository _tripRepo() {
     final auth = context.read<AuthProvider>();
     final demo = context.read<DemoModeProvider>();
-    return TripRepository(
-      apiClient: auth.repository.apiClient,
-      demoMode: demo,
-    );
+    return TripRepository(apiClient: auth.repository.apiClient, demoMode: demo);
   }
 
   Future<void> _loadDelivery() async {
@@ -278,7 +276,9 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
     if (shipmentId.isEmpty) return null;
 
     try {
-      final offer = await _tripRepo().getSenderCounterOfferByDelivery(shipmentId);
+      final offer = await _tripRepo().getSenderCounterOfferByDelivery(
+        shipmentId,
+      );
       return offer.id.trim().isEmpty ? null : offer.id.trim();
     } catch (_) {
       return null;
@@ -328,10 +328,7 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
   ) async {
     final amountCents = _stripeChargeCents();
     try {
-      await walletRepo.topUp(
-        role: WalletRole.sender,
-        amountCents: amountCents,
-      );
+      await walletRepo.topUp(role: WalletRole.sender, amountCents: amountCents);
       throw const ApiException(
         message:
             'Card payment could not be started. Check Stripe configuration and try again.',
@@ -408,7 +405,8 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
       if (paymentMethod == _BidPaymentMethod.stripe) {
         await StripePayments.ensureConfigured(walletRepo);
         final stripeReady =
-            StripePayments.isEnabled && (_backendStripeEnabled || _stripeEnabled);
+            StripePayments.isEnabled &&
+            (_backendStripeEnabled || _stripeEnabled);
         if (!stripeReady) {
           if (!mounted) return;
           AppToast.error(
@@ -443,8 +441,9 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
         return;
       }
 
-      final methodParam =
-          paymentMethod == _BidPaymentMethod.wallet ? 'wallet' : 'stripe';
+      final methodParam = paymentMethod == _BidPaymentMethod.wallet
+          ? 'wallet'
+          : 'stripe';
       var accepted = false;
       for (var attempt = 0; attempt < 3; attempt++) {
         try {
@@ -513,16 +512,17 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
       // platform-fee / escrow ledger rows (avoid stale Home WalletCard fetches).
       if (mounted) {
         await context.read<WalletProvider>().refresh(
-              WalletRole.sender,
-              silent: true,
-              includeFullHistory: true,
-            );
+          WalletRole.sender,
+          silent: true,
+          includeFullHistory: true,
+        );
       }
       if (!mounted) return;
-      await WalletGate.refreshRoles(
-        context,
-        [WalletRole.sender, WalletRole.traveler, WalletRole.receiver],
-      );
+      await WalletGate.refreshRoles(context, [
+        WalletRole.sender,
+        WalletRole.traveler,
+        WalletRole.receiver,
+      ]);
 
       if (!mounted) return;
       await context.push(
@@ -601,12 +601,14 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
     final walletCoversTotal = _walletAvailableCents >= totalCents;
     final selectedMethod = _paymentMethod;
     final lock = SenderOfferFlowLock.instance;
-    final payCompleted = _paid ||
+    final payCompleted =
+        _paid ||
         lock.isPayCompleted(
           offerId: acceptance.offerId,
           shipmentId: acceptance.shipmentId,
         );
-    final payBusy = _paying ||
+    final payBusy =
+        _paying ||
         (!payCompleted &&
             lock.isPayConsumed(
               offerId: acceptance.offerId,
@@ -692,7 +694,8 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
               const SizedBox(height: 8),
               _PaymentMethodTile(
                 title: context.tr('Pay with card (Stripe)'),
-                subtitle: _stripeMethodCollected &&
+                subtitle:
+                    _stripeMethodCollected &&
                         selectedMethod == _BidPaymentMethod.stripe
                     ? context.l10n.cardSelectedTapPayNow
                     : context.l10n.chargeFullToCard(
@@ -707,7 +710,9 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
                   padding: const EdgeInsets.only(top: 6),
                   child: Text(
                     context.l10n.cardPaymentsNotConfiguredUseWallet,
-                    style: context.typo.sm.copyWith(color: AppColors.textSecondary),
+                    style: context.typo.sm.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                 ),
             ],
@@ -725,8 +730,8 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
               payCompleted
                   ? context.l10n.paymentAlreadyCompletedLocked
                   : selectedMethod == _BidPaymentMethod.wallet
-                      ? context.l10n.walletDeductedBookingHint
-                      : context.l10n.stripeChargeFullHint,
+                  ? context.l10n.walletDeductedBookingHint
+                  : context.l10n.stripeChargeFullHint,
               style: context.typo.sm.copyWith(
                 color: AppColors.textSecondary,
                 height: 1.4,
@@ -737,8 +742,8 @@ class _BidAcceptancePaymentScreenState extends State<BidAcceptancePaymentScreen>
               label: payCompleted
                   ? context.l10n.paidLabel
                   : payBusy
-                      ? context.tr('Processing…')
-                      : context.l10n.payNow,
+                  ? context.tr('Processing…')
+                  : context.l10n.payNow,
               onPressed: payDisabled ? null : _payNow,
             ),
           ],
@@ -818,9 +823,7 @@ class _PaymentMethodTile extends StatelessWidget {
           child: Row(
             children: [
               Icon(
-                selected
-                    ? Icons.radio_button_checked
-                    : Icons.radio_button_off,
+                selected ? Icons.radio_button_checked : Icons.radio_button_off,
                 color: enabled
                     ? (selected ? AppColors.primary : AppColors.textSecondary)
                     : AppColors.border,

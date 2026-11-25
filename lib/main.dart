@@ -3,12 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
+
 import 'app.dart';
 import 'core/config/api_config.dart';
 import 'core/config/demo_mode.dart';
 import 'core/l10n/app_language.dart';
 import 'core/push/push_notification_service.dart';
 import 'data/models/wallet_role.dart';
+import 'data/services/wallet_repository.dart';
 import 'providers/auth_provider.dart';
 import 'providers/chat_realtime_provider.dart';
 import 'providers/currency_provider.dart';
@@ -20,15 +22,16 @@ import 'providers/sender_offer_flow_lock.dart';
 import 'providers/session_inactivity_lock.dart';
 import 'providers/theme_provider.dart';
 import 'providers/wallet_provider.dart';
-import 'data/services/wallet_repository.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  debugPrint('API CONFIG → baseUrl=${ApiConfig.baseUrl}');
-  debugPrint('API CONFIG → apiV1=${ApiConfig.apiV1}');
-  debugPrint(
-    'API CONFIG → mapsKeyConfigured=${ApiConfig.googleMapsApiKey.isNotEmpty}',
-  );
+  if (kDebugMode) {
+    debugPrint('API CONFIG → baseUrl=${ApiConfig.baseUrl}');
+    debugPrint('API CONFIG → apiV1=${ApiConfig.apiV1}');
+    debugPrint(
+      'API CONFIG → mapsKeyConfigured=${ApiConfig.googleMapsApiKey.isNotEmpty}',
+    );
+  }
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
@@ -103,7 +106,8 @@ Future<void> main() async {
   }
 
   PushNotificationService.onForegroundChatMessage = (conversationId) {
-    final open = conversationId != null &&
+    final open =
+        conversationId != null &&
         conversationId.isNotEmpty &&
         chatRealtimeProvider.isConversationOpen(conversationId);
     // Instant bottom-bar badge while REST catch-up runs (Home / any screen).
@@ -123,8 +127,7 @@ Future<void> main() async {
     if (!authProvider.isAuthenticated) return;
     notificationRealtimeProvider.notifyDeliveryUpdated();
     notificationRealtimeProvider.refreshUnread(
-      role: notificationRealtimeProvider.activeRole ??
-          WalletRole.receiver,
+      role: notificationRealtimeProvider.activeRole ?? WalletRole.receiver,
       authRepository: authProvider.repository,
       demoMode: demoMode,
     );

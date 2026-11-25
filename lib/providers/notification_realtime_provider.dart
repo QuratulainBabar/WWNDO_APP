@@ -1,23 +1,21 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import '../core/config/demo_mode.dart';
 import '../data/models/app_notification.dart';
 import '../data/models/wallet_role.dart';
+import '../data/notification_service.dart';
 import '../data/services/auth_repository.dart';
 import '../data/services/chat_repository.dart';
 import '../data/services/notification_realtime_service.dart';
 import '../data/services/notification_repository.dart';
-import '../data/notification_service.dart';
 
 /// Keeps sender / traveler / receiver notification badges and inbox in sync via SSE.
 class NotificationRealtimeProvider extends ChangeNotifier
     with WidgetsBindingObserver {
-  NotificationRealtimeProvider({
-    NotificationRealtimeService? realtimeService,
-  }) : _realtimeService = realtimeService ?? NotificationRealtimeService();
+  NotificationRealtimeProvider({NotificationRealtimeService? realtimeService})
+    : _realtimeService = realtimeService ?? NotificationRealtimeService();
 
   final NotificationRealtimeService _realtimeService;
   final List<AppNotification> _recentIncoming = [];
@@ -35,11 +33,14 @@ class NotificationRealtimeProvider extends ChangeNotifier
   bool _observingLifecycle = false;
 
   int get unreadCount => _unreadCount;
+
   /// Total unread chat messages across all conversations (Chat tab badge).
   int get chatUnreadCount => _chatUnreadCount;
+
   /// Traveler home "Sender Requests" quick-action badge (unread pending requests).
   int get senderRequestUnreadCount => _senderRequestUnreadCount;
   int get deliveryUpdateTick => _deliveryUpdateTick;
+
   /// True only when the SSE subscription is actually open (not a stale flag).
   bool get isConnected => _realtimeService.isConnected;
   WalletRole? get activeRole => _activeRole;

@@ -20,10 +20,7 @@ class MultipartFilePart {
     this.bytes,
     this.filename,
     this.contentType,
-  }) : assert(
-          filePath != '' || bytes != null,
-          'Provide filePath or bytes',
-        );
+  }) : assert(filePath != '' || bytes != null, 'Provide filePath or bytes');
 
   final String field;
   final String filePath;
@@ -47,10 +44,7 @@ class ApiClient {
   /// Caps hung requests (common on Xiaomi when the LAN host is unreachable).
   final Duration timeout;
 
-  Future<Map<String, dynamic>> get(
-    String path, {
-    bool authenticated = false,
-  }) {
+  Future<Map<String, dynamic>> get(String path, {bool authenticated = false}) {
     return _request('GET', path, authenticated: authenticated);
   }
 
@@ -118,9 +112,7 @@ class ApiClient {
     bool retried = false,
   }) async {
     final isMultipart = multipartFiles != null;
-    final headers = <String, String>{
-      'Accept': 'application/json',
-    };
+    final headers = <String, String>{'Accept': 'application/json'};
     if (!isMultipart) {
       headers['Content-Type'] = 'application/json';
     }
@@ -170,7 +162,8 @@ class ApiClient {
       rethrow;
     } on http.ClientException {
       throw const ApiException(
-        message: 'Unable to reach the server. Check your connection and try again.',
+        message:
+            'Unable to reach the server. Check your connection and try again.',
         code: 'NETWORK_ERROR',
       );
     } on TimeoutException {
@@ -183,7 +176,8 @@ class ApiClient {
         debugPrint('API network error: $e');
       }
       throw const ApiException(
-        message: 'Unable to reach the server. Check your connection and try again.',
+        message:
+            'Unable to reach the server. Check your connection and try again.',
         code: 'NETWORK_ERROR',
       );
     }
@@ -278,19 +272,22 @@ class ApiClient {
           bytes = await xfile.readAsBytes();
         } catch (_) {
           throw const ApiException(
-            message: 'Could not read parcel photo. Please re-add the photo and try again.',
+            message:
+                'Could not read parcel photo. Please re-add the photo and try again.',
             code: 'VALIDATION_ERROR',
           );
         }
       }
       if (bytes.isEmpty) {
         throw const ApiException(
-          message: 'Parcel photo is empty. Please re-add the photo and try again.',
+          message:
+              'Parcel photo is empty. Please re-add the photo and try again.',
           code: 'VALIDATION_ERROR',
         );
       }
 
-      final name = part.filename ??
+      final name =
+          part.filename ??
           _basename(part.filePath.isNotEmpty ? part.filePath : 'photo.jpg');
       final filename = name.contains('.') ? name : '$name.jpg';
       request.files.add(
@@ -338,7 +335,9 @@ class ApiClient {
       }
       final error = json['error'];
       throw ApiException(
-        message: error is Map ? (error['message'] as String? ?? 'Request failed') : 'Request failed',
+        message: error is Map
+            ? (error['message'] as String? ?? 'Request failed')
+            : 'Request failed',
         statusCode: response.statusCode,
         code: error is Map ? error['code'] as String? : null,
         details: error is Map && error['details'] is Map

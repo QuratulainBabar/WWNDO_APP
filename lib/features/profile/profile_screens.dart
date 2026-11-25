@@ -3,26 +3,21 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import '../../core/platform/keyboard_utils.dart';
+
 import '../../core/api/api_exception.dart';
 import '../../core/auth/selected_role.dart';
 import '../../core/config/demo_mode.dart';
 import '../../core/currency/fx_rate_service.dart';
 import '../../core/layout/responsive.dart';
-import '../../core/widgets/kyc_status_badge.dart';
-import '../../providers/auth_provider.dart';
-import '../../providers/currency_provider.dart';
-import '../../providers/locale_provider.dart';
-import '../../providers/theme_provider.dart';
-import '../../providers/wallet_provider.dart';
 import '../../core/navigation/app_navigation.dart';
+import '../../core/payments/stripe_connect_return.dart';
 import '../../core/platform/biometric_auth_service.dart';
 import '../../core/platform/biometric_prefs.dart';
+import '../../core/platform/keyboard_utils.dart';
 import '../../core/platform/platform_ui.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
-import '../../l10n/app_localizations.dart';
-import '../../core/widgets/app_avatar.dart';
+import '../../core/utils/external_links.dart';
 import '../../core/widgets/app_badge.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_card.dart';
@@ -31,22 +26,26 @@ import '../../core/widgets/app_svg_icon.dart';
 import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/back_header.dart';
 import '../../core/widgets/back_link.dart';
+import '../../core/widgets/kyc_status_badge.dart';
 import '../../core/widgets/role_switch_card.dart';
 import '../../core/widgets/screen_body.dart';
 import '../../core/widgets/stacked_route_endpoints.dart';
 import '../../data/models/created_delivery.dart';
-import '../../data/models/shipment.dart';
 import '../../data/models/ledger_entry.dart';
 import '../../data/models/profile_trust_metrics.dart';
+import '../../data/models/shipment.dart';
 import '../../data/models/wallet_role.dart';
 import '../../data/services/delivery_repository.dart';
 import '../../data/services/trust_metrics_repository.dart';
-import '../../core/payments/stripe_connect_return.dart';
-import '../../core/utils/external_links.dart';
 import '../../data/services/wallet_repository.dart';
 import '../../data/static_data.dart';
 import '../../data/wallet_service.dart';
-import 'legal_screens.dart';
+import '../../l10n/app_localizations.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/currency_provider.dart';
+import '../../providers/locale_provider.dart';
+import '../../providers/theme_provider.dart';
+import '../../providers/wallet_provider.dart';
 import 'settings_flow_screens.dart';
 import 'widgets/profile_header_card.dart';
 import 'widgets/profile_trust_indicators.dart';
@@ -79,9 +78,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _loadShipmentCounts(silent: _activeCount != null);
           _loadTrustMetrics(silent: !_trustMetricsLoading);
           context.read<WalletProvider>().refresh(
-                WalletRole.sender,
-                silent: true,
-              );
+            WalletRole.sender,
+            silent: true,
+          );
         }
       });
     }
@@ -143,8 +142,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() => _trustMetricsLoading = true);
     }
     try {
-      final metrics =
-          await _trustMetricsRepository().fetch(WalletRole.sender);
+      final metrics = await _trustMetricsRepository().fetch(WalletRole.sender);
       if (!mounted) return;
       setState(() {
         _trustMetrics = metrics;
@@ -189,140 +187,140 @@ class _ProfileScreenState extends State<ProfileScreen> {
       body: ScreenBody(
         keyboardDismiss: false,
         child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              BackLink(onTap: () => context.go('/home')),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(context.l10n.profile, style: typo.h1),
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => _openRoute('/settings?role=sender'),
-                    child: AppSvgIcon(
-                      asset: AppIcons.settings,
-                      size: 24,
-                      color: AppColors.textSecondary,
-                    ),
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            BackLink(onTap: () => context.go('/home')),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(context.l10n.profile, style: typo.h1),
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _openRoute('/settings?role=sender'),
+                  child: AppSvgIcon(
+                    asset: AppIcons.settings,
+                    size: 24,
+                    color: AppColors.textSecondary,
                   ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              ProfileHeaderCard(
-                role: WalletRole.sender,
-                name: user.name,
-                initial: user.initial,
-                subtitle: context.tr(
-                  switch (SelectedRoleStore.roleFromUser(authUser)) {
-                    WalletRole.traveler => 'Traveler',
-                    WalletRole.receiver => 'Receiver',
-                    _ => 'Sender',
-                  },
                 ),
-                memberSince: user.memberSince,
-                bio: user.bio,
-                rating: user.rating,
-                authUser: authUser,
-              ),
-              IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _stat(
-                      context,
-                      activeLabel,
-                      context.l10n.activeShipments,
-                      onTap: () => _openRoute(
-                        '/my-posted-parcels',
-                        onReturn: () => _loadShipmentCounts(silent: true),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    _stat(
-                      context,
-                      completedLabel,
-                      context.l10n.completedShipments,
-                      onTap: () => _openRoute(
-                        '/shipment-history?role=sender',
-                        onReturn: () => _loadShipmentCounts(silent: true),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 10),
-              Row(
+              ],
+            ),
+            const SizedBox(height: 16),
+            ProfileHeaderCard(
+              role: WalletRole.sender,
+              name: user.name,
+              initial: user.initial,
+              subtitle: context.tr(switch (SelectedRoleStore.roleFromUser(
+                authUser,
+              )) {
+                WalletRole.traveler => 'Traveler',
+                WalletRole.receiver => 'Receiver',
+                _ => 'Sender',
+              }),
+              memberSince: user.memberSince,
+              bio: user.bio,
+              rating: user.rating,
+              authUser: authUser,
+            ),
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Expanded(
-                    child: ValueListenableBuilder<int>(
-                      valueListenable: WalletService.walletVersion,
-                      builder: (context, _, __) => _stat(
-                        context,
-                        WalletService.formatCents(
-                          WalletService.availableCents(WalletRole.sender),
-                        ),
-                        context.l10n.wallet,
-                        onTap: () => _openRoute('/wallet?role=sender'),
-                        expand: false,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              ProfileTrustIndicators(
-                metrics: _trustMetrics,
-                authUser: authUser,
-                loading: _trustMetricsLoading,
-              ),
-              const SizedBox(height: 16),
-              const RoleSwitchCard(currentRole: ShipmentRole.sender),
-              const SizedBox(height: 16),
-              Text(
-                context.l10n.quickActions,
-                style: typo.h3.copyWith(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _quickAction(
+                  _stat(
                     context,
-                    AppIcons.track,
-                    context.l10n.myShipments,
-                    () => context.go('/track'),
-                  ),
-                  const SizedBox(width: 10),
-                  _quickAction(
-                    context,
-                    AppIcons.history,
-                    context.l10n.shipmentHistory,
-                    () => _openRoute(
-                      '/shipment-history?role=sender',
+                    activeLabel,
+                    context.l10n.activeShipments,
+                    onTap: () => _openRoute(
+                      '/my-posted-parcels',
                       onReturn: () => _loadShipmentCounts(silent: true),
                     ),
                   ),
                   const SizedBox(width: 10),
-                  _quickAction(
+                  _stat(
                     context,
-                    AppIcons.browse,
-                    context.l10n.transactionHistory,
-                    () => _openRoute('/transaction-history?role=sender'),
+                    completedLabel,
+                    context.l10n.completedShipments,
+                    onTap: () => _openRoute(
+                      '/shipment-history?role=sender',
+                      onReturn: () => _loadShipmentCounts(silent: true),
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
-              const RecentReviewsSection(role: WalletRole.sender),
-              const SizedBox(height: 8),
-              AppButton(
-                label: context.tr('Log out'),
-                variant: AppButtonVariant.danger,
-                onPressed: () => logoutToLoginScreen(context),
-              ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: ValueListenableBuilder<int>(
+                    valueListenable: WalletService.walletVersion,
+                    builder: (context, _, _) => _stat(
+                      context,
+                      WalletService.formatCents(
+                        WalletService.availableCents(WalletRole.sender),
+                      ),
+                      context.l10n.wallet,
+                      onTap: () => _openRoute('/wallet?role=sender'),
+                      expand: false,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            ProfileTrustIndicators(
+              metrics: _trustMetrics,
+              authUser: authUser,
+              loading: _trustMetricsLoading,
+            ),
+            const SizedBox(height: 16),
+            const RoleSwitchCard(currentRole: ShipmentRole.sender),
+            const SizedBox(height: 16),
+            Text(
+              context.l10n.quickActions,
+              style: typo.h3.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _quickAction(
+                  context,
+                  AppIcons.track,
+                  context.l10n.myShipments,
+                  () => context.go('/track'),
+                ),
+                const SizedBox(width: 10),
+                _quickAction(
+                  context,
+                  AppIcons.history,
+                  context.l10n.shipmentHistory,
+                  () => _openRoute(
+                    '/shipment-history?role=sender',
+                    onReturn: () => _loadShipmentCounts(silent: true),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                _quickAction(
+                  context,
+                  AppIcons.browse,
+                  context.l10n.transactionHistory,
+                  () => _openRoute('/transaction-history?role=sender'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            const RecentReviewsSection(role: WalletRole.sender),
+            const SizedBox(height: 8),
+            AppButton(
+              label: context.tr('Log out'),
+              variant: AppButtonVariant.danger,
+              onPressed: () => logoutToLoginScreen(context),
+            ),
+          ],
         ),
+      ),
     );
   }
 
@@ -344,9 +342,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Text(
             value,
             textAlign: TextAlign.center,
-            style: typo.h2.copyWith(
-              color: AppColors.primary,
-            ),
+            style: typo.h2.copyWith(color: AppColors.primary),
           ),
           const SizedBox(height: 4),
           Text(
@@ -374,7 +370,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return expand ? Expanded(child: content) : content;
   }
 
-  Widget _quickAction(BuildContext context, String iconAsset, String label, VoidCallback onTap) {
+  Widget _quickAction(
+    BuildContext context,
+    String iconAsset,
+    String label,
+    VoidCallback onTap,
+  ) {
     final typo = context.typo;
     final labelStyle = typo.actionLabel.copyWith(
       fontSize: 13,
@@ -576,10 +577,7 @@ class _ShipmentHistoryScreenState extends State<ShipmentHistoryScreen> {
             physics: const AlwaysScrollableScrollPhysics(),
             padding: context.pagePadding.copyWith(top: 16),
             children: [
-              Text(
-                context.l10n.completedCityToCity,
-                style: typo.sm,
-              ),
+              Text(context.l10n.completedCityToCity, style: typo.sm),
               const SizedBox(height: 16),
               if (_loading && _items.isEmpty)
                 const Padding(
@@ -608,8 +606,7 @@ class _ShipmentHistoryScreenState extends State<ShipmentHistoryScreen> {
                 )
               else
                 ..._items.map((s) {
-                  final idLabel =
-                      s.publicId.isNotEmpty ? s.publicId : s.id;
+                  final idLabel = s.publicId.isNotEmpty ? s.publicId : s.id;
                   final color = _statusColor(s.status);
                   return AppCard(
                     margin: const EdgeInsets.only(bottom: 14),
@@ -645,14 +642,9 @@ class _ShipmentHistoryScreenState extends State<ShipmentHistoryScreen> {
                           ],
                         ),
                         const SizedBox(height: 10),
-                        StackedRouteEndpoints.split(
-                          s.route,
-                        ),
+                        StackedRouteEndpoints.split(s.route),
                         const SizedBox(height: 12),
-                        Text(
-                          _formatTravelDate(s.travelDate),
-                          style: typo.sm,
-                        ),
+                        Text(_formatTravelDate(s.travelDate), style: typo.sm),
                       ],
                     ),
                   );
@@ -711,7 +703,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
         builder: (context, wallet, _) {
           return ValueListenableBuilder<int>(
             valueListenable: WalletService.walletVersion,
-            builder: (context, _, __) {
+            builder: (context, _, _) {
               final entries = wallet.historyFor();
 
               if (wallet.loading && entries.isEmpty) {
@@ -723,16 +715,10 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      context.l10n.immutableLedger,
-                      style: typo.sm,
-                    ),
+                    Text(context.l10n.immutableLedger, style: typo.sm),
                     const SizedBox(height: 16),
                     if (entries.isEmpty)
-                      Text(
-                        context.l10n.noTransactionsYet,
-                        style: typo.sm,
-                      )
+                      Text(context.l10n.noTransactionsYet, style: typo.sm)
                     else
                       ...entries.map((e) => _ledgerTile(context, e)),
                   ],
@@ -753,8 +739,8 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
     final amountLabel = availableDelta != 0
         ? '${availableDelta > 0 ? '+' : '−'}${WalletService.formatCents(availableDelta.abs())}'
         : escrowDelta != 0
-            ? '${context.l10n.escrow} ${escrowDelta > 0 ? '+' : '−'}${WalletService.formatCents(escrowDelta.abs())}'
-            : WalletService.formatCents(entry.amountCents);
+        ? '${context.l10n.escrow} ${escrowDelta > 0 ? '+' : '−'}${WalletService.formatCents(escrowDelta.abs())}'
+        : WalletService.formatCents(entry.amountCents);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
@@ -774,7 +760,9 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                   ),
                 ),
                 Text(
-                  context.l10n.translateLedgerDescription(entry.displayDescription),
+                  context.l10n.translateLedgerDescription(
+                    entry.displayDescription,
+                  ),
                   style: typo.sm,
                 ),
                 Text(
@@ -785,8 +773,9 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
             ),
           ),
           Text(
-            DateFormat.MMMd(context.l10n.locale.toString())
-                .format(entry.createdAt),
+            DateFormat.MMMd(
+              context.l10n.locale.toString(),
+            ).format(entry.createdAt),
             style: typo.sm,
           ),
         ],
@@ -795,7 +784,8 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
   }
 }
 
-String _walletRoleLabel(BuildContext context, WalletRole role) => switch (role) {
+String _walletRoleLabel(BuildContext context, WalletRole role) =>
+    switch (role) {
       WalletRole.sender => context.l10n.sender,
       WalletRole.traveler => context.l10n.traveler,
       WalletRole.receiver => context.l10n.receiver,
@@ -892,8 +882,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _onBiometricToggled(bool enabled) async {
     if (_biometricBusy) return;
     final l10n = context.l10n;
-    final bioLabel =
-        PlatformUi.isIOS ? l10n.faceId : l10n.fingerprint;
+    final bioLabel = PlatformUi.isIOS ? l10n.faceId : l10n.fingerprint;
 
     if (!enabled) {
       setState(() {
@@ -933,8 +922,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     final message = switch (result.status) {
       BiometricAuthStatus.notEnrolled => l10n.biometricNotSetUp(bioLabel),
-      BiometricAuthStatus.notAvailable =>
-        l10n.biometricNotAvailable(bioLabel),
+      BiometricAuthStatus.notAvailable => l10n.biometricNotAvailable(bioLabel),
       BiometricAuthStatus.failed => l10n.biometricNotRecognized(bioLabel),
       _ => l10n.couldNotEnableBiometric(bioLabel),
     };
@@ -956,8 +944,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final editProfileRole = isReceiver
         ? EditProfileRole.receiver
         : isTraveler
-            ? EditProfileRole.traveler
-            : EditProfileRole.sender;
+        ? EditProfileRole.traveler
+        : EditProfileRole.sender;
     // Demo app mode toggle commented out — live API only.
     // final demoMode = context.watch<DemoModeProvider>();
     final authUser = context.watch<AuthProvider>().user;
@@ -967,17 +955,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final settingsFallback = isReceiver
         ? '/receiver-profile'
         : isTraveler
-            ? '/traveler-profile'
-            : isSender
-                ? '/profile'
-                : null;
+        ? '/traveler-profile'
+        : isSender
+        ? '/profile'
+        : null;
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: BackHeader(
-        title: l10n.settings,
-        fallbackRoute: settingsFallback,
-      ),
+      appBar: BackHeader(title: l10n.settings, fallbackRoute: settingsFallback),
       body: ScreenBody(
         padding: context.pagePadding.copyWith(top: 16),
         child: Column(
@@ -1001,7 +986,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 margin: const EdgeInsets.only(bottom: 16),
                 child: ListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: Text(l10n.verifyEmailPhone, style: context.typo.bodyBold),
+                  title: Text(
+                    l10n.verifyEmailPhone,
+                    style: context.typo.bodyBold,
+                  ),
                   subtitle: Text(
                     l10n.verifyEmailPhoneSubtitle,
                     style: context.typo.sm,
@@ -1015,8 +1003,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _settingsGroup([
               _tile(
                 l10n.theme,
-                subtitle:
-                    themeProvider.isDark ? l10n.darkMode : l10n.lightMode,
+                subtitle: themeProvider.isDark ? l10n.darkMode : l10n.lightMode,
                 onTap: () => themeProvider.setDarkMode(!themeProvider.isDark),
               ),
               _tile(
@@ -1040,7 +1027,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _settingsGroup([
               _tile(
                 l10n.editProfile,
-                onTap: () => context.push('/edit-profile', extra: editProfileRole),
+                onTap: () =>
+                    context.push('/edit-profile', extra: editProfileRole),
               ),
             ]),
             _sectionLabel(l10n.walletAndPayments),
@@ -1051,33 +1039,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   padding: const EdgeInsets.all(16),
                   child: ValueListenableBuilder<int>(
                     valueListenable: WalletService.walletVersion,
-                    builder: (context, _, __) {
+                    builder: (context, _, _) {
                       return ValueListenableBuilder<int>(
                         valueListenable: FxRateService.version,
-                        builder: (context, _, __) {
-                      final role = WalletRole.fromQuery(roleParam);
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(l10n.availableBalance, style: context.typo.sm),
-                          Text(
-                            WalletService.formatCents(
-                              WalletService.availableCents(role),
-                            ),
-                            style: context.typo.priceLarge,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(l10n.escrowBalance, style: context.typo.sm),
-                          Text(
-                            WalletService.formatCents(
-                              WalletService.escrowCents(role),
-                            ),
-                            style: context.typo.bodyBold.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      );
+                        builder: (context, _, _) {
+                          final role = WalletRole.fromQuery(roleParam);
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                l10n.availableBalance,
+                                style: context.typo.sm,
+                              ),
+                              Text(
+                                WalletService.formatCents(
+                                  WalletService.availableCents(role),
+                                ),
+                                style: context.typo.priceLarge,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(l10n.escrowBalance, style: context.typo.sm),
+                              Text(
+                                WalletService.formatCents(
+                                  WalletService.escrowCents(role),
+                                ),
+                                style: context.typo.bodyBold.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          );
                         },
                       );
                     },
@@ -1088,9 +1079,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 l10n.topUpWallet,
                 onTap: () {
                   FocusManager.instance.primaryFocus?.unfocus();
-                  context.push(
-                    _routeWithRole('/wallet/top-up', roleParam),
-                  );
+                  context.push(_routeWithRole('/wallet/top-up', roleParam));
                 },
               ),
               _tile(
@@ -1111,7 +1100,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   return context.l10n.notLinked;
                 }(),
                 onTap: _connectLoading ? () {} : _linkStripeConnect,
-                trailing: _connectStatusLabel == 'connected' ||
+                trailing:
+                    _connectStatusLabel == 'connected' ||
                         _connectStatusLabel == 'connected_finish'
                     ? AppBadge.success(context.l10n.connected)
                     : null,
@@ -1131,11 +1121,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _settingsGroup([
               _tile(
                 context.tr('Change password'),
-                onTap: () => context.push(_routeWithRole('/change-password', roleParam)),
+                onTap: () =>
+                    context.push(_routeWithRole('/change-password', roleParam)),
               ),
               _tile(
                 l10n.kycVerification,
-                onTap: () => context.push(_routeWithRole('/kyc-status', roleParam)),
+                onTap: () =>
+                    context.push(_routeWithRole('/kyc-status', roleParam)),
                 trailing: KycStatusBadge(user: authUser),
               ),
               _toggle(
@@ -1180,7 +1172,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Center(
               child: Text(
                 'WWNGO v1.0.0',
-                style: context.typo.caption.copyWith(color: AppColors.textSecondary),
+                style: context.typo.caption.copyWith(
+                  color: AppColors.textSecondary,
+                ),
               ),
             ),
           ],
@@ -1229,7 +1223,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _tile(String title, {required VoidCallback onTap, Widget? trailing, String? subtitle}) {
+  Widget _tile(
+    String title, {
+    required VoidCallback onTap,
+    Widget? trailing,
+    String? subtitle,
+  }) {
     return InkWell(
       onTap: onTap,
       child: Padding(
@@ -1246,7 +1245,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const SizedBox(height: 4),
                     Text(
                       subtitle,
-                      style: context.typo.sm.copyWith(color: AppColors.textSecondary),
+                      style: context.typo.sm.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                   ],
                 ],
@@ -1283,16 +1284,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 4),
                   Text(
                     subtitle,
-                    style: context.typo.sm.copyWith(color: AppColors.textSecondary),
+                    style: context.typo.sm.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                 ],
               ],
             ),
           ),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-          ),
+          Switch(value: value, onChanged: onChanged),
         ],
       ),
     );
@@ -1439,11 +1439,7 @@ class _WalletScreenState extends State<WalletScreen> {
       }
 
       // Debit USD from the ledger (backend treats amountCents as USD cents).
-      await wallet.withdraw(
-        role: role,
-        amountCents: usdCents,
-        currency: 'USD',
-      );
+      await wallet.withdraw(role: role, amountCents: usdCents, currency: 'USD');
       if (!mounted) return;
       context.push(
         _routeWithRole('/wallet/withdrawal-success', role),
@@ -1483,263 +1479,297 @@ class _WalletScreenState extends State<WalletScreen> {
         builder: (context, wallet, _) {
           return ValueListenableBuilder<int>(
             valueListenable: WalletService.walletVersion,
-            builder: (context, _, __) {
+            builder: (context, _, _) {
               return ValueListenableBuilder<int>(
                 valueListenable: FxRateService.version,
-                builder: (context, _, __) {
-              final available = WalletService.availableCents(role);
-              final escrow = WalletService.escrowCents(role);
-              final entries = wallet.historyFor();
-              final parsedAmount = double.tryParse(_amountController.text) ?? 0;
-              final displayAmount = parsedAmount;
-              final canWithdraw = true;
-              final amountEnabled = available > 0;
-              final minWithdraw = wallet.summary?.minimumWithdrawalCents ??
-                  WalletService.minimumWithdrawalCents;
+                builder: (context, _, _) {
+                  final available = WalletService.availableCents(role);
+                  final escrow = WalletService.escrowCents(role);
+                  final entries = wallet.historyFor();
+                  final parsedAmount =
+                      double.tryParse(_amountController.text) ?? 0;
+                  final displayAmount = parsedAmount;
+                  final canWithdraw = true;
+                  final amountEnabled = available > 0;
+                  final minWithdraw =
+                      wallet.summary?.minimumWithdrawalCents ??
+                      WalletService.minimumWithdrawalCents;
 
-              if (wallet.loading && wallet.summary == null) {
-                return const Center(child: CircularProgressIndicator());
-              }
+                  if (wallet.loading && wallet.summary == null) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
 
-              return ScreenBody(
-                padding: EdgeInsets.all(context.horizontalPadding + 4),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(28),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [AppColors.primary, AppColors.primaryDark],
-                        ),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Column(
-                        children: [
-                          Text(context.l10n.availableBalance, style: typo.captionOnDarkSoft),
-                          Text(
-                            WalletService.formatCents(available),
-                            style: typo.priceHeroDark,
-                          ),
-                          if (escrow > 0)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 8),
-                              child: Text(
-                                context.l10n.escrowWithAmount(WalletService.formatCents(escrow)),
-                                style: typo.captionOnDarkSoft.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          if (canWithdraw) ...[
-                            const SizedBox(height: 12),
-                            Text(
-                              context.l10n.minimumWithdrawal(WalletService.formatCents(minWithdraw)),
-                              style: typo.captionOnDark,
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
+                  return ScreenBody(
+                    padding: EdgeInsets.all(context.horizontalPadding + 4),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: AppButton(
-                            label: context.l10n.topUpStripe,
-                            small: true,
-                            onPressed: () {
-                              // Unfocus first so MIUI phantom insets don't
-                              // block the next screen's layout / Pay CTA.
-                              FocusManager.instance.primaryFocus?.unfocus();
-                              context.push(
-                                _routeWithRole('/wallet/top-up', role),
-                              );
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: AppButton(
-                            label: context.l10n.history,
-                            variant: AppButtonVariant.outline,
-                            small: true,
-                            onPressed: () => context.push(
-                              _routeWithRole('/transaction-history', role),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (canWithdraw) ...[
-                      const SizedBox(height: 24),
-                      Text(
-                        context.l10n.withdrawViaStripeConnect,
-                        style: typo.h3.copyWith(fontWeight: FontWeight.w700),
-                      ),
-                      const SizedBox(height: 8),
-                      AppLabeledField(
-                        label: context.l10n.amountLabelCurrency(WalletService.currencyCode),
-                        labelStyle:
-                            typo.inputLabel.copyWith(fontWeight: FontWeight.w600),
-                        padding: const EdgeInsets.only(top: AppFieldSpacing.top),
-                        child: TextField(
-                          controller: _amountController,
-                          enabled: amountEnabled,
-                          readOnly: !amountEnabled,
-                          enableInteractiveSelection: amountEnabled,
-                          onTap: amountEnabled
-                              ? ensureSoftKeyboardVisible
-                              : null,
-                          onTapOutside: dismissKeyboardOnTapOutside,
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                          style: typo.amountInput.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: amountEnabled
-                                ? AppColors.textPrimary
-                                : AppColors.textDisabled,
-                          ),
-                          decoration: InputDecoration(
-                            filled: true,
-                            fillColor: amountEnabled
-                                ? AppColors.surface
-                                : AppColors.background,
-                            hintText: amountEnabled ? null : '0.00',
-                            hintStyle: typo.amountInput.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.textDisabled,
-                            ),
-                            disabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                color: AppColors.border,
-                                width: 1.5,
-                              ),
-                            ),
-                          ),
-                          onChanged: amountEnabled
-                              ? (_) {
-                                  setState(() {
-                                    if (_error != null) _error = null;
-                                  });
-                                }
-                              : null,
-                        ),
-                      ),
-                      if (_error != null) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          _error!,
-                          style: typo.sm.copyWith(color: AppColors.danger),
-                        ),
-                      ],
-                      const SizedBox(height: 12),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.06),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Column(
-                          children: [
-                            _SummaryRow(
-                              label: context.l10n.youWillReceive,
-                              value: currencyProvider.currency
-                                  .formatMajor(displayAmount),
-                            ),
-                            _SummaryRow(
-                              label: context.l10n.payoutRail,
-                              value: 'Stripe Connect',
-                            ),
-                            _SummaryRow(
-                              label: context.l10n.arrivesIn,
-                              value: context.l10n.businessDays2to5,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      if (!_connectChecking && !_payoutEnabled) ...[
                         Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.all(14),
+                          padding: const EdgeInsets.all(28),
                           decoration: BoxDecoration(
-                            color: AppColors.warning.withValues(alpha: 0.10),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: AppColors.warning.withValues(alpha: 0.3),
+                            gradient: const LinearGradient(
+                              colors: [
+                                AppColors.primary,
+                                AppColors.primaryDark,
+                              ],
                             ),
+                            borderRadius: BorderRadius.circular(20),
                           ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          child: Column(
                             children: [
-                              const Icon(
-                                Icons.account_balance_outlined,
-                                size: 20,
-                                color: AppColors.warning,
+                              Text(
+                                context.l10n.availableBalance,
+                                style: typo.captionOnDarkSoft,
                               ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  _connectLinked
-                                      ? context.l10n.finishSettingUpPayout
-                                      : context.l10n.linkPayoutToWithdraw,
-                                  style: typo.sm.copyWith(
-                                    color: AppColors.textPrimary,
-                                    height: 1.4,
+                              Text(
+                                WalletService.formatCents(available),
+                                style: typo.priceHeroDark,
+                              ),
+                              if (escrow > 0)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: Text(
+                                    context.l10n.escrowWithAmount(
+                                      WalletService.formatCents(escrow),
+                                    ),
+                                    style: typo.captionOnDarkSoft.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 ),
-                              ),
+                              if (canWithdraw) ...[
+                                const SizedBox(height: 12),
+                                Text(
+                                  context.l10n.minimumWithdrawal(
+                                    WalletService.formatCents(minWithdraw),
+                                  ),
+                                  style: typo.captionOnDark,
+                                ),
+                              ],
                             ],
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        AppButton(
-                          label: _connectLinking
-                              ? context.l10n.openingEllipsis
-                              : _connectLinked
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: AppButton(
+                                label: context.l10n.topUpStripe,
+                                small: true,
+                                onPressed: () {
+                                  // Unfocus first so MIUI phantom insets don't
+                                  // block the next screen's layout / Pay CTA.
+                                  FocusManager.instance.primaryFocus?.unfocus();
+                                  context.push(
+                                    _routeWithRole('/wallet/top-up', role),
+                                  );
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: AppButton(
+                                label: context.l10n.history,
+                                variant: AppButtonVariant.outline,
+                                small: true,
+                                onPressed: () => context.push(
+                                  _routeWithRole('/transaction-history', role),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (canWithdraw) ...[
+                          const SizedBox(height: 24),
+                          Text(
+                            context.l10n.withdrawViaStripeConnect,
+                            style: typo.h3.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          AppLabeledField(
+                            label: context.l10n.amountLabelCurrency(
+                              WalletService.currencyCode,
+                            ),
+                            labelStyle: typo.inputLabel.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                            padding: const EdgeInsets.only(
+                              top: AppFieldSpacing.top,
+                            ),
+                            child: TextField(
+                              controller: _amountController,
+                              enabled: amountEnabled,
+                              readOnly: !amountEnabled,
+                              enableInteractiveSelection: amountEnabled,
+                              onTap: amountEnabled
+                                  ? ensureSoftKeyboardVisible
+                                  : null,
+                              onTapOutside: dismissKeyboardOnTapOutside,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                              style: typo.amountInput.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: amountEnabled
+                                    ? AppColors.textPrimary
+                                    : AppColors.textDisabled,
+                              ),
+                              decoration: InputDecoration(
+                                filled: true,
+                                fillColor: amountEnabled
+                                    ? AppColors.surface
+                                    : AppColors.background,
+                                hintText: amountEnabled ? null : '0.00',
+                                hintStyle: typo.amountInput.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textDisabled,
+                                ),
+                                disabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                    color: AppColors.border,
+                                    width: 1.5,
+                                  ),
+                                ),
+                              ),
+                              onChanged: amountEnabled
+                                  ? (_) {
+                                      setState(() {
+                                        if (_error != null) _error = null;
+                                      });
+                                    }
+                                  : null,
+                            ),
+                          ),
+                          if (_error != null) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              _error!,
+                              style: typo.sm.copyWith(color: AppColors.danger),
+                            ),
+                          ],
+                          const SizedBox(height: 12),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.06),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Column(
+                              children: [
+                                _SummaryRow(
+                                  label: context.l10n.youWillReceive,
+                                  value: currencyProvider.currency.formatMajor(
+                                    displayAmount,
+                                  ),
+                                ),
+                                _SummaryRow(
+                                  label: context.l10n.payoutRail,
+                                  value: 'Stripe Connect',
+                                ),
+                                _SummaryRow(
+                                  label: context.l10n.arrivesIn,
+                                  value: context.l10n.businessDays2to5,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          if (!_connectChecking && !_payoutEnabled) ...[
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: AppColors.warning.withValues(
+                                  alpha: 0.10,
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: AppColors.warning.withValues(
+                                    alpha: 0.3,
+                                  ),
+                                ),
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Icon(
+                                    Icons.account_balance_outlined,
+                                    size: 20,
+                                    color: AppColors.warning,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      _connectLinked
+                                          ? context.l10n.finishSettingUpPayout
+                                          : context.l10n.linkPayoutToWithdraw,
+                                      style: typo.sm.copyWith(
+                                        color: AppColors.textPrimary,
+                                        height: 1.4,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            AppButton(
+                              label: _connectLinking
+                                  ? context.l10n.openingEllipsis
+                                  : _connectLinked
                                   ? context.l10n.finishPayoutSetup
                                   : context.l10n.setUpPayoutAccount,
-                          textStyle:
-                              typo.button.copyWith(fontWeight: FontWeight.w700),
-                          onPressed: _connectLinking ? null : _setUpPayouts,
-                        ),
-                      ] else
-                        AppButton(
-                          label: _withdrawing
-                              ? context.l10n.withdrawing
-                              : context.l10n.withdrawToBank,
-                          textStyle:
-                              typo.button.copyWith(fontWeight: FontWeight.w700),
-                          onPressed: (_withdrawing ||
-                                  _connectChecking ||
-                                  !amountEnabled)
-                              ? null
-                              : () => _withdraw(role, parsedAmount),
-                        ),
-                      const SizedBox(height: 20),
-                      Text(
-                        context.l10n.recentTransactions,
-                        style: typo.h3.copyWith(fontWeight: FontWeight.w700),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        context.l10n.immutableLedgerCents,
-                        style: typo.sm.copyWith(color: AppColors.textSecondary),
-                      ),
-                      const SizedBox(height: 10),
-                      if (entries.isEmpty)
-                        Text(context.l10n.noTransactionsYet, style: typo.sm)
-                      else
-                        ...entries.take(6).map((e) => _ledgerTile(context, e)),
-                    ],
-                  ],
-                ),
-              );
+                              textStyle: typo.button.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                              onPressed: _connectLinking ? null : _setUpPayouts,
+                            ),
+                          ] else
+                            AppButton(
+                              label: _withdrawing
+                                  ? context.l10n.withdrawing
+                                  : context.l10n.withdrawToBank,
+                              textStyle: typo.button.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                              onPressed:
+                                  (_withdrawing ||
+                                      _connectChecking ||
+                                      !amountEnabled)
+                                  ? null
+                                  : () => _withdraw(role, parsedAmount),
+                            ),
+                          const SizedBox(height: 20),
+                          Text(
+                            context.l10n.recentTransactions,
+                            style: typo.h3.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            context.l10n.immutableLedgerCents,
+                            style: typo.sm.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          if (entries.isEmpty)
+                            Text(context.l10n.noTransactionsYet, style: typo.sm)
+                          else
+                            ...entries
+                                .take(6)
+                                .map((e) => _ledgerTile(context, e)),
+                        ],
+                      ],
+                    ),
+                  );
                 },
               );
             },
@@ -1774,15 +1804,18 @@ class _WalletScreenState extends State<WalletScreen> {
                   ),
                 ),
                 Text(
-                  context.l10n.translateLedgerDescription(entry.displayDescription),
+                  context.l10n.translateLedgerDescription(
+                    entry.displayDescription,
+                  ),
                   style: typo.sm,
                 ),
               ],
             ),
           ),
           Text(
-            DateFormat.MMMd(context.l10n.locale.toString())
-                .format(entry.createdAt),
+            DateFormat.MMMd(
+              context.l10n.locale.toString(),
+            ).format(entry.createdAt),
             style: typo.sm,
           ),
         ],
@@ -1806,7 +1839,10 @@ class _SummaryRow extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: typo.sm),
-          Text(value, style: typo.bodyBold.copyWith(fontWeight: FontWeight.w700)),
+          Text(
+            value,
+            style: typo.bodyBold.copyWith(fontWeight: FontWeight.w700),
+          ),
         ],
       ),
     );

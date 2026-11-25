@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import '../../l10n/app_localizations.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/config/demo_mode.dart';
@@ -17,14 +16,14 @@ import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/back_header.dart';
 import '../../core/widgets/cancel_request_confirmation_dialog.dart';
 import '../../data/models/created_delivery.dart';
-import '../../data/models/wallet_role.dart';
 import '../../data/models/incoming_parcel_request.dart';
 import '../../data/models/receiver_delivery_status.dart';
-import '../../data/services/delivery_repository.dart';
+import '../../data/models/wallet_role.dart';
 import '../../data/platform_fees.dart';
+import '../../data/services/delivery_repository.dart';
 import '../../data/wallet_gate.dart';
 import '../../data/wallet_service.dart';
-import '../../data/wallet_service.dart';
+import '../../l10n/app_localizations.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/wallet_provider.dart';
 
@@ -94,8 +93,7 @@ class _IncomingParcelRequestScreenState
     }
   }
 
-  IncomingParcelRequest? get _request =>
-      _delivery?.toIncomingParcelRequest();
+  IncomingParcelRequest? get _request => _delivery?.toIncomingParcelRequest();
 
   Future<void> _accept() async {
     final delivery = _delivery;
@@ -125,7 +123,10 @@ class _IncomingParcelRequestScreenState
         _delivery = updated;
         _acting = false;
       });
-      await context.read<WalletProvider>().refresh(WalletRole.receiver, silent: true);
+      await context.read<WalletProvider>().refresh(
+        WalletRole.receiver,
+        silent: true,
+      );
       if (!mounted) return;
       await _showAcceptedDialog(updated.displayId);
     } on ApiException catch (e) {
@@ -172,7 +173,9 @@ class _IncomingParcelRequestScreenState
       builder: (dialogContext) {
         final typo = dialogContext.typo;
         return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
             child: Column(
@@ -243,209 +246,217 @@ class _IncomingParcelRequestScreenState
               ),
             )
           : _error != null || _request == null
-              ? Center(
-                  child: Padding(
-                    padding: context.pagePadding,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          _error ?? l10n.parcelRequestNotFound,
-                          textAlign: TextAlign.center,
-                          style: typo.sm.copyWith(color: AppColors.textSecondary),
-                        ),
-                        const SizedBox(height: 12),
-                        TextButton(onPressed: _load, child: Text(context.tr('Retry'))),
-                      ],
+          ? Center(
+              child: Padding(
+                padding: context.pagePadding,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      _error ?? l10n.parcelRequestNotFound,
+                      textAlign: TextAlign.center,
+                      style: typo.sm.copyWith(color: AppColors.textSecondary),
                     ),
-                  ),
-                )
-              : ValueListenableBuilder<int>(
-                  valueListenable: WalletService.walletVersion,
-                  builder: (context, _, __) {
-                    final current = _request!;
-                    final status = ReceiverDeliveryStatus.fromDelivery(_delivery!);
-                    final walletBalance =
-                        WalletService.availableUsd(WalletRole.receiver);
-                    final paysReceiver =
-                        PlatformFees.senderPaysReceiverFee(_delivery!);
-                    final platformFee = PlatformFees.receiverPlatformFeeUsd(
-                      category: _delivery!.parcelCategory,
-                      paysReceiverFee: paysReceiver,
-                    );
-                    final canAccept = !_acting;
-                    final isPending = status.isPendingRequest &&
-                        current.status == IncomingParcelRequestStatus.pending;
-                    final travelerLabel =
-                        current.travelerLabel == 'Will be assigned'
-                            ? l10n.willBeAssigned
-                            : context.tr(current.travelerLabel);
+                    const SizedBox(height: 12),
+                    TextButton(
+                      onPressed: _load,
+                      child: Text(context.tr('Retry')),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : ValueListenableBuilder<int>(
+              valueListenable: WalletService.walletVersion,
+              builder: (context, _, _) {
+                final current = _request!;
+                final status = ReceiverDeliveryStatus.fromDelivery(_delivery!);
+                final walletBalance = WalletService.availableUsd(
+                  WalletRole.receiver,
+                );
+                final paysReceiver = PlatformFees.senderPaysReceiverFee(
+                  _delivery!,
+                );
+                final platformFee = PlatformFees.receiverPlatformFeeUsd(
+                  category: _delivery!.parcelCategory,
+                  paysReceiverFee: paysReceiver,
+                );
+                final canAccept = !_acting;
+                final isPending =
+                    status.isPendingRequest &&
+                    current.status == IncomingParcelRequestStatus.pending;
+                final travelerLabel =
+                    current.travelerLabel == 'Will be assigned'
+                    ? l10n.willBeAssigned
+                    : context.tr(current.travelerLabel);
 
-                    return SingleChildScrollView(
-                      physics: PlatformUi.scrollPhysics,
-                      padding: context.pagePadding,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          AppBadge(
-                            label: context.tr(status.label),
-                            color: status.color,
-                            backgroundColor: status.backgroundColor,
-                            semiBold: true,
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            l10n.wantsToSendYouAParcel(current.senderName),
-                            style: typo.body.copyWith(
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          AppCard(
-                            margin: EdgeInsets.zero,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  l10n.parcelDetails,
-                                  style: typo.h3
-                                      .copyWith(fontWeight: FontWeight.w700),
-                                ),
-                                const SizedBox(height: 12),
-                                _detailRow(
-                                  context,
-                                  l10n.parcelType,
-                                  context.tr(current.parcelType),
-                                ),
-                                _detailRow(
-                                  context,
-                                  l10n.weight,
-                                  l10n.weightWithKg('${current.weightKg}'),
-                                ),
-                                _detailRow(
-                                  context,
-                                  l10n.pickupLocation,
-                                  current.pickupLocation,
-                                  valueAlign: TextAlign.left,
-                                ),
-                                _detailRow(
-                                  context,
-                                  l10n.receiverLocation,
-                                  current.receiverLocation,
-                                  valueAlign: TextAlign.left,
-                                ),
-                                _detailRow(
-                                  context,
-                                  l10n.travelDate,
-                                  DateFormat('MMM d, yyyy', localeTag)
-                                      .format(current.travelDate),
-                                ),
-                                _detailRow(
-                                  context,
-                                  l10n.travelerToBeMatched,
-                                  travelerLabel,
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          AppCard(
-                            margin: EdgeInsets.zero,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  l10n.paymentDetails,
-                                  style: typo.h3
-                                      .copyWith(fontWeight: FontWeight.w700),
-                                ),
-                                const SizedBox(height: 12),
-                                _detailRow(
-                                  context,
-                                  l10n.platformFee,
-                                  platformFee > 0
-                                      ? WalletService.formatMajor(platformFee)
-                                      : l10n.feeCoveredBySenderParen(
-                                          WalletService.formatMajor(0),
-                                        ),
-                                  bold: true,
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  platformFee > 0
-                                      ? l10n.chargedFromWalletOnPayNow(
-                                          WalletService.formatMajor(platformFee),
-                                        )
-                                      : l10n.feeFullyCoveredBySender,
-                                  style: typo.sm.copyWith(
-                                    color: AppColors.textSecondary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          AppCard(
-                            margin: EdgeInsets.zero,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  context.tr('Wallet'),
-                                  style: typo.h3
-                                      .copyWith(fontWeight: FontWeight.w700),
-                                ),
-                                const SizedBox(height: 12),
-                                _detailRow(
-                                  context,
-                                  l10n.walletBalance,
-                                  WalletService.formatMajor(walletBalance),
-                                  bold: true,
-                                  valueColor: AppColors.success,
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          if (isPending) ...[
-                            const SizedBox(height: 24),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: AppButton(
-                                    label: context.tr('Reject'),
-                                    variant: AppButtonVariant.danger,
-                                    onPressed: _acting ? null : _reject,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: AppButton(
-                                    label: _acting
-                                        ? l10n.pleaseWait
-                                        : l10n.accept,
-                                    onPressed: canAccept ? _accept : null,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ] else ...[
-                            const SizedBox(height: 8),
+                return SingleChildScrollView(
+                  physics: PlatformUi.scrollPhysics,
+                  padding: context.pagePadding,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      AppBadge(
+                        label: context.tr(status.label),
+                        color: status.color,
+                        backgroundColor: status.backgroundColor,
+                        semiBold: true,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        l10n.wantsToSendYouAParcel(current.senderName),
+                        style: typo.body.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      AppCard(
+                        margin: EdgeInsets.zero,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                             Text(
-                              current.status ==
-                                      IncomingParcelRequestStatus.accepted
-                                  ? l10n.youAcceptedParcelRequest
-                                  : l10n.youDeclinedParcelRequest,
+                              l10n.parcelDetails,
+                              style: typo.h3.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            _detailRow(
+                              context,
+                              l10n.parcelType,
+                              context.tr(current.parcelType),
+                            ),
+                            _detailRow(
+                              context,
+                              l10n.weight,
+                              l10n.weightWithKg('${current.weightKg}'),
+                            ),
+                            _detailRow(
+                              context,
+                              l10n.pickupLocation,
+                              current.pickupLocation,
+                              valueAlign: TextAlign.left,
+                            ),
+                            _detailRow(
+                              context,
+                              l10n.receiverLocation,
+                              current.receiverLocation,
+                              valueAlign: TextAlign.left,
+                            ),
+                            _detailRow(
+                              context,
+                              l10n.travelDate,
+                              DateFormat(
+                                'MMM d, yyyy',
+                                localeTag,
+                              ).format(current.travelDate),
+                            ),
+                            _detailRow(
+                              context,
+                              l10n.travelerToBeMatched,
+                              travelerLabel,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      AppCard(
+                        margin: EdgeInsets.zero,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              l10n.paymentDetails,
+                              style: typo.h3.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            _detailRow(
+                              context,
+                              l10n.platformFee,
+                              platformFee > 0
+                                  ? WalletService.formatMajor(platformFee)
+                                  : l10n.feeCoveredBySenderParen(
+                                      WalletService.formatMajor(0),
+                                    ),
+                              bold: true,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              platformFee > 0
+                                  ? l10n.chargedFromWalletOnPayNow(
+                                      WalletService.formatMajor(platformFee),
+                                    )
+                                  : l10n.feeFullyCoveredBySender,
                               style: typo.sm.copyWith(
                                 color: AppColors.textSecondary,
                               ),
                             ),
                           ],
-                        ],
+                        ),
                       ),
-                    );
-                  },
-                ),
+                      const SizedBox(height: 12),
+                      AppCard(
+                        margin: EdgeInsets.zero,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              context.tr('Wallet'),
+                              style: typo.h3.copyWith(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            _detailRow(
+                              context,
+                              l10n.walletBalance,
+                              WalletService.formatMajor(walletBalance),
+                              bold: true,
+                              valueColor: AppColors.success,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      if (isPending) ...[
+                        const SizedBox(height: 24),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: AppButton(
+                                label: context.tr('Reject'),
+                                variant: AppButtonVariant.danger,
+                                onPressed: _acting ? null : _reject,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: AppButton(
+                                label: _acting ? l10n.pleaseWait : l10n.accept,
+                                onPressed: canAccept ? _accept : null,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ] else ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          current.status == IncomingParcelRequestStatus.accepted
+                              ? l10n.youAcceptedParcelRequest
+                              : l10n.youDeclinedParcelRequest,
+                          style: typo.sm.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                );
+              },
+            ),
     );
   }
 

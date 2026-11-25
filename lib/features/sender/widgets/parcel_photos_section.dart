@@ -40,7 +40,8 @@ class _ParcelPhotosSectionState extends State<ParcelPhotosSection> {
   final ImagePicker _imagePicker = ImagePicker();
 
   Future<void> _showPhotoSourceSheet() async {
-    final remaining = _maxPhotos - widget.existingPhotos.length - widget.photoPaths.length;
+    final remaining =
+        _maxPhotos - widget.existingPhotos.length - widget.photoPaths.length;
     if (remaining <= 0) return;
 
     FocusScope.of(context).unfocus();
@@ -151,8 +152,8 @@ class _ParcelPhotosSectionState extends State<ParcelPhotosSection> {
                     color: widget.errorText != null
                         ? AppColors.danger
                         : canAddMore
-                            ? AppColors.border
-                            : AppColors.textDisabled,
+                        ? AppColors.border
+                        : AppColors.textDisabled,
                     width: 1.5,
                   ),
                 ),
@@ -162,14 +163,18 @@ class _ParcelPhotosSectionState extends State<ParcelPhotosSection> {
                     Icon(
                       Icons.photo_library_outlined,
                       size: 28,
-                      color: canAddMore ? AppColors.primary : AppColors.textDisabled,
+                      color: canAddMore
+                          ? AppColors.primary
+                          : AppColors.textDisabled,
                     ),
                     const SizedBox(height: 8),
                     Text(
                       l10n.uploadPhotos,
                       style: typo.body.copyWith(
                         fontWeight: FontWeight.w600,
-                        color: canAddMore ? AppColors.textPrimary : AppColors.textDisabled,
+                        color: canAddMore
+                            ? AppColors.textPrimary
+                            : AppColors.textDisabled,
                       ),
                     ),
                   ],
@@ -206,7 +211,10 @@ class _ParcelPhotosSectionState extends State<ParcelPhotosSection> {
           ),
           if (widget.errorText != null) ...[
             const SizedBox(height: 8),
-            Text(widget.errorText!, style: typo.sm.copyWith(color: AppColors.danger)),
+            Text(
+              widget.errorText!,
+              style: typo.sm.copyWith(color: AppColors.danger),
+            ),
           ],
         ],
       ),
@@ -245,10 +253,7 @@ class _EmptyPhotosPlaceholder extends StatelessWidget {
 }
 
 class _RemotePhotoThumbnail extends StatelessWidget {
-  const _RemotePhotoThumbnail({
-    required this.url,
-    this.onRemove,
-  });
+  const _RemotePhotoThumbnail({required this.url, this.onRemove});
 
   final String url;
   final VoidCallback? onRemove;
@@ -266,7 +271,7 @@ class _RemotePhotoThumbnail extends StatelessWidget {
             width: 88,
             height: 88,
             fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => Container(
+            errorBuilder: (_, _, _) => Container(
               width: 88,
               height: 88,
               color: AppColors.background,
@@ -287,7 +292,11 @@ class _RemotePhotoThumbnail extends StatelessWidget {
                 customBorder: const CircleBorder(),
                 child: Padding(
                   padding: EdgeInsets.all(4),
-                  child: Icon(Icons.close, size: 16, color: AppColors.textSecondary),
+                  child: Icon(
+                    Icons.close,
+                    size: 16,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ),
             ),
@@ -298,10 +307,7 @@ class _RemotePhotoThumbnail extends StatelessWidget {
 }
 
 class _PhotoThumbnail extends StatelessWidget {
-  const _PhotoThumbnail({
-    required this.path,
-    required this.onRemove,
-  });
+  const _PhotoThumbnail({required this.path, required this.onRemove});
 
   final String path;
   final VoidCallback onRemove;
@@ -331,7 +337,11 @@ class _PhotoThumbnail extends StatelessWidget {
               customBorder: const CircleBorder(),
               child: Padding(
                 padding: EdgeInsets.all(4),
-                child: Icon(Icons.close, size: 16, color: AppColors.textSecondary),
+                child: Icon(
+                  Icons.close,
+                  size: 16,
+                  color: AppColors.textSecondary,
+                ),
               ),
             ),
           ),

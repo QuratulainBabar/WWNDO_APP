@@ -1,40 +1,39 @@
-import 'dart:typed_data';
-import '../../l10n/app_localizations.dart';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import '../../core/platform/keyboard_utils.dart';
+
 import '../../core/api/api_exception.dart';
+import '../../core/auth/kyc_verification_guard.dart';
 import '../../core/config/api_config.dart';
+import '../../core/config/demo_mode.dart';
 import '../../core/navigation/app_navigation.dart';
 import '../../core/phone/phone_countries.dart';
+import '../../core/platform/keyboard_utils.dart';
+import '../../core/platform/temp_image_file.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_avatar.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_labeled_field.dart';
-import '../../core/platform/temp_image_file.dart';
 import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/back_header.dart';
 import '../../core/widgets/back_link.dart';
 import '../../core/widgets/captured_image_preview.dart';
 import '../../core/widgets/image_source_sheet.dart';
 import '../../core/widgets/international_phone_field.dart';
+import '../../core/widgets/kyc_status_badge.dart';
 import '../../core/widgets/legal_document_dialog.dart';
-import '../../core/widgets/scrollable_form_screen.dart';
 import '../../core/widgets/screen_body.dart';
+import '../../core/widgets/scrollable_form_screen.dart';
 import '../../data/legal_documents.dart';
+import '../../data/models/kyc_models.dart';
 import '../../data/models/wallet_role.dart';
 import '../../data/profile_demo_store.dart';
 import '../../data/static_data.dart';
 import '../../data/wallet_service.dart';
-import '../../core/auth/kyc_verification_guard.dart';
-import '../../core/config/demo_mode.dart';
-import '../../core/widgets/kyc_status_badge.dart';
-import '../../data/models/kyc_models.dart';
+import '../../l10n/app_localizations.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/kyc_provider.dart';
 import '../onboarding/kyc_flow_actions.dart';
@@ -59,10 +58,10 @@ EditProfileRole editProfileRoleFromRoute(GoRouterState state) {
 }
 
 String settingsRouteForProfileRole(EditProfileRole role) => switch (role) {
-      EditProfileRole.receiver => '/settings?role=receiver',
-      EditProfileRole.traveler => '/settings?role=traveler',
-      EditProfileRole.sender => '/settings?role=sender',
-    };
+  EditProfileRole.receiver => '/settings?role=receiver',
+  EditProfileRole.traveler => '/settings?role=traveler',
+  EditProfileRole.sender => '/settings?role=sender',
+};
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key, this.role = EditProfileRole.sender});
@@ -80,11 +79,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   String? _countryIso;
   late PhoneCountry _phoneCountry;
   String? _photoPath;
+
   /// In-memory preview so the circle updates immediately after pick / re-pick
   /// (Android may reuse the same cache path, which would not remount a path-based widget).
   Uint8List? _photoPreviewBytes;
+
   /// Cropped bytes from this session. Uploaded only when the user adjusts a new photo.
   Uint8List? _croppedPhotoBytes;
+
   /// User chose to continue without a profile photo (clears existing on save).
   bool _removeProfilePhoto = false;
   bool _saving = false;
@@ -112,7 +114,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         user!.phone,
         fallbackIso: hasSavedIso ? savedIso : 'FR',
       );
-      phoneCountry = hasSavedIso ? PhoneCountries.byIso(savedIso) : parsed.country;
+      phoneCountry = hasSavedIso
+          ? PhoneCountries.byIso(savedIso)
+          : parsed.country;
       nationalRaw = parsed.national;
     } else {
       phoneCountry = PhoneCountries.byIso(hasSavedIso ? savedIso : 'FR');
@@ -135,10 +139,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   WalletRole get _walletRole => switch (widget.role) {
-        EditProfileRole.receiver => WalletRole.receiver,
-        EditProfileRole.traveler => WalletRole.traveler,
-        EditProfileRole.sender => WalletRole.sender,
-      };
+    EditProfileRole.receiver => WalletRole.receiver,
+    EditProfileRole.traveler => WalletRole.traveler,
+    EditProfileRole.sender => WalletRole.sender,
+  };
 
   @override
   void dispose() {
@@ -189,13 +193,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       final bytes = await image.readAsBytes();
       if (!mounted || bytes.isEmpty) return;
 
-      final cropResult =
-          await Navigator.of(context).push<ProfilePhotoCropResult>(
-        MaterialPageRoute(
-          fullscreenDialog: true,
-          builder: (_) => ProfilePhotoCropScreen(imageBytes: bytes),
-        ),
-      );
+      final cropResult = await Navigator.of(context)
+          .push<ProfilePhotoCropResult>(
+            MaterialPageRoute(
+              fullscreenDialog: true,
+              builder: (_) => ProfilePhotoCropScreen(imageBytes: bytes),
+            ),
+          );
       if (!mounted || cropResult == null) return;
 
       setState(() {
@@ -253,7 +257,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           height: size,
           fit: BoxFit.cover,
           gaplessPlayback: true,
-          errorBuilder: (_, __, ___) =>
+          errorBuilder: (_, _, _) =>
               AppAvatar(initial: avatarInitial, size: AvatarSize.large),
         ),
       );
@@ -357,8 +361,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final avatarInitial = (auth.user?.initial.isNotEmpty ?? false)
         ? auth.user!.initial
         : _nameController.text.trim().isNotEmpty
-            ? _nameController.text.trim()[0].toUpperCase()
-            : '?';
+        ? _nameController.text.trim()[0].toUpperCase()
+        : '?';
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark.copyWith(
@@ -384,23 +388,23 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             ],
             child: switch (widget.role) {
               EditProfileRole.sender => _buildExtendedProfileForm(
-                  typo,
-                  auth: auth,
-                  subtitle: context.l10n.profileShownWhenSend,
-                  avatarInitial: avatarInitial,
-                ),
+                typo,
+                auth: auth,
+                subtitle: context.l10n.profileShownWhenSend,
+                avatarInitial: avatarInitial,
+              ),
               EditProfileRole.receiver => _buildExtendedProfileForm(
-                  typo,
-                  auth: auth,
-                  subtitle: context.l10n.profileShownWhenReceive,
-                  avatarInitial: avatarInitial,
-                ),
+                typo,
+                auth: auth,
+                subtitle: context.l10n.profileShownWhenReceive,
+                avatarInitial: avatarInitial,
+              ),
               EditProfileRole.traveler => _buildExtendedProfileForm(
-                  typo,
-                  auth: auth,
-                  subtitle: context.l10n.profileShownWhenCarry,
-                  avatarInitial: avatarInitial,
-                ),
+                typo,
+                auth: auth,
+                subtitle: context.l10n.profileShownWhenCarry,
+                avatarInitial: avatarInitial,
+              ),
             },
           ),
         ),
@@ -415,8 +419,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     required String avatarInitial,
   }) {
     final hasPhoto = _hasVisiblePhoto(auth);
-    final caption =
-        hasPhoto ? context.l10n.tapToChangePhoto : context.l10n.tapToUploadPhoto;
+    final caption = hasPhoto
+        ? context.l10n.tapToChangePhoto
+        : context.l10n.tapToUploadPhoto;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -496,7 +501,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 }
 
 class ProfileUpdatedSuccessScreen extends StatelessWidget {
-  const ProfileUpdatedSuccessScreen({super.key, this.role = EditProfileRole.sender});
+  const ProfileUpdatedSuccessScreen({
+    super.key,
+    this.role = EditProfileRole.sender,
+  });
 
   final EditProfileRole role;
 
@@ -529,10 +537,18 @@ class ProfileUpdatedSuccessScreen extends StatelessWidget {
                         shape: BoxShape.circle,
                       ),
                       alignment: Alignment.center,
-                      child: const Icon(Icons.check, size: 40, color: AppColors.success),
+                      child: const Icon(
+                        Icons.check,
+                        size: 40,
+                        color: AppColors.success,
+                      ),
                     ),
                     const SizedBox(height: 20),
-                    Text(context.l10n.profileUpdated, style: typo.h1, textAlign: TextAlign.center),
+                    Text(
+                      context.l10n.profileUpdated,
+                      style: typo.h1,
+                      textAlign: TextAlign.center,
+                    ),
                     const SizedBox(height: 8),
                     Text(
                       context.l10n.profileUpdatedMessage,
@@ -582,10 +598,10 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       GoRouterState.of(context).uri.queryParameters['role'] ?? 'sender';
 
   String get _settingsRoute => switch (_roleParam) {
-        'receiver' => '/settings?role=receiver',
-        'traveler' => '/settings?role=traveler',
-        _ => '/settings?role=sender',
-      };
+    'receiver' => '/settings?role=receiver',
+    'traveler' => '/settings?role=traveler',
+    _ => '/settings?role=sender',
+  };
 
   Future<void> _updatePassword() async {
     final current = _currentController.text;
@@ -658,7 +674,8 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
               label: context.l10n.currentPassword,
               controller: _currentController,
               obscure: _obscureCurrent,
-              onToggle: () => setState(() => _obscureCurrent = !_obscureCurrent),
+              onToggle: () =>
+                  setState(() => _obscureCurrent = !_obscureCurrent),
             ),
             _passwordField(
               label: context.l10n.newPassword,
@@ -670,7 +687,8 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
               label: context.l10n.confirmNewPassword,
               controller: _confirmController,
               obscure: _obscureConfirm,
-              onToggle: () => setState(() => _obscureConfirm = !_obscureConfirm),
+              onToggle: () =>
+                  setState(() => _obscureConfirm = !_obscureConfirm),
             ),
           ],
         ),
@@ -698,7 +716,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
         decoration: InputDecoration(
           suffixIcon: IconButton(
             icon: Icon(
-              obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+              obscure
+                  ? Icons.visibility_off_outlined
+                  : Icons.visibility_outlined,
               color: AppColors.textSecondary,
             ),
             onPressed: onToggle,
@@ -718,8 +738,8 @@ class ChangePasswordSuccessScreen extends StatelessWidget {
     final settingsRoute = roleParam == 'receiver'
         ? '/settings?role=receiver'
         : roleParam == 'traveler'
-            ? '/settings?role=traveler'
-            : '/settings?role=sender';
+        ? '/settings?role=traveler'
+        : '/settings?role=sender';
     final typo = context.typo;
 
     return Scaffold(
@@ -738,10 +758,18 @@ class ChangePasswordSuccessScreen extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
                 alignment: Alignment.center,
-                child: const Icon(Icons.check, size: 40, color: AppColors.success),
+                child: const Icon(
+                  Icons.check,
+                  size: 40,
+                  color: AppColors.success,
+                ),
               ),
               const SizedBox(height: 20),
-              Text(context.l10n.passwordUpdatedTitle, style: typo.h1, textAlign: TextAlign.center),
+              Text(
+                context.l10n.passwordUpdatedTitle,
+                style: typo.h1,
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: 8),
               Text(
                 context.l10n.passwordChangedSuccessfully,
@@ -821,12 +849,14 @@ class WalletWithdrawalSuccessScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final roleParam = GoRouterState.of(context).uri.queryParameters['role'];
-    final walletRoute = roleParam == null ? '/wallet' : '/wallet?role=$roleParam';
+    final walletRoute = roleParam == null
+        ? '/wallet'
+        : '/wallet?role=$roleParam';
     final homeRoute = roleParam == 'receiver'
         ? '/receiver-home'
         : roleParam == 'traveler'
-            ? '/traveler-home'
-            : '/home';
+        ? '/traveler-home'
+        : '/home';
     final typo = context.typo;
 
     return Scaffold(
@@ -845,10 +875,18 @@ class WalletWithdrawalSuccessScreen extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
                 alignment: Alignment.center,
-                child: const Icon(Icons.account_balance_outlined, size: 40, color: AppColors.success),
+                child: const Icon(
+                  Icons.account_balance_outlined,
+                  size: 40,
+                  color: AppColors.success,
+                ),
               ),
               const SizedBox(height: 20),
-              Text(context.l10n.withdrawalInitiated, style: typo.h1, textAlign: TextAlign.center),
+              Text(
+                context.l10n.withdrawalInitiated,
+                style: typo.h1,
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: 8),
               Text(
                 context.l10n.withdrawalTransferredMessage(
@@ -867,7 +905,10 @@ class WalletWithdrawalSuccessScreen extends StatelessWidget {
               AppButton(
                 label: context.l10n.goToHome,
                 variant: AppButtonVariant.outline,
-                textStyle: typo.button.copyWith(fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                textStyle: typo.button.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
                 onPressed: () => context.go(homeRoute),
               ),
             ],
@@ -905,44 +946,45 @@ class _KycStatusScreenState extends State<KycStatusScreen> {
     final settingsRoute = roleParam == 'receiver'
         ? '/settings?role=receiver'
         : roleParam == 'traveler'
-            ? '/settings?role=traveler'
-            : '/settings?role=sender';
+        ? '/settings?role=traveler'
+        : '/settings?role=sender';
     final typo = context.typo;
     final user = context.watch<AuthProvider>().user;
     final kyc = context.watch<KycProvider>();
     final displayName = user?.name ?? StaticData.currentUser.name;
-    final status = (kyc.lastStatus?.kycStatus.name ?? user?.kycStatus ?? 'pending')
-        .toLowerCase();
+    final status =
+        (kyc.lastStatus?.kycStatus.name ?? user?.kycStatus ?? 'pending')
+            .toLowerCase();
 
     final (title, message, icon, iconColor, bgColor) = switch (status) {
       'approved' => (
-          context.l10n.verificationApproved,
-          context.l10n.verificationApprovedMessage(displayName),
-          Icons.verified_user_outlined,
-          AppColors.success,
-          AppColors.success.withValues(alpha: 0.12),
-        ),
+        context.l10n.verificationApproved,
+        context.l10n.verificationApprovedMessage(displayName),
+        Icons.verified_user_outlined,
+        AppColors.success,
+        AppColors.success.withValues(alpha: 0.12),
+      ),
       'submitted' => (
-          context.l10n.pendingReview,
-          context.l10n.pendingReviewMessage,
-          Icons.hourglass_top_rounded,
-          AppColors.warning,
-          AppColors.warning.withValues(alpha: 0.12),
-        ),
+        context.l10n.pendingReview,
+        context.l10n.pendingReviewMessage,
+        Icons.hourglass_top_rounded,
+        AppColors.warning,
+        AppColors.warning.withValues(alpha: 0.12),
+      ),
       'rejected' => (
-          context.l10n.verificationFailedTitle,
-          context.l10n.verificationFailedMessage,
-          Icons.error_outline_rounded,
-          AppColors.danger,
-          AppColors.danger.withValues(alpha: 0.1),
-        ),
+        context.l10n.verificationFailedTitle,
+        context.l10n.verificationFailedMessage,
+        Icons.error_outline_rounded,
+        AppColors.danger,
+        AppColors.danger.withValues(alpha: 0.1),
+      ),
       _ => (
-          context.l10n.verificationRequired,
-          context.l10n.verificationRequiredMessage,
-          Icons.badge_outlined,
-          AppColors.primary,
-          AppColors.primary.withValues(alpha: 0.1),
-        ),
+        context.l10n.verificationRequired,
+        context.l10n.verificationRequiredMessage,
+        Icons.badge_outlined,
+        AppColors.primary,
+        AppColors.primary.withValues(alpha: 0.1),
+      ),
     };
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
@@ -962,8 +1004,8 @@ class _KycStatusScreenState extends State<KycStatusScreen> {
                 label: kyc.loading
                     ? context.l10n.pleaseWait
                     : status == 'submitted'
-                        ? context.l10n.refreshStatus
-                        : context.l10n.verifyIdentity,
+                    ? context.l10n.refreshStatus
+                    : context.l10n.verifyIdentity,
                 onPressed: kyc.loading
                     ? null
                     : () {
@@ -976,8 +1018,11 @@ class _KycStatusScreenState extends State<KycStatusScreen> {
               ),
             AppButton(
               label: context.l10n.backToSettings,
-              variant: status == 'approved' ? AppButtonVariant.primary : AppButtonVariant.outline,
-              onPressed: () => appNavigateBackFromContext(context, fallback: settingsRoute),
+              variant: status == 'approved'
+                  ? AppButtonVariant.primary
+                  : AppButtonVariant.outline,
+              onPressed: () =>
+                  appNavigateBackFromContext(context, fallback: settingsRoute),
             ),
           ],
           child: Column(
@@ -1038,9 +1083,18 @@ class _KycStatusScreenState extends State<KycStatusScreen> {
                     children: [
                       Text(context.l10n.verifiedDetails, style: typo.bodyBold),
                       const SizedBox(height: 8),
-                      Text('${context.l10n.nameColon} ${user.name}', style: typo.sm),
-                      Text('${context.l10n.emailColon} ${user.email}', style: typo.sm),
-                      Text('${context.l10n.countryColon} ${user.countryCode}', style: typo.sm),
+                      Text(
+                        '${context.l10n.nameColon} ${user.name}',
+                        style: typo.sm,
+                      ),
+                      Text(
+                        '${context.l10n.emailColon} ${user.email}',
+                        style: typo.sm,
+                      ),
+                      Text(
+                        '${context.l10n.countryColon} ${user.countryCode}',
+                        style: typo.sm,
+                      ),
                     ],
                   ),
                 ),

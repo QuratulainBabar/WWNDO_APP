@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
+
 import '../../core/auth/kyc_verification_guard.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
@@ -9,8 +9,8 @@ import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_svg_icon.dart';
 import '../../core/widgets/back_link.dart';
 import '../../core/widgets/screen_body.dart';
-import 'delivery_posting_actions.dart';
 import '../../l10n/app_localizations.dart';
+import 'delivery_posting_actions.dart';
 
 enum _DeliveryType { cityToCity, countryToCountry }
 
@@ -32,7 +32,8 @@ class _DeliveryTypeSelectionScreenState
   }
 
   Future<void> _continue() async {
-    if (!await DeliveryPostingActions.ensureWalletAllowsParcelCreation(context)) return;
+    if (!await DeliveryPostingActions.ensureWalletAllowsParcelCreation(context))
+      return;
     if (!KycVerificationGuard.ensureKycApproved(context)) return;
     switch (_selectedType) {
       case _DeliveryType.cityToCity:
@@ -148,7 +149,9 @@ class _DeliveryTypeCard extends StatelessWidget {
                     children: [
                       Text(
                         title,
-                        style: typo.bodyBold.copyWith(fontWeight: FontWeight.w700),
+                        style: typo.bodyBold.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                       const SizedBox(height: 2),
                       Text(description, style: typo.sm),

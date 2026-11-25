@@ -7,14 +7,14 @@ import 'package:provider/provider.dart';
 import '../../core/platform/keyboard_utils.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
-import '../../core/widgets/app_chip.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_card.dart';
+import '../../core/widgets/app_chip.dart';
 import '../../core/widgets/app_labeled_field.dart';
 import '../../core/widgets/back_header.dart';
 import '../../core/widgets/screen_body.dart';
 import '../../core/widgets/stacked_route_endpoints.dart';
-import '../../data/models/parcel_creation_result.dart';
+import '../../l10n/app_localizations.dart';
 import '../../data/models/traveler_trip.dart';
 import '../../data/static_data.dart';
 import '../../data/wallet_service.dart';
@@ -29,10 +29,12 @@ class ParcelCreationWizardScreen extends StatefulWidget {
   final TravelerTrip? initialTrip;
 
   @override
-  State<ParcelCreationWizardScreen> createState() => _ParcelCreationWizardScreenState();
+  State<ParcelCreationWizardScreen> createState() =>
+      _ParcelCreationWizardScreenState();
 }
 
-class _ParcelCreationWizardScreenState extends State<ParcelCreationWizardScreen> {
+class _ParcelCreationWizardScreenState
+    extends State<ParcelCreationWizardScreen> {
   static const _stepTitles = [
     'Select traveler',
     'Parcel type',
@@ -105,13 +107,16 @@ class _ParcelCreationWizardScreenState extends State<ParcelCreationWizardScreen>
   }
 
   Future<void> _activate() async {
-    if (!await DeliveryPostingActions.ensureWalletAllowsParcelCreation(context)) return;
+    if (!await DeliveryPostingActions.ensureWalletAllowsParcelCreation(context))
+      return;
 
     final validation = _flow.validateStep(6);
     if (validation != null) {
       setState(() {
         _error = validation;
-        _photoError = validation.toLowerCase().contains('photo') ? validation : null;
+        _photoError = validation.toLowerCase().contains('photo')
+            ? validation
+            : null;
       });
       return;
     }
@@ -155,7 +160,10 @@ class _ParcelCreationWizardScreenState extends State<ParcelCreationWizardScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Step ${_step + 1} of ${_stepTitles.length}', style: typo.smPrimary),
+            Text(
+              'Step ${_step + 1} of ${_stepTitles.length}',
+              style: typo.smPrimary,
+            ),
             const SizedBox(height: 4),
             Text(_stepTitles[_step], style: typo.h2),
             const SizedBox(height: 12),
@@ -189,7 +197,9 @@ class _ParcelCreationWizardScreenState extends State<ParcelCreationWizardScreen>
             ],
             const SizedBox(height: 12),
             AppButton(
-              label: _step == _stepTitles.length - 1 ? 'Activate parcel request' : 'Continue',
+              label: _step == _stepTitles.length - 1
+                  ? 'Activate parcel request'
+                  : 'Continue',
               onPressed: _next,
             ),
           ],
@@ -209,7 +219,8 @@ class _ParcelCreationWizardScreenState extends State<ParcelCreationWizardScreen>
         const SizedBox(height: 12),
         for (final trip in trips) ...[
           AppCard(
-            highlighted: _flow.selectedTrip?.id == trip.id && trip.id.isNotEmpty,
+            highlighted:
+                _flow.selectedTrip?.id == trip.id && trip.id.isNotEmpty,
             margin: const EdgeInsets.only(bottom: 10),
             child: ListTile(
               contentPadding: EdgeInsets.zero,
@@ -250,7 +261,8 @@ class _ParcelCreationWizardScreenState extends State<ParcelCreationWizardScreen>
             _flow.category = value;
             _error = null;
           }),
-          labelOf: (o) => o.isEmpty ? o : '${o[0].toUpperCase()}${o.substring(1)}',
+          labelOf: (o) =>
+              o.isEmpty ? o : '${o[0].toUpperCase()}${o.substring(1)}',
         ),
       ],
     );
@@ -307,12 +319,16 @@ class _ParcelCreationWizardScreenState extends State<ParcelCreationWizardScreen>
   }
 
   Widget _buildRecipientStep(AppTypography typo) {
-    final verified =
-        StaticData.verifiedRecipients.where((recipient) => recipient.verified).toList();
+    final verified = StaticData.verifiedRecipients
+        .where((recipient) => recipient.verified)
+        .toList();
 
     return ListView(
       children: [
-        Text('Recipient must be a verified contact.', style: typo.sm.copyWith(height: 1.5)),
+        Text(
+          'Recipient must be a verified contact.',
+          style: typo.sm.copyWith(height: 1.5),
+        ),
         const SizedBox(height: 12),
         for (final recipient in verified) ...[
           AppCard(
@@ -340,7 +356,10 @@ class _ParcelCreationWizardScreenState extends State<ParcelCreationWizardScreen>
   Widget _buildPaymentStep(AppTypography typo) {
     return ListView(
       children: [
-        Text('Proposed payment amount (${WalletService.currencyCode}).', style: typo.sm),
+        Text(
+          'Proposed payment amount (${WalletService.currencyCode}).',
+          style: typo.sm,
+        ),
         const SizedBox(height: 16),
         AppLabeledField(
           label: WalletService.fieldLabel('Budget'),
@@ -348,8 +367,12 @@ class _ParcelCreationWizardScreenState extends State<ParcelCreationWizardScreen>
             onTap: ensureSoftKeyboardVisible,
             onTapOutside: dismissKeyboardOnTapOutside,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}'))],
-            decoration: InputDecoration(prefixText: WalletService.currencyPrefix),
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+            ],
+            decoration: InputDecoration(
+              prefixText: WalletService.currencyPrefix,
+            ),
             controller: _budgetController,
             onChanged: (value) {
               _flow.proposedBudgetUsd = double.tryParse(value) ?? 0;
@@ -414,10 +437,17 @@ class _ParcelCreationWizardScreenState extends State<ParcelCreationWizardScreen>
                   bottomPadding: 4,
                 ),
               Text('Category: ${_flow.category}', style: typo.sm),
-              Text('Weight: ${_flow.weightKg.toStringAsFixed(1)} kg', style: typo.sm),
+              Text(
+                'Weight: ${_flow.weightKg.toStringAsFixed(1)} kg',
+                style: typo.sm,
+              ),
               Text('Volume: ${_flow.volume}', style: typo.sm),
-              if (recipient != null) Text('Recipient: ${recipient.name}', style: typo.sm),
-              Text('Budget: ${WalletService.formatMajor(_flow.proposedBudgetUsd)}', style: typo.sm),
+              if (recipient != null)
+                Text('Recipient: ${recipient.name}', style: typo.sm),
+              Text(
+                'Budget: ${WalletService.formatMajor(_flow.proposedBudgetUsd)}',
+                style: typo.sm,
+              ),
             ],
           ),
         ),

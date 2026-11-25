@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import '../../l10n/app_localizations.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/config/demo_mode.dart';
@@ -15,10 +14,11 @@ import '../../core/widgets/back_header.dart';
 import '../../core/widgets/cancel_request_confirmation_dialog.dart';
 import '../../core/widgets/scrollable_form_screen.dart';
 import '../../core/widgets/stacked_route_endpoints.dart';
-import '../../data/models/created_delivery.dart';
-import '../../data/delivery_lifecycle.dart';
-import '../../data/services/delivery_repository.dart';
 import '../../data/delivery_cancel_policy.dart';
+import '../../data/delivery_lifecycle.dart';
+import '../../data/models/created_delivery.dart';
+import '../../data/services/delivery_repository.dart';
+import '../../l10n/app_localizations.dart';
 import '../../providers/auth_provider.dart';
 
 class CancelPostedDeliveryScreen extends StatefulWidget {
@@ -31,7 +31,8 @@ class CancelPostedDeliveryScreen extends StatefulWidget {
       _CancelPostedDeliveryScreenState();
 }
 
-class _CancelPostedDeliveryScreenState extends State<CancelPostedDeliveryScreen> {
+class _CancelPostedDeliveryScreenState
+    extends State<CancelPostedDeliveryScreen> {
   CreatedDelivery? _delivery;
   bool _loading = true;
   String? _loadError;
@@ -84,12 +85,10 @@ class _CancelPostedDeliveryScreenState extends State<CancelPostedDeliveryScreen>
     final delivery = _delivery;
     if (delivery == null) return;
     final l10n = context.l10n;
-    final hours =
-        '${DeliveryCancelPolicy.senderCancelMinHoursBeforeTravel}';
+    final hours = '${DeliveryCancelPolicy.senderCancelMinHoursBeforeTravel}';
 
     final status = delivery.status;
-    final isBookingCancel =
-        DeliveryLifecycle.isBookingCancellable(status);
+    final isBookingCancel = DeliveryLifecycle.isBookingCancellable(status);
     final requiresTravelWindow =
         DeliveryLifecycle.requiresTravelWindowForOpenCancel(status);
 
@@ -97,10 +96,7 @@ class _CancelPostedDeliveryScreenState extends State<CancelPostedDeliveryScreen>
     if (requiresTravelWindow &&
         (travelDate == null ||
             !DeliveryCancelPolicy.canSenderCancelBeforeTravel(travelDate))) {
-      AppToast.error(
-        context,
-        l10n.travelerCancelBlocked(hours),
-      );
+      AppToast.error(context, l10n.travelerCancelBlocked(hours));
       return;
     }
 
@@ -118,8 +114,8 @@ class _CancelPostedDeliveryScreenState extends State<CancelPostedDeliveryScreen>
 
       final message = isBookingCancel
           ? ((result.platformFeesRefunded ?? false)
-              ? l10n.bookingCancelledFeesRefunded
-              : l10n.bookingCancelledFeesKept)
+                ? l10n.bookingCancelledFeesRefunded
+                : l10n.bookingCancelledFeesKept)
           : l10n.itemCancelled(delivery.displayId);
       AppToast.success(context, message);
       context.go('/my-posted-parcels');
@@ -181,20 +177,21 @@ class _CancelPostedDeliveryScreenState extends State<CancelPostedDeliveryScreen>
 
     final delivery = _delivery!;
     final travelDate = delivery.travelDateParsed ?? DateTime.now();
-    final isBookingCancel =
-        DeliveryLifecycle.isBookingCancellable(delivery.status);
+    final isBookingCancel = DeliveryLifecycle.isBookingCancellable(
+      delivery.status,
+    );
     final requiresTravelWindow =
         DeliveryLifecycle.requiresTravelWindowForOpenCancel(delivery.status);
-    final canCancel = isBookingCancel ||
+    final canCancel =
+        isBookingCancel ||
         (requiresTravelWindow &&
             DeliveryCancelPolicy.canSenderCancelBeforeTravel(travelDate));
-    final feesRefundable =
-        DeliveryCancelPolicy.isPlatformFeeRefundableOnCancel(travelDate);
-    final hours =
-        '${DeliveryCancelPolicy.senderCancelMinHoursBeforeTravel}';
+    final feesRefundable = DeliveryCancelPolicy.isPlatformFeeRefundableOnCancel(
+      travelDate,
+    );
+    final hours = '${DeliveryCancelPolicy.senderCancelMinHoursBeforeTravel}';
     final categoryLabel = l10n.translate(delivery.parcelCategory);
-    final weightLabel =
-        '${delivery.weightKg} ${l10n.kgUnit}';
+    final weightLabel = '${delivery.weightKg} ${l10n.kgUnit}';
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -240,11 +237,11 @@ class _CancelPostedDeliveryScreenState extends State<CancelPostedDeliveryScreen>
               child: Text(
                 isBookingCancel
                     ? (feesRefundable
-                        ? l10n.escrowRefundFeesAlso(hours)
-                        : l10n.escrowRefundFeesKept(hours))
+                          ? l10n.escrowRefundFeesAlso(hours)
+                          : l10n.escrowRefundFeesKept(hours))
                     : canCancel
-                        ? l10n.cancelDeliveryHoursBeforeFlight(hours)
-                        : l10n.travelerCancelBlocked(hours),
+                    ? l10n.cancelDeliveryHoursBeforeFlight(hours)
+                    : l10n.travelerCancelBlocked(hours),
                 style: typo.sm.copyWith(
                   height: 1.45,
                   color: canCancel ? AppColors.success : AppColors.danger,
@@ -263,13 +260,16 @@ class _CancelPostedDeliveryScreenState extends State<CancelPostedDeliveryScreen>
                     StackedRouteEndpoints(
                       from: l10n.localizePlaceLabel(delivery.exactDisplayFrom),
                       to: l10n.localizePlaceLabel(delivery.exactDisplayTo),
-                      fallbackRoute:
-                          l10n.localizePlaceLabel(delivery.exactDisplayRoute),
+                      fallbackRoute: l10n.localizePlaceLabel(
+                        delivery.exactDisplayRoute,
+                      ),
                       emphasized: true,
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      DateFormat.yMMMd(l10n.locale.toString()).format(travelDate),
+                      DateFormat.yMMMd(
+                        l10n.locale.toString(),
+                      ).format(travelDate),
                       style: typo.sm.copyWith(color: AppColors.textSecondary),
                     ),
                     const SizedBox(height: 4),

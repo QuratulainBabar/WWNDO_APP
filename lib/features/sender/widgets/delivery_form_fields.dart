@@ -5,20 +5,17 @@ import 'package:provider/provider.dart';
 import '../../../core/geo/meetup_destination_validation.dart';
 import '../../../core/geo/meetup_origin_validation.dart';
 import '../../../core/geo/world_countries.dart';
-import '../../../data/platform_fees.dart';
-import '../../../core/platform/keyboard_utils.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/validation/receiver_contact_validation.dart';
 import '../../../core/widgets/app_chip.dart';
-import '../../../core/widgets/app_labeled_field.dart';
-import '../../../core/widgets/app_toast.dart';
 import '../../../data/models/created_delivery.dart';
 import '../../../data/models/meetup_location.dart';
 import '../../../data/models/traveler_trip.dart';
+import '../../../data/platform_fees.dart';
 import '../../../data/static_data.dart';
-import '../../../providers/auth_provider.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../providers/auth_provider.dart';
 import '../../traveler/widgets/route_city_dropdown.dart';
 import '../delivery_form_helpers.dart';
 import 'airport_route_search_fields.dart';
@@ -101,8 +98,7 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
   final Map<String, ({String id, String url})> _existingPhotos = {};
   final Set<String> _removedExistingPhotoIds = {};
 
-  bool get _isCountry =>
-      widget.deliveryType == DeliveryType.countryToCountry;
+  bool get _isCountry => widget.deliveryType == DeliveryType.countryToCountry;
 
   @override
   void initState() {
@@ -126,7 +122,9 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
       for (final photo in delivery.existingPhotoItems) {
         _existingPhotos[photo.id] = photo;
       }
-      _descriptionController = TextEditingController(text: delivery.description);
+      _descriptionController = TextEditingController(
+        text: delivery.description,
+      );
     } else {
       _category = 'documents';
       _size = 'small box';
@@ -146,26 +144,26 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
       final originIso = trip.originCountryCode?.trim().isNotEmpty == true
           ? trip.originCountryCode!.trim().toUpperCase()
           : WorldCountries.all
-              .where(
-                (c) =>
-                    c.name.toLowerCase() ==
-                    (trip.originCountry ?? trip.origin).trim().toLowerCase(),
-              )
-              .map((c) => c.iso)
-              .firstOrNull;
+                .where(
+                  (c) =>
+                      c.name.toLowerCase() ==
+                      (trip.originCountry ?? trip.origin).trim().toLowerCase(),
+                )
+                .map((c) => c.iso)
+                .firstOrNull;
       final destinationIso =
           trip.destinationCountryCode?.trim().isNotEmpty == true
-              ? trip.destinationCountryCode!.trim().toUpperCase()
-              : WorldCountries.all
-                  .where(
-                    (c) =>
-                        c.name.toLowerCase() ==
-                        (trip.destinationCountry ?? trip.destination)
-                            .trim()
-                            .toLowerCase(),
-                  )
-                  .map((c) => c.iso)
-                  .firstOrNull;
+          ? trip.destinationCountryCode!.trim().toUpperCase()
+          : WorldCountries.all
+                .where(
+                  (c) =>
+                      c.name.toLowerCase() ==
+                      (trip.destinationCountry ?? trip.destination)
+                          .trim()
+                          .toLowerCase(),
+                )
+                .map((c) => c.iso)
+                .firstOrNull;
 
       final fromAirport = trip.originAirport?.trim() ?? '';
       final fromCity = trip.fromCity?.trim() ?? '';
@@ -213,10 +211,10 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
     super.dispose();
   }
 
-  List<({String id, String url})> get _visibleExistingPhotos =>
-      _existingPhotos.values
-          .where((photo) => !_removedExistingPhotoIds.contains(photo.id))
-          .toList();
+  List<({String id, String url})> get _visibleExistingPhotos => _existingPhotos
+      .values
+      .where((photo) => !_removedExistingPhotoIds.contains(photo.id))
+      .toList();
 
   List<String> get _retainedPhotoIds => _visibleExistingPhotos
       .map((photo) => photo.id)
@@ -260,7 +258,8 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
         _fromError = text;
       } else if (lower.contains('tocity') || lower.contains('to city')) {
         _toError = text;
-      } else if (lower.contains('travel date') || lower.contains('traveldate')) {
+      } else if (lower.contains('travel date') ||
+          lower.contains('traveldate')) {
         _travelDateError = text;
       } else if (lower.contains('weight')) {
         _weightError = text;
@@ -360,15 +359,21 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
   }
 
   bool _validateCity() {
-    final fromCity = _fromLocation == null ? '' : deliveryCityName(_fromLocation!);
+    final fromCity = _fromLocation == null
+        ? ''
+        : deliveryCityName(_fromLocation!);
     final toCity = _toLocation == null ? '' : deliveryCityName(_toLocation!);
-    final fromCode =
-        _fromLocation == null ? '' : deliveryCodeFromPlace(_fromLocation!);
-    final toCode = _toLocation == null ? '' : deliveryCodeFromPlace(_toLocation!);
+    final fromCode = _fromLocation == null
+        ? ''
+        : deliveryCodeFromPlace(_fromLocation!);
+    final toCode = _toLocation == null
+        ? ''
+        : deliveryCodeFromPlace(_toLocation!);
 
     setState(() {
-      _photosError =
-          _totalPhotoCount == 0 ? 'Upload at least 1 parcel photo.' : null;
+      _photosError = _totalPhotoCount == 0
+          ? 'Upload at least 1 parcel photo.'
+          : null;
       _meetupError = _meetupLocations.isEmpty
           ? 'Add at least one meetup location.'
           : MeetupOriginValidation.validateMeetupLocations(
@@ -386,17 +391,16 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
               destinationPlace: _toLocation,
             );
       _budgetError = _maxBudget <= 0 ? 'Enter a valid maximum budget.' : null;
-      _weightError =
-          _weightKg <= 0 ? 'Enter a valid weight greater than 0.' : null;
-      _travelDateError =
-          _travelDate == null ? 'Select a travel date.' : null;
-      _fromError =
-          fromCity.isEmpty ? 'Select a from location.' : null;
+      _weightError = _weightKg <= 0
+          ? 'Enter a valid weight greater than 0.'
+          : null;
+      _travelDateError = _travelDate == null ? 'Select a travel date.' : null;
+      _fromError = fromCity.isEmpty ? 'Select a from location.' : null;
       _toError = toCity.isEmpty
           ? 'Select a to location.'
           : (toCity.toLowerCase() == fromCity.toLowerCase()
-              ? 'From and To cities must be different.'
-              : null);
+                ? 'From and To cities must be different.'
+                : null);
       _receiverEmailError = _validateReceiverEmail(_receiverEmail);
       _receiverPhoneError = _validateReceiverPhone(_receiverPhone);
       _descriptionError = _descriptionController.text.trim().isEmpty
@@ -423,46 +427,48 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
 
   bool _validateCountry() {
     setState(() {
-      _photosError =
-          _totalPhotoCount == 0 ? 'Upload at least 1 parcel photo.' : null;
+      _photosError = _totalPhotoCount == 0
+          ? 'Upload at least 1 parcel photo.'
+          : null;
       _meetupError = _meetupLocations.isEmpty
           ? 'Add at least one meetup location.'
           : (_fromAirport == null
-              ? null
-              : MeetupOriginValidation.validateMeetupLocations(
-                  meetups: _meetupLocations,
-                  originCity: deliveryAirportCity(_fromAirport!),
-                  originCountryCode: deliveryCodeFromPlace(_fromAirport!),
-                  originPlace: _fromAirport,
-                  sameCountrySufficient: true,
-                ));
+                ? null
+                : MeetupOriginValidation.validateMeetupLocations(
+                    meetups: _meetupLocations,
+                    originCity: deliveryAirportCity(_fromAirport!),
+                    originCountryCode: deliveryCodeFromPlace(_fromAirport!),
+                    originPlace: _fromAirport,
+                    sameCountrySufficient: true,
+                  ));
       _receiverMeetupError = _receiverMeetupLocations.isEmpty
           ? 'Select a meetup location.'
           : (_toAirport == null
-              ? null
-              : MeetupDestinationValidation.validateMeetupLocations(
-                  meetups: _receiverMeetupLocations,
-                  destinationCity: deliveryAirportCity(_toAirport!),
-                  destinationCountryCode: deliveryCodeFromPlace(_toAirport!),
-                  destinationPlace: _toAirport,
-                  sameCountrySufficient: true,
-                ));
+                ? null
+                : MeetupDestinationValidation.validateMeetupLocations(
+                    meetups: _receiverMeetupLocations,
+                    destinationCity: deliveryAirportCity(_toAirport!),
+                    destinationCountryCode: deliveryCodeFromPlace(_toAirport!),
+                    destinationPlace: _toAirport,
+                    sameCountrySufficient: true,
+                  ));
       _budgetError = _maxBudget <= 0 ? 'Enter a valid maximum budget.' : null;
-      _weightError =
-          _weightKg <= 0 ? 'Enter a valid weight greater than 0.' : null;
-      _travelDateError =
-          _travelDate == null ? 'Select a travel date.' : null;
+      _weightError = _weightKg <= 0
+          ? 'Enter a valid weight greater than 0.'
+          : null;
+      _travelDateError = _travelDate == null ? 'Select a travel date.' : null;
       _receiverEmailError = _validateReceiverEmail(_receiverEmail);
       _receiverPhoneError = _validateReceiverPhone(_receiverPhone);
-      _fromAirportError =
-          _fromAirport == null ? 'Select an origin airport.' : null;
+      _fromAirportError = _fromAirport == null
+          ? 'Select an origin airport.'
+          : null;
       _toAirportError = _toAirport == null
           ? 'Select a destination airport.'
           : (_sameAirportSelected()
-              ? 'Origin and destination must be different.'
-              : (_sameCountryAirports()
-                  ? 'Origin and destination countries must be different.'
-                  : null));
+                ? 'Origin and destination must be different.'
+                : (_sameCountryAirports()
+                      ? 'Origin and destination countries must be different.'
+                      : null));
       _descriptionError = _descriptionController.text.trim().isEmpty
           ? 'Enter a parcel description.'
           : null;
@@ -568,7 +574,8 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
     double? platformFee,
     double? platformFeeShare,
     bool paysReceiverFee,
-  }) _commonFields() {
+  })
+  _commonFields() {
     return (
       travelDate: _travelDate!,
       parcelCategory: _category,
@@ -576,8 +583,9 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
       weightKg: _weightKg,
       maxBudget: _maxBudget,
       description: _descriptionController.text.trim(),
-      preferredMeetupLocations:
-          _meetupLocations.map((l) => l.displayLabel).toList(),
+      preferredMeetupLocations: _meetupLocations
+          .map((l) => l.displayLabel)
+          .toList(),
       acknowledged: true,
       receiverEmail: _receiverEmail,
       receiverPhone: _receiverPhone,
@@ -639,7 +647,10 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(l10n.routeSection, style: context.typo.h3.copyWith(fontWeight: FontWeight.w700)),
+        Text(
+          l10n.routeSection,
+          style: context.typo.h3.copyWith(fontWeight: FontWeight.w700),
+        ),
         const SizedBox(height: 12),
         if (_isCountry) ...[
           AirportRouteSearchFields(
@@ -714,7 +725,10 @@ class DeliveryFormFieldsState extends State<DeliveryFormFields> {
           ),
         ),
         const SizedBox(height: 12),
-        Text(l10n.parcelSection, style: context.typo.h3.copyWith(fontWeight: FontWeight.w700)),
+        Text(
+          l10n.parcelSection,
+          style: context.typo.h3.copyWith(fontWeight: FontWeight.w700),
+        ),
         const SizedBox(height: 8),
         AppChipRow(
           options: StaticData.parcelCategories,

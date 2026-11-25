@@ -4,7 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+
 import '../../core/config/demo_mode.dart';
+import '../../core/layout/responsive.dart';
+import '../../core/platform/platform_ui.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_avatar.dart';
@@ -12,18 +15,14 @@ import '../../core/widgets/app_badge.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_chip.dart';
-import '../../core/layout/responsive.dart';
-import '../../core/platform/platform_ui.dart';
-import '../../core/widgets/app_labeled_field.dart';
 import '../../core/widgets/app_toast.dart';
-import '../../core/widgets/app_value_field.dart';
 import '../../core/widgets/back_header.dart';
 import '../../core/widgets/stacked_route_endpoints.dart';
+import '../../data/delivery_status_mapper.dart';
 import '../../data/models/bid.dart';
 import '../../data/models/created_delivery.dart';
 import '../../data/models/parcel_creation_result.dart';
 import '../../data/models/shipment.dart';
-import '../../data/delivery_status_mapper.dart';
 import '../../data/route_display.dart';
 import '../../data/services/delivery_repository.dart';
 import '../../data/static_data.dart';
@@ -67,7 +66,9 @@ class _BrowseBidsScreenState extends State<BrowseBidsScreen> {
   @override
   Widget build(BuildContext context) {
     final openBids = StaticData.bids
-        .where((b) => StaticData.bidReviewStatus(b.id) != BidReviewStatus.rejected)
+        .where(
+          (b) => StaticData.bidReviewStatus(b.id) != BidReviewStatus.rejected,
+        )
         .toList();
     final bids = BidSortOption.sorted(openBids, _sort);
 
@@ -116,13 +117,15 @@ class _BrowseBidsScreenState extends State<BrowseBidsScreen> {
               StaticData.rejectBid('', bid.id);
               _showSnack('Bid from ${bid.travelerName} rejected');
             },
-            onViewProfile: () => context.push('/bid-traveler-profile', extra: bid),
+            onViewProfile: () =>
+                context.push('/bid-traveler-profile', extra: bid),
             onSendDeliveryRequest: () => context.push('/payment'),
             onApproveRequest: () {
               StaticData.approveRequest(bid.id);
               _showSnack('Request from ${bid.travelerName} approved');
             },
-            onNegotiateMeetup: () => context.push('/negotiate-meetup', extra: bid),
+            onNegotiateMeetup: () =>
+                context.push('/negotiate-meetup', extra: bid),
           );
         },
       ),
@@ -159,8 +162,8 @@ class _BidCard extends StatelessWidget {
     final matchColor = bid.routeMatchConfidence >= 90
         ? AppColors.success
         : bid.routeMatchConfidence >= 80
-            ? AppColors.primary
-            : AppColors.warning;
+        ? AppColors.primary
+        : AppColors.warning;
 
     return AppCard(
       highlighted: bid.featured,
@@ -185,18 +188,26 @@ class _BidCard extends StatelessWidget {
                           onTap: onViewProfile,
                           child: Text(
                             bid.travelerName,
-                            style: typo.bodyBold.copyWith(fontWeight: FontWeight.w700),
+                            style: typo.bodyBold.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 8),
                         AppBadge.verified(),
                       ],
                     ),
-                    Text('★ ${bid.rating} · ${bid.reviewCount} reviews', style: typo.sm),
+                    Text(
+                      '★ ${bid.rating} · ${bid.reviewCount} reviews',
+                      style: typo.sm,
+                    ),
                   ],
                 ),
               ),
-              Text(WalletService.formatMajor(bid.price), style: typo.priceLarge),
+              Text(
+                WalletService.formatMajor(bid.price),
+                style: typo.priceLarge,
+              ),
             ],
           ),
           const SizedBox(height: 8),
@@ -292,11 +303,7 @@ class _BidCard extends StatelessWidget {
               onPressed: onNegotiateMeetup,
             ),
           ] else if (status == BidReviewStatus.locked) ...[
-            AppButton(
-              label: 'Bid locked',
-              small: true,
-              onPressed: null,
-            ),
+            AppButton(label: 'Bid locked', small: true, onPressed: null),
             const SizedBox(height: 8),
             AppButton(
               label: 'View traveler profile',
@@ -327,7 +334,8 @@ class _BidCard extends StatelessWidget {
                   : 'Send delivery request',
               small: true,
               variant: AppButtonVariant.outline,
-              onPressed: status == BidReviewStatus.deliveryRequested ||
+              onPressed:
+                  status == BidReviewStatus.deliveryRequested ||
                       status == BidReviewStatus.approved
                   ? null
                   : onSendDeliveryRequest,
@@ -339,8 +347,9 @@ class _BidCard extends StatelessWidget {
                   : 'Approve request',
               small: true,
               variant: AppButtonVariant.outline,
-              onPressed:
-                  status == BidReviewStatus.approved ? null : onApproveRequest,
+              onPressed: status == BidReviewStatus.approved
+                  ? null
+                  : onApproveRequest,
             ),
             const SizedBox(height: 8),
             AppButton(
@@ -364,8 +373,7 @@ class EscrowPaymentScreen extends StatelessWidget {
     final typo = context.typo;
     final bid = StaticData.bids.first;
     final shipment = StaticData.activeShipment;
-    final paysReceiver =
-        StaticData.paysReceiverFeeFor(shipment.id);
+    final paysReceiver = StaticData.paysReceiverFeeFor(shipment.id);
     final platformFee = StaticData.senderPlatformFeeUsd(
       category: shipment.parcelCategory,
       paysReceiverFee: paysReceiver,
@@ -383,10 +391,16 @@ class EscrowPaymentScreen extends StatelessWidget {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(16)),
+              decoration: BoxDecoration(
+                color: AppColors.primary,
+                borderRadius: BorderRadius.circular(16),
+              ),
               child: Column(
                 children: [
-                  Text('Funds held in escrow until delivery confirmed', style: typo.captionOnDarkSoft),
+                  Text(
+                    'Funds held in escrow until delivery confirmed',
+                    style: typo.captionOnDarkSoft,
+                  ),
                   const SizedBox(height: 8),
                   Text(WalletService.formatMajor(total), style: typo.priceHero),
                   Text('🔒 Secured by Stripe', style: typo.captionOnDark),
@@ -398,10 +412,24 @@ class EscrowPaymentScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _row(context, 'Traveler payout (${bid.travelerName})', WalletService.formatMajor(bid.price)),
+                  _row(
+                    context,
+                    'Traveler payout (${bid.travelerName})',
+                    WalletService.formatMajor(bid.price),
+                  ),
                   const Divider(),
-                  _row(context, 'Your platform fee', WalletService.formatMajor(platformFee)),
-                  _row(context, 'Total charged today', WalletService.formatMajor(total), bold: true, primary: true),
+                  _row(
+                    context,
+                    'Your platform fee',
+                    WalletService.formatMajor(platformFee),
+                  ),
+                  _row(
+                    context,
+                    'Total charged today',
+                    WalletService.formatMajor(total),
+                    bold: true,
+                    primary: true,
+                  ),
                 ],
               ),
             ),
@@ -448,20 +476,40 @@ class EscrowPaymentScreen extends StatelessWidget {
     );
   }
 
-  Widget _row(BuildContext context, String label, String value, {bool bold = false, bool primary = false}) {
+  Widget _row(
+    BuildContext context,
+    String label,
+    String value, {
+    bool bold = false,
+    bool primary = false,
+  }) {
     final typo = context.typo;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: bold ? typo.bodyBold.copyWith(fontWeight: FontWeight.w700) : typo.smPrimary),
+          Text(
+            label,
+            style: bold
+                ? typo.bodyBold.copyWith(fontWeight: FontWeight.w700)
+                : typo.smPrimary,
+          ),
           Text(
             value,
-            style: (primary ? typo.bodyBold.copyWith(fontSize: 16, color: AppColors.primary) : typo.body).copyWith(
-              fontWeight: bold ? FontWeight.w700 : FontWeight.w800,
-              color: primary ? AppColors.primary : AppColors.textPrimary,
-            ),
+            style:
+                (primary
+                        ? typo.bodyBold.copyWith(
+                            fontSize: 16,
+                            color: AppColors.primary,
+                          )
+                        : typo.body)
+                    .copyWith(
+                      fontWeight: bold ? FontWeight.w700 : FontWeight.w800,
+                      color: primary
+                          ? AppColors.primary
+                          : AppColors.textPrimary,
+                    ),
           ),
         ],
       ),
@@ -495,7 +543,10 @@ class PaymentConfirmedScreen extends StatelessWidget {
               const SizedBox(height: 16),
               Text('Funds secured!', style: typo.h1),
               const SizedBox(height: 8),
-              Text('${WalletService.formatMajor(total)} is held in escrow.', style: typo.sm),
+              Text(
+                '${WalletService.formatMajor(total)} is held in escrow.',
+                style: typo.sm,
+              ),
               const SizedBox(height: 8),
               Text(
                 'Selected bid locked · Receiver notified',
@@ -532,7 +583,10 @@ class PaymentConfirmedScreen extends StatelessWidget {
               AppButton(
                 label: 'Open chat',
                 variant: AppButtonVariant.outline,
-                textStyle: typo.button.copyWith(fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                textStyle: typo.button.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
                 onPressed: () => context.go('/sender-chats'),
               ),
             ],
@@ -561,7 +615,8 @@ class PostDeliveryPostedSuccessScreen extends StatefulWidget {
 }
 
 class _PostDeliveryPostedSuccessScreenState
-    extends State<PostDeliveryPostedSuccessScreen> with WidgetsBindingObserver {
+    extends State<PostDeliveryPostedSuccessScreen>
+    with WidgetsBindingObserver {
   CreatedDelivery? _liveDelivery;
   bool _polling = false;
   Timer? _pollTimer;
@@ -647,9 +702,8 @@ class _PostDeliveryPostedSuccessScreenState
   Widget build(BuildContext context) {
     final typo = context.typo;
     final delivery = _liveDelivery ?? widget.delivery;
-    final fallbackRoute = widget.result?.route ??
-        widget.route ??
-        StaticData.activeShipment.route;
+    final fallbackRoute =
+        widget.result?.route ?? widget.route ?? StaticData.activeShipment.route;
     final fromLocation = delivery != null
         ? delivery.exactDisplayFrom
         : routeLeft(fallbackRoute);
@@ -778,10 +832,10 @@ class _PostDeliveryPostedSuccessScreenState
                   final auth = context.read<AuthProvider>();
                   final demoMode = context.read<DemoModeProvider>();
                   context.read<SenderDeliveriesProvider>().refresh(
-                        authRepository: auth.repository,
-                        demoMode: demoMode,
-                        silent: true,
-                      );
+                    authRepository: auth.repository,
+                    demoMode: demoMode,
+                    silent: true,
+                  );
                   context
                       .read<NotificationRealtimeProvider>()
                       .notifyDeliveryUpdated();
@@ -796,10 +850,10 @@ class _PostDeliveryPostedSuccessScreenState
                   final auth = context.read<AuthProvider>();
                   final demoMode = context.read<DemoModeProvider>();
                   context.read<SenderDeliveriesProvider>().refresh(
-                        authRepository: auth.repository,
-                        demoMode: demoMode,
-                        silent: true,
-                      );
+                    authRepository: auth.repository,
+                    demoMode: demoMode,
+                    silent: true,
+                  );
                   context
                       .read<NotificationRealtimeProvider>()
                       .notifyDeliveryUpdated();

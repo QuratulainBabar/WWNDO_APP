@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_button.dart';
@@ -27,6 +28,12 @@ class KycSelfieIntroScreen extends StatelessWidget {
       backgroundColor: AppColors.surface,
       appBar: const BackHeader(title: 'Selfie check'),
       body: ScrollableFormScreen(
+        actions: [
+          AppButton(
+            label: 'Start liveness check',
+            onPressed: () => context.push('/kyc/selfie/liveness', extra: flow),
+          ),
+        ],
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -37,21 +44,27 @@ class KycSelfieIntroScreen extends StatelessWidget {
               style: typo.sm.copyWith(height: 1.5),
             ),
             const SizedBox(height: 24),
-            _IntroTip(icon: Icons.wb_sunny_outlined, text: 'Find a well-lit place without strong backlight'),
+            _IntroTip(
+              icon: Icons.wb_sunny_outlined,
+              text: 'Find a well-lit place without strong backlight',
+            ),
             const SizedBox(height: 10),
-            _IntroTip(icon: Icons.face_retouching_off_outlined, text: 'Remove hats, sunglasses, or face coverings'),
+            _IntroTip(
+              icon: Icons.face_retouching_off_outlined,
+              text: 'Remove hats, sunglasses, or face coverings',
+            ),
             const SizedBox(height: 10),
-            _IntroTip(icon: Icons.center_focus_strong_outlined, text: 'Keep your face centered in the frame'),
+            _IntroTip(
+              icon: Icons.center_focus_strong_outlined,
+              text: 'Keep your face centered in the frame',
+            ),
             const SizedBox(height: 10),
-            _IntroTip(icon: Icons.timelapse_outlined, text: 'The liveness check takes about 15 seconds'),
+            _IntroTip(
+              icon: Icons.timelapse_outlined,
+              text: 'The liveness check takes about 15 seconds',
+            ),
           ],
         ),
-        actions: [
-          AppButton(
-            label: 'Start liveness check',
-            onPressed: () => context.push('/kyc/selfie/liveness', extra: flow),
-          ),
-        ],
       ),
     );
   }
@@ -102,10 +115,22 @@ class KycLivenessCheckScreen extends StatefulWidget {
 
 class _KycLivenessCheckScreenState extends State<KycLivenessCheckScreen> {
   static const _steps = [
-    _LivenessStep(instruction: 'Position your face in the circle', hint: 'Hold your phone at eye level'),
-    _LivenessStep(instruction: 'Look straight ahead', hint: 'Keep your eyes open and still'),
-    _LivenessStep(instruction: 'Slowly turn your head left', hint: 'Move smoothly, not too fast'),
-    _LivenessStep(instruction: 'Slowly turn your head right', hint: 'Return to center when done'),
+    _LivenessStep(
+      instruction: 'Position your face in the circle',
+      hint: 'Hold your phone at eye level',
+    ),
+    _LivenessStep(
+      instruction: 'Look straight ahead',
+      hint: 'Keep your eyes open and still',
+    ),
+    _LivenessStep(
+      instruction: 'Slowly turn your head left',
+      hint: 'Move smoothly, not too fast',
+    ),
+    _LivenessStep(
+      instruction: 'Slowly turn your head right',
+      hint: 'Return to center when done',
+    ),
     _LivenessStep(instruction: 'Blink once naturally', hint: 'Almost finished'),
   ];
 
@@ -174,10 +199,7 @@ class _KycLivenessCheckScreenState extends State<KycLivenessCheckScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.nfcGradientStart,
-      appBar: BackHeader(
-        title: 'Liveness check',
-        fallbackRoute: '/kyc/selfie',
-      ),
+      appBar: BackHeader(title: 'Liveness check', fallbackRoute: '/kyc/selfie'),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
@@ -194,11 +216,16 @@ class _KycLivenessCheckScreenState extends State<KycLivenessCheckScreen> {
                     ? 'Great job. Now take a selfie so we can match it to your ID.'
                     : step.hint,
                 textAlign: TextAlign.center,
-                style: typo.sm.copyWith(color: Colors.white.withValues(alpha: 0.75), height: 1.5),
+                style: typo.sm.copyWith(
+                  color: Colors.white.withValues(alpha: 0.75),
+                  height: 1.5,
+                ),
               ),
               const SizedBox(height: 8),
               Text(
-                _allComplete ? 'Complete' : 'Step ${_stepIndex + 1} of ${_steps.length}',
+                _allComplete
+                    ? 'Complete'
+                    : 'Step ${_stepIndex + 1} of ${_steps.length}',
                 style: typo.label.copyWith(color: AppColors.secondary),
               ),
               const SizedBox(height: 24),
@@ -213,7 +240,9 @@ class _KycLivenessCheckScreenState extends State<KycLivenessCheckScreen> {
                         child: CircularProgressIndicator(
                           value: _allComplete ? 1 : _stepProgress,
                           strokeWidth: 4,
-                          color: _allComplete ? AppColors.success : AppColors.secondary,
+                          color: _allComplete
+                              ? AppColors.success
+                              : AppColors.secondary,
                           backgroundColor: Colors.white.withValues(alpha: 0.15),
                         ),
                       ),
@@ -304,7 +333,10 @@ class _KycSelfieCaptureScreenState extends State<KycSelfieCaptureScreen> {
 
       context.push(
         '/kyc/selfie/preview',
-        extra: KycSelfiePreviewRouteArgs(flow: widget.flow, imagePath: file.path),
+        extra: KycSelfiePreviewRouteArgs(
+          flow: widget.flow,
+          imagePath: file.path,
+        ),
       );
     } catch (error) {
       if (!mounted) return;
@@ -328,7 +360,10 @@ class _KycSelfieCaptureScreenState extends State<KycSelfieCaptureScreen> {
 
       context.push(
         '/kyc/selfie/preview',
-        extra: KycSelfiePreviewRouteArgs(flow: widget.flow, imagePath: file.path),
+        extra: KycSelfiePreviewRouteArgs(
+          flow: widget.flow,
+          imagePath: file.path,
+        ),
       );
     } catch (error) {
       if (!mounted) return;
@@ -362,7 +397,10 @@ class _KycSelfieCaptureScreenState extends State<KycSelfieCaptureScreen> {
               Text(
                 'Center your face in the oval. We will compare this photo with your ID document.',
                 textAlign: TextAlign.center,
-                style: typo.sm.copyWith(color: Colors.white.withValues(alpha: 0.75), height: 1.5),
+                style: typo.sm.copyWith(
+                  color: Colors.white.withValues(alpha: 0.75),
+                  height: 1.5,
+                ),
               ),
               const SizedBox(height: 24),
               Expanded(
@@ -372,7 +410,10 @@ class _KycSelfieCaptureScreenState extends State<KycSelfieCaptureScreen> {
                     height: 280,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.85), width: 2.5),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.85),
+                        width: 2.5,
+                      ),
                     ),
                     child: Center(
                       child: Icon(
@@ -425,6 +466,14 @@ class KycSelfiePreviewScreen extends StatelessWidget {
       backgroundColor: AppColors.surface,
       appBar: const BackHeader(title: 'Review selfie'),
       body: ScrollableFormScreen(
+        actions: [
+          AppButton(label: 'Submit selfie', onPressed: () => _confirm(context)),
+          AppButton(
+            label: 'Retake selfie',
+            variant: AppButtonVariant.outline,
+            onPressed: () => context.pop(),
+          ),
+        ],
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -466,14 +515,6 @@ class KycSelfiePreviewScreen extends StatelessWidget {
             ),
           ],
         ),
-        actions: [
-          AppButton(label: 'Submit selfie', onPressed: () => _confirm(context)),
-          AppButton(
-            label: 'Retake selfie',
-            variant: AppButtonVariant.outline,
-            onPressed: () => context.pop(),
-          ),
-        ],
       ),
     );
   }
@@ -485,7 +526,8 @@ class KycSelfieProcessingScreen extends StatefulWidget {
   final KycFlowData flow;
 
   @override
-  State<KycSelfieProcessingScreen> createState() => _KycSelfieProcessingScreenState();
+  State<KycSelfieProcessingScreen> createState() =>
+      _KycSelfieProcessingScreenState();
 }
 
 class _KycSelfieProcessingScreenState extends State<KycSelfieProcessingScreen> {
@@ -541,7 +583,11 @@ class _KycSelfieProcessingScreenState extends State<KycSelfieProcessingScreen> {
                   child: CircularProgressIndicator(strokeWidth: 4),
                 ),
                 const SizedBox(height: 24),
-                Text('Verifying your identity', style: typo.h2, textAlign: TextAlign.center),
+                Text(
+                  'Verifying your identity',
+                  style: typo.h2,
+                  textAlign: TextAlign.center,
+                ),
                 const SizedBox(height: 8),
                 Text(
                   _messages[_messageIndex],
@@ -582,10 +628,18 @@ class KycSelfieCompleteScreen extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
                 alignment: Alignment.center,
-                child: const Icon(Icons.check, size: 40, color: AppColors.success),
+                child: const Icon(
+                  Icons.check,
+                  size: 40,
+                  color: AppColors.success,
+                ),
               ),
               const SizedBox(height: 20),
-              Text('Selfie check complete', style: typo.h1, textAlign: TextAlign.center),
+              Text(
+                'Selfie check complete',
+                style: typo.h1,
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: 8),
               Text(
                 'Your liveness check and selfie have been submitted successfully.',

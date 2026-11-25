@@ -33,7 +33,9 @@ class _ShipmentEscrowSectionState extends State<ShipmentEscrowSection> {
 
   Future<void> _load() async {
     if (!mounted) return;
-    await context.read<WalletProvider>().refreshShipmentEscrow(widget.shipmentId);
+    await context.read<WalletProvider>().refreshShipmentEscrow(
+      widget.shipmentId,
+    );
   }
 
   @override
@@ -41,7 +43,7 @@ class _ShipmentEscrowSectionState extends State<ShipmentEscrowSection> {
     final typo = context.typo;
     return ValueListenableBuilder<int>(
       valueListenable: WalletService.walletVersion,
-      builder: (context, _, __) {
+      builder: (context, _, _) {
         final shipmentId = widget.shipmentId;
         final escrow = WalletService.escrowCentsForShipment(shipmentId);
         final frozen = WalletService.isEscrowFrozen(shipmentId);
@@ -69,7 +71,11 @@ class _ShipmentEscrowSectionState extends State<ShipmentEscrowSection> {
               style: typo.h3.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
-            _detailRow(context, context.l10n.amount, WalletService.formatCents(escrow)),
+            _detailRow(
+              context,
+              context.l10n.amount,
+              WalletService.formatCents(escrow),
+            ),
             _detailRow(context, context.l10n.status, statusLabel),
           ],
         );

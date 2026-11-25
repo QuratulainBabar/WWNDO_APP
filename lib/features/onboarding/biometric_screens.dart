@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+
 import '../../core/api/api_exception.dart';
+import '../../core/auth/post_auth_navigation.dart';
 import '../../core/navigation/app_navigation.dart';
-import '../../core/platform/keyboard_utils.dart';
 import '../../core/platform/biometric_auth_service.dart';
 import '../../core/platform/biometric_prefs.dart';
+import '../../core/platform/keyboard_utils.dart';
 import '../../core/platform/platform_ui.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
@@ -14,9 +16,8 @@ import '../../core/widgets/app_labeled_field.dart';
 import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/back_link.dart';
 import '../../core/widgets/screen_body.dart';
-import '../../core/auth/post_auth_navigation.dart';
-import '../../providers/auth_provider.dart';
 import '../../l10n/app_localizations.dart';
+import '../../providers/auth_provider.dart';
 import 'login_otp_verification_screen.dart';
 
 class BiometricSetupScreen extends StatefulWidget {
@@ -72,13 +73,22 @@ class _BiometricSetupScreenState extends State<BiometricSetupScreen> {
       case BiometricAuthStatus.notAvailable:
       case BiometricAuthStatus.notEnrolled:
       case BiometricAuthStatus.lockedOut:
-        context.pushReplacement('/biometric/unavailable', extra: result.message);
+        context.pushReplacement(
+          '/biometric/unavailable',
+          extra: result.message,
+        );
       case BiometricAuthStatus.cancelled:
         setState(() => _loading = false);
-        AppToast.error(context, 'Verification cancelled. Try again when you are ready.');
+        AppToast.error(
+          context,
+          'Verification cancelled. Try again when you are ready.',
+        );
       case BiometricAuthStatus.failed:
         setState(() => _loading = false);
-        AppToast.error(context, result.message ?? 'Verification failed. Please try again.');
+        AppToast.error(
+          context,
+          result.message ?? 'Verification failed. Please try again.',
+        );
     }
   }
 
@@ -120,14 +130,23 @@ class _BiometricSetupScreenState extends State<BiometricSetupScreen> {
                       color: AppColors.primary.withValues(alpha: 0.12),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(PlatformUi.biometricIcon, color: AppColors.primary, size: 28),
+                    child: Icon(
+                      PlatformUi.biometricIcon,
+                      color: AppColors.primary,
+                      size: 28,
+                    ),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Quick sign-in', style: typo.body.copyWith(fontWeight: FontWeight.w700)),
+                        Text(
+                          'Quick sign-in',
+                          style: typo.body.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                         const SizedBox(height: 2),
                         Text(
                           'Use $label instead of typing your password each time.',
@@ -156,10 +175,13 @@ class _BiometricSetupScreenState extends State<BiometricSetupScreen> {
                   hintStyle: typo.input.copyWith(color: AppColors.textDisabled),
                   suffixIcon: IconButton(
                     icon: Icon(
-                      _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                      _obscurePassword
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
                       color: AppColors.textSecondary,
                     ),
-                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                    onPressed: () =>
+                        setState(() => _obscurePassword = !_obscurePassword),
                   ),
                 ),
               ),
@@ -176,9 +198,9 @@ class _BiometricSetupScreenState extends State<BiometricSetupScreen> {
               onPressed: _loading
                   ? null
                   : () => PostAuthNavigation.continueAfterAuth(
-                        context,
-                        offerBiometricSetup: false,
-                      ),
+                      context,
+                      offerBiometricSetup: false,
+                    ),
             ),
           ],
         ),
@@ -229,7 +251,11 @@ class _BiometricLoginScreenState extends State<BiometricLoginScreen>
     final parts = cached.name.trim().split(RegExp(r'\s+'));
     setState(() {
       _displayName = cached.name;
-      _displayInitials = parts.take(2).map((p) => p.isNotEmpty ? p[0] : '').join().toUpperCase();
+      _displayInitials = parts
+          .take(2)
+          .map((p) => p.isNotEmpty ? p[0] : '')
+          .join()
+          .toUpperCase();
       if (_displayInitials.isEmpty) _displayInitials = 'W';
     });
   }
@@ -287,7 +313,10 @@ class _BiometricLoginScreenState extends State<BiometricLoginScreen>
       case BiometricAuthStatus.notAvailable:
       case BiometricAuthStatus.notEnrolled:
       case BiometricAuthStatus.lockedOut:
-        context.pushReplacement('/biometric/unavailable', extra: result.message);
+        context.pushReplacement(
+          '/biometric/unavailable',
+          extra: result.message,
+        );
       case BiometricAuthStatus.cancelled:
         setState(() {
           _authenticating = false;
@@ -351,12 +380,12 @@ class _BiometricLoginScreenState extends State<BiometricLoginScreen>
     final name = authUser?.name ?? _displayName;
     final initials = authUser != null
         ? authUser.name
-            .trim()
-            .split(RegExp(r'\s+'))
-            .take(2)
-            .map((p) => p.isNotEmpty ? p[0] : '')
-            .join()
-            .toUpperCase()
+              .trim()
+              .split(RegExp(r'\s+'))
+              .take(2)
+              .map((p) => p.isNotEmpty ? p[0] : '')
+              .join()
+              .toUpperCase()
         : _displayInitials;
     final label = PlatformUi.biometricShortLabel;
     final scale = Tween<double>(begin: 0.96, end: 1.04).animate(
@@ -382,12 +411,18 @@ class _BiometricLoginScreenState extends State<BiometricLoginScreen>
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Text('Welcome back', style: typo.h2, textAlign: TextAlign.center),
+                  Text(
+                    'Welcome back',
+                    style: typo.h2,
+                    textAlign: TextAlign.center,
+                  ),
                   const SizedBox(height: 4),
                   Text(name, style: typo.sm, textAlign: TextAlign.center),
                   const SizedBox(height: 32),
                   ScaleTransition(
-                    scale: _authenticating ? scale : const AlwaysStoppedAnimation(1),
+                    scale: _authenticating
+                        ? scale
+                        : const AlwaysStoppedAnimation(1),
                     child: Container(
                       width: 96,
                       height: 96,
@@ -411,8 +446,8 @@ class _BiometricLoginScreenState extends State<BiometricLoginScreen>
                     _authenticating
                         ? 'Waiting for $label…'
                         : _hasStarted
-                            ? 'Try again with $label'
-                            : 'Use $label to continue',
+                        ? 'Try again with $label'
+                        : 'Use $label to continue',
                     style: typo.body.copyWith(fontWeight: FontWeight.w600),
                     textAlign: TextAlign.center,
                   ),
@@ -436,7 +471,8 @@ class _BiometricLoginScreenState extends State<BiometricLoginScreen>
             AppButton(
               label: 'Use password instead',
               variant: AppButtonVariant.outline,
-              onPressed: () => appNavigateBackFromContext(context, fallback: '/login'),
+              onPressed: () =>
+                  appNavigateBackFromContext(context, fallback: '/login'),
             ),
             const SizedBox(height: 24),
           ],
@@ -460,7 +496,11 @@ class _BiometricSuccessScreenState extends State<BiometricSuccessScreen> {
   void initState() {
     super.initState();
     Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) PostAuthNavigation.continueAfterAuth(context, offerBiometricSetup: false);
+      if (mounted)
+        PostAuthNavigation.continueAfterAuth(
+          context,
+          offerBiometricSetup: false,
+        );
     });
   }
 
@@ -485,7 +525,11 @@ class _BiometricSuccessScreenState extends State<BiometricSuccessScreen> {
                   shape: BoxShape.circle,
                 ),
                 alignment: Alignment.center,
-                child: Icon(PlatformUi.biometricIcon, size: 40, color: AppColors.success),
+                child: Icon(
+                  PlatformUi.biometricIcon,
+                  size: 40,
+                  color: AppColors.success,
+                ),
               ),
               const SizedBox(height: 20),
               Text(
@@ -540,10 +584,18 @@ class BiometricUnavailableScreen extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
                 alignment: Alignment.center,
-                child: const Icon(Icons.phonelink_lock_rounded, size: 40, color: AppColors.warning),
+                child: const Icon(
+                  Icons.phonelink_lock_rounded,
+                  size: 40,
+                  color: AppColors.warning,
+                ),
               ),
               const SizedBox(height: 20),
-              Text('$label unavailable', style: typo.h1, textAlign: TextAlign.center),
+              Text(
+                '$label unavailable',
+                style: typo.h1,
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: 8),
               Text(
                 message ??

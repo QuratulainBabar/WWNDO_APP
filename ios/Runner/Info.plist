@@ -30,7 +30,7 @@
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
 			<key>CFBundleURLName</key>
-			<string>com.wwngo.wwngo_app</string>
+			<string>com.wwngo.app</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>wwngo</string>
@@ -93,7 +93,6 @@
 	<string>WWNGO uses NFC to confirm parcel handoff and delivery between sender, traveler, and receiver.</string>
 	<key>com.apple.developer.nfc.readersession.formats</key>
 	<array>
-		<string>NDEF</string>
 		<string>TAG</string>
 	</array>
 </dict>

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+
 import '../../core/auth/post_auth_navigation.dart';
 import '../../core/config/api_config.dart';
 import '../../core/config/demo_mode.dart';
@@ -29,7 +30,7 @@ class KycVerificationScreen extends StatefulWidget {
 
 class _KycVerificationScreenState extends State<KycVerificationScreen> {
   late KycFlowData _flow;
-  bool _demoMode = false;
+  final bool _demoMode = false;
   String? _notice;
 
   @override
@@ -129,7 +130,8 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
     final typo = context.typo;
     final kyc = context.watch<KycProvider>();
     final authUser = context.watch<AuthProvider>().user;
-    final status = kyc.lastStatus?.kycStatus ??
+    final status =
+        kyc.lastStatus?.kycStatus ??
         KycStatusValue.fromString(authUser?.kycStatus);
     final appDemo = context.watch<DemoModeProvider>().enabled;
     final useSumsub = !appDemo && !_demoMode;
@@ -203,7 +205,10 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(context.l10n.whatYouWillDo, style: typo.bodyBold),
+                                Text(
+                                  context.l10n.whatYouWillDo,
+                                  style: typo.bodyBold,
+                                ),
                                 const SizedBox(height: 8),
                                 Text(
                                   '${context.l10n.kycStepPhotographId}\n'
@@ -232,11 +237,11 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
                             title: 'Photograph ID document',
                             subtitle: _flow.idDocumentComplete
                                 ? (_demoMode && _flow.isDemoVerification
-                                    ? 'Demo ${_flow.documentTypeLabel.toLowerCase()} added'
-                                    : '${_flow.documentTypeLabel} captured')
+                                      ? 'Demo ${_flow.documentTypeLabel.toLowerCase()} added'
+                                      : '${_flow.documentTypeLabel} captured')
                                 : _demoMode
-                                    ? 'Tap to add demo ID document'
-                                    : 'Passport, ID card, or driving licence',
+                                ? 'Tap to add demo ID document'
+                                : 'Passport, ID card, or driving licence',
                             completed: _flow.idDocumentComplete,
                             onTap: _openIdDocumentFlow,
                           ),
@@ -247,11 +252,11 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
                             title: 'Liveness selfie check',
                             subtitle: _flow.selfieComplete
                                 ? (_demoMode && _flow.isDemoVerification
-                                    ? 'Demo selfie verified'
-                                    : 'Selfie verified')
+                                      ? 'Demo selfie verified'
+                                      : 'Selfie verified')
                                 : _demoMode
-                                    ? 'Tap to complete demo selfie'
-                                    : 'Short video to confirm your identity',
+                                ? 'Tap to complete demo selfie'
+                                : 'Short video to confirm your identity',
                             completed: _flow.selfieComplete,
                             enabled: _flow.idDocumentComplete || _demoMode,
                             onTap: _openSelfieFlow,
@@ -262,8 +267,10 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
                           Text(
                             _notice!,
                             textAlign: TextAlign.center,
-                            style: typo.sm
-                                .copyWith(color: AppColors.danger, height: 1.5),
+                            style: typo.sm.copyWith(
+                              color: AppColors.danger,
+                              height: 1.5,
+                            ),
                           ),
                         ],
                         if (kyc.error != null && useSumsub) ...[
@@ -271,8 +278,10 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
                           Text(
                             kyc.error!,
                             textAlign: TextAlign.center,
-                            style: typo.sm
-                                .copyWith(color: AppColors.danger, height: 1.5),
+                            style: typo.sm.copyWith(
+                              color: AppColors.danger,
+                              height: 1.5,
+                            ),
                           ),
                         ],
                         if (kyc.loading)
@@ -297,10 +306,10 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
                       label: kyc.loading
                           ? context.tr('Opening Sumsub…')
                           : useSumsub
-                              ? context.l10n.verifyIdentity
-                              : (_demoMode
-                                  ? context.tr('Start demo verification')
-                                  : context.tr('Start verification')),
+                          ? context.l10n.verifyIdentity
+                          : (_demoMode
+                                ? context.tr('Start demo verification')
+                                : context.tr('Start verification')),
                       onPressed: kyc.loading
                           ? null
                           : () {
@@ -357,8 +366,7 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
                         onPressed: () => KycFlowActions.rejectDemo(context),
                         child: Text(
                           'Simulate rejection',
-                          style: typo.sm
-                              .copyWith(fontWeight: FontWeight.w600),
+                          style: typo.sm.copyWith(fontWeight: FontWeight.w600),
                         ),
                       ),
                     ],
@@ -399,18 +407,28 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
             alignment: Alignment.center,
             child: completed
                 ? const Icon(Icons.check, size: 16, color: AppColors.success)
-                : Text(emoji, style: typo.avatarMd.copyWith(fontWeight: FontWeight.normal)),
+                : Text(
+                    emoji,
+                    style: typo.avatarMd.copyWith(
+                      fontWeight: FontWeight.normal,
+                    ),
+                  ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: typo.bodyBold.copyWith(fontWeight: FontWeight.w700)),
+                Text(
+                  title,
+                  style: typo.bodyBold.copyWith(fontWeight: FontWeight.w700),
+                ),
                 Text(
                   subtitle,
                   style: typo.sm.copyWith(
-                    color: completed ? AppColors.success : AppColors.textSecondary,
+                    color: completed
+                        ? AppColors.success
+                        : AppColors.textSecondary,
                   ),
                 ),
               ],
@@ -426,10 +444,7 @@ class _KycVerificationScreenState extends State<KycVerificationScreen> {
     );
 
     if (onTap == null) {
-      return Opacity(
-        opacity: enabled ? 1 : 0.55,
-        child: card,
-      );
+      return Opacity(opacity: enabled ? 1 : 0.55, child: card);
     }
 
     if (!enabled) {
@@ -467,25 +482,25 @@ class _KycStatusChip extends StatelessWidget {
     final typo = context.typo;
     final (label, color, bg) = switch (status) {
       KycStatusValue.approved => (
-          context.l10n.approved,
-          AppColors.success,
-          AppColors.success.withValues(alpha: 0.12),
-        ),
+        context.l10n.approved,
+        AppColors.success,
+        AppColors.success.withValues(alpha: 0.12),
+      ),
       KycStatusValue.rejected => (
-          context.tr('Rejected'),
-          AppColors.danger,
-          AppColors.danger.withValues(alpha: 0.1),
-        ),
+        context.tr('Rejected'),
+        AppColors.danger,
+        AppColors.danger.withValues(alpha: 0.1),
+      ),
       KycStatusValue.submitted => (
-          context.tr('Pending'),
-          AppColors.warning,
-          AppColors.warning.withValues(alpha: 0.12),
-        ),
+        context.tr('Pending'),
+        AppColors.warning,
+        AppColors.warning.withValues(alpha: 0.12),
+      ),
       KycStatusValue.pending => (
-          context.tr('Pending'),
-          AppColors.primary,
-          AppColors.primary.withValues(alpha: 0.1),
-        ),
+        context.tr('Pending'),
+        AppColors.primary,
+        AppColors.primary.withValues(alpha: 0.1),
+      ),
     };
 
     return Container(
@@ -502,85 +517,93 @@ class _KycStatusChip extends StatelessWidget {
   }
 }
 
-class _DemoModeCard extends StatelessWidget {
-  const _DemoModeCard({
-    required this.enabled,
-    required this.onChanged,
-    // required this.onCompleteDemo,
-  });
+// class _DemoModeCard extends StatelessWidget {
+//   const _DemoModeCard({
+//     required this.enabled,
+//     required this.onChanged,
+//     // required this.onCompleteDemo,
+//   });
 
-  final bool enabled;
-  final ValueChanged<bool> onChanged;
-  // final VoidCallback onCompleteDemo;
+//   final bool enabled;
+//   final ValueChanged<bool> onChanged;
+//   // final VoidCallback onCompleteDemo;
 
-  @override
-  Widget build(BuildContext context) {
-    final typo = context.typo;
+//   @override
+//   Widget build(BuildContext context) {
+//     final typo = context.typo;
 
-    return AppCard(
-      margin: EdgeInsets.zero,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: AppColors.warning.withValues(alpha: 0.12),
-                  shape: BoxShape.circle,
-                ),
-                alignment: Alignment.center,
-                child: const Icon(Icons.science_outlined, size: 20, color: AppColors.warning),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Demo mode', style: typo.bodyBold.copyWith(fontWeight: FontWeight.w700)),
-                    Text(
-                      'Skip camera capture and use sample verification data',
-                      style: typo.sm,
-                    ),
-                  ],
-                ),
-              ),
-              Switch(
-                value: enabled,
-                onChanged: onChanged,
-              ),
-            ],
-          ),
-          if (enabled) ...[
-            const SizedBox(height: 12),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.warning.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.warning.withValues(alpha: 0.25)),
-              ),
-              child: Text(
-                'Demo mode is on. Tap each step to fill demo data.',
-                style: typo.sm.copyWith(height: 1.4),
-              ),
-            ),
-            // const SizedBox(height: 12),
-            // AppButton(
-            //   label: 'Complete verification (demo)',
-            //   variant: AppButtonVariant.ghost,
-            //   textStyle: typo.button.copyWith(fontWeight: FontWeight.w700),
-            //   onPressed: onCompleteDemo,
-            // ),
-          ],
-        ],
-      ),
-    );
-  }
-}
+//     return AppCard(
+//       margin: EdgeInsets.zero,
+//       child: Column(
+//         crossAxisAlignment: CrossAxisAlignment.start,
+//         children: [
+//           Row(
+//             children: [
+//               Container(
+//                 width: 36,
+//                 height: 36,
+//                 decoration: BoxDecoration(
+//                   color: AppColors.warning.withValues(alpha: 0.12),
+//                   shape: BoxShape.circle,
+//                 ),
+//                 alignment: Alignment.center,
+//                 child: const Icon(
+//                   Icons.science_outlined,
+//                   size: 20,
+//                   color: AppColors.warning,
+//                 ),
+//               ),
+//               const SizedBox(width: 12),
+//               Expanded(
+//                 child: Column(
+//                   crossAxisAlignment: CrossAxisAlignment.start,
+//                   children: [
+//                     Text(
+//                       'Demo mode',
+//                       style: typo.bodyBold.copyWith(
+//                         fontWeight: FontWeight.w700,
+//                       ),
+//                     ),
+//                     Text(
+//                       'Skip camera capture and use sample verification data',
+//                       style: typo.sm,
+//                     ),
+//                   ],
+//                 ),
+//               ),
+//               Switch(value: enabled, onChanged: onChanged),
+//             ],
+//           ),
+//           if (enabled) ...[
+//             const SizedBox(height: 12),
+//             Container(
+//               width: double.infinity,
+//               padding: const EdgeInsets.all(12),
+//               decoration: BoxDecoration(
+//                 color: AppColors.warning.withValues(alpha: 0.08),
+//                 borderRadius: BorderRadius.circular(12),
+//                 border: Border.all(
+//                   color: AppColors.warning.withValues(alpha: 0.25),
+//                 ),
+//               ),
+//               child: Text(
+//                 'Demo mode is on. Tap each step to fill demo data.',
+//                 style: typo.sm.copyWith(height: 1.4),
+//               ),
+//             ),
+//             // const SizedBox(height: 12),
+//             // AppButton(
+//             //   label: 'Complete verification (demo)',
+//             //   variant: AppButtonVariant.ghost,
+//             //   textStyle: typo.button.copyWith(fontWeight: FontWeight.w700),
+//             //   onPressed: onCompleteDemo,
+//             // ),
+//           ],
+//         ],
+//       ),
+//     );
+//   }
+// }
 
 class KycApprovedScreen extends StatefulWidget {
   const KycApprovedScreen({super.key});
@@ -626,7 +649,11 @@ class _KycApprovedScreenState extends State<KycApprovedScreen> {
                   shape: BoxShape.circle,
                 ),
                 alignment: Alignment.center,
-                child: const Icon(Icons.check, size: 40, color: AppColors.success),
+                child: const Icon(
+                  Icons.check,
+                  size: 40,
+                  color: AppColors.success,
+                ),
               ),
               const SizedBox(height: 20),
               Text(context.l10n.identityVerifiedExclaim, style: typo.h1),
@@ -673,7 +700,11 @@ class KycRejectedScreen extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
                 alignment: Alignment.center,
-                child: const Icon(Icons.close, size: 34, color: AppColors.danger),
+                child: const Icon(
+                  Icons.close,
+                  size: 34,
+                  color: AppColors.danger,
+                ),
               ),
               const SizedBox(height: 16),
               Text('Verification failed', style: typo.h1),
@@ -690,7 +721,9 @@ class KycRejectedScreen extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: AppColors.danger.withValues(alpha: 0.06),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppColors.danger.withValues(alpha: 0.2)),
+                  border: Border.all(
+                    color: AppColors.danger.withValues(alpha: 0.2),
+                  ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -745,7 +778,9 @@ class _KycPendingReviewScreenState extends State<KycPendingReviewScreen> {
     final demoMode = context.read<DemoModeProvider>().enabled;
     if (demoMode || !mounted) return;
     try {
-      final result = await context.read<KycProvider>().refreshStatus(sync: true);
+      final result = await context.read<KycProvider>().refreshStatus(
+        sync: true,
+      );
       if (!mounted) return;
       if (result.kycStatus == KycStatusValue.approved) {
         context.go('/kyc-approved');
@@ -781,7 +816,11 @@ class _KycPendingReviewScreenState extends State<KycPendingReviewScreen> {
                 child: CircularProgressIndicator(strokeWidth: 3),
               ),
               const SizedBox(height: 24),
-              Text('Pending review', style: typo.h1, textAlign: TextAlign.center),
+              Text(
+                'Pending review',
+                style: typo.h1,
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: 8),
               Text(
                 'Sumsub is reviewing your documents. Manual review SLA: up to 48 hours.',
@@ -863,13 +902,24 @@ class AccountSuspendedScreen extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: AppColors.danger.withValues(alpha: 0.15),
                           shape: BoxShape.circle,
-                          border: Border.all(color: AppColors.danger.withValues(alpha: 0.3), width: 2),
+                          border: Border.all(
+                            color: AppColors.danger.withValues(alpha: 0.3),
+                            width: 2,
+                          ),
                         ),
                         alignment: Alignment.center,
-                        child: Text('🚫', style: typo.avatarLg.copyWith(fontWeight: FontWeight.normal)),
+                        child: Text(
+                          '🚫',
+                          style: typo.avatarLg.copyWith(
+                            fontWeight: FontWeight.normal,
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 20),
-                      Text(l10n.accountSuspendedTitle, style: typo.screenTitleDark),
+                      Text(
+                        l10n.accountSuspendedTitle,
+                        style: typo.screenTitleDark,
+                      ),
                       const SizedBox(height: 10),
                       Text(
                         l10n.accountSuspendedBody,
@@ -883,12 +933,17 @@ class AccountSuspendedScreen extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: AppColors.danger.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: AppColors.danger.withValues(alpha: 0.3)),
+                          border: Border.all(
+                            color: AppColors.danger.withValues(alpha: 0.3),
+                          ),
                         ),
                         child: RichText(
                           textAlign: TextAlign.left,
                           text: TextSpan(
-                            style: typo.sm.copyWith(color: Colors.white.withValues(alpha: 0.6), height: 1.5),
+                            style: typo.sm.copyWith(
+                              color: Colors.white.withValues(alpha: 0.6),
+                              height: 1.5,
+                            ),
                             children: [
                               TextSpan(
                                 text: l10n.zeroTolerancePolicyTitle,
@@ -909,9 +964,14 @@ class AccountSuspendedScreen extends StatelessWidget {
                       TextButton(
                         onPressed: () => context.push('/contact-support'),
                         child: Text(
-                          l10n.accountSuspendedContactMistake('legal@wwngo.com'),
+                          l10n.accountSuspendedContactMistake(
+                            'legal@wwngo.com',
+                          ),
                           textAlign: TextAlign.center,
-                          style: typo.sm.copyWith(fontSize: 15, color: Colors.white.withValues(alpha: 0.4)),
+                          style: typo.sm.copyWith(
+                            fontSize: 15,
+                            color: Colors.white.withValues(alpha: 0.4),
+                          ),
                         ),
                       ),
                     ],

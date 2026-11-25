@@ -16,12 +16,12 @@ import '../../data/models/wallet_role.dart';
 import '../../data/services/delivery_repository.dart';
 import '../../data/static_data.dart';
 import '../../data/wallet_gate.dart';
+import '../../l10n/app_localizations.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/notification_realtime_provider.dart';
 import '../../providers/sender_deliveries_provider.dart';
 import 'delivery_posting_actions.dart';
 import 'widgets/delivery_form_fields.dart';
-import '../../l10n/app_localizations.dart';
 
 class CountryToCountryPostDeliveryScreen extends StatefulWidget {
   const CountryToCountryPostDeliveryScreen({super.key, this.initialTrip});
@@ -63,15 +63,15 @@ class _CountryToCountryPostDeliveryScreenState
       final created = await repository.createDelivery(request);
       final fromIso = request.originCountry != null
           ? WorldCountries.all
-              .where((c) => c.name == request.originCountry)
-              .map((c) => c.iso)
-              .firstOrNull
+                .where((c) => c.name == request.originCountry)
+                .map((c) => c.iso)
+                .firstOrNull
           : null;
       final toIso = request.destinationCountry != null
           ? WorldCountries.all
-              .where((c) => c.name == request.destinationCountry)
-              .map((c) => c.iso)
-              .firstOrNull
+                .where((c) => c.name == request.destinationCountry)
+                .map((c) => c.iso)
+                .firstOrNull
           : null;
 
       if (demoMode.enabled) {
@@ -103,10 +103,7 @@ class _CountryToCountryPostDeliveryScreenState
       context.read<NotificationRealtimeProvider>().notifyDeliveryUpdated();
       await WalletGate.refreshRoles(context, [WalletRole.sender]);
       if (!mounted) return;
-      context.pushReplacement(
-        '/post-delivery/success',
-        extra: created,
-      );
+      context.pushReplacement('/post-delivery/success', extra: created);
     } on ApiException catch (e) {
       if (!mounted) return;
       final form = _formKey.currentState;
@@ -116,10 +113,7 @@ class _CountryToCountryPostDeliveryScreenState
       AppToast.error(context, e.message);
     } catch (e) {
       if (!mounted) return;
-      AppToast.error(
-        context,
-        e.toString().replaceFirst('Exception: ', ''),
-      );
+      AppToast.error(context, e.toString().replaceFirst('Exception: ', ''));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }

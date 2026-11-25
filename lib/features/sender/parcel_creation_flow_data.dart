@@ -2,7 +2,7 @@ import '../../data/models/traveler_trip.dart';
 
 /// Static wizard state for Section 4 parcel creation.
 class ParcelCreationFlowData {
-  ParcelCreationFlowData({TravelerTrip? selectedTrip}) : selectedTrip = selectedTrip;
+  ParcelCreationFlowData({this.selectedTrip});
 
   TravelerTrip? selectedTrip;
   String category = 'documents';

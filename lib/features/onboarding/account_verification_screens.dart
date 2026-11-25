@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import '../../l10n/app_localizations.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/auth/post_auth_navigation.dart';
@@ -11,14 +10,15 @@ import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/app_labeled_field.dart';
+import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/back_link.dart';
 import '../../core/widgets/international_phone_field.dart';
 import '../../core/widgets/otp_code_field.dart';
 import '../../core/widgets/otp_countdown_timer.dart';
 import '../../core/widgets/screen_body.dart';
 import '../../core/widgets/scrollable_form_screen.dart';
-import '../../core/widgets/app_toast.dart';
 import '../../data/models/otp_channel.dart';
+import '../../l10n/app_localizations.dart';
 import '../../providers/auth_provider.dart';
 
 class AccountVerificationScreen extends StatelessWidget {
@@ -84,9 +84,9 @@ class AccountVerificationScreen extends StatelessWidget {
                 )) {
                   return;
                 }
-                Navigator.of(dialogContext).pop(
-                  PhoneCountries.formatFull(country, controller.text),
-                );
+                Navigator.of(
+                  dialogContext,
+                ).pop(PhoneCountries.formatFull(country, controller.text));
               },
               child: Text(context.tr('Continue')),
             ),
@@ -108,6 +108,22 @@ class AccountVerificationScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: ScrollableFormScreen(
+        actions: [
+          if (user.isFullyCrossVerified)
+            AppButton(
+              label: context.tr('Continue'),
+              onPressed: () => PostAuthNavigation.continueAfterAuth(
+                context,
+                offerBiometricSetup: true,
+                requireVerification: false,
+              ),
+            )
+          else
+            AppButton(
+              label: context.tr('Sign up'),
+              onPressed: () => context.push('/register'),
+            ),
+        ],
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -127,7 +143,9 @@ class AccountVerificationScreen extends StatelessWidget {
                     : context.l10n.unverified,
               ),
               style: typo.sm.copyWith(
-                color: user.isFullyCrossVerified ? AppColors.success : AppColors.primary,
+                color: user.isFullyCrossVerified
+                    ? AppColors.success
+                    : AppColors.primary,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -142,29 +160,15 @@ class AccountVerificationScreen extends StatelessWidget {
             ),
             _VerificationCard(
               title: context.tr('Phone'),
-              value: user.phone.isEmpty ? context.l10n.notLinkedYet : user.phone,
+              value: user.phone.isEmpty
+                  ? context.l10n.notLinkedYet
+                  : user.phone,
               verified: user.phoneVerified,
               unverifiedIcon: Icons.phone_android_outlined,
               onVerify: user.phoneVerified ? null : () => _verifyPhone(context),
             ),
           ],
         ),
-        actions: [
-          if (user.isFullyCrossVerified)
-            AppButton(
-              label: context.tr('Continue'),
-              onPressed: () => PostAuthNavigation.continueAfterAuth(
-                context,
-                offerBiometricSetup: true,
-                requireVerification: false,
-              ),
-            )
-          else
-            AppButton(
-              label: context.tr('Sign up'),
-              onPressed: () => context.push('/register'),
-            ),
-        ],
       ),
     );
   }
@@ -203,13 +207,19 @@ class _VerificationCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: typo.bodyBold.copyWith(fontWeight: FontWeight.w700)),
+                Text(
+                  title,
+                  style: typo.bodyBold.copyWith(fontWeight: FontWeight.w700),
+                ),
                 Text(value, style: typo.sm),
               ],
             ),
           ),
           if (!verified && onVerify != null)
-            TextButton(onPressed: onVerify, child: Text(context.l10n.verifyAction))
+            TextButton(
+              onPressed: onVerify,
+              child: Text(context.l10n.verifyAction),
+            )
           else if (verified)
             Text('✓', style: typo.h3.copyWith(color: AppColors.success)),
         ],
@@ -226,10 +236,12 @@ class CrossVerificationOtpScreen extends StatefulWidget {
   OtpChannel get channel => flow.channel;
 
   @override
-  State<CrossVerificationOtpScreen> createState() => _CrossVerificationOtpScreenState();
+  State<CrossVerificationOtpScreen> createState() =>
+      _CrossVerificationOtpScreenState();
 }
 
-class _CrossVerificationOtpScreenState extends State<CrossVerificationOtpScreen> {
+class _CrossVerificationOtpScreenState
+    extends State<CrossVerificationOtpScreen> {
   final _otpController = TextEditingController();
   final _focusNode = FocusNode();
   final _timerKey = GlobalKey<OtpCountdownTimerState>();
@@ -288,7 +300,10 @@ class _CrossVerificationOtpScreenState extends State<CrossVerificationOtpScreen>
 
     final auth = context.read<AuthProvider>();
     try {
-      await auth.verifyCrossVerificationOtp(channel: widget.channel, code: code);
+      await auth.verifyCrossVerificationOtp(
+        channel: widget.channel,
+        code: code,
+      );
       if (!mounted) return;
       AppToast.success(
         context,
@@ -307,7 +322,9 @@ class _CrossVerificationOtpScreenState extends State<CrossVerificationOtpScreen>
     final auth = context.watch<AuthProvider>();
     final typo = context.typo;
     final user = auth.user;
-    final contact = widget.channel == OtpChannel.email ? user?.email : user?.phone;
+    final contact = widget.channel == OtpChannel.email
+        ? user?.email
+        : user?.phone;
 
     return Scaffold(
       backgroundColor: AppColors.surface,

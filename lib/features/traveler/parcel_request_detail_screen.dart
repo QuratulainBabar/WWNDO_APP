@@ -2,12 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import '../../l10n/app_localizations.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/config/demo_mode.dart';
-import '../../core/platform/keyboard_utils.dart';
 import '../../core/layout/responsive.dart';
+import '../../core/platform/keyboard_utils.dart';
 import '../../core/platform/platform_ui.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
@@ -26,6 +25,7 @@ import '../../data/models/traveler_bid.dart';
 import '../../data/services/trip_repository.dart';
 import '../../data/static_data.dart';
 import '../../data/wallet_service.dart';
+import '../../l10n/app_localizations.dart';
 import '../../providers/auth_provider.dart';
 import '../tracking/widgets/parcel_photo_viewer.dart';
 
@@ -75,8 +75,7 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
   }
 
   void _cacheMatching(SenderTripRequest api, DeliveryRequest request) {
-    final tripKey =
-        api.tripPublicId.isNotEmpty ? api.tripPublicId : api.tripId;
+    final tripKey = api.tripPublicId.isNotEmpty ? api.tripPublicId : api.tripId;
     StaticData.matchingRequests.removeWhere((m) => m.request.id == api.id);
     StaticData.matchingRequests.add(
       MatchingRequest(
@@ -130,8 +129,7 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
         _request = matching.request;
         _matchScore = matching.matchScore;
         _tripId = matching.tripId;
-        _completedAction =
-            _actionFromLoadedState(null, matching.request);
+        _completedAction = _actionFromLoadedState(null, matching.request);
         _loading = false;
       });
       return;
@@ -152,7 +150,8 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
     if ((api?.status ?? '').trim().toLowerCase() == 'accepted') {
       return _ParcelOfferAction.accepted;
     }
-    final bid = StaticData.travelerBidForRequest(request.id) ??
+    final bid =
+        StaticData.travelerBidForRequest(request.id) ??
         StaticData.travelerBidForRequest(widget.requestId);
     if (bid == null) return _ParcelOfferAction.none;
 
@@ -194,11 +193,7 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
       FocusScope.of(context).unfocus();
       await context.push(
         '/bid-submitted',
-        extra: {
-          'route': request.route,
-          'price': amount,
-          'tripId': _tripId,
-        },
+        extra: {'route': request.route, 'price': amount, 'tripId': _tripId},
       );
       if (mounted) setState(() => _busy = false);
       return;
@@ -234,11 +229,7 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
     FocusScope.of(context).unfocus();
     await context.push(
       '/bid-submitted',
-      extra: {
-        'route': request.route,
-        'price': amount,
-        'tripId': _tripId,
-      },
+      extra: {'route': request.route, 'price': amount, 'tripId': _tripId},
     );
     if (mounted) setState(() => _busy = false);
   }
@@ -263,9 +254,7 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
     if (_busy || _completedAction != _ParcelOfferAction.none) return;
     final sent = await context.push<bool>(
       '/request/${widget.requestId}/counter-offer',
-      extra: {
-        'message': _messageController.text.trim(),
-      },
+      extra: {'message': _messageController.text.trim()},
     );
     if (!mounted || sent != true) return;
     setState(() => _completedAction = _ParcelOfferAction.countered);
@@ -460,22 +449,25 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
                           ),
                         ),
                       ),
-                      if (acceptedOffer || sentCounter || existingBid != null) ...[
+                      if (acceptedOffer ||
+                          sentCounter ||
+                          existingBid != null) ...[
                         const SizedBox(height: 12),
                         Text(
                           acceptedOffer
                               ? l10n.youAcceptedOfferCounterDisabled
                               : sentCounter
-                                  ? l10n.counterOfferSentAcceptDisabled
-                                  : existingBid!.isAccepted
-                                      ? l10n.offerAlreadyAcceptedCountersClosed
-                                      : l10n.yourOfferStatusCanUpdateCounter(
-                                          l10n.travelerBidStatusLabel(
-                                            existingBid.status.label,
-                                          ),
-                                        ),
+                              ? l10n.counterOfferSentAcceptDisabled
+                              : existingBid!.isAccepted
+                              ? l10n.offerAlreadyAcceptedCountersClosed
+                              : l10n.yourOfferStatusCanUpdateCounter(
+                                  l10n.travelerBidStatusLabel(
+                                    existingBid.status.label,
+                                  ),
+                                ),
                           style: typo.sm.copyWith(
-                            color: acceptedOffer ||
+                            color:
+                                acceptedOffer ||
                                     sentCounter ||
                                     existingBid?.isAccepted == true
                                 ? AppColors.danger
@@ -495,11 +487,12 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
                         label: acceptedOffer
                             ? l10n.sendCounterOffer
                             : sentCounter
-                                ? l10n.updateCounterOffer
-                                : l10n.sendCounterOffer,
+                            ? l10n.updateCounterOffer
+                            : l10n.sendCounterOffer,
                         variant: AppButtonVariant.ghost,
-                        onPressed:
-                            canSendCounterOffer ? _onSendCounterOfferTap : null,
+                        onPressed: canSendCounterOffer
+                            ? _onSendCounterOfferTap
+                            : null,
                       ),
                     ],
                   ),
@@ -521,7 +514,8 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
   }) {
     final typo = context.typo;
     final labelStyle = typo.sm.copyWith(color: AppColors.textSecondary);
-    final resolvedValueStyle = valueStyle ??
+    final resolvedValueStyle =
+        valueStyle ??
         typo.body.copyWith(
           color: AppColors.textPrimary,
           fontWeight: FontWeight.w600,
@@ -535,10 +529,7 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
           children: [
             Text(label, style: labelStyle),
             const SizedBox(height: 4),
-            Text(
-              value,
-              style: resolvedValueStyle.copyWith(height: 1.45),
-            ),
+            Text(value, style: resolvedValueStyle.copyWith(height: 1.45)),
           ],
         ),
       );
@@ -549,13 +540,8 @@ class _ParcelRequestDetailScreenState extends State<ParcelRequestDetailScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 150,
-            child: Text(label, style: labelStyle),
-          ),
-          Expanded(
-            child: Text(value, style: resolvedValueStyle),
-          ),
+          SizedBox(width: 150, child: Text(label, style: labelStyle)),
+          Expanded(child: Text(value, style: resolvedValueStyle)),
         ],
       ),
     );

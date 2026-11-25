@@ -16,8 +16,8 @@ import '../../core/widgets/back_header.dart';
 import '../../core/widgets/stacked_route_endpoints.dart';
 import '../../data/models/shipment.dart';
 import '../../data/models/wallet_role.dart';
-import '../../data/services/platform_repository.dart';
 import '../../data/platform_fees.dart';
+import '../../data/services/platform_repository.dart';
 import '../../data/static_data.dart';
 import '../../data/wallet_service.dart';
 import '../../l10n/app_localizations.dart';
@@ -40,7 +40,9 @@ class _ReceiverPaymentScreenState extends State<ReceiverPaymentScreen> {
     final pending = StaticData.receiverShipments.where(
       (s) => StaticData.effectiveStatus(s) == ShipmentStatus.bidAccepted,
     );
-    return pending.isNotEmpty ? pending.first : StaticData.receiverActiveShipment;
+    return pending.isNotEmpty
+        ? pending.first
+        : StaticData.receiverActiveShipment;
   }
 
   Shipment? _shipmentFor(BuildContext context) {
@@ -54,7 +56,11 @@ class _ReceiverPaymentScreenState extends State<ReceiverPaymentScreen> {
     return PlatformRepository(apiClient: auth.repository.apiClient);
   }
 
-  Future<void> _pay(BuildContext context, Shipment shipment, double receiverShare) async {
+  Future<void> _pay(
+    BuildContext context,
+    Shipment shipment,
+    double receiverShare,
+  ) async {
     if (_paying) return;
     final demoMode = context.read<DemoModeProvider>().enabled;
     setState(() => _paying = true);
@@ -116,7 +122,10 @@ class _ReceiverPaymentScreenState extends State<ReceiverPaymentScreen> {
             child: Text(
               'No parcel selected for payment. Open this screen from an incoming parcel request.',
               textAlign: TextAlign.center,
-              style: typo.sm.copyWith(color: AppColors.textSecondary, height: 1.5),
+              style: typo.sm.copyWith(
+                color: AppColors.textSecondary,
+                height: 1.5,
+              ),
             ),
           ),
         ),
@@ -142,7 +151,11 @@ class _ReceiverPaymentScreenState extends State<ReceiverPaymentScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            AppBadge.status(ShipmentStatus.bidAccepted, semiBold: true, wide: true),
+            AppBadge.status(
+              ShipmentStatus.bidAccepted,
+              semiBold: true,
+              wide: true,
+            ),
             const SizedBox(height: 16),
             AppCard(
               margin: EdgeInsets.zero,

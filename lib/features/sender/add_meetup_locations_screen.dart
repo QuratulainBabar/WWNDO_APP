@@ -150,8 +150,8 @@ class _AddMeetupLocationsScreenState extends State<AddMeetupLocationsScreen> {
         final results = widget.citySearch
             ? await _places.searchCities(value)
             : widget.airportSearch
-                ? await _places.searchAirports(value)
-                : await _places.search(value);
+            ? await _places.searchAirports(value)
+            : await _places.search(value);
         if (!mounted) return;
         setState(() {
           _suggestions = results;
@@ -280,14 +280,19 @@ class _AddMeetupLocationsScreenState extends State<AddMeetupLocationsScreen> {
                   children: [
                     IconButton(
                       onPressed: _handleBack,
-                      icon: Icon(Icons.arrow_back, color: AppColors.textPrimary),
+                      icon: Icon(
+                        Icons.arrow_back,
+                        color: AppColors.textPrimary,
+                      ),
                     ),
                     const Icon(Icons.place, color: AppColors.primary, size: 22),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'Search here',
-                        style: typo.input.copyWith(color: AppColors.textSecondary),
+                        style: typo.input.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                     ),
                   ],
@@ -329,7 +334,10 @@ class _AddMeetupLocationsScreenState extends State<AddMeetupLocationsScreen> {
                   children: [
                     IconButton(
                       onPressed: _handleBack,
-                      icon: Icon(Icons.arrow_back, color: AppColors.textPrimary),
+                      icon: Icon(
+                        Icons.arrow_back,
+                        color: AppColors.textPrimary,
+                      ),
                     ),
                     Expanded(
                       child: Text(
@@ -359,7 +367,9 @@ class _AddMeetupLocationsScreenState extends State<AddMeetupLocationsScreen> {
                 itemBuilder: (context, index) {
                   final stop = _stops[index];
                   return _StopTile(
-                    key: ValueKey('stop-${stop.placeId ?? stop.displayLabel}-$index'),
+                    key: ValueKey(
+                      'stop-${stop.placeId ?? stop.displayLabel}-$index',
+                    ),
                     letter: _letterFor(index),
                     label: stop.displayLabel,
                     isFirst: index == 0,
@@ -378,10 +388,17 @@ class _AddMeetupLocationsScreenState extends State<AddMeetupLocationsScreen> {
                 ),
               Divider(height: 1, color: AppColors.border),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
                 child: Row(
                   children: [
-                    Icon(Icons.schedule, size: 18, color: AppColors.textSecondary),
+                    Icon(
+                      Icons.schedule,
+                      size: 18,
+                      color: AppColors.textSecondary,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       '${_stops.length} of ${widget.maxLocations} locations',
@@ -410,7 +427,10 @@ class _AddMeetupLocationsScreenState extends State<AddMeetupLocationsScreen> {
                   children: [
                     IconButton(
                       onPressed: _closeSearch,
-                      icon: Icon(Icons.arrow_back, color: AppColors.textPrimary),
+                      icon: Icon(
+                        Icons.arrow_back,
+                        color: AppColors.textPrimary,
+                      ),
                     ),
                     Expanded(
                       child: Container(
@@ -428,10 +448,13 @@ class _AddMeetupLocationsScreenState extends State<AddMeetupLocationsScreen> {
                           onChanged: _onSearchChanged,
                           textInputAction: TextInputAction.search,
                           decoration: InputDecoration(
-                            hintText: _editingStopIndex == null && _stops.isEmpty
+                            hintText:
+                                _editingStopIndex == null && _stops.isEmpty
                                 ? widget.searchHint
                                 : 'Add stop',
-                            hintStyle: typo.input.copyWith(color: AppColors.textSecondary),
+                            hintStyle: typo.input.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
                             border: InputBorder.none,
                             contentPadding: const EdgeInsets.symmetric(
                               horizontal: 16,
@@ -465,13 +488,19 @@ class _AddMeetupLocationsScreenState extends State<AddMeetupLocationsScreen> {
 
   Widget _buildSuggestions(AppTypography typo) {
     if (_searching) {
-      return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      );
     }
     if (_searchError != null) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Text(_searchError!, textAlign: TextAlign.center, style: typo.sm),
+          child: Text(
+            _searchError!,
+            textAlign: TextAlign.center,
+            style: typo.sm,
+          ),
         ),
       );
     }
@@ -515,11 +544,23 @@ class _AddMeetupLocationsScreenState extends State<AddMeetupLocationsScreen> {
             ),
             child: const Icon(Icons.place, color: AppColors.primary, size: 20),
           ),
-          title: Text(place.name, style: typo.body.copyWith(fontWeight: FontWeight.w600)),
+          title: Text(
+            place.name,
+            style: typo.body.copyWith(fontWeight: FontWeight.w600),
+          ),
           subtitle: place.address != place.name
-              ? Text(place.address, style: typo.sm, maxLines: 2, overflow: TextOverflow.ellipsis)
+              ? Text(
+                  place.address,
+                  style: typo.sm,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                )
               : null,
-          trailing: Icon(Icons.north_west, size: 16, color: AppColors.textSecondary),
+          trailing: Icon(
+            Icons.north_west,
+            size: 16,
+            color: AppColors.textSecondary,
+          ),
           onTap: () => _selectPlace(place),
         );
       },
@@ -603,12 +644,19 @@ class _StopTile extends StatelessWidget {
                 index: index,
                 child: Padding(
                   padding: EdgeInsets.all(8),
-                  child: Icon(Icons.drag_handle, color: AppColors.textSecondary),
+                  child: Icon(
+                    Icons.drag_handle,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ),
               IconButton(
                 onPressed: onRemove,
-                icon: Icon(Icons.close, size: 18, color: AppColors.textSecondary),
+                icon: Icon(
+                  Icons.close,
+                  size: 18,
+                  color: AppColors.textSecondary,
+                ),
               ),
             ],
           ),
@@ -679,7 +727,11 @@ class _AddStopRow extends StatelessWidget {
                   style: typo.input.copyWith(color: AppColors.textSecondary),
                 ),
               ),
-              const Icon(Icons.add_circle_outline, color: AppColors.primary, size: 22),
+              const Icon(
+                Icons.add_circle_outline,
+                color: AppColors.primary,
+                size: 22,
+              ),
             ],
           ),
         ),
@@ -708,10 +760,20 @@ class _ConnectorPainter extends CustomPainter {
 
     final cx = size.width / 2;
     if (!isFirst) {
-      _drawDashedLine(canvas, Offset(cx, 0), Offset(cx, size.height / 2 - 12), paint);
+      _drawDashedLine(
+        canvas,
+        Offset(cx, 0),
+        Offset(cx, size.height / 2 - 12),
+        paint,
+      );
     }
     if (!isLast) {
-      _drawDashedLine(canvas, Offset(cx, size.height / 2 + 12), Offset(cx, size.height), paint);
+      _drawDashedLine(
+        canvas,
+        Offset(cx, size.height / 2 + 12),
+        Offset(cx, size.height),
+        paint,
+      );
     }
   }
 

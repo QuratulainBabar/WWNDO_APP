@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import '../../core/api/api_client.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/config/demo_mode.dart';
@@ -23,11 +21,9 @@ class CancelDeliveryResult {
 
 /// Backend delivery API access for the Sender Create Delivery flow.
 class DeliveryRepository {
-  DeliveryRepository({
-    required ApiClient apiClient,
-    DemoModeProvider? demoMode,
-  })  : _apiClient = apiClient,
-        _demoMode = demoMode;
+  DeliveryRepository({required ApiClient apiClient, DemoModeProvider? demoMode})
+    : _apiClient = apiClient,
+      _demoMode = demoMode;
 
   final ApiClient _apiClient;
   final DemoModeProvider? _demoMode;
@@ -91,9 +87,7 @@ class DeliveryRepository {
     for (final item in list) {
       if (item is! Map) continue;
       try {
-        parsed.add(
-          CreatedDelivery.fromJson(Map<String, dynamic>.from(item)),
-        );
+        parsed.add(CreatedDelivery.fromJson(Map<String, dynamic>.from(item)));
       } catch (e) {
         assert(() {
           // Ignore malformed rows so one bad item cannot blank the whole list.
@@ -120,10 +114,7 @@ class DeliveryRepository {
   }
 
   /// GET /api/v1/deliveries/:id?role=
-  Future<CreatedDelivery> getDelivery(
-    String id, {
-    String? role,
-  }) async {
+  Future<CreatedDelivery> getDelivery(String id, {String? role}) async {
     if (_isDemoMode) {
       throw const ApiException(
         message: 'Delivery lookup is unavailable in demo mode.',
@@ -179,10 +170,7 @@ class DeliveryRepository {
     await _apiClient.post(
       '/deliveries/$deliveryId/request-traveler',
       authenticated: true,
-      body: {
-        'tripId': tripId,
-        'matchScore': matchScore,
-      },
+      body: {'tripId': tripId, 'matchScore': matchScore},
     );
   }
 
@@ -236,9 +224,7 @@ class DeliveryRepository {
 
   /// Live traveler-request summaries for posted deliveries (sender badges / phases).
   Future<Map<String, List<TravelerRequestSummary>>>
-      fetchTravelerRequestsForDeliveries(
-    List<CreatedDelivery> deliveries,
-  ) async {
+  fetchTravelerRequestsForDeliveries(List<CreatedDelivery> deliveries) async {
     if (_isDemoMode) return {};
 
     final requestsByKey = <String, List<TravelerRequestSummary>>{};
@@ -433,9 +419,9 @@ class DeliveryRepository {
     final isCountry = request.deliveryType == DeliveryType.countryToCountry;
     final originCity = isCountry
         ? (request.originCity ??
-            request.originAirport ??
-            request.originCountry ??
-            '')
+              request.originAirport ??
+              request.originCountry ??
+              '')
         : (request.fromCity ?? '');
     final originCountryCode = request.fromCode;
     if (originCity.trim().isNotEmpty) {
@@ -456,9 +442,9 @@ class DeliveryRepository {
 
     final destinationCity = isCountry
         ? (request.destinationCity ??
-            request.destinationAirport ??
-            request.destinationCountry ??
-            '')
+              request.destinationAirport ??
+              request.destinationCountry ??
+              '')
         : (request.toCity ?? '');
     final destinationCountryCode = request.toCode;
     if (destinationCity.trim().isNotEmpty) {
@@ -476,41 +462,41 @@ class DeliveryRepository {
     }
   }
 
-  CreatedDelivery _demoCreate(CreateDeliveryRequest request) {
-    final n = 10000 + Random().nextInt(89999);
-    return CreatedDelivery(
-      id: 'demo-delivery-$n',
-      publicId: 'WW-$n',
-      deliveryType: request.deliveryType,
-      route: request.routeLabel,
-      travelDate:
-          '${request.travelDate.year.toString().padLeft(4, '0')}-'
-          '${request.travelDate.month.toString().padLeft(2, '0')}-'
-          '${request.travelDate.day.toString().padLeft(2, '0')}',
-      parcelCategory: request.parcelCategory,
-      parcelSize: request.parcelSize,
-      weightKg: request.weightKg,
-      maxBudget: request.maxBudget,
-      description: request.description,
-      preferredMeetupLocations: request.preferredMeetupLocations,
-      acknowledged: true,
-      photos: [
-        for (var i = 0; i < request.photoPaths.length; i++)
-          DeliveryPhoto(id: 'demo-photo-$i', url: request.photoPaths[i]),
-      ],
-      status: 'posted',
-      fromCity: request.fromCity,
-      fromCode: request.fromCode,
-      toCity: request.toCity,
-      toCode: request.toCode,
-      originCountry: request.originCountry,
-      originAirport: request.originAirport,
-      destinationCountry: request.destinationCountry,
-      destinationAirport: request.destinationAirport,
-      platformFee: request.platformFee,
-      platformFeeShare: request.platformFeeShare,
-      receiverEmail: request.receiverEmail,
-      receiverPhone: request.receiverPhone,
-    );
-  }
+  // CreatedDelivery _demoCreate(CreateDeliveryRequest request) {
+  //   final n = 10000 + Random().nextInt(89999);
+  //   return CreatedDelivery(
+  //     id: 'demo-delivery-$n',
+  //     publicId: 'WW-$n',
+  //     deliveryType: request.deliveryType,
+  //     route: request.routeLabel,
+  //     travelDate:
+  //         '${request.travelDate.year.toString().padLeft(4, '0')}-'
+  //         '${request.travelDate.month.toString().padLeft(2, '0')}-'
+  //         '${request.travelDate.day.toString().padLeft(2, '0')}',
+  //     parcelCategory: request.parcelCategory,
+  //     parcelSize: request.parcelSize,
+  //     weightKg: request.weightKg,
+  //     maxBudget: request.maxBudget,
+  //     description: request.description,
+  //     preferredMeetupLocations: request.preferredMeetupLocations,
+  //     acknowledged: true,
+  //     photos: [
+  //       for (var i = 0; i < request.photoPaths.length; i++)
+  //         DeliveryPhoto(id: 'demo-photo-$i', url: request.photoPaths[i]),
+  //     ],
+  //     status: 'posted',
+  //     fromCity: request.fromCity,
+  //     fromCode: request.fromCode,
+  //     toCity: request.toCity,
+  //     toCode: request.toCode,
+  //     originCountry: request.originCountry,
+  //     originAirport: request.originAirport,
+  //     destinationCountry: request.destinationCountry,
+  //     destinationAirport: request.destinationAirport,
+  //     platformFee: request.platformFee,
+  //     platformFeeShare: request.platformFeeShare,
+  //     receiverEmail: request.receiverEmail,
+  //     receiverPhone: request.receiverPhone,
+  //   );
+  // }
 }

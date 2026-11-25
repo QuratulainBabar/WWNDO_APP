@@ -89,3 +89,6 @@ flutter_*.log
 
 # Local build-time secrets (copy dart_defines.example.json)
 /dart_defines.json
+
+# Backend / local env (secrets — use env.example)
+/env

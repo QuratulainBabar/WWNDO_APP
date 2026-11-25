@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import '../../l10n/app_localizations.dart';
 
 import '../../core/api/api_exception.dart';
-import '../../core/auth/selected_role.dart';
 import '../../core/auth/post_auth_navigation.dart';
+import '../../core/auth/selected_role.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/widgets/app_button.dart';
@@ -14,6 +12,7 @@ import '../../core/widgets/app_svg_icon.dart';
 import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/screen_body.dart';
 import '../../data/models/wallet_role.dart';
+import '../../l10n/app_localizations.dart';
 import '../../providers/auth_provider.dart';
 
 class RoleSelectionScreen extends StatefulWidget {
@@ -51,7 +50,9 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
             email: user.email,
             role: role,
           );
-          await auth.repository.updateCurrentUser(user.copyWith(role: SelectedRoleStore.apiValue(role)));
+          await auth.repository.updateCurrentUser(
+            user.copyWith(role: SelectedRoleStore.apiValue(role)),
+          );
         }
         if (e is ApiException && mounted) {
           // Non-blocking: show warning but proceed.
@@ -71,7 +72,9 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
       if (mounted) {
         AppToast.error(
           context,
-          e is ApiException ? e.message : 'Could not continue. Please try again.',
+          e is ApiException
+              ? e.message
+              : 'Could not continue. Please try again.',
         );
       }
     } finally {
@@ -91,10 +94,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
           children: [
             Text(context.l10n.selectYourAccount, style: typo.h1),
             const SizedBox(height: 8),
-            Text(
-              context.l10n.selectHowUseWwngo,
-              style: typo.subheading,
-            ),
+            Text(context.l10n.selectHowUseWwngo, style: typo.subheading),
             const SizedBox(height: 24),
             _RoleCard(
               iconAsset: AppIcons.roleSender,
@@ -182,14 +182,21 @@ class _RoleCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(title, style: typo.bodyBold.copyWith(fontWeight: FontWeight.w700)),
+                      Text(
+                        title,
+                        style: typo.bodyBold.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                       const SizedBox(height: 2),
                       Text(description, style: typo.sm),
                     ],
                   ),
                 ),
                 Icon(
-                  selected ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+                  selected
+                      ? Icons.check_circle_rounded
+                      : Icons.radio_button_unchecked_rounded,
                   color: selected ? AppColors.primary : AppColors.textSecondary,
                 ),
               ],

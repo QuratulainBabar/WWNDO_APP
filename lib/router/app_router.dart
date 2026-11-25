@@ -1,19 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+
 import '../core/config/demo_mode.dart';
+import '../core/payments/stripe_connect_return.dart';
+import '../data/models/bid.dart';
+import '../data/models/created_delivery.dart';
+import '../data/models/meetup_location.dart';
+import '../data/models/otp_channel.dart';
+import '../data/models/parcel_creation_result.dart';
+import '../data/models/shipment.dart';
+import '../data/models/traveler_bid.dart';
+import '../data/models/traveler_trip.dart';
+import '../data/models/wallet_role.dart';
+import '../data/static_data.dart';
 import '../features/chat/chat_list_screen.dart';
 import '../features/home/home_screen.dart';
+import '../features/onboarding/account_verification_screens.dart';
 import '../features/onboarding/auth_screens.dart';
 import '../features/onboarding/biometric_screens.dart';
 import '../features/onboarding/forgot_password_screens.dart';
-import '../features/onboarding/kyc_screens.dart';
-import '../features/onboarding/kyc_id_capture_screens.dart';
-import '../features/onboarding/kyc_selfie_screens.dart';
 import '../features/onboarding/kyc_flow_data.dart';
-import '../features/onboarding/otp_login_screens.dart';
+import '../features/onboarding/kyc_id_capture_screens.dart';
+import '../features/onboarding/kyc_screens.dart';
+import '../features/onboarding/kyc_selfie_screens.dart';
 import '../features/onboarding/login_otp_verification_screen.dart';
-import '../features/onboarding/account_verification_screens.dart';
+import '../features/onboarding/otp_login_screens.dart';
 import '../features/onboarding/role_selection_screen.dart';
 import '../features/onboarding/splash_welcome_screens.dart';
 import '../features/profile/currency_settings_screen.dart';
@@ -23,81 +35,94 @@ import '../features/profile/profile_screens.dart';
 import '../features/profile/security_logs_screen.dart';
 import '../features/profile/settings_flow_screens.dart';
 import '../features/profile/wallet_top_up_screen.dart';
-import '../features/receiver/receiver_home_screen.dart';
-import '../features/receiver/receiver_shell.dart';
-import '../features/receiver/receiver_screens.dart';
 import '../features/receiver/incoming_parcel_request_screen.dart';
+import '../features/receiver/receiver_home_screen.dart';
 import '../features/receiver/receiver_payment_screen.dart';
 import '../features/receiver/receiver_payment_success_screen.dart';
+import '../features/receiver/receiver_screens.dart';
+import '../features/receiver/receiver_shell.dart';
+import '../features/sender/add_meetup_locations_screen.dart';
 import '../features/sender/bid_acceptance_payment_screen.dart';
-import '../features/sender/bid_payment_success_screen.dart';
 import '../features/sender/bid_accepted_screen.dart';
+import '../features/sender/bid_payment_success_screen.dart';
 import '../features/sender/bid_requests_screen.dart';
 import '../features/sender/bid_traveler_profile_screen.dart';
+import '../features/sender/cancel_posted_delivery_screen.dart';
 import '../features/sender/counter_offer_detail_screen.dart';
-import '../features/sender/traveler_selected_confirmation_screen.dart';
-import '../features/sender/negotiate_meetup_screen.dart';
+import '../features/sender/country_to_country_post_delivery_screen.dart';
+import '../features/sender/delivery_type_selection_screen.dart';
 import '../features/sender/discover_travelers_screen.dart';
 import '../features/sender/discover_trip_detail_screen.dart';
-import '../features/sender/sender_chat_screen.dart';
-import '../features/sender/country_to_country_post_delivery_screen.dart';
-import '../features/sender/add_meetup_locations_screen.dart';
-import '../data/models/meetup_location.dart';
-import '../features/sender/post_delivery_screen.dart';
-import '../features/sender/delivery_type_selection_screen.dart';
 import '../features/sender/edit_posted_delivery_screen.dart';
-import '../features/sender/cancel_posted_delivery_screen.dart';
 import '../features/sender/my_posted_parcels_screen.dart';
+import '../features/sender/negotiate_meetup_screen.dart';
+import '../features/sender/post_delivery_screen.dart';
+import '../features/sender/sender_chat_screen.dart';
 import '../features/sender/sender_notifications_screen.dart';
 import '../features/sender/sender_parcel_waiting_screen.dart';
 import '../features/sender/sender_screens.dart';
-import '../data/models/bid.dart';
-import '../data/models/created_delivery.dart';
-import '../data/models/parcel_creation_result.dart';
-import '../data/static_data.dart';
-import '../data/models/shipment.dart';
-import '../data/models/traveler_bid.dart';
-import '../data/models/traveler_trip.dart';
-import '../data/models/wallet_role.dart';
+import '../features/sender/traveler_selected_confirmation_screen.dart';
 import '../features/tracking/tracking_screens.dart';
-import '../features/traveler/traveler_home_screen.dart';
-import '../features/traveler/traveler_my_trips_screen.dart';
-import '../features/traveler/edit_trip_screen.dart';
-import '../features/traveler/cancel_trip_screen.dart';
-import '../features/traveler/traveler_profile_screen.dart';
-import '../features/traveler/traveler_shell.dart';
-import '../features/traveler/country_to_country_post_trip_screen.dart';
-import '../features/traveler/post_trip_screen.dart';
-import '../features/traveler/traveler_deliveries_screen.dart';
-import '../features/traveler/traveler_screens.dart';
-import '../features/traveler/trip_type_selection_screen.dart';
 import '../features/traveler/bid_submitted_screen.dart';
-import '../features/traveler/traveler_bid_detail_screen.dart';
-import '../features/traveler/traveler_chat_screen.dart';
-import '../features/traveler/traveler_my_bids_screen.dart';
+import '../features/traveler/cancel_trip_screen.dart';
+import '../features/traveler/country_to_country_post_trip_screen.dart';
+import '../features/traveler/edit_trip_screen.dart';
 import '../features/traveler/matching_requests_screen.dart';
 import '../features/traveler/matching_requests_trips_screen.dart';
 import '../features/traveler/parcel_request_detail_screen.dart';
+import '../features/traveler/post_trip_screen.dart';
 import '../features/traveler/send_counter_offer_screen.dart';
-import '../core/payments/stripe_connect_return.dart';
-import '../data/models/otp_channel.dart';
+import '../features/traveler/traveler_bid_detail_screen.dart';
+import '../features/traveler/traveler_chat_screen.dart';
+import '../features/traveler/traveler_deliveries_screen.dart';
+import '../features/traveler/traveler_home_screen.dart';
+import '../features/traveler/traveler_my_bids_screen.dart';
+import '../features/traveler/traveler_my_trips_screen.dart';
+import '../features/traveler/traveler_profile_screen.dart';
+import '../features/traveler/traveler_screens.dart';
+import '../features/traveler/traveler_shell.dart';
+import '../features/traveler/trip_type_selection_screen.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorHomeKey = GlobalKey<NavigatorState>(debugLabel: 'home');
 final _shellNavigatorTrackKey = GlobalKey<NavigatorState>(debugLabel: 'track');
-final _shellNavigatorAlertsKey = GlobalKey<NavigatorState>(debugLabel: 'alerts');
+final _shellNavigatorAlertsKey = GlobalKey<NavigatorState>(
+  debugLabel: 'alerts',
+);
 final _shellNavigatorChatKey = GlobalKey<NavigatorState>(debugLabel: 'chat');
-final _shellNavigatorProfileKey = GlobalKey<NavigatorState>(debugLabel: 'profile');
-final _receiverShellHomeKey = GlobalKey<NavigatorState>(debugLabel: 'receiverHome');
-final _receiverShellShipmentsKey = GlobalKey<NavigatorState>(debugLabel: 'receiverShipments');
-final _receiverShellChatKey = GlobalKey<NavigatorState>(debugLabel: 'receiverChat');
-final _receiverShellNotificationsKey = GlobalKey<NavigatorState>(debugLabel: 'receiverNotifications');
-final _receiverShellProfileKey = GlobalKey<NavigatorState>(debugLabel: 'receiverProfile');
-final _travelerShellHomeKey = GlobalKey<NavigatorState>(debugLabel: 'travelerHome');
-final _travelerShellTripsKey = GlobalKey<NavigatorState>(debugLabel: 'travelerTrips');
-final _travelerShellAlertsKey = GlobalKey<NavigatorState>(debugLabel: 'travelerAlerts');
-final _travelerShellChatKey = GlobalKey<NavigatorState>(debugLabel: 'travelerChat');
-final _travelerShellProfileKey = GlobalKey<NavigatorState>(debugLabel: 'travelerProfile');
+final _shellNavigatorProfileKey = GlobalKey<NavigatorState>(
+  debugLabel: 'profile',
+);
+final _receiverShellHomeKey = GlobalKey<NavigatorState>(
+  debugLabel: 'receiverHome',
+);
+final _receiverShellShipmentsKey = GlobalKey<NavigatorState>(
+  debugLabel: 'receiverShipments',
+);
+final _receiverShellChatKey = GlobalKey<NavigatorState>(
+  debugLabel: 'receiverChat',
+);
+final _receiverShellNotificationsKey = GlobalKey<NavigatorState>(
+  debugLabel: 'receiverNotifications',
+);
+final _receiverShellProfileKey = GlobalKey<NavigatorState>(
+  debugLabel: 'receiverProfile',
+);
+final _travelerShellHomeKey = GlobalKey<NavigatorState>(
+  debugLabel: 'travelerHome',
+);
+final _travelerShellTripsKey = GlobalKey<NavigatorState>(
+  debugLabel: 'travelerTrips',
+);
+final _travelerShellAlertsKey = GlobalKey<NavigatorState>(
+  debugLabel: 'travelerAlerts',
+);
+final _travelerShellChatKey = GlobalKey<NavigatorState>(
+  debugLabel: 'travelerChat',
+);
+final _travelerShellProfileKey = GlobalKey<NavigatorState>(
+  debugLabel: 'travelerProfile',
+);
 
 String? _shipmentIdFromRouteExtra(Object? extra) {
   if (extra is Map) {
@@ -132,23 +157,33 @@ final appRouter = GoRouter(
   navigatorKey: rootNavigatorKey,
   initialLocation: '/',
   routes: [
-    GoRoute(path: '/', builder: (_, __) => const SplashScreen()),
-    GoRoute(path: '/welcome', builder: (_, __) => const WelcomeScreen()),
-    GoRoute(path: '/register', builder: (_, __) => const RegisterScreen()),
-    GoRoute(path: '/role-selection', builder: (_, __) => const RoleSelectionScreen()),
-    GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
+    GoRoute(path: '/', builder: (_, _) => const SplashScreen()),
+    GoRoute(path: '/welcome', builder: (_, _) => const WelcomeScreen()),
+    GoRoute(path: '/register', builder: (_, _) => const RegisterScreen()),
+    GoRoute(
+      path: '/role-selection',
+      builder: (_, _) => const RoleSelectionScreen(),
+    ),
+    GoRoute(path: '/login', builder: (_, _) => const LoginScreen()),
     GoRoute(
       path: '/login/verify-otp',
       builder: (_, state) => LoginOtpVerificationScreen(
         flow: state.extra! as PasswordLoginOtpFlowData,
       ),
     ),
-    GoRoute(path: '/login/otp-contact', builder: (_, __) => const OtpLoginContactScreen()),
+    GoRoute(
+      path: '/login/otp-contact',
+      builder: (_, _) => const OtpLoginContactScreen(),
+    ),
     GoRoute(
       path: '/login/otp',
-      builder: (_, state) => OtpLoginVerifyScreen(flow: state.extra! as OtpLoginFlowData),
+      builder: (_, state) =>
+          OtpLoginVerifyScreen(flow: state.extra! as OtpLoginFlowData),
     ),
-    GoRoute(path: '/verify-account', builder: (_, __) => const AccountVerificationScreen()),
+    GoRoute(
+      path: '/verify-account',
+      builder: (_, _) => const AccountVerificationScreen(),
+    ),
     GoRoute(
       path: '/verify-account/otp',
       builder: (_, state) {
@@ -159,32 +194,37 @@ final appRouter = GoRouter(
         return CrossVerificationOtpScreen(flow: flow);
       },
     ),
-    GoRoute(path: '/biometric/setup', builder: (_, __) => const BiometricSetupScreen()),
-    GoRoute(path: '/biometric/login', builder: (_, __) => const BiometricLoginScreen()),
+    GoRoute(
+      path: '/biometric/setup',
+      builder: (_, _) => const BiometricSetupScreen(),
+    ),
+    GoRoute(
+      path: '/biometric/login',
+      builder: (_, _) => const BiometricLoginScreen(),
+    ),
     GoRoute(
       path: '/biometric/success',
-      builder: (_, state) => BiometricSuccessScreen(
-        fromSetup: state.extra == true,
-      ),
+      builder: (_, state) =>
+          BiometricSuccessScreen(fromSetup: state.extra == true),
     ),
     GoRoute(
       path: '/biometric/unavailable',
-      builder: (_, state) => BiometricUnavailableScreen(
-        message: state.extra as String?,
-      ),
+      builder: (_, state) =>
+          BiometricUnavailableScreen(message: state.extra as String?),
     ),
-    GoRoute(path: '/forgot-password', builder: (_, __) => const ForgotPasswordScreen()),
+    GoRoute(
+      path: '/forgot-password',
+      builder: (_, _) => const ForgotPasswordScreen(),
+    ),
     GoRoute(
       path: '/forgot-password/otp',
-      builder: (_, state) => OtpVerificationScreen(
-        flow: state.extra! as ForgotPasswordFlowData,
-      ),
+      builder: (_, state) =>
+          OtpVerificationScreen(flow: state.extra! as ForgotPasswordFlowData),
     ),
     GoRoute(
       path: '/forgot-password/reset',
-      builder: (_, state) => ResetPasswordScreen(
-        flow: state.extra! as ForgotPasswordFlowData,
-      ),
+      builder: (_, state) =>
+          ResetPasswordScreen(flow: state.extra! as ForgotPasswordFlowData),
     ),
     GoRoute(
       path: '/forgot-password/success',
@@ -194,15 +234,13 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/kyc',
-      builder: (_, state) => KycVerificationScreen(
-        initialFlow: state.extra as KycFlowData?,
-      ),
+      builder: (_, state) =>
+          KycVerificationScreen(initialFlow: state.extra as KycFlowData?),
     ),
     GoRoute(
       path: '/kyc/id-document',
-      builder: (_, state) => KycDocumentTypeScreen(
-        flow: state.extra! as KycFlowData,
-      ),
+      builder: (_, state) =>
+          KycDocumentTypeScreen(flow: state.extra! as KycFlowData),
     ),
     GoRoute(
       path: '/kyc/id-capture',
@@ -224,27 +262,23 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/kyc/id-complete',
-      builder: (_, state) => KycIdCompleteScreen(
-        flow: state.extra! as KycFlowData,
-      ),
+      builder: (_, state) =>
+          KycIdCompleteScreen(flow: state.extra! as KycFlowData),
     ),
     GoRoute(
       path: '/kyc/selfie',
-      builder: (_, state) => KycSelfieIntroScreen(
-        flow: state.extra! as KycFlowData,
-      ),
+      builder: (_, state) =>
+          KycSelfieIntroScreen(flow: state.extra! as KycFlowData),
     ),
     GoRoute(
       path: '/kyc/selfie/liveness',
-      builder: (_, state) => KycLivenessCheckScreen(
-        flow: state.extra! as KycFlowData,
-      ),
+      builder: (_, state) =>
+          KycLivenessCheckScreen(flow: state.extra! as KycFlowData),
     ),
     GoRoute(
       path: '/kyc/selfie/capture',
-      builder: (_, state) => KycSelfieCaptureScreen(
-        flow: state.extra! as KycFlowData,
-      ),
+      builder: (_, state) =>
+          KycSelfieCaptureScreen(flow: state.extra! as KycFlowData),
     ),
     GoRoute(
       path: '/kyc/selfie/preview',
@@ -258,37 +292,47 @@ final appRouter = GoRouter(
     ),
     GoRoute(
       path: '/kyc/selfie/processing',
-      builder: (_, state) => KycSelfieProcessingScreen(
-        flow: state.extra! as KycFlowData,
-      ),
+      builder: (_, state) =>
+          KycSelfieProcessingScreen(flow: state.extra! as KycFlowData),
     ),
     GoRoute(
       path: '/kyc/selfie/complete',
-      builder: (_, state) => KycSelfieCompleteScreen(
-        flow: state.extra! as KycFlowData,
-      ),
+      builder: (_, state) =>
+          KycSelfieCompleteScreen(flow: state.extra! as KycFlowData),
     ),
-    GoRoute(path: '/kyc-approved', builder: (_, __) => const KycApprovedScreen()),
-    GoRoute(path: '/kyc-pending-review', builder: (_, __) => const KycPendingReviewScreen()),
-    GoRoute(path: '/kyc-rejected', builder: (_, __) => const KycRejectedScreen()),
-    GoRoute(path: '/account-suspended', builder: (_, __) => const AccountSuspendedScreen()),
+    GoRoute(
+      path: '/kyc-approved',
+      builder: (_, _) => const KycApprovedScreen(),
+    ),
+    GoRoute(
+      path: '/kyc-pending-review',
+      builder: (_, _) => const KycPendingReviewScreen(),
+    ),
+    GoRoute(
+      path: '/kyc-rejected',
+      builder: (_, _) => const KycRejectedScreen(),
+    ),
+    GoRoute(
+      path: '/account-suspended',
+      builder: (_, _) => const AccountSuspendedScreen(),
+    ),
 
     StatefulShellRoute.indexedStack(
-      builder: (context, state, navigationShell) => ReceiverShell(navigationShell: navigationShell),
+      builder: (context, state, navigationShell) =>
+          ReceiverShell(navigationShell: navigationShell),
       branches: [
         StatefulShellBranch(
           navigatorKey: _receiverShellHomeKey,
           routes: [
             GoRoute(
               path: '/receiver-home',
-              builder: (_, __) => const ReceiverHomeScreen(),
+              builder: (_, _) => const ReceiverHomeScreen(),
               routes: [
                 GoRoute(
                   path: 'payment-approval',
                   parentNavigatorKey: rootNavigatorKey,
-                  builder: (_, state) => ReceiverPaymentScreen(
-                    shipment: state.extra as Shipment?,
-                  ),
+                  builder: (_, state) =>
+                      ReceiverPaymentScreen(shipment: state.extra as Shipment?),
                 ),
               ],
             ),
@@ -297,13 +341,19 @@ final appRouter = GoRouter(
         StatefulShellBranch(
           navigatorKey: _receiverShellShipmentsKey,
           routes: [
-            GoRoute(path: '/receiver-shipments', builder: (_, __) => const ReceiverShipmentsScreen()),
+            GoRoute(
+              path: '/receiver-shipments',
+              builder: (_, _) => const ReceiverShipmentsScreen(),
+            ),
           ],
         ),
         StatefulShellBranch(
           navigatorKey: _receiverShellNotificationsKey,
           routes: [
-            GoRoute(path: '/receiver-notifications', builder: (_, __) => const ReceiverNotificationsScreen()),
+            GoRoute(
+              path: '/receiver-notifications',
+              builder: (_, _) => const ReceiverNotificationsScreen(),
+            ),
           ],
         ),
         StatefulShellBranch(
@@ -311,7 +361,7 @@ final appRouter = GoRouter(
           routes: [
             GoRoute(
               path: '/receiver-chats',
-              builder: (_, __) => const ChatListScreen(
+              builder: (_, _) => const ChatListScreen(
                 role: WalletRole.receiver,
                 chatBasePath: '/receiver-chats',
               ),
@@ -331,7 +381,10 @@ final appRouter = GoRouter(
         StatefulShellBranch(
           navigatorKey: _receiverShellProfileKey,
           routes: [
-            GoRoute(path: '/receiver-profile', builder: (_, __) => const ReceiverProfileScreen()),
+            GoRoute(
+              path: '/receiver-profile',
+              builder: (_, _) => const ReceiverProfileScreen(),
+            ),
           ],
         ),
       ],
@@ -340,7 +393,7 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/receiver-chat',
       parentNavigatorKey: rootNavigatorKey,
-      redirect: (_, __) => '/receiver-chats',
+      redirect: (_, _) => '/receiver-chats',
     ),
     GoRoute(
       path: '/receiver-incoming-request/:requestId',
@@ -376,7 +429,7 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/receiver-payment-approval',
       parentNavigatorKey: rootNavigatorKey,
-      redirect: (_, __) => '/receiver-home/payment-approval',
+      redirect: (_, _) => '/receiver-home/payment-approval',
     ),
     GoRoute(
       path: '/receiver-payment-confirmed',
@@ -391,32 +444,38 @@ final appRouter = GoRouter(
           return ReceiverPaymentSuccessScreen(
             result: ReceiverPaymentResult(
               shipmentId: StaticData.receiverActiveShipment.id,
-              feeAmount: extra is num ? extra.toDouble() : StaticData.platformFeeShare,
+              feeAmount: extra is num
+                  ? extra.toDouble()
+                  : StaticData.platformFeeShare,
             ),
           );
         }
         return ReceiverPaymentSuccessScreen(
-          result: ReceiverPaymentResult(
-            shipmentId: '',
-            feeAmount: 0,
-          ),
+          result: ReceiverPaymentResult(shipmentId: '', feeAmount: 0),
         );
       },
     ),
 
     StatefulShellRoute.indexedStack(
-      builder: (context, state, navigationShell) => TravelerShell(navigationShell: navigationShell),
+      builder: (context, state, navigationShell) =>
+          TravelerShell(navigationShell: navigationShell),
       branches: [
         StatefulShellBranch(
           navigatorKey: _travelerShellHomeKey,
           routes: [
-            GoRoute(path: '/traveler-home', builder: (_, __) => const TravelerHomeScreen()),
+            GoRoute(
+              path: '/traveler-home',
+              builder: (_, _) => const TravelerHomeScreen(),
+            ),
           ],
         ),
         StatefulShellBranch(
           navigatorKey: _travelerShellTripsKey,
           routes: [
-            GoRoute(path: '/traveler-trips', builder: (_, __) => const TravelerMyTripsScreen()),
+            GoRoute(
+              path: '/traveler-trips',
+              builder: (_, _) => const TravelerMyTripsScreen(),
+            ),
           ],
         ),
         StatefulShellBranch(
@@ -424,7 +483,7 @@ final appRouter = GoRouter(
           routes: [
             GoRoute(
               path: '/traveler-notifications',
-              builder: (_, __) => const TravelerNotificationsScreen(),
+              builder: (_, _) => const TravelerNotificationsScreen(),
             ),
           ],
         ),
@@ -433,7 +492,7 @@ final appRouter = GoRouter(
           routes: [
             GoRoute(
               path: '/traveler-chats',
-              builder: (_, __) => const ChatListScreen(
+              builder: (_, _) => const ChatListScreen(
                 role: WalletRole.traveler,
                 chatBasePath: '/traveler-chats',
               ),
@@ -453,25 +512,32 @@ final appRouter = GoRouter(
         StatefulShellBranch(
           navigatorKey: _travelerShellProfileKey,
           routes: [
-            GoRoute(path: '/traveler-profile', builder: (_, __) => const TravelerProfileScreen()),
+            GoRoute(
+              path: '/traveler-profile',
+              builder: (_, _) => const TravelerProfileScreen(),
+            ),
           ],
         ),
       ],
     ),
 
     StatefulShellRoute.indexedStack(
-      builder: (context, state, navigationShell) => MainShell(navigationShell: navigationShell),
+      builder: (context, state, navigationShell) =>
+          MainShell(navigationShell: navigationShell),
       branches: [
         StatefulShellBranch(
           navigatorKey: _shellNavigatorHomeKey,
           routes: [
-            GoRoute(path: '/home', builder: (_, __) => const HomeScreen()),
+            GoRoute(path: '/home', builder: (_, _) => const HomeScreen()),
           ],
         ),
         StatefulShellBranch(
           navigatorKey: _shellNavigatorTrackKey,
           routes: [
-            GoRoute(path: '/track', builder: (_, __) => const MyShipmentsScreen()),
+            GoRoute(
+              path: '/track',
+              builder: (_, _) => const MyShipmentsScreen(),
+            ),
           ],
         ),
         StatefulShellBranch(
@@ -479,7 +545,7 @@ final appRouter = GoRouter(
           routes: [
             GoRoute(
               path: '/sender-notifications',
-              builder: (_, __) => const SenderNotificationsScreen(),
+              builder: (_, _) => const SenderNotificationsScreen(),
             ),
           ],
         ),
@@ -488,7 +554,7 @@ final appRouter = GoRouter(
           routes: [
             GoRoute(
               path: '/sender-chats',
-              builder: (_, __) => const ChatListScreen(
+              builder: (_, _) => const ChatListScreen(
                 role: WalletRole.sender,
                 chatBasePath: '/sender-chats',
               ),
@@ -508,7 +574,7 @@ final appRouter = GoRouter(
         StatefulShellBranch(
           navigatorKey: _shellNavigatorProfileKey,
           routes: [
-            GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen()),
+            GoRoute(path: '/profile', builder: (_, _) => const ProfileScreen()),
           ],
         ),
       ],
@@ -517,7 +583,7 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/delivery-type',
       parentNavigatorKey: rootNavigatorKey,
-      builder: (_, __) => const DeliveryTypeSelectionScreen(),
+      builder: (_, _) => const DeliveryTypeSelectionScreen(),
     ),
     GoRoute(
       path: '/parcel/create',
@@ -575,8 +641,9 @@ final appRouter = GoRouter(
             airportSearch: extra['airportSearch'] == true,
           );
         }
-        final initial =
-            extra is List<MeetupLocation> ? extra : const <MeetupLocation>[];
+        final initial = extra is List<MeetupLocation>
+            ? extra
+            : const <MeetupLocation>[];
         return AddMeetupLocationsScreen(initialLocations: initial);
       },
     ),
@@ -599,49 +666,42 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/bids',
       parentNavigatorKey: rootNavigatorKey,
-      redirect: (_, __) => '/my-posted-parcels',
+      redirect: (_, _) => '/my-posted-parcels',
     ),
-    GoRoute(
-      path: '/bid-requests',
-      redirect: (_, __) => '/my-posted-parcels',
-    ),
+    GoRoute(path: '/bid-requests', redirect: (_, _) => '/my-posted-parcels'),
     GoRoute(
       path: '/bid-requests/:shipmentId',
       parentNavigatorKey: rootNavigatorKey,
-      builder: (_, state) => BidRequestsScreen(
-        shipmentId: state.pathParameters['shipmentId']!,
-      ),
+      builder: (_, state) =>
+          BidRequestsScreen(shipmentId: state.pathParameters['shipmentId']!),
     ),
     GoRoute(
       path: '/my-posted-parcels',
       parentNavigatorKey: rootNavigatorKey,
-      builder: (_, __) => const MyPostedParcelsScreen(),
+      builder: (_, _) => const MyPostedParcelsScreen(),
     ),
     GoRoute(
       path: '/sender-parcel-waiting/:id',
       parentNavigatorKey: rootNavigatorKey,
-      builder: (_, state) => SenderParcelWaitingScreen(
-        shipmentId: state.pathParameters['id']!,
-      ),
+      builder: (_, state) =>
+          SenderParcelWaitingScreen(shipmentId: state.pathParameters['id']!),
     ),
     GoRoute(
       path: '/edit-posted-delivery/:id',
       parentNavigatorKey: rootNavigatorKey,
-      builder: (_, state) => EditPostedDeliveryScreen(
-        shipmentId: state.pathParameters['id']!,
-      ),
+      builder: (_, state) =>
+          EditPostedDeliveryScreen(shipmentId: state.pathParameters['id']!),
     ),
     GoRoute(
       path: '/cancel-posted-delivery/:id',
       parentNavigatorKey: rootNavigatorKey,
-      builder: (_, state) => CancelPostedDeliveryScreen(
-        shipmentId: state.pathParameters['id']!,
-      ),
+      builder: (_, state) =>
+          CancelPostedDeliveryScreen(shipmentId: state.pathParameters['id']!),
     ),
     GoRoute(
       path: '/discover-travelers',
       parentNavigatorKey: rootNavigatorKey,
-      builder: (_, __) => const DiscoverTravelersScreen(),
+      builder: (_, _) => const DiscoverTravelersScreen(),
     ),
     GoRoute(
       path: '/discover-travelers/:shipmentId',
@@ -653,9 +713,8 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/discover-trips/:tripId',
       parentNavigatorKey: rootNavigatorKey,
-      builder: (_, state) => DiscoverTripDetailScreen(
-        tripId: state.pathParameters['tripId']!,
-      ),
+      builder: (_, state) =>
+          DiscoverTripDetailScreen(tripId: state.pathParameters['tripId']!),
     ),
     GoRoute(
       path: '/sender-counter-offer/:offerId',
@@ -727,68 +786,69 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/payment',
       parentNavigatorKey: rootNavigatorKey,
-      redirect: (_, __) => '/my-posted-parcels',
+      redirect: (_, _) => '/my-posted-parcels',
     ),
     GoRoute(
       path: '/payment-confirmed',
       parentNavigatorKey: rootNavigatorKey,
-      redirect: (_, __) => '/track',
+      redirect: (_, _) => '/track',
     ),
     GoRoute(
       path: '/trip-type',
       parentNavigatorKey: rootNavigatorKey,
-      builder: (_, __) => const TripTypeSelectionScreen(),
+      builder: (_, _) => const TripTypeSelectionScreen(),
     ),
-    GoRoute(path: '/post-trip', parentNavigatorKey: rootNavigatorKey, builder: (_, __) => const PostTripScreen()),
+    GoRoute(
+      path: '/post-trip',
+      parentNavigatorKey: rootNavigatorKey,
+      builder: (_, _) => const PostTripScreen(),
+    ),
     GoRoute(
       path: '/post-trip/country-to-country',
       parentNavigatorKey: rootNavigatorKey,
-      builder: (_, __) => const CountryToCountryPostTripScreen(),
+      builder: (_, _) => const CountryToCountryPostTripScreen(),
     ),
     GoRoute(
       path: '/post-trip/success',
       parentNavigatorKey: rootNavigatorKey,
       builder: (_, state) => PostTripSuccessScreen(
-        route: state.extra as String? ?? StaticData.deliveryRequests.first.route,
+        route:
+            state.extra as String? ?? StaticData.deliveryRequests.first.route,
       ),
     ),
     GoRoute(
       path: '/edit-trip/:id',
       parentNavigatorKey: rootNavigatorKey,
-      builder: (_, state) => EditTripScreen(
-        tripId: state.pathParameters['id']!,
-      ),
+      builder: (_, state) =>
+          EditTripScreen(tripId: state.pathParameters['id']!),
     ),
     GoRoute(
       path: '/cancel-trip/:id',
       parentNavigatorKey: rootNavigatorKey,
-      builder: (_, state) => CancelTripScreen(
-        tripId: state.pathParameters['id']!,
-      ),
+      builder: (_, state) =>
+          CancelTripScreen(tripId: state.pathParameters['id']!),
     ),
     GoRoute(
       path: '/browse-requests',
       parentNavigatorKey: rootNavigatorKey,
-      redirect: (_, __) => '/matching-requests',
+      redirect: (_, _) => '/matching-requests',
     ),
     GoRoute(
       path: '/matching-requests',
       parentNavigatorKey: rootNavigatorKey,
-      builder: (_, __) => const MatchingRequestsTripsScreen(),
+      builder: (_, _) => const MatchingRequestsTripsScreen(),
     ),
     GoRoute(
       path: '/matching-requests/:tripId',
       parentNavigatorKey: rootNavigatorKey,
-      builder: (_, state) => MatchingRequestsScreen(
-        tripId: state.pathParameters['tripId']!,
-      ),
+      builder: (_, state) =>
+          MatchingRequestsScreen(tripId: state.pathParameters['tripId']!),
     ),
     GoRoute(
       path: '/request/:id',
       parentNavigatorKey: rootNavigatorKey,
-      builder: (_, state) => ParcelRequestDetailScreen(
-        requestId: state.pathParameters['id']!,
-      ),
+      builder: (_, state) =>
+          ParcelRequestDetailScreen(requestId: state.pathParameters['id']!),
       routes: [
         GoRoute(
           path: 'counter-offer',
@@ -812,8 +872,7 @@ final appRouter = GoRouter(
       path: '/shipment/:id',
       parentNavigatorKey: rootNavigatorKey,
       redirect: (context, state) {
-        final isTravelerView =
-            state.uri.queryParameters['traveler'] == 'true';
+        final isTravelerView = state.uri.queryParameters['traveler'] == 'true';
         if (isTravelerView) return null;
 
         final shipmentId = state.pathParameters['id'];
@@ -837,14 +896,13 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/traveler-deliveries',
       parentNavigatorKey: rootNavigatorKey,
-      builder: (_, __) => const TravelerDeliveriesScreen(),
+      builder: (_, _) => const TravelerDeliveriesScreen(),
     ),
     GoRoute(
       path: '/traveler-bids',
       parentNavigatorKey: rootNavigatorKey,
       builder: (_, state) => TravelerMyBidsScreen(
-        showAcceptedOffers:
-            state.uri.queryParameters['filter'] == 'acceptance',
+        showAcceptedOffers: state.uri.queryParameters['filter'] == 'acceptance',
       ),
     ),
     GoRoute(
@@ -865,10 +923,9 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/traveler-chat',
       parentNavigatorKey: rootNavigatorKey,
-      redirect: (_, state) =>
-          state.uri.queryParameters['role'] == 'receiver'
-              ? '/receiver-chats'
-              : '/traveler-chats',
+      redirect: (_, state) => state.uri.queryParameters['role'] == 'receiver'
+          ? '/receiver-chats'
+          : '/traveler-chats',
     ),
     GoRoute(
       path: '/traveler-nfc-success',
@@ -938,7 +995,8 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/dispute-form/:id',
       parentNavigatorKey: rootNavigatorKey,
-      builder: (_, state) => DisputeFormScreen(shipmentId: state.pathParameters['id']!),
+      builder: (_, state) =>
+          DisputeFormScreen(shipmentId: state.pathParameters['id']!),
     ),
     GoRoute(
       path: '/dispute/:id',
@@ -951,18 +1009,20 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/contact-support',
       parentNavigatorKey: rootNavigatorKey,
-      builder: (_, state) => ContactSupportScreen(
-        shipmentId: state.extra as String?,
-      ),
+      builder: (_, state) =>
+          ContactSupportScreen(shipmentId: state.extra as String?),
     ),
     GoRoute(
       path: '/contact-support/success',
       parentNavigatorKey: rootNavigatorKey,
-      builder: (_, state) => ContactSupportSuccessScreen(
-        shipmentId: state.extra as String?,
-      ),
+      builder: (_, state) =>
+          ContactSupportSuccessScreen(shipmentId: state.extra as String?),
     ),
-    GoRoute(path: '/delivery-review', parentNavigatorKey: rootNavigatorKey, builder: (_, __) => const DeliveryReviewScreen()),
+    GoRoute(
+      path: '/delivery-review',
+      parentNavigatorKey: rootNavigatorKey,
+      builder: (_, _) => const DeliveryReviewScreen(),
+    ),
     GoRoute(
       path: '/delivery-review/success',
       parentNavigatorKey: rootNavigatorKey,
@@ -978,7 +1038,7 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/chat',
       parentNavigatorKey: rootNavigatorKey,
-      redirect: (_, __) => '/sender-chats',
+      redirect: (_, _) => '/sender-chats',
     ),
     // Open a single conversation as a pushed page over the current screen so
     // "back" simply pops to where it was opened from (e.g. a request-detail
@@ -1004,7 +1064,11 @@ final appRouter = GoRouter(
         );
       },
     ),
-    GoRoute(path: '/settings', parentNavigatorKey: rootNavigatorKey, builder: (_, __) => const SettingsScreen()),
+    GoRoute(
+      path: '/settings',
+      parentNavigatorKey: rootNavigatorKey,
+      builder: (_, _) => const SettingsScreen(),
+    ),
     GoRoute(
       path: '/settings/currency',
       parentNavigatorKey: rootNavigatorKey,
@@ -1027,18 +1091,21 @@ final appRouter = GoRouter(
         return LanguageSettingsScreen(fallbackRoute: fallback);
       },
     ),
-    GoRoute(path: '/wallet', parentNavigatorKey: rootNavigatorKey, builder: (_, __) => const WalletScreen()),
+    GoRoute(
+      path: '/wallet',
+      parentNavigatorKey: rootNavigatorKey,
+      builder: (_, _) => const WalletScreen(),
+    ),
     GoRoute(
       path: '/wallet/top-up',
       parentNavigatorKey: rootNavigatorKey,
-      builder: (_, __) => const WalletTopUpScreen(),
+      builder: (_, _) => const WalletTopUpScreen(),
     ),
     GoRoute(
       path: '/wallet/top-up/success',
       parentNavigatorKey: rootNavigatorKey,
-      builder: (_, state) => WalletTopUpSuccessScreen(
-        amountCents: (state.extra as int?) ?? 2500,
-      ),
+      builder: (_, state) =>
+          WalletTopUpSuccessScreen(amountCents: (state.extra as int?) ?? 2500),
     ),
     GoRoute(
       path: '/shipment-history',
@@ -1047,7 +1114,11 @@ final appRouter = GoRouter(
         role: state.uri.queryParameters['role'] ?? 'sender',
       ),
     ),
-    GoRoute(path: '/transaction-history', parentNavigatorKey: rootNavigatorKey, builder: (_, __) => const TransactionHistoryScreen()),
+    GoRoute(
+      path: '/transaction-history',
+      parentNavigatorKey: rootNavigatorKey,
+      builder: (_, _) => const TransactionHistoryScreen(),
+    ),
     GoRoute(
       path: '/wallet/withdrawal-success',
       parentNavigatorKey: rootNavigatorKey,
@@ -1058,7 +1129,7 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/wallet/connect-success',
       parentNavigatorKey: rootNavigatorKey,
-      builder: (_, __) {
+      builder: (_, _) {
         StripeConnectReturn.consume();
         return const WalletConnectSuccessScreen();
       },
@@ -1081,9 +1152,8 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/edit-profile',
       parentNavigatorKey: rootNavigatorKey,
-      builder: (_, state) => EditProfileScreen(
-        role: editProfileRoleFromRoute(state),
-      ),
+      builder: (_, state) =>
+          EditProfileScreen(role: editProfileRoleFromRoute(state)),
     ),
     GoRoute(
       path: '/edit-profile/success',
@@ -1092,23 +1162,55 @@ final appRouter = GoRouter(
         role: state.extra is EditProfileRole
             ? state.extra as EditProfileRole
             : state.extra == true
-                ? EditProfileRole.receiver
-                : EditProfileRole.sender,
+            ? EditProfileRole.receiver
+            : EditProfileRole.sender,
       ),
     ),
-    GoRoute(path: '/change-password', parentNavigatorKey: rootNavigatorKey, builder: (_, __) => const ChangePasswordScreen()),
+    GoRoute(
+      path: '/change-password',
+      parentNavigatorKey: rootNavigatorKey,
+      builder: (_, _) => const ChangePasswordScreen(),
+    ),
     GoRoute(
       path: '/change-password/success',
       parentNavigatorKey: rootNavigatorKey,
-      builder: (_, __) => const ChangePasswordSuccessScreen(),
+      builder: (_, _) => const ChangePasswordSuccessScreen(),
     ),
-    GoRoute(path: '/help', parentNavigatorKey: rootNavigatorKey, builder: (_, __) => const HelpSupportScreen()),
-    GoRoute(path: '/legal', parentNavigatorKey: rootNavigatorKey, builder: (_, __) => const LegalHubScreen()),
-    GoRoute(path: '/legal/privacy', parentNavigatorKey: rootNavigatorKey, builder: (_, __) => const PrivacyPolicyScreen()),
-    GoRoute(path: '/legal/terms', parentNavigatorKey: rootNavigatorKey, builder: (_, __) => const TermsOfServiceScreen()),
-    GoRoute(path: '/legal/cookies', parentNavigatorKey: rootNavigatorKey, builder: (_, __) => const CookiePolicyScreen()),
-    GoRoute(path: '/kyc-status', parentNavigatorKey: rootNavigatorKey, builder: (_, __) => const KycStatusScreen()),
-    GoRoute(path: '/security-logs', parentNavigatorKey: rootNavigatorKey, builder: (_, __) => const SecurityLogsScreen()),
+    GoRoute(
+      path: '/help',
+      parentNavigatorKey: rootNavigatorKey,
+      builder: (_, _) => const HelpSupportScreen(),
+    ),
+    GoRoute(
+      path: '/legal',
+      parentNavigatorKey: rootNavigatorKey,
+      builder: (_, _) => const LegalHubScreen(),
+    ),
+    GoRoute(
+      path: '/legal/privacy',
+      parentNavigatorKey: rootNavigatorKey,
+      builder: (_, _) => const PrivacyPolicyScreen(),
+    ),
+    GoRoute(
+      path: '/legal/terms',
+      parentNavigatorKey: rootNavigatorKey,
+      builder: (_, _) => const TermsOfServiceScreen(),
+    ),
+    GoRoute(
+      path: '/legal/cookies',
+      parentNavigatorKey: rootNavigatorKey,
+      builder: (_, _) => const CookiePolicyScreen(),
+    ),
+    GoRoute(
+      path: '/kyc-status',
+      parentNavigatorKey: rootNavigatorKey,
+      builder: (_, _) => const KycStatusScreen(),
+    ),
+    GoRoute(
+      path: '/security-logs',
+      parentNavigatorKey: rootNavigatorKey,
+      builder: (_, _) => const SecurityLogsScreen(),
+    ),
     GoRoute(
       path: '/bid-submitted',
       parentNavigatorKey: rootNavigatorKey,
@@ -1117,8 +1219,8 @@ final appRouter = GoRouter(
         return BidSubmittedScreen(
           route: data['route'] as String,
           price: (data['price'] as num).toDouble(),
-          tripId: data['tripId'] as String? ??
-              state.uri.queryParameters['tripId'],
+          tripId:
+              data['tripId'] as String? ?? state.uri.queryParameters['tripId'],
         );
       },
     ),

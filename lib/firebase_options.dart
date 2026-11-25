@@ -8,15 +8,29 @@ import 'package:flutter/foundation.dart';
 /// - apiKey → current_key
 /// - appId → mobilesdk_app_id
 /// - messagingSenderId → project_number
+///
+/// iOS: add an iOS app with bundle id `com.wwngo.app`, then set
+/// `FIREBASE_IOS_APP_ID` via `--dart-define-from-file=dart_defines.json`.
 class DefaultFirebaseOptions {
-  static bool get isConfigured =>
-      _apiKey.isNotEmpty &&
-      _appId.isNotEmpty &&
-      _messagingSenderId.isNotEmpty;
+  static bool get isConfigured {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+      return _apiKey.isNotEmpty &&
+          _iosAppId.isNotEmpty &&
+          _messagingSenderId.isNotEmpty;
+    }
+    return _apiKey.isNotEmpty &&
+        _androidAppId.isNotEmpty &&
+        _messagingSenderId.isNotEmpty;
+  }
 
   // Paste from Firebase Console / google-services.json (see comments above).
   static const String _apiKey = 'AIzaSyAHwBl9gvH9MKHixOgfh0L8SN7qI6rAG3I';
-  static const String _appId = '1:707811310736:android:ad018119d4155ca6df6c15';
+  static const String _androidAppId =
+      '1:707811310736:android:ad018119d4155ca6df6c15';
+  static const String _iosAppId = String.fromEnvironment(
+    'FIREBASE_IOS_APP_ID',
+    defaultValue: '',
+  );
   static const String _messagingSenderId = '707811310736';
 
   static const String projectId = 'chatapp-5c41d';
@@ -39,17 +53,18 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: _apiKey,
-    appId: _appId,
+    appId: _androidAppId,
     messagingSenderId: _messagingSenderId,
     projectId: projectId,
     storageBucket: 'chatapp-5c41d.firebasestorage.app',
   );
 
-  static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: _apiKey,
-    appId: _appId,
-    messagingSenderId: _messagingSenderId,
-    projectId: projectId,
-    iosBundleId: 'com.wwngo.wwngoApp',
-  );
+  static FirebaseOptions get ios => FirebaseOptions(
+        apiKey: _apiKey,
+        appId: _iosAppId,
+        messagingSenderId: _messagingSenderId,
+        projectId: projectId,
+        iosBundleId: 'com.wwngo.app',
+        storageBucket: 'chatapp-5c41d.firebasestorage.app',
+      );
 }

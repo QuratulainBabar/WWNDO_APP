@@ -30,7 +30,9 @@ class StripePayments {
       }
       await _applyPublishableKey();
     } catch (e) {
-      debugPrint('Stripe config load failed: $e');
+      if (kDebugMode) {
+        debugPrint('Stripe config load failed: $e');
+      }
       if (ApiConfig.stripePublishableKey.isNotEmpty) {
         _publishableKey = ApiConfig.stripePublishableKey;
         _stripeEnabled = true;
@@ -54,7 +56,9 @@ class StripePayments {
       }
     } on PlatformException catch (e) {
       _initialized = false;
-      debugPrint('Stripe applySettings failed: ${e.message}');
+      if (kDebugMode) {
+        debugPrint('Stripe applySettings failed: ${e.message}');
+      }
       rethrow;
     }
   }
@@ -87,10 +91,12 @@ class StripePayments {
     try {
       return await action();
     } on StripeException catch (e) {
-      debugPrint(
-        'StripeException: ${e.error.code} ${e.error.message} '
-        '${e.error.localizedMessage ?? ''}',
-      );
+      if (kDebugMode) {
+        debugPrint(
+          'StripeException: ${e.error.code} ${e.error.message} '
+          '${e.error.localizedMessage ?? ''}',
+        );
+      }
       if (e.error.code == FailureCode.Canceled) {
         throw const ApiException(
           message: 'Payment cancelled.',
@@ -104,7 +110,9 @@ class StripePayments {
         code: 'STRIPE_ERROR',
       );
     } on PlatformException catch (e) {
-      debugPrint('Stripe PlatformException: ${e.code} ${e.message}');
+      if (kDebugMode) {
+        debugPrint('Stripe PlatformException: ${e.code} ${e.message}');
+      }
       throw ApiException(
         message: e.message ?? 'Card payment failed. Please try again.',
         code: e.code,
@@ -200,10 +208,12 @@ class StripePayments {
                     ),
                     paymentMethodTypes: const ['card'],
                     confirmHandler: (paymentMethod, shouldSavePaymentMethod) {
-                      debugPrint(
-                        'Stripe: payment method ${paymentMethod.id} '
-                        'collected (save=$shouldSavePaymentMethod)',
-                      );
+                      if (kDebugMode) {
+                        debugPrint(
+                          'Stripe: payment method ${paymentMethod.id} '
+                          'collected (save=$shouldSavePaymentMethod)',
+                        );
+                      }
                     },
                   ),
           ),
@@ -215,10 +225,12 @@ class StripePayments {
         await present(customFlow: true);
       } on StripeException catch (e) {
         if (hasSecret || e.error.code == FailureCode.Canceled) rethrow;
-        debugPrint(
-          'Stripe: customFlow collect failed, retrying full sheet: '
-          '${e.error.message}',
-        );
+        if (kDebugMode) {
+          debugPrint(
+            'Stripe: customFlow collect failed, retrying full sheet: '
+            '${e.error.message}',
+          );
+        }
         await present(customFlow: false);
       }
     });

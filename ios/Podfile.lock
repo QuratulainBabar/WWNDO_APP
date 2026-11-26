@@ -234,12 +234,12 @@ SPEC CHECKSUMS:
   GoogleDataTransport: a24e58982ab3ba2f64d79613e027fe7f57e88539
   GoogleUtilities: 7dc09b3fa9ecb5c2298b952313d14628b61b9da3
   IdensicMobileSDK: 1a9e9b2f8e407c88de716522123456371741c029
-  image_picker_ios: 872ad7b7cb44bf470e7324191b51ee0e26f45cb9
+  image_picker_ios: e0ece4aa2a75771a7de3fa735d26d90817041326
   local_auth_darwin: c3ee6cce0a8d56be34c8ccb66ba31f7f180aaebb
   nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
   nfc_manager: 8439e997f8ed801c15d5a79045fb18c562bf6efc
   PromisesObjC: 752c3227f599e3467650e47ea36f433eeb10c273
-  shared_preferences_foundation: a7c3904f2dedb3701dd1903cb152ef5e7df92422
+  shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
   Stripe: 604acd978f3ec2921098f477ccaa229e12690373
   stripe_ios: 1f895b7e517569a02c732967c48042d941e7352e
   StripeApplePay: 9dabe2d3d897419a7a7663dc3338ff4bc51b9f54
